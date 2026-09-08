@@ -1,0 +1,231 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from mcp.server.mcpserver import MCPServer
+
+from adhd_hub.models import (
+    EnergyLevel,
+    ProgressUpsert,
+    ProjectUpsert,
+    ReminderCreate,
+    ReminderKind,
+    ThreadUpsert,
+)
+from adhd_hub.service import HubService
+
+
+def build_mcp(service: HubService) -> MCPServer:
+    mcp = MCPServer(
+        name="adhd-hub",
+        title="ADHD Progress Hub",
+        description="Unfinished threads, progress wiki, overlap checks, reminders.",
+        version="0.1.0",
+        instructions=(
+            "Use this hub to avoid losing half-finished work. "
+            "On session start call resolve_project (optional), session_digest, and check_overlap. "
+            "When leaving work incomplete, call upsert_progress and/or upsert_thread with workspace_path. "
+            "When finished, call mark_done. Prefer project_slug from resolve_project."
+        ),
+    )
+
+    @mcp.tool()
+    def check_overlap(query: str, limit: int = 5) -> dict[str, Any]:
+        """Find open threads that overlap with what you are about to work on."""
+        result = service.check_overlap(query, limit=limit)
+        return result.model_dump(mode="json")
+
+    @mcp.tool()
+    def list_open_threads(
+        energy: str | None = None,
+        project_slug: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """List open (unfinished) threads in the hub."""
+        e = EnergyLevel(energy) if energy else None
+        threads = service.list_open_threads(energy=e, project_slug=project_slug, limit=limit)
+        return [t.model_dump(mode="json") for t in threads]
+
+    @mcp.tool()
+    def list_projects(limit: int = 100) -> list[dict[str, Any]]:
+        """List registered projects with open/done counts."""
+        return service.list_projects(limit=limit)
+
+    @mcp.tool()
+    def resolve_project(
+        workspace_path: str | None = None,
+        project_slug: str | None = None,
+        create_if_missing: bool = True,
+        title: str | None = None,
+    ) -> dict[str, Any]:
+        """Resolve or create a project from workspace path and/or slug."""
+        proj = service.resolve_project(
+            workspace_path=workspace_path,
+            project_slug=project_slug,
+            create_if_missing=create_if_missing,
+            title=title,
+        )
+        if not proj:
+            return {"error": "not_found"}
+        return proj.model_dump(mode="json")
+
+    @mcp.tool()
+    def upsert_project(
+        title: str,
+        slug: str | None = None,
+        description: str | None = None,
+        workspace_path: str | None = None,
+        forge_owner: str | None = None,
+        forge_repo: str | None = None,
+        forge_wiki_path: str | None = None,
+        forge_project_id: str | None = None,
+        energy: str = "unknown",
+    ) -> dict[str, Any]:
+        """Create or update a project registry entry (paths + optional forge target)."""
+        paths = [workspace_path] if workspace_path else []
+        proj = service.upsert_project(
+            ProjectUpsert(
+                slug=slug,
+                title=title,
+                description=description,
+                workspace_paths=paths,
+                default_energy=EnergyLevel(energy),
+                forge_owner=forge_owner,
+                forge_repo=forge_repo,
+                forge_wiki_path=forge_wiki_path,
+                forge_project_id=forge_project_id,
+            )
+        )
+        return proj.model_dump(mode="json")
+
+    @mcp.tool()
+    def rename_project(
+        slug: str,
+        new_slug: str,
+        title: str | None = None,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Request a project rename — queues for confirmation in /ui (not applied yet)."""
+        try:
+            return service.request_rename_project(
+                slug,
+                new_slug,
+                title=title,
+                reason=reason,
+                source_tool="mcp",
+            )
+        except KeyError:
+            return {"error": "not_found"}
+        except ValueError as exc:
+            return {"error": str(exc)}
+
+    @mcp.tool()
+    def delete_project(
+        slug: str,
+        delete_progress: bool = False,
+        delete_remote: bool = False,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Request project deletion — queues for confirmation in /ui (not deleted yet)."""
+        try:
+            return service.request_delete_project(
+                slug,
+                delete_progress=delete_progress,
+                delete_remote=delete_remote,
+                reason=reason,
+                source_tool="mcp",
+            )
+        except KeyError:
+            return {"error": "not_found"}
+
+    @mcp.tool()
+    def list_pending_actions() -> list[dict[str, Any]]:
+        """List project delete/rename requests waiting for /ui confirmation."""
+        return service.list_pending_actions()
+
+    @mcp.tool()
+    def upsert_thread(
+        summary: str,
+        project_slug: str | None = None,
+        workspace_path: str | None = None,
+        source_tool: str | None = None,
+        energy: str = "unknown",
+        chat_ref: str | None = None,
+        transcript_ref: str | None = None,
+        status: str = "open",
+        thread_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create or update an unfinished-work thread."""
+        from adhd_hub.models import ThreadStatus
+
+        thread = service.upsert_thread(
+            ThreadUpsert(
+                id=thread_id,
+                summary=summary,
+                project_slug=project_slug,
+                workspace_path=workspace_path,
+                source_tool=source_tool,
+                energy=EnergyLevel(energy),
+                chat_ref=chat_ref,
+                transcript_ref=transcript_ref,
+                status=ThreadStatus(status),
+                origin="manual",
+            )
+        )
+        return thread.model_dump(mode="json")
+
+    @mcp.tool()
+    def upsert_progress(
+        content: str,
+        project_slug: str | None = None,
+        title: str | None = None,
+        workspace_path: str | None = None,
+        source_tool: str | None = None,
+    ) -> dict[str, Any]:
+        """Append to a project PROGRESS.md wiki page (and keep/create an open thread)."""
+        return service.upsert_progress(
+            ProgressUpsert(
+                project_slug=project_slug,
+                content=content,
+                title=title,
+                workspace_path=workspace_path,
+                source_tool=source_tool,
+            )
+        )
+
+    @mcp.tool()
+    def mark_done(thread_id: str, note: str | None = None) -> dict[str, Any]:
+        """Mark a thread done."""
+        thread = service.mark_done(thread_id, note)
+        if not thread:
+            return {"error": "not_found", "id": thread_id}
+        return thread.model_dump(mode="json")
+
+    @mcp.tool()
+    def set_reminder(
+        message: str,
+        kind: str = "once",
+        due_at_iso: str | None = None,
+    ) -> dict[str, Any]:
+        """Set a reminder (once | session | daily | random). due_at_iso for once."""
+        due = datetime.fromisoformat(due_at_iso) if due_at_iso else None
+        rem = service.set_reminder(
+            ReminderCreate(message=message, kind=ReminderKind(kind), due_at=due)
+        )
+        return rem.model_dump(mode="json")
+
+    @mcp.tool()
+    def session_digest(
+        workspace_path: str | None = None,
+        query: str | None = None,
+        energy: str | None = None,
+    ) -> dict[str, Any]:
+        """Session-start digest: stale/open threads + due reminders + wiki snippet."""
+        e = EnergyLevel(energy) if energy else None
+        digest = service.session_digest(
+            workspace_path=workspace_path, query=query, energy=e
+        )
+        return digest.model_dump(mode="json")
+
+    return mcp

@@ -1,0 +1,21 @@
+services:
+  adhd-hub:
+    build: .
+    image: adhd-hub:0.1.0
+    container_name: adhd-hub
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env
+    environment:
+      ADHD_HUB_HOST: "0.0.0.0"
+      ADHD_HUB_PORT: "8787"
+      ADHD_HUB_DATA_DIR: /data
+    volumes:
+      - adhd_hub_data:/data
+    # Example OpenClaw on same Docker network:
+    # ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
+
+volumes:
+  adhd_hub_data:

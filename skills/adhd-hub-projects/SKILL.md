@@ -1,0 +1,55 @@
+---
+name: adhd-hub-projects
+description: >-
+  ADHD Progress Hub project registry — resolve or upsert projects by workspace
+  path (website, chrome extension, homelab, etc.), list projects, and optional
+  per-project forge targets. Use when categorising work by project or mapping a cwd.
+---
+
+# ADHD Hub — projects
+
+MCP server: **`adhd-hub`**.
+
+## Resolve from cwd
+
+```
+resolve_project(workspace_path="<absolute workspace>", create_if_missing=true)
+```
+
+Use the returned `slug` on all later `upsert_progress` / `upsert_thread` calls.
+
+## Register or update
+
+```
+upsert_project(
+  title="My Website",
+  slug="my-website",           # optional; derived from title if omitted
+  workspace_path="Z:/Projects/my-website",
+  description="Marketing site",
+  forge_owner="alex",          # optional override
+  forge_repo="my-website",     # optional; default = hub memory repo
+  forge_wiki_path="",          # blank = repo root (primary memory)
+  forge_project_id=null        # optional Gitea/GitHub board id override
+)
+```
+
+## Rename / delete
+
+```
+rename_project(slug="old", new_slug="new", title=null, reason="…")
+delete_project(slug="…", delete_progress=false, delete_remote=false, reason="…")
+list_pending_actions()
+```
+
+These **do not apply immediately**. They queue a pending action; you Approve/Reject in hub `/ui`. Direct apply still works from the UI after its own confirm dialog.
+
+## List
+
+`list_projects` — includes open/done counts per slug.
+
+## Conventions
+
+- Slugs are lowercase kebab-case (`chrome-ext`, `homelab-dns`).
+- Prefer absolute workspace paths so multi-machine resolve works.
+- Do not invent forge remotes; only set forge_* when the user asks or config already has them.
+- Issues are linked via label `project:<slug>` and links inside `PROGRESS.md` / issue body.

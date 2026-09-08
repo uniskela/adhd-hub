@@ -1,0 +1,15 @@
+.git
+.venv
+data
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.env
+*.sqlite3
+.cursor
+tests
+docs
+adapters
+scripts
+graphify-out

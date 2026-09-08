@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Runtime / secrets
+.env
+.env.*
+!.env.example
+data/
+*.db
+*.sqlite
+*.sqlite3
+config.toml
+!config.example.toml
+.cursor/mcp.json
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+graphify-out/

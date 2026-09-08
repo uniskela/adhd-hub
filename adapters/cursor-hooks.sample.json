@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "prompt",
+        "prompt": "ADHD Hub: Call MCP adhd-hub resolve_project (workspace_path=this workspace) then session_digest and check_overlap for the user's likely task. Briefly surface any open/stale threads. Do not invent hub state."
+      }
+    ],
+    "stop": [
+      {
+        "type": "prompt",
+        "prompt": "ADHD Hub: If this session left unfinished work (plan, migration, setup), call upsert_progress with workspace_path, source_tool=cursor, and Done/Next/Blockers notes. If fully finished a tracked thread, mark_done. Skip if nothing unfinished."
+      }
+    ]
+  }
+}

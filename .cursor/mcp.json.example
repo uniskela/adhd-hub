@@ -1,0 +1,13 @@
+# Local Cursor MCP (gitignored when populated with secrets)
+# Copy from adapters/cursor-mcp.json and set URL + ADHD_HUB_AUTH_TOKEN to match .env
+
+{
+  "mcpServers": {
+    "adhd-hub": {
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": {
+        "Authorization": "Bearer change-me"
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+# Copy to config.toml or set ADHD_HUB_* env vars (env wins).
+
+host = "127.0.0.1"
+port = 8787
+data_dir = "./data"
+auth_token = "change-me"
+
+# Days before an open thread is considered stale for digests / OpenClaw nudges
+stale_days = 3
+
+# Max items returned by session_digest / overlap
+digest_limit = 5
+overlap_limit = 5
+
+# Optional OpenClaw
+# openclaw_webhook_url = "http://127.0.0.1:18789/hooks/wake"
+# openclaw_token = "shared-secret"
+# openclaw_agent_url = "http://127.0.0.1:18789/hooks/agent"
+
+# Stale nudge cron (APScheduler cron fields: minute hour day month day_of_week)
+stale_nudge_cron = "0 9 * * *"
+wiki_index_cron = "30 9 * * *"
+
+# Optional local transcript roots for `adhd-hub index`
+# [indexer]
+# cursor_projects_dir = "~/.cursor/projects"
+# codex_sessions_dir = "~/.codex/sessions"
+# claude_projects_dir = "~/.claude/projects"
+# max_sessions = 50
+# hub_url = "http://127.0.0.1:8787"
