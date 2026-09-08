@@ -577,7 +577,156 @@ class HubService:
             "board": board_results,
             "per_project_wiki": per_project_wiki,
             "config": cfg.public_dict(),
+            "import_preview": self.preview_forge_import(),
         }
+
+    @staticmethod
+    def _title_from_progress(content: str | None, slug: str) -> str:
+        if content:
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("# "):
+                    title = stripped[2:].strip()
+                    if title:
+                        return title[:120]
+        return slug.replace("-", " ").replace("_", " ").title()
+
+    def preview_forge_import(self) -> dict:
+        """Compare remote forge projects/* with local registry + wiki."""
+        cfg = self.forge_config()
+        if not (cfg.enabled() and cfg.wiki_enabled):
+            return {
+                "skipped": True,
+                "reason": "wiki_sync_disabled",
+                "candidates": [],
+                "importable_count": 0,
+            }
+        scan = WikiForgeSync(cfg).list_remote_project_slugs()
+        if scan.get("skipped"):
+            return {
+                "skipped": True,
+                "reason": scan.get("reason"),
+                "candidates": [],
+                "importable_count": 0,
+                "errors": scan.get("errors") or [],
+            }
+        local_slugs = {p.slug for p in self.store.list_projects()}
+        candidates: list[dict] = []
+        for item in scan.get("projects") or []:
+            slug = item["slug"]
+            local_progress = self.wiki.read_progress(slug)
+            status = "new"
+            if slug in local_slugs:
+                status = "registered"
+            elif local_progress:
+                status = "local_wiki_only"
+            candidates.append(
+                {
+                    "slug": slug,
+                    "status": status,
+                    "has_remote_progress": bool(item.get("has_progress")),
+                    "has_local_progress": local_progress is not None,
+                    "path": item.get("path"),
+                }
+            )
+        importable = [
+            c
+            for c in candidates
+            if c["status"] in {"new", "local_wiki_only"} and c["has_remote_progress"]
+        ]
+        return {
+            "skipped": False,
+            "candidates": candidates,
+            "importable_count": len(importable),
+            "errors": scan.get("errors") or [],
+        }
+
+    def import_from_forge(
+        self,
+        *,
+        slugs: list[str] | None = None,
+        overwrite_local: bool = False,
+    ) -> dict:
+        """Register missing projects and pull PROGRESS.md from forge into local wiki."""
+        cfg = self.forge_config()
+        if not (cfg.enabled() and cfg.wiki_enabled):
+            return {"skipped": True, "reason": "wiki_sync_disabled", "imported": []}
+        sync = WikiForgeSync(cfg)
+        preview = self.preview_forge_import()
+        wanted = {s.strip() for s in (slugs or []) if s and s.strip()}
+        imported: list[dict] = []
+        skipped: list[dict] = []
+        errors: list[str] = []
+        for cand in preview.get("candidates") or []:
+            slug = cand["slug"]
+            if wanted and slug not in wanted:
+                continue
+            if not cand.get("has_remote_progress"):
+                skipped.append({"slug": slug, "reason": "no_remote_progress"})
+                continue
+            if cand["status"] == "registered" and not overwrite_local:
+                skipped.append({"slug": slug, "reason": "already_registered"})
+                continue
+            try:
+                content = sync.read_file_text(f"projects/{slug}/PROGRESS.md")
+                if content is None:
+                    skipped.append({"slug": slug, "reason": "fetch_failed"})
+                    continue
+                title = self._title_from_progress(content, slug)
+                existing = self.store.get_project(slug)
+                if not existing:
+                    self.upsert_project(
+                        ProjectUpsert(
+                            slug=slug,
+                            title=title,
+                            description="Imported from forge",
+                        )
+                    )
+                should_write = overwrite_local or not cand.get("has_local_progress")
+                if should_write:
+                    self.wiki.write_progress_raw(slug, content)
+                imported.append(
+                    {
+                        "slug": slug,
+                        "title": title,
+                        "wrote_progress": should_write,
+                        "registered": existing is None,
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{slug}: {exc}")
+        self.wiki.rebuild_index(
+            self.store.list_threads(status=ThreadStatus.open, limit=500)
+        )
+        # Pull INDEX.md when missing locally
+        index_written = False
+        local_index = self.settings.wiki_dir / "INDEX.md"
+        if overwrite_local or not local_index.is_file():
+            remote_index = sync.read_file_text("INDEX.md")
+            if remote_index:
+                local_index.write_text(remote_index, encoding="utf-8")
+                index_written = True
+        return {
+            "skipped": False,
+            "imported": imported,
+            "skipped_items": skipped,
+            "errors": errors,
+            "index_written": index_written,
+        }
+
+    def export_backup(self) -> bytes:
+        from adhd_hub.backup import export_data_dir
+
+        return export_data_dir(self.settings.data_dir)
+
+    def import_backup(self, archive: bytes, *, replace: bool = True) -> dict:
+        from adhd_hub.backup import import_data_dir
+
+        result = import_data_dir(self.settings.data_dir, archive, replace=replace)
+        # Re-open store against restored sqlite
+        self.store = Store(self.settings.db_path)
+        self.wiki = Wiki(self.settings.wiki_dir, timezone=self.prefs().timezone)
+        return result
 
     def upsert_thread(self, payload: ThreadUpsert) -> Thread:
         slug = self._resolve_slug_for_write(

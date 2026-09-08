@@ -72,7 +72,41 @@ uv run adhd-hub index
 
 Schedule via Task Scheduler if you want nightly capture.
 
-## 6. Smoke test
+## 7. Move an existing local hub to this LXC
+
+Two complementary paths:
+
+### A. Full instance migrate (SQLite threads + wiki + forge prefs)
+
+On the old machine (UI or CLI):
+
+1. `/ui` → Settings → **Download backup**, or `uv run adhd-hub export -o adhd-hub-backup.zip`
+2. Copy the zip to the LXC (scp / Tailscale)
+3. On the LXC: **stop** the container, restore into the data volume, start again:
+
+```bash
+# Example: compose volume at ./data
+docker compose stop
+uv run adhd-hub import /path/to/adhd-hub-backup.zip   # or Settings → Restore backup on the new UI
+# Prefer CLI import while the server is stopped so SQLite is not open.
+# Or extract zip contents into the mounted /data directory, then:
+docker compose up -d
+```
+
+Keep the same `ADHD_HUB_AUTH_TOKEN` (or update MCP clients). Point `ADHD_HUB_PUBLIC_URL` at the Tailscale IP.
+
+### B. Forge-first (wiki already on Gitea/GitHub)
+
+If the memory repo already has `projects/*/PROGRESS.md`:
+
+1. Deploy a fresh hub on the LXC
+2. Configure the same forge in `/ui` Settings (or `ADHD_HUB_FORGE_*`)
+3. Save forge / **Scan for import** — the UI lists remote projects missing from this hub
+4. **Import** registers projects and pulls progress files
+
+Forge import does **not** recreate SQLite threads/reminders; use Export/Import (A) when you need the full local history.
+
+## 8. Smoke test
 
 ```bash
 TOKEN=...

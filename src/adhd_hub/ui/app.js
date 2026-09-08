@@ -80,9 +80,70 @@
     const t = token();
     if (t) headers.Authorization = "Bearer " + t;
     const res = await fetch("/api" + path, Object.assign({}, opts, { headers }));
+    if (res.status === 401) {
+      const err = new Error("Unauthorized");
+      err.status = 401;
+      throw err;
+    }
     if (!res.ok) throw new Error(await res.text());
     if (res.status === 204) return null;
-    return res.json();
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) return res.json();
+    return res;
+  }
+
+  function showLogin(message) {
+    $("app-shell").hidden = true;
+    $("login-gate").hidden = false;
+    $("login-error").textContent = message || "";
+    $("login-token").value = "";
+    $("login-token").focus();
+  }
+
+  function showApp() {
+    $("login-gate").hidden = true;
+    $("app-shell").hidden = false;
+    $("token").value = localStorage.getItem(tokenKey) || "";
+  }
+
+  async function tryAuth() {
+    try {
+      await api("/overview");
+      showApp();
+      return true;
+    } catch (e) {
+      if (e.status === 401) {
+        localStorage.removeItem(tokenKey);
+        showLogin(
+          token()
+            ? "Invalid token. Check ADHD_HUB_AUTH_TOKEN in .env."
+            : "Enter the hub bearer token from ADHD_HUB_AUTH_TOKEN."
+        );
+        return false;
+      }
+      // Network / other — still show app so user can see error
+      showApp();
+      setMsg(String(e.message || e));
+      return true;
+    }
+  }
+
+  async function handleLogin(ev) {
+    ev.preventDefault();
+    const value = $("login-token").value.trim();
+    if (!value) return;
+    localStorage.setItem(tokenKey, value);
+    $("token").value = value;
+    $("login-error").textContent = "Checking…";
+    const ok = await tryAuth();
+    if (ok) {
+      await loadAll();
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem(tokenKey);
+    showLogin("");
   }
 
   async function loadPrefs() {
@@ -383,6 +444,118 @@
     }
   }
 
+  function renderImportBanner(preview) {
+    const el = $("import-banner");
+    if (!preview || preview.skipped || !preview.importable_count) {
+      el.hidden = true;
+      el.innerHTML = "";
+      return;
+    }
+    const names = (preview.candidates || [])
+      .filter((c) => c.status === "new" || c.status === "local_wiki_only")
+      .filter((c) => c.has_remote_progress)
+      .map((c) => c.slug)
+      .slice(0, 8);
+    const extra =
+      preview.importable_count > names.length
+        ? ` (+${preview.importable_count - names.length} more)`
+        : "";
+    el.hidden = false;
+    el.innerHTML = `
+      <div>
+        <strong>Forge has ${preview.importable_count} project(s) not in this hub</strong>
+        <p class="hint">${escapeHtml(names.join(", "))}${escapeHtml(extra)}. Import registers them and pulls PROGRESS.md.</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary compact" id="btn-import-forge">Import</button>
+        <button type="button" class="ghost compact" id="btn-dismiss-import">Dismiss</button>
+      </div>
+    `;
+    $("btn-import-forge").onclick = () =>
+      runForgeImport().catch((e) => setMsg(String(e)));
+    $("btn-dismiss-import").onclick = () => {
+      el.hidden = true;
+      el.innerHTML = "";
+    };
+  }
+
+  async function scanForgeImport() {
+    const preview = await api("/forge/import/preview");
+    renderImportBanner(preview);
+    if (preview.skipped) {
+      setMsg("Forge wiki sync is off or not configured.");
+    } else if (!preview.importable_count) {
+      setMsg("No new forge projects to import.");
+    } else {
+      setMsg(`Found ${preview.importable_count} project(s) to import.`);
+    }
+    return preview;
+  }
+
+  async function runForgeImport() {
+    const result = await confirmDialog({
+      title: "Import from forge",
+      body: "Register missing projects and pull PROGRESS.md into this hub.",
+      extraHtml: `<label><input type="checkbox" id="overwrite_local" /> Overwrite local PROGRESS.md when it already exists</label>`,
+    });
+    if (!result.ok) return;
+    setMsg("Importing from forge…");
+    const out = await api("/forge/import", {
+      method: "POST",
+      body: JSON.stringify({
+        overwrite_local: !!result.data.overwrite_local,
+      }),
+    });
+    const n = (out.imported || []).length;
+    setMsg(`Imported ${n} project(s) from forge.`);
+    $("import-banner").hidden = true;
+    await loadAll();
+  }
+
+  async function exportBackup() {
+    const t = token();
+    const res = await fetch("/api/admin/export", {
+      headers: t ? { Authorization: "Bearer " + t } : {},
+    });
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "adhd-hub-backup.zip";
+    a.click();
+    URL.revokeObjectURL(url);
+    setMsg("Backup downloaded.");
+  }
+
+  async function importBackup(file) {
+    const result = await confirmDialog({
+      title: "Restore backup",
+      body: "This replaces SQLite, wiki, and forge/prefs on this instance. Prefer stopping the container for large restores. Continue?",
+    });
+    if (!result.ok) return;
+    const t = token();
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/admin/import?replace=true", {
+      method: "POST",
+      headers: t ? { Authorization: "Bearer " + t } : {},
+      body: fd,
+    });
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+    if (!res.ok) throw new Error(await res.text());
+    const out = await res.json();
+    setMsg("Restored: " + (out.restored || []).join(", "));
+    await loadAll();
+  }
+
   async function loadOverview() {
     overviewCache = await api("/overview");
     renderStats(overviewCache);
@@ -529,6 +702,10 @@
       await api("/prefs", { method: "PUT", body: JSON.stringify({ timezone: tz }) });
       setMsg("Settings saved.");
     } catch (e) {
+      if (e.status === 401) {
+        showLogin("Token rejected. Update ADHD_HUB_AUTH_TOKEN or try again.");
+        return;
+      }
       setMsg("Token saved locally; prefs: " + e.message);
     }
   }
@@ -550,6 +727,7 @@
     };
     await api("/forge/config", { method: "PUT", body: JSON.stringify(payload) });
     setMsg("Forge settings saved.");
+    await scanForgeImport().catch(() => {});
   }
 
   async function syncForge() {
@@ -557,6 +735,8 @@
     const out = await api("/forge/sync", { method: "POST", body: "{}" });
     const uploaded = out.wiki?.uploaded?.length || 0;
     setMsg(`Forge sync done (${uploaded} wiki files).`);
+    if (out.import_preview) renderImportBanner(out.import_preview);
+    else await scanForgeImport().catch(() => {});
   }
 
   async function loadAll() {
@@ -569,11 +749,23 @@
       fillProjectForm(null);
       await loadThreads();
     }
+    try {
+      const preview = await api("/forge/import/preview");
+      renderImportBanner(preview);
+    } catch (_e) {
+      /* forge optional */
+    }
   }
 
   $("proj-all").addEventListener("click", () => selectProject(null));
   $("btn-refresh").addEventListener("click", () => loadAll().catch((e) => setMsg(String(e))));
   $("btn-settings").addEventListener("click", () => $("settings-dialog").showModal());
+  $("btn-logout").addEventListener("click", () => logout());
+  $("login-form").addEventListener("submit", (e) =>
+    handleLogin(e).catch((err) => {
+      $("login-error").textContent = String(err.message || err);
+    })
+  );
   $("btn-save-settings").addEventListener("click", (e) => {
     e.preventDefault();
     saveSettings();
@@ -584,6 +776,17 @@
   $("btn-sync-forge").addEventListener("click", () =>
     syncForge().catch((e) => setMsg(String(e)))
   );
+  $("btn-scan-forge").addEventListener("click", () =>
+    scanForgeImport().catch((e) => setMsg(String(e)))
+  );
+  $("btn-export").addEventListener("click", () =>
+    exportBackup().catch((e) => setMsg(String(e)))
+  );
+  $("import-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (file) importBackup(file).catch((err) => setMsg(String(err)));
+  });
   $("btn-save-project").addEventListener("click", () =>
     saveProject().catch((e) => setMsg(String(e)))
   );
@@ -616,5 +819,7 @@
 
   $("token").value = localStorage.getItem(tokenKey) || "";
   fillTimezoneSelect(currentTz);
-  loadAll().catch((e) => setMsg(String(e)));
+  tryAuth()
+    .then((ok) => (ok ? loadAll() : null))
+    .catch((e) => setMsg(String(e)));
 })();

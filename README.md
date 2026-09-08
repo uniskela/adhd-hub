@@ -120,6 +120,7 @@ Open **http://127.0.0.1:8787/ui** after `serve` / compose. Project-first dashboa
 - **Wiki sync** — pushes `INDEX.md` + `projects/<slug>/PROGRESS.md` (primary memory: **repo root**; otherwise under Wiki path)
 - **Board sync** — mirrors threads as Issues with labels `adhd-hub` + `project:<slug>`; optionally attaches to a Gitea/GitHub project board id
 - **Primary memory repo** — seeds `README.md` / `AGENTS.md`; leave **Wiki path blank** so files land at `projects/<slug>/` (e.g. `…/alex/projects/projects/adhd-hub`)
+- **Import from forge** — if the repo already has `projects/*/PROGRESS.md`, Settings → Scan for import (or after Sync) offers to register missing projects and pull progress files
 
 Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/delete projects from the project panel (delete is safe by default — progress/forge files only removed if you opt in).
 
@@ -130,8 +131,9 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 ## Privacy
 
 - Default store: SQLite + markdown wiki under `data/`  
-- Auth: Bearer token (required when token ≠ `change-me`)  
-- Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy and strong token  
+- Auth: Bearer token (required when token ≠ `change-me`); `/ui` shows a login form for the same `ADHD_HUB_AUTH_TOKEN`
+- Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy and strong token
+- Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md))
 
 ## Adapters
 
@@ -144,7 +146,6 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 
 ## Roadmap
 
-- Import from forge tree — scan `projects/*/` on Gitea/GitHub and offer to register missing hub projects
 - Archive instead of delete — soft-hide projects without clearing threads
 - One-click “add this workspace” from MCP (title from folder + path + open thread defaults)
 - Focus mode (timed task + drift policy; only-show-this-project)

@@ -10,7 +10,19 @@
   <link rel="stylesheet" href="/ui/app.css" />
 </head>
 <body>
-  <div class="shell">
+  <div id="login-gate" class="login-gate" hidden>
+    <form id="login-form" class="login-card" autocomplete="on">
+      <p class="brand">ADHD Progress Hub</p>
+      <p class="tagline">Sign in with the hub bearer token from your <code>.env</code> (<code>ADHD_HUB_AUTH_TOKEN</code>).</p>
+      <label>Hub token
+        <input id="login-token" name="password" type="password" autocomplete="current-password" required />
+      </label>
+      <p id="login-error" class="msg error" role="alert"></p>
+      <button type="submit" class="primary">Sign in</button>
+    </form>
+  </div>
+
+  <div class="shell" id="app-shell" hidden>
     <header class="top">
       <div>
         <p class="brand">ADHD Progress Hub</p>
@@ -20,6 +32,7 @@
         <div class="stats" id="stats"></div>
         <button type="button" class="ghost" id="btn-settings" aria-expanded="false">Settings</button>
         <button type="button" class="ghost" id="btn-refresh">Refresh</button>
+        <button type="button" class="ghost" id="btn-logout">Log out</button>
       </div>
     </header>
 
@@ -36,6 +49,7 @@
       <main class="stage">
         <p id="msg" class="msg" role="status"></p>
         <section id="pending-banner" class="pending-banner" hidden></section>
+        <section id="import-banner" class="pending-banner import-banner" hidden></section>
 
         <section class="focus" id="focus-panel">
           <div class="focus-head">
@@ -102,8 +116,17 @@
         <button type="submit" class="ghost" value="cancel">Close</button>
       </div>
       <hr />
+      <h3>Backup / migrate</h3>
+      <p class="hint">Export SQLite + wiki + forge prefs as a zip (for Proxmox LXC moves). Import replaces hub data files.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="btn-export">Download backup</button>
+        <label class="ghost file-btn">Restore backup
+          <input type="file" id="import-file" accept=".zip,application/zip" hidden />
+        </label>
+      </div>
+      <hr />
       <h3>Forge mirror</h3>
-      <p class="hint">Primary memory repos sync at repo root: <code>projects/&lt;slug&gt;/PROGRESS.md</code>.</p>
+      <p class="hint">Primary memory repos sync at repo root: <code>projects/&lt;slug&gt;/PROGRESS.md</code>. After save/sync, missing remote projects can be imported.</p>
       <div class="form-grid">
         <label>Provider
           <select id="provider">
@@ -129,6 +152,7 @@
       <div class="actions">
         <button type="button" class="primary" id="btn-save-forge">Save forge</button>
         <button type="button" class="ghost" id="btn-sync-forge">Sync now</button>
+        <button type="button" class="ghost" id="btn-scan-forge">Scan for import</button>
       </div>
     </form>
   </dialog>

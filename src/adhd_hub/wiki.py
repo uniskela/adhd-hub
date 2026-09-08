@@ -174,6 +174,12 @@ class Wiki:
             return None
         return path.read_text(encoding="utf-8")
 
+    def write_progress_raw(self, slug: str, content: str) -> Path:
+        """Replace PROGRESS.md wholesale (used by forge import)."""
+        path = self.progress_path(slug)
+        path.write_text(content, encoding="utf-8")
+        return path
+
     def rebuild_index(self, open_threads: list[Thread]) -> Path:
         """Rewrite wiki/INDEX.md from open threads + project folders."""
         index_path = self.wiki_dir / "INDEX.md"

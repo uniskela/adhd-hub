@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import zipfile
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from adhd_hub.models import (
     EnergyLevel,
@@ -242,5 +245,51 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     @router.post("/forge/sync", dependencies=[Depends(auth_dep)])
     def forge_sync():
         return service.sync_forge_now()
+
+    @router.get("/forge/import/preview", dependencies=[Depends(auth_dep)])
+    def forge_import_preview():
+        return service.preview_forge_import()
+
+    @router.post("/forge/import", dependencies=[Depends(auth_dep)])
+    def forge_import(payload: dict | None = None):
+        body = payload or {}
+        slugs = body.get("slugs")
+        if slugs is not None and not isinstance(slugs, list):
+            raise HTTPException(400, "slugs must be a list of strings")
+        return service.import_from_forge(
+            slugs=slugs,
+            overwrite_local=bool(body.get("overwrite_local")),
+        )
+
+    @router.get("/admin/export", dependencies=[Depends(auth_dep)])
+    def admin_export():
+        from fastapi.responses import Response
+
+        data = service.export_backup()
+        return Response(
+            content=data,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": 'attachment; filename="adhd-hub-backup.zip"'
+            },
+        )
+
+    @router.post("/admin/import", dependencies=[Depends(auth_dep)])
+    async def admin_import(
+        file: Annotated[UploadFile, File()],
+        replace: bool = True,
+    ):
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(400, "empty archive")
+        # Keep restores bounded (wiki trees + sqlite); raise if you need larger.
+        if len(raw) > 80 * 1024 * 1024:
+            raise HTTPException(400, "archive too large (max 80 MiB)")
+        try:
+            return service.import_backup(raw, replace=replace)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except zipfile.BadZipFile as exc:
+            raise HTTPException(400, "not a valid zip archive") from exc
 
     return router
