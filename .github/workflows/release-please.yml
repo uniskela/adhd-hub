@@ -1,0 +1,76 @@
+name: Release Please
+
+# Automated semver from conventional commits on main:
+#   feat: → minor (or patch while 0.x with bump-patch-for-minor-pre-major)
+#   fix:  → patch
+#   feat!: / BREAKING CHANGE → major
+#
+# Opens/updates a release PR; auto-merges it; on merge creates git tag +
+# GitHub Release. Then dispatches Container images (GITHUB_TOKEN tag pushes
+# do not trigger other workflows).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      pr: ${{ steps.release.outputs.pr }}
+    steps:
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Auto-merge release PR
+        if: ${{ steps.release.outputs.pr != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
+        run: |
+          set -euo pipefail
+          NUM="$(printf '%s' "$PR_JSON" | python3 -c '
+          import json, sys
+          raw = sys.stdin.read().strip()
+          if not raw:
+              print("")
+          elif raw.isdigit():
+              print(raw)
+          else:
+              data = json.loads(raw)
+              print(data.get("number") or "")
+          ')"
+          if [ -z "$NUM" ]; then
+            echo "No release PR number; skip auto-merge"
+            exit 0
+          fi
+          echo "Merging release PR #$NUM"
+          gh pr merge "$NUM" --squash --auto --delete-branch \
+            || gh pr merge "$NUM" --squash --delete-branch
+
+      - name: Publish container images for release tag
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          echo "Dispatching Container images for ${TAG}"
+          gh workflow run "Container images" --repo "${{ github.repository }}" --ref "${TAG}"

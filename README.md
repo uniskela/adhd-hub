@@ -34,14 +34,16 @@ curl -s http://127.0.0.1:8787/api/health
 
 Published images (GitHub Actions on `main` / `v*` tags):
 
-- `ghcr.io/uniskela/adhd-hub:latest` (and `docker.io/uniskela/adhd-hub:latest`)
+- `:latest` on every successful publish to GHCR + Docker Hub (`main` or release tags)
 - Semver: `…/adhd-hub:1.2.3`, `…/adhd-hub:1.2` when a `v1.2.3` git tag is published
 
-**Cut a release** (Actions → **Release** → Run workflow → patch/minor/major): bumps `pyproject.toml` + `docker-compose.yml`, pushes annotated tag `vX.Y.Z`, creates a GitHub Release, then the container workflow publishes matching image tags.
+**Automated releases (Release Please):** merge to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…). A release PR is opened/updated and **auto-merged**; that creates git tag `vX.Y.Z`, a GitHub Release, and dispatches image builds (`X.Y.Z` + `latest`).
+
+**Manual override:** Actions → **Release (manual)** → patch/minor/major (or exact `X.Y.Z`).
 
 ```bash
+docker pull ghcr.io/uniskela/adhd-hub:latest
 docker pull ghcr.io/uniskela/adhd-hub:1.2.3
-# or: docker pull uniskela/adhd-hub:latest
 ```
 
 Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).

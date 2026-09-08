@@ -1,14 +1,13 @@
-name: Release
+name: Release (manual)
 
-# Bumps semver in-repo, pushes an annotated git tag (vX.Y.Z), and publishes a
-# GitHub Release. The Container images workflow then tags GHCR + Docker Hub
-# with the same version (and latest).
+# Emergency / explicit bump when you do not want to wait for conventional
+# commits + Release Please. Prefer Release Please for day-to-day releases.
 
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Semver bump (or exact X.Y.Z)
+        description: Semver bump
         required: true
         type: choice
         options:
@@ -17,13 +16,14 @@ on:
           - major
         default: patch
       version:
-        description: Optional exact version (overrides bump when set), e.g. 1.2.3
+        description: Optional exact version (overrides bump), e.g. 1.2.3
         required: false
         type: string
         default: ""
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: release
@@ -58,13 +58,20 @@ jobs:
           echo "Bumped to ${NEW}"
 
       - name: Commit version bump
+        env:
+          VER: ${{ steps.bump.outputs.version }}
+          TAG: ${{ steps.bump.outputs.tag }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -f .release-please-manifest.json ]; then
+            python -c "import json,pathlib; p=pathlib.Path('.release-please-manifest.json'); d=json.loads(p.read_text()); d['.']='${VER}'; p.write_text(json.dumps(d,indent=2)+'\n')"
+            git add .release-please-manifest.json
+          fi
           git add pyproject.toml docker-compose.yml
-          git commit -m "chore: release ${{ steps.bump.outputs.tag }}"
-          git tag -a "${{ steps.bump.outputs.tag }}" -m "Release ${{ steps.bump.outputs.tag }}"
+          git commit -m "chore: release ${TAG}"
+          git tag -a "${TAG}" -m "Release ${TAG}"
 
       - name: Push commit and tag
         run: |
@@ -79,3 +86,11 @@ jobs:
           name: ${{ steps.bump.outputs.tag }}
           generate_release_notes: true
           make_latest: true
+
+      - name: Publish container images for release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run "Container images" --repo "${{ github.repository }}" --ref "${TAG}"

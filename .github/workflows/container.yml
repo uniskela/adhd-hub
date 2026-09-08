@@ -1,8 +1,8 @@
 name: Container images
 
 # Builds multi-arch images for GHCR + Docker Hub.
-# Semver tags (1.2.3, 1.2, latest) are published when a git tag v* is pushed
-# (normally by the Release workflow).
+# Always publishes :latest on successful pushes to main or v* tags (not on PRs).
+# Semver tags (1.2.3, 1.2) are added when a git tag v* is built.
 
 on:
   push:
@@ -39,12 +39,10 @@ jobs:
           images: |
             ghcr.io/${{ env.IMAGE_NAME }}
             docker.io/${{ env.IMAGE_NAME }}
-          # Git tag v1.2.3 → image tags 1.2.3, 1.2, latest
-          # Branch main → main, sha-xxxxxxxx
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
           labels: |
