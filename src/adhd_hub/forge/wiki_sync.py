@@ -167,3 +167,88 @@ class WikiForgeSync:
                 except Exception as exc:  # noqa: BLE001
                     errors.append(f"{rel}: {exc}")
         return {"uploaded": uploaded, "errors": errors}
+
+    def _list_dir(
+        self, client: httpx.Client, rel_path: str
+    ) -> list[dict[str, Any]]:
+        """List a directory via Contents API (wiki_path-aware)."""
+        owner, repo = self.config.owner, self.config.repo
+        prefix = self.config.wiki_path.strip("/")
+        rel = rel_path.strip("/")
+        if prefix and rel:
+            full = f"{prefix}/{rel}"
+        elif prefix:
+            full = prefix
+        else:
+            full = rel
+        if full:
+            url = f"{self.config.api_root()}/repos/{owner}/{repo}/contents/{full}"
+        else:
+            url = f"{self.config.api_root()}/repos/{owner}/{repo}/contents"
+        resp = client.get(
+            url, headers=self._headers(), params={"ref": self.config.wiki_branch}
+        )
+        if resp.status_code == 404:
+            return []
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, list):
+            return [x for x in data if isinstance(x, dict)]
+        return []
+
+    def read_file_text(self, rel_path: str) -> str | None:
+        """Fetch a single markdown file from the forge wiki tree."""
+        if not (self.config.enabled() and self.config.wiki_enabled):
+            return None
+        with httpx.Client(timeout=30.0) as client:
+            existing = self._get_file(client, rel_path, at_repo_root=False)
+            if not existing or existing.get("type") != "file":
+                return None
+            encoded = existing.get("content")
+            if not isinstance(encoded, str):
+                return None
+            raw = "".join(encoded.split())
+            try:
+                return base64.b64decode(raw).decode("utf-8")
+            except Exception:  # noqa: BLE001
+                log.warning("failed to decode forge file %s", rel_path)
+                return None
+
+    def list_remote_project_slugs(self) -> dict[str, Any]:
+        """Scan forge for projects/*/ directories that look like hub wiki pages."""
+        if not (self.config.enabled() and self.config.wiki_enabled):
+            return {"skipped": True, "reason": "wiki_sync_disabled", "projects": []}
+        projects: list[dict[str, Any]] = []
+        errors: list[str] = []
+        with httpx.Client(timeout=30.0) as client:
+            try:
+                entries = self._list_dir(client, "projects")
+            except Exception as exc:  # noqa: BLE001
+                return {
+                    "skipped": False,
+                    "projects": [],
+                    "errors": [f"projects/: {exc}"],
+                }
+            for entry in entries:
+                if entry.get("type") != "dir":
+                    continue
+                slug = str(entry.get("name") or "").strip()
+                if not slug or slug.startswith("."):
+                    continue
+                rel = f"projects/{slug}/PROGRESS.md"
+                has_progress = False
+                try:
+                    progress = self._get_file(client, rel, at_repo_root=False)
+                    has_progress = bool(
+                        progress and progress.get("type") == "file"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(f"{rel}: {exc}")
+                projects.append(
+                    {
+                        "slug": slug,
+                        "has_progress": has_progress,
+                        "path": rel if has_progress else f"projects/{slug}/",
+                    }
+                )
+        return {"skipped": False, "projects": projects, "errors": errors}

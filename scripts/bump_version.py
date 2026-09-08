@@ -18,7 +18,8 @@ PYPROJECT = ROOT / "pyproject.toml"
 COMPOSE = ROOT / "docker-compose.yml"
 VERSION_RE = re.compile(r'^version\s*=\s*"(\d+)\.(\d+)\.(\d+)"\s*$', re.M)
 COMPOSE_IMAGE_RE = re.compile(
-    r"^(?P<prefix>\s*image:\s*adhd-hub:)(?P<ver>\d+\.\d+\.\d+)\s*$", re.M
+    r"^(?P<prefix>\s*image:\s*adhd-hub:)(?P<ver>\d+\.\d+\.\d+)(?P<suffix>\s*(?:#.*)?)$",
+    re.M,
 )
 
 
@@ -54,7 +55,7 @@ def main() -> None:
     compose = COMPOSE.read_text(encoding="utf-8")
     if not COMPOSE_IMAGE_RE.search(compose):
         raise SystemExit("image: adhd-hub:X.Y.Z not found in docker-compose.yml")
-    compose = COMPOSE_IMAGE_RE.sub(rf"\g<prefix>{new}", compose, count=1)
+    compose = COMPOSE_IMAGE_RE.sub(rf"\g<prefix>{new}\g<suffix>", compose, count=1)
     COMPOSE.write_text(compose, encoding="utf-8")
 
     print(new)

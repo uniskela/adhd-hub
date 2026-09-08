@@ -55,6 +55,26 @@ def cmd_rebuild_wiki(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    settings = load_settings(Path(args.config) if args.config else None)
+    from adhd_hub.backup import export_data_dir
+
+    out = Path(args.output)
+    out.write_bytes(export_data_dir(settings.data_dir))
+    print(out.resolve())
+    return 0
+
+
+def cmd_import(args: argparse.Namespace) -> int:
+    settings = load_settings(Path(args.config) if args.config else None)
+    from adhd_hub.backup import import_data_dir
+
+    archive = Path(args.archive).read_bytes()
+    result = import_data_dir(settings.data_dir, archive, replace=not args.merge)
+    print(result)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="adhd-hub", description="ADHD Progress Hub")
     p.add_argument("-c", "--config", help="Path to config.toml")
@@ -73,6 +93,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     wiki = sub.add_parser("rebuild-wiki", help="Rebuild wiki INDEX.md from open threads")
     wiki.set_defaults(func=cmd_rebuild_wiki)
+
+    export_p = sub.add_parser("export", help="Export data/ as a migrate zip")
+    export_p.add_argument(
+        "-o",
+        "--output",
+        default="adhd-hub-backup.zip",
+        help="Output zip path",
+    )
+    export_p.set_defaults(func=cmd_export)
+
+    import_p = sub.add_parser("import", help="Import a migrate zip into data/")
+    import_p.add_argument("archive", help="Path to adhd-hub-backup.zip")
+    import_p.add_argument(
+        "--merge",
+        action="store_true",
+        help="Do not delete existing files before copy (default replaces)",
+    )
+    import_p.set_defaults(func=cmd_import)
 
     return p
 
