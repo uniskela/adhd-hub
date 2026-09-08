@@ -5,6 +5,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
+from adhd_hub import __version__
 from adhd_hub.models import (
     EnergyLevel,
     ProgressUpsert,
@@ -21,7 +22,7 @@ def build_mcp(service: HubService) -> MCPServer:
         name="adhd-hub",
         title="ADHD Progress Hub",
         description="Unfinished threads, progress wiki, overlap checks, reminders.",
-        version="0.1.0",
+        version=__version__,
         instructions=(
             "Use this hub to avoid losing half-finished work. "
             "On session start call resolve_project (optional), session_digest, and check_overlap. "

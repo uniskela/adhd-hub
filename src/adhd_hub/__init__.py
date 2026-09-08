@@ -1,3 +1,8 @@
 """ADHD Progress Hub — self-hosted unfinished-work memory for coding agents."""
 
-__version__ = "0.1.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("adhd-hub")
+except PackageNotFoundError:  # pragma: no cover - editable / source tree
+    __version__ = "0.1.0"

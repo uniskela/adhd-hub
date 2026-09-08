@@ -1,6 +1,9 @@
 services:
   adhd-hub:
     build: .
+    # Or use a published image instead of building locally:
+    # image: ghcr.io/uniskela/adhd-hub:latest
+    # image: uniskela/adhd-hub:latest
     image: adhd-hub:0.1.0
     container_name: adhd-hub
     restart: unless-stopped

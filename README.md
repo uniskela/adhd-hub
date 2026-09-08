@@ -32,6 +32,20 @@ docker compose up -d --build
 curl -s http://127.0.0.1:8787/api/health
 ```
 
+Published images (GitHub Actions on `main` / `v*` tags):
+
+- `ghcr.io/uniskela/adhd-hub:latest` (and `docker.io/uniskela/adhd-hub:latest`)
+- Semver: `…/adhd-hub:1.2.3`, `…/adhd-hub:1.2` when a `v1.2.3` git tag is published
+
+**Cut a release** (Actions → **Release** → Run workflow → patch/minor/major): bumps `pyproject.toml` + `docker-compose.yml`, pushes annotated tag `vX.Y.Z`, creates a GitHub Release, then the container workflow publishes matching image tags.
+
+```bash
+docker pull ghcr.io/uniskela/adhd-hub:1.2.3
+# or: docker pull uniskela/adhd-hub:latest
+```
+
+Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).
+
 ### Connect Cursor
 
 Merge [adapters/cursor-mcp.json](adapters/cursor-mcp.json) into your MCP config (update URL + bearer token).  

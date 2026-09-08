@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from adhd_hub import __version__
 from adhd_hub.api import build_router
 from adhd_hub.auth import auth_dependency
 from adhd_hub.config import Settings, load_settings
@@ -77,7 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="ADHD Progress Hub",
-        version="0.1.0",
+        version=__version__,
         lifespan=lifespan,
         # POST /mcp must not 307 to /mcp/ — Cursor drops tools on redirect.
         redirect_slashes=False,

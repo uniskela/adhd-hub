@@ -28,6 +28,8 @@ cp .env.example .env
 #   ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://<openclaw-host>:18789/hooks/wake
 #   ADHD_HUB_OPENCLAW_TOKEN=<openclaw hooks token>
 docker compose up -d --build
+# Or pull a published image instead:
+#   image: ghcr.io/uniskela/adhd-hub:latest  (see docker-compose.yml)
 curl -s http://127.0.0.1:8787/api/health
 ```
 
