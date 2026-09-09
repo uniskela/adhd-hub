@@ -162,6 +162,16 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 | Claude Code | [adapters/claude-code.md](adapters/claude-code.md) |
 | OpenClaw | [adapters/openclaw.md](adapters/openclaw.md) |
 
+### Add Hub guidance to another project
+
+Install a reversible, project-local `AGENTS.md` section that keeps coding-agent sessions connected to the Hub:
+
+```bash
+adhd-hub setup /path/to/project
+```
+
+Add `--install-skills` to also run `npx skills add uniskela/adhd-hub -g`, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes a global directory. See [project agent setup](docs/project-agent-setup.md).
+
 ## Roadmap
 
 - Archive instead of delete — soft-hide projects without clearing threads

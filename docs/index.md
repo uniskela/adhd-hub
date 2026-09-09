@@ -20,6 +20,10 @@ nav_order: 0
     <strong>Personal wire-up</strong>
     Set up a repeatable start, pause, and review loop across your tools.
   </a>
+  <a class="card" href="{{ '/project-agent-setup/' | relative_url }}">
+    <strong>Project agent setup</strong>
+    Add a reversible AGENTS.md prompt so each project keeps its Hub progress current.
+  </a>
   <a class="card" href="{{ '/dashboard/' | relative_url }}">
     <strong>Use the dashboard</strong>
     Keep one chosen task and a clear next step in view.
@@ -41,6 +45,7 @@ Every guide below is rendered from the reviewed Markdown source in this reposito
 <ul class="doc-list">
   <li><a class="card" href="{{ '/authentication/' | relative_url }}"><strong>Authentication</strong>Passwords, tokens, cookies, and recovery.</a></li>
   <li><a class="card" href="{{ '/openclaw/' | relative_url }}"><strong>OpenClaw connection and alerts</strong>Install the skills and set up private, gentle stale-work reminders.</a></li>
+  <li><a class="card" href="{{ '/project-agent-setup/' | relative_url }}"><strong>Project agent setup</strong>Install continuity guidance in a project's AGENTS.md.</a></li>
   <li><a class="card" href="{{ '/deploy-homelab/' | relative_url }}"><strong>Homelab deployment</strong>Run the Hub safely in your lab.</a></li>
   <li><a class="card" href="{{ '/forge-permissions/' | relative_url }}"><strong>Forge permissions</strong>Least-privilege GitHub and Gitea setup.</a></li>
   <li><a class="card" href="{{ '/indexer-schedule/' | relative_url }}"><strong>Indexer schedule</strong>Use summaries as a backstop, not raw transcripts.</a></li>

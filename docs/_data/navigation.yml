@@ -6,6 +6,8 @@
       url: /writing/
     - title: Personal wire-up
       url: /setup/
+    - title: Project agent setup
+      url: /project-agent-setup/
 
 - title: Guides
   pages:
