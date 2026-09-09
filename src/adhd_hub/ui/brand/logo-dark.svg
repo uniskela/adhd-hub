@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title">
+  <title id="title">Progress Hub</title>
+  <rect x="8" y="8" width="64" height="64" rx="18" fill="#176B60"/>
+  <path d="M26 52h9a13 13 0 0 0 13-13V29" fill="none" stroke="#F7F5EF" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="27" cy="31" r="5" fill="#EFC978"/>
+  <text x="90" y="51" font-family="system-ui, sans-serif" font-weight="700" font-size="32" letter-spacing="-1" fill="#EAF2ED">Progress Hub</text>
+</svg>

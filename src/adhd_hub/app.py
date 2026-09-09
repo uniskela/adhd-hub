@@ -5,13 +5,15 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from adhd_hub import __version__
 from adhd_hub.api import build_router
-from adhd_hub.auth import auth_dependency
+from adhd_hub.auth import BrowserSessions, auth_dependency, build_auth_router, token_matches
 from adhd_hub.config import Settings, load_settings
 from adhd_hub.mcp_app import build_mcp
 from adhd_hub.scheduler import start_scheduler
@@ -49,13 +51,29 @@ class BearerGateMiddleware(BaseHTTPMiddleware):
             expected = self.settings.auth_token
             if expected and expected != "change-me":
                 auth = request.headers.get("authorization", "")
-                if auth != f"Bearer {expected}":
-                    return JSONResponse({"detail": "Unauthorized"}, status_code=401)
-        return await call_next(request)
+                scheme, _, value = auth.partition(" ")
+                if scheme.lower() != "bearer" or not token_matches(self.settings, value):
+                    return JSONResponse(
+                        {"detail": "Unauthorized"},
+                        status_code=401,
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+        response = await call_next(request)
+        if path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
+    if settings.auth_token in {"", "change-me"} and settings.host not in {
+        "127.0.0.1",
+        "::1",
+        "localhost",
+    }:
+        raise ValueError(
+            "Set ADHD_HUB_AUTH_TOKEN to a strong token before binding to a network interface"
+        )
     settings.ensure_dirs()
     service = HubService(settings)
     mcp = build_mcp(service)
@@ -71,10 +89,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         scheduler = start_scheduler(service)
-        async with mcp.session_manager.run():
-            log.info("ADHD Hub ready on %s:%s", settings.host, settings.port)
-            yield
-        scheduler.shutdown(wait=False)
+        try:
+            async with mcp.session_manager.run():
+                log.info("ADHD Hub ready on %s:%s", settings.host, settings.port)
+                yield
+        finally:
+            scheduler.shutdown(wait=False)
 
     app = FastAPI(
         title="ADHD Progress Hub",
@@ -83,11 +103,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # POST /mcp must not 307 to /mcp/ — Cursor drops tools on redirect.
         redirect_slashes=False,
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        if request.url.path.startswith("/api/auth/"):
+            # FastAPI's default errors include the submitted input (even passwords).
+            return JSONResponse(
+                {
+                    "detail": [
+                        {
+                            "loc": error["loc"],
+                            "type": error["type"],
+                            "msg": "Invalid credential field",
+                        }
+                        for error in exc.errors()
+                    ]
+                },
+                status_code=422,
+                headers={"Cache-Control": "no-store"},
+            )
+        return await request_validation_exception_handler(request, exc)
+
     app.state.settings = settings
     app.state.service = service
     app.state.mcp = mcp
 
-    auth_dep = auth_dependency(settings)
+    sessions = BrowserSessions()
+    app.include_router(build_auth_router(settings, sessions))
+    auth_dep = auth_dependency(settings, sessions)
     app.include_router(build_router(service, auth_dep), prefix="/api")
     app.include_router(build_ui_router())
     app.add_middleware(BearerGateMiddleware, settings=settings)

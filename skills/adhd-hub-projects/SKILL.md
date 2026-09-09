@@ -8,13 +8,15 @@ description: >-
 
 # ADHD Hub — projects
 
-MCP server: **`adhd-hub`**.
+MCP server: **`adhd-hub`** at `/mcp` (Streamable HTTP, bearer authentication). If unavailable, continue the user’s work and report that project registration could not be saved.
 
 ## Resolve from cwd
 
 ```
 resolve_project(workspace_path="<absolute workspace>", create_if_missing=true)
 ```
+
+If the result is `error: not_found`, do not invent a project id or slug. Resolve with creation enabled only for a known project.
 
 Use the returned `slug` on all later `upsert_progress` / `upsert_thread` calls.
 

@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ThreadStatus(StrEnum):
@@ -41,6 +41,8 @@ class Thread(BaseModel):
     origin: str = "manual"  # manual | indexer | progress | pending-reply
     created_at: datetime
     updated_at: datetime
+    resume_step: str | None = None
+    paused_at: datetime | None = None
     last_reminded_at: datetime | None = None
 
 
@@ -183,3 +185,12 @@ class IndexerBatch(BaseModel):
 
 class JsonDict(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
+
+
+class PauseRequest(BaseModel):
+    next_step: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("next_step", mode="before")
+    @classmethod
+    def strip_next_step(cls, value):
+        return value.strip() if isinstance(value, str) else value

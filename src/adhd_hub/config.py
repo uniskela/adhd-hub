@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any
 
+from dotenv import dotenv_values
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,8 +17,7 @@ def _default_data_dir() -> Path:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="ADHD_HUB_",
-        env_file=".env",
-        env_file_encoding="utf-8",
+        env_file=None,
         extra="ignore",
     )
 
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     codex_sessions_dir: Path | None = None
     claude_projects_dir: Path | None = None
     max_sessions: int = 50
+    public_url: str | None = None
     hub_url: str | None = None
     timezone: str = "UTC"  # IANA, e.g. Australia/Sydney; also overridable via /ui prefs
 
@@ -97,7 +99,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
 
 
 def load_settings(config_path: Path | None = None) -> Settings:
-    """Load settings from optional TOML, then env overrides."""
+    """Load .env defaults, optional TOML, then process environment overrides."""
     candidates: list[Path] = []
     if config_path:
         candidates.append(config_path)
@@ -107,13 +109,26 @@ def load_settings(config_path: Path | None = None) -> Settings:
             Path.home() / ".config" / "adhd-hub" / "config.toml",
         ]
     )
-    file_vals: dict[str, Any] = {}
+    file_vals: dict[str, Any] = {
+        key.removeprefix("ADHD_HUB_").lower(): value
+        for key, value in dotenv_values(Path.cwd() / ".env").items()
+        if key.startswith("ADHD_HUB_") and value is not None
+    }
     for c in candidates:
-        file_vals = _load_toml(c)
-        if file_vals:
+        toml_vals = _load_toml(c)
+        if toml_vals:
+            file_vals.update(toml_vals)
             break
 
-    # Expand ~ in path-like fields from TOML
+    file_vals.update(
+        {
+            field: os.environ[f"ADHD_HUB_{field.upper()}"]
+            for field in Settings.model_fields
+            if f"ADHD_HUB_{field.upper()}" in os.environ
+        }
+    )
+
+    # Expand ~ in path-like fields from any source.
     for key in (
         "data_dir",
         "cursor_projects_dir",

@@ -60,9 +60,10 @@ class HubService:
         )
         data = base.model_dump()
         # Primary memory repos mirror at repo root (projects/<slug>/…)
-        if data.get("primary_memory_repo") and str(data.get("wiki_path") or "").strip(
-            "/"
-        ) in ("", "adhd-hub/wiki"):
+        if data.get("primary_memory_repo") and str(data.get("wiki_path") or "").strip("/") in (
+            "",
+            "adhd-hub/wiki",
+        ):
             data["wiki_path"] = ""
         if not project_slug:
             return ForgeConfig.model_validate(data)
@@ -163,9 +164,7 @@ class HubService:
         }
         return data
 
-    def rename_project(
-        self, old_slug: str, new_slug: str, *, title: str | None = None
-    ) -> dict:
+    def rename_project(self, old_slug: str, new_slug: str, *, title: str | None = None) -> dict:
         from adhd_hub.store import slugify as _slugify
 
         old = _slugify(old_slug)
@@ -284,8 +283,7 @@ class HubService:
             "pending": True,
             "action": action.model_dump(mode="json"),
             "message": (
-                f"Delete of `{safe}` needs confirmation in /ui "
-                "(Pending actions). Not deleted yet."
+                f"Delete of `{safe}` needs confirmation in /ui (Pending actions). Not deleted yet."
             ),
         }
 
@@ -316,9 +314,7 @@ class HubService:
         return {
             "pending": True,
             "action": action.model_dump(mode="json"),
-            "message": (
-                f"Rename `{old}` → `{new}` needs confirmation in /ui. Not renamed yet."
-            ),
+            "message": (f"Rename `{old}` → `{new}` needs confirmation in /ui. Not renamed yet."),
         }
 
     def list_pending_actions(self) -> list[dict]:
@@ -350,9 +346,7 @@ class HubService:
             )
         else:
             raise ValueError(f"unsupported_kind:{action.kind}")
-        resolved = self.store.resolve_pending_action(
-            action_id, PendingActionStatus.approved
-        )
+        resolved = self.store.resolve_pending_action(action_id, PendingActionStatus.approved)
         return {
             "approved": True,
             "action": resolved.model_dump(mode="json") if resolved else None,
@@ -370,9 +364,7 @@ class HubService:
                 "already_resolved": True,
                 "action": action.model_dump(mode="json"),
             }
-        resolved = self.store.resolve_pending_action(
-            action_id, PendingActionStatus.rejected
-        )
+        resolved = self.store.resolve_pending_action(action_id, PendingActionStatus.rejected)
         return {
             "rejected": True,
             "action": resolved.model_dump(mode="json") if resolved else None,
@@ -388,9 +380,7 @@ class HubService:
             num = pub.get("forge_issue_number")
             if url and num:
                 issue_links.append((f"#{num} {t.summary[:60]}", url))
-        self.wiki.ensure_forge_section(
-            slug, progress_url=progress_url, issue_links=issue_links
-        )
+        self.wiki.ensure_forge_section(slug, progress_url=progress_url, issue_links=issue_links)
 
     def list_projects(self, limit: int = 200) -> list[dict]:
         counts = self.store.thread_counts_by_project()
@@ -483,19 +473,22 @@ class HubService:
     def overview(self) -> dict:
         open_threads = self.list_open_threads(limit=500)
         stale = self.list_stale_threads()
-        done = self.store.list_threads(status=ThreadStatus.done, limit=500)
         blocked = self.store.list_threads(status=ThreadStatus.blocked, limit=100)
-        stats = self.store.done_counts()
+        timezone = self.prefs().timezone
+        stats = self.store.done_counts(timezone=timezone)
+        from adhd_hub.rewards import reward_summary
         return {
             "open": len(open_threads),
             "stale": len(stale),
-            "done": len(done),
+            "done": stats["done_total"],
+            "rewards": reward_summary(stats["done_total"]),
+            "next_up": self.thread_public_dict(open_threads[0]) if open_threads else None,
             "blocked": len(blocked),
             "stale_days": self.settings.stale_days,
             "done_today": stats["done_today"],
             "done_week": stats["done_week"],
             "day_streak": stats["day_streak"],
-            "added_vs_finished": self.store.analytics_added_done(14),
+            "added_vs_finished": self.store.analytics_added_done(14, timezone=timezone),
             "projects": self.list_projects(),
             "timezone": self.prefs().timezone,
             "pending_actions": self.list_pending_actions(),
@@ -532,9 +525,7 @@ class HubService:
         cfg = self.forge_config()
         from adhd_hub.forge.scaffold import push_primary_scaffold
 
-        scaffold = push_primary_scaffold(
-            cfg, hub_ui_url=self.settings.resolve_public_url()
-        )
+        scaffold = push_primary_scaffold(cfg, hub_ui_url=self.settings.resolve_public_url())
         wiki = WikiForgeSync(cfg).push_wiki_tree(self.settings.wiki_dir)
         board_results = []
         for thread in self.list_open_threads(limit=200):
@@ -564,9 +555,7 @@ class HubService:
                 per_project_wiki.append(
                     {
                         "slug": proj.slug,
-                        "result": WikiForgeSync(pcfg).push_wiki_tree(
-                            self.settings.wiki_dir
-                        ),
+                        "result": WikiForgeSync(pcfg).push_wiki_tree(self.settings.wiki_dir),
                     }
                 )
             except Exception as exc:  # noqa: BLE001
@@ -695,9 +684,7 @@ class HubService:
                 )
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{slug}: {exc}")
-        self.wiki.rebuild_index(
-            self.store.list_threads(status=ThreadStatus.open, limit=500)
-        )
+        self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         # Pull INDEX.md when missing locally
         index_written = False
         local_index = self.settings.wiki_dir / "INDEX.md"
@@ -770,10 +757,7 @@ class HubService:
             t
             for t in self.list_open_threads(limit=500)
             if t.updated_at.replace(tzinfo=UTC) <= cutoff
-            and (
-                t.last_reminded_at is None
-                or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut
-            )
+            and (t.last_reminded_at is None or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut)
         ]
 
     def check_overlap(self, query: str, limit: int | None = None) -> OverlapResult:
@@ -854,8 +838,8 @@ class HubService:
         }
 
     def mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
-        thread = self.store.mark_status(thread_id, ThreadStatus.done, note=note)
-        if thread:
+        thread, changed = self.store.transition_status(thread_id, ThreadStatus.done, note=note)
+        if thread and changed:
             self.wiki.upsert_progress(
                 thread.project_slug or slugify(thread.summary),
                 content=note or "Marked done.",
@@ -867,8 +851,8 @@ class HubService:
         return thread
 
     def mark_dismissed(self, thread_id: str, note: str | None = None) -> Thread | None:
-        thread = self.store.mark_status(thread_id, ThreadStatus.dismissed, note=note)
-        if thread:
+        thread, changed = self.store.transition_status(thread_id, ThreadStatus.dismissed, note=note)
+        if thread and changed:
             self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
             self._forge_after_thread(thread)
         return thread
@@ -881,8 +865,7 @@ class HubService:
         filtered = [
             t
             for t in threads
-            if t.last_reminded_at is None
-            or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut
+            if t.last_reminded_at is None or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut
         ]
         return filtered[: self.settings.digest_max_nudge]
 
@@ -895,17 +878,14 @@ class HubService:
     ) -> SessionDigest:
         project = self.resolve_project(workspace_path=workspace_path, create_if_missing=False)
         project_slug = project.slug if project else None
-        open_threads = self.list_open_threads(
-            energy=energy, project_slug=project_slug, limit=200
-        )
+        open_threads = self.list_open_threads(energy=energy, project_slug=project_slug, limit=200)
         if not open_threads and project_slug:
             # Fall back to all opens if project has none
             open_threads = self.list_open_threads(energy=energy, limit=200)
         stale = [
             t
             for t in open_threads
-            if t.updated_at.replace(tzinfo=UTC)
-            <= stale_cutoff(self.settings.stale_days)
+            if t.updated_at.replace(tzinfo=UTC) <= stale_cutoff(self.settings.stale_days)
         ]
         ranked = open_threads
         if query or workspace_path:
