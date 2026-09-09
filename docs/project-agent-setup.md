@@ -30,6 +30,8 @@ adhd-hub setup /path/to/my-project \
 
 This runs `npx skills add <source> -g` without a shell, so paths and arguments are not interpolated as commands. Review the source and keep the MCP bearer token in an environment variable; never add it to `AGENTS.md`.
 
+The generated block is safe to commit to a public repository: it contains no Hub URL, token, internal hostname, or machine path. At runtime, the agent may send the current workspace path and short progress metadata to the operator’s configured Hub. Do not copy that path, internal URLs, or private Hub responses into public commits, issues, or notes.
+
 ## Remove the managed section
 
 ```bash
