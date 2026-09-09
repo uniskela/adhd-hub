@@ -1,5 +1,8 @@
 # ADHD Progress Hub
 
+[![Coded with Codex](https://vibecoded.fyi/badges/terminal/agents/codex.svg)](https://vibecoded.fyi/)
+[![Coded with Cursor](https://vibecoded.fyi/badges/terminal/agents/cursor.svg)](https://vibecoded.fyi/)
+
 Self-hosted **source of truth** for half-finished plans, migrations, and setups — so coding agents (Cursor, Codex, Claude Code, …) can check overlap, save progress, and nudge you later.
 
 Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP + REST hub, optional OpenClaw notifications, optional local transcript indexer (summaries only).
@@ -128,7 +131,10 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 ## Privacy
 
 - Default store: SQLite + markdown wiki under `data/`  
-- Auth: Bearer token (required when token ≠ `change-me`); `/ui` shows a login form for the same `ADHD_HUB_AUTH_TOKEN`
+- Auth: REST and MCP accept bearer tokens. `/ui` supports a separate dashboard password, with `ADHD_HUB_AUTH_TOKEN` for initial setup and recovery. Both issue a 12-hour HttpOnly, SameSite=Strict session cookie; credentials are never stored in localStorage. See [password setup and recovery](docs/authentication.md). Log out revokes the session. Sessions are held in process memory, so restarting the server signs browsers out; run one worker. HTTPS sets the Secure cookie flag (configure trusted proxy headers when terminating TLS upstream).
+- Default-token development mode is allowed only with a loopback bind. Set a long random token before binding to `0.0.0.0`; generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Use HTTPS for remote access.
+- Cookie-authenticated writes require `X-Hub-Request: 1` and a matching Origin when present. CLI and MCP clients continue using bearer auth.
+- Environment variables override `.env`, which overrides TOML configuration. `ADHD_HUB_PUBLIC_URL` sets the external base URL used in forge links.
 - Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy and strong token
 - Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md))
 
@@ -152,6 +158,10 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 - Hardening for multi-machine Tailscale deploy (Proxmox / Portainer)
 - skills.sh listing after public GitHub publish
 
+### Dashboard comfort
+
+The dashboard includes light/dark/system themes, a focus view, quick task capture, and optional XP, levels, and daily goals. See [dashboard preferences](docs/dashboard.md).
+
 ## Development
 
 ```bash
@@ -165,3 +175,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## License
 
 MIT — [LICENSE](LICENSE)
+
+## Brand and rewards
+
+See the [brand guide](docs/brand-guide.md) for the logo, colours, and UI patterns, and the [reward roadmap](docs/rewards-roadmap.md) for ranks, sharing, and the future leaderboard direction.

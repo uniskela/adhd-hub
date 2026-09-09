@@ -9,6 +9,7 @@ from adhd_hub.models import (
     EnergyLevel,
     IndexerBatch,
     MarkDoneRequest,
+    PauseRequest,
     ProgressUpsert,
     ProjectRename,
     ProjectUpsert,
@@ -41,6 +42,29 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             limit=limit,
             stale=stale,
         )
+
+    @router.get("/threads/{thread_id}", dependencies=[Depends(auth_dep)])
+    def get_thread(thread_id: str):
+        from adhd_hub.markdown import render_markdown
+
+        thread = service.store.get_thread(thread_id)
+        if not thread:
+            raise HTTPException(404, "Thread not found")
+        data = service.thread_public_dict(thread)
+        progress = service.wiki.read_progress(thread.project_slug) if thread.project_slug else None
+        data["progress_html"] = render_markdown(progress or "")
+        data["resume_step_html"] = render_markdown(thread.resume_step or "")
+        return data
+
+    @router.post("/threads/{thread_id}/pause", dependencies=[Depends(auth_dep)])
+    def pause_thread(thread_id: str, payload: PauseRequest):
+        try:
+            thread = service.store.pause_thread(thread_id, payload.next_step)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return service.thread_public_dict(thread)
 
     @router.get("/overview", dependencies=[Depends(auth_dep)])
     def overview():

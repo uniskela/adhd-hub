@@ -71,3 +71,63 @@ async def test_public_url_allows_browser_preflight_for_bearer_requests(tmp_path:
     assert response.headers["access-control-allow-origin"] == origin
     assert "POST" in response.headers["access-control-allow-methods"]
     assert "authorization" in response.headers["access-control-allow-headers"].lower()
+
+
+def test_thread_resume_and_pause_are_exposed(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path / "data", auth_token="secret")
+    app = create_app(settings)
+    headers = {"Authorization": "Bearer secret"}
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/threads", headers=headers, json={"summary": "Write docs", "project_slug": "hub"}
+        ).json()
+        thread_id = created["id"]
+        client.post(
+            "/api/progress",
+            headers=headers,
+            json={
+                "project_slug": "hub",
+                "content": "## Return here\n\n- **Small step**\n\n<script>alert(1)</script>",
+            },
+        ).raise_for_status()
+        paused = client.post(
+            f"/api/threads/{thread_id}/pause",
+            headers=headers,
+            json={"next_step": "  Draft the intro  "},
+        )
+        assert paused.status_code == 200
+        assert paused.json()["resume_step"] == "Draft the intro"
+        detail = client.get(f"/api/threads/{thread_id}", headers=headers)
+        assert detail.status_code == 200
+        assert "resume_step_html" in detail.json()
+        assert "Draft the intro" in detail.json()["resume_step_html"]
+        assert "<h2>Return here</h2>" in detail.json()["progress_html"]
+        assert "<strong>Small step</strong>" in detail.json()["progress_html"]
+        assert "<script>" not in detail.json()["progress_html"]
+        assert client.get(f"/api/threads/{thread_id}").status_code == 401
+        assert (
+            client.post(
+                f"/api/threads/{thread_id}/pause", headers=headers, json={"next_step": "  "}
+            ).status_code
+            == 422
+        )
+        client.post(
+            "/api/threads/mark-done", headers=headers, json={"id": thread_id}
+        ).raise_for_status()
+        assert (
+            client.post(
+                f"/api/threads/{thread_id}/pause", headers=headers, json={"next_step": "Too late"}
+            ).status_code
+            == 409
+        )
+
+
+def test_brand_assets_are_available_without_login(tmp_path):
+    app = create_app(Settings(data_dir=tmp_path, auth_token="secret"))
+    with TestClient(app) as client:
+        for name in ("icon.svg", "logo.svg", "logo-dark.svg"):
+            response = client.get(f"/ui/brand/{name}")
+            assert response.status_code == 200
+            assert "image/svg+xml" in response.headers["content-type"]
+            assert "<svg" in response.text
+        assert client.get("/ui/brand/unknown.svg").status_code == 404

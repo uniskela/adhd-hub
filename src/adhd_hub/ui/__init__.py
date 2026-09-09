@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
 UI_DIR = Path(__file__).resolve().parent
@@ -22,8 +22,12 @@ def build_ui_router() -> APIRouter:
 
     @router.get("/ui/app.js")
     def ui_js():
-        return FileResponse(
-            UI_DIR / "app.js", media_type="application/javascript"
-        )
+        return FileResponse(UI_DIR / "app.js", media_type="application/javascript")
+
+    @router.get("/ui/brand/{name}")
+    def brand_asset(name: str):
+        if name not in {"icon.svg", "logo.svg", "logo-dark.svg"}:
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(UI_DIR / "brand" / name, media_type="image/svg+xml")
 
     return router
