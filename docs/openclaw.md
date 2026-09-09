@@ -56,7 +56,7 @@ curl -sS -X POST \
   http://adhd-hub:8787/api/admin/stale-nudge
 ```
 
-If it succeeds, OpenClaw receives a short list of unfinished work. The optional agent endpoint can turn that into a non-nagging message and save a brief memory note. The Hub's wiki remains the source of truth for project progress.
+If it succeeds, OpenClaw receives a short list of unfinished work. The optional agent endpoint can turn that into a non-nagging message and save a brief memory digest (summaries + next steps only — never raw chats). Agents can also call MCP `push_openclaw_memory` for an on-demand short round-trip. The Hub's wiki remains the source of truth for project progress.
 
 ## Optional: OpenClaw reads the Hub
 

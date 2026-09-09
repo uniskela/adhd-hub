@@ -29,12 +29,14 @@ Prefer Hub MCP whenever it is available. Do not invent Hub thread ids after a fo
 
 ## Session start / resume
 
-1. `resolve_project` with `workspace_path` (create_if_missing true if this is a known codebase).
-2. `session_digest` with the same `workspace_path` and a short `query` for the task.
-3. `check_overlap` with the project/migration name.
+1. `resolve_project` with `workspace_path` (create_if_missing true if this is a known codebase), or `register_workspace` for a one-click folder → project (+ optional open thread).
+2. `session_digest` or `get_overview` with the same `workspace_path` / short `query` for the task.
+3. `check_overlap` with the project/migration name; `list_reminders(due_only=true)` when helpful.
 4. If hits exist, summarize relevant open work and incorporate it when it matches the current task. Do not interrupt already authorized work just to reconfirm it.
 
 ## Leaving work incomplete
+
+Prefer `pause_thread(thread_id, next_step=...)` when stopping mid-task so Now can show a pickup cue.
 
 Call `upsert_progress` with:
 
@@ -65,8 +67,12 @@ Keep the `thread_id` returned by `upsert_progress`: it already keeps or creates 
 
 ## Finished
 
-`mark_done(thread_id=...)` with the known id for the completed task and a one-line note. Never close unrelated overlap hits. To write final progress without creating an open thread, use `upsert_progress(create_thread_if_missing=false)` before marking the task done.
+`mark_done(thread_id=...)` with the known id for the completed task and a one-line note. Never close unrelated overlap hits. To soft-close without “done”, use `dismiss_thread`. To write final progress without creating an open thread, use `upsert_progress(create_thread_if_missing=false)` before marking the task done.
 
 ## Remind later
 
-If the user asks to be nudged: `set_reminder` (`once` / `session` / `daily` / `random`). Supply `due_at_iso` with an explicit timezone offset for a one-time reminder; ask for a time only if it cannot be inferred.
+If the user asks to be nudged: `set_reminder` (`once` / `session` / `daily` / `random`). Supply `due_at_iso` with an explicit timezone offset for a one-time reminder; ask for a time only if it cannot be inferred. List with `list_reminders(due_only=true)`.
+
+## Optional OpenClaw memory
+
+When OpenClaw is configured on the Hub, `push_openclaw_memory` sends a short digest (summaries only — never transcripts). Prefer Hub wiki as source of truth.

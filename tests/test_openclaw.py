@@ -151,5 +151,5 @@ async def test_failed_openclaw_alert_is_not_marked_as_reminded(tmp_path: Path) -
 
     result = await service.run_stale_nudge()
 
-    assert result == {"nudged": 0, "openclaw": False}
+    assert result == {"nudged": 0, "openclaw": False, "memory": None}
     service.store.touch_reminded.assert_not_called()
