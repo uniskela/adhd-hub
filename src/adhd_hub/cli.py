@@ -100,6 +100,43 @@ def cmd_setup(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_connect(args: argparse.Namespace) -> int:
+    from adhd_hub.connect import print_report, resolve_hub_url, run_connect
+
+    agents = [part.strip() for part in args.agents.split(",") if part.strip()]
+    find_roots = [Path(p) for p in (args.find_roots or [])]
+    report = run_connect(
+        project=Path(args.path),
+        hub_url=resolve_hub_url(args.hub),
+        agents=agents,
+        scope=args.scope,
+        install_skills_flag=args.skills,
+        skills_source=args.skills_source,
+        cursor_rule=args.cursor_rule,
+        openclaw_skills=args.openclaw_skills,
+        register=args.register,
+        find_roots=find_roots or None,
+        token=args.token,
+        dry_run=args.dry_run,
+    )
+    print_report(report)
+    return 0 if report.ok else 1
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from adhd_hub.connect import print_report, resolve_hub_url, run_doctor
+
+    project_arg = args.project or args.path
+    project = Path(project_arg) if project_arg else None
+    report = run_doctor(
+        hub_url=resolve_hub_url(args.hub),
+        project=project,
+        token=args.token,
+    )
+    print_report(report)
+    return 0 if report.ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="adhd-hub", description="ADHD Progress Hub")
     p.add_argument("-c", "--config", help="Path to config.toml")
@@ -158,6 +195,89 @@ def build_parser() -> argparse.ArgumentParser:
         help="Remove only the managed ADHD Hub block from AGENTS.md",
     )
     setup.set_defaults(func=cmd_setup)
+
+    connect = sub.add_parser(
+        "connect",
+        help="Wire MCP, AGENTS.md, optional skills/OpenClaw to a running Hub",
+    )
+    connect.add_argument("path", nargs="?", default=".", help="Project folder (default: .)")
+    connect.add_argument(
+        "--hub",
+        default=None,
+        help="Hub base URL (default: ADHD_HUB_PUBLIC_URL or http://127.0.0.1:8787)",
+    )
+    connect.add_argument(
+        "--agents",
+        default="cursor",
+        help="Comma list: cursor,codex,claude (default: cursor)",
+    )
+    connect.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="Where to write Cursor MCP config (default: project)",
+    )
+    connect.add_argument(
+        "--skills",
+        action="store_true",
+        help="Install global agent skills via npx skills add",
+    )
+    connect.add_argument(
+        "--skills-source",
+        default="uniskela/adhd-hub",
+        help="skills.sh source or local skills path",
+    )
+    connect.add_argument(
+        "--cursor-rule",
+        action="store_true",
+        help="Install .cursor/rules/adhd-hub.mdc in the project",
+    )
+    connect.add_argument(
+        "--openclaw-skills",
+        action="store_true",
+        help="Also install skills into OpenClaw (-a openclaw)",
+    )
+    connect.add_argument(
+        "--register",
+        action="store_true",
+        help="Resolve/create the project on the Hub (needs ADHD_HUB_AUTH_TOKEN)",
+    )
+    connect.add_argument(
+        "--find-roots",
+        nargs="*",
+        metavar="DIR",
+        help="Scan directories for candidate projects and list them",
+    )
+    connect.add_argument(
+        "--token",
+        default=None,
+        help="Hub bearer token (default: ADHD_HUB_AUTH_TOKEN env)",
+    )
+    connect.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show planned writes without changing files or calling register",
+    )
+    connect.set_defaults(func=cmd_connect)
+
+    doctor = sub.add_parser(
+        "doctor",
+        help="Report Hub reachability and local MCP / AGENTS / skills status",
+    )
+    doctor.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Optional project folder to inspect",
+    )
+    doctor.add_argument(
+        "--project",
+        default=None,
+        help="Project folder to inspect (alias for positional path)",
+    )
+    doctor.add_argument("--hub", default=None, help="Hub base URL")
+    doctor.add_argument("--token", default=None, help="Optional bearer token")
+    doctor.set_defaults(func=cmd_doctor)
 
     return p
 

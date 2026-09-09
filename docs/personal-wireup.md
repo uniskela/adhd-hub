@@ -3,8 +3,25 @@
 ## Day in the life
 
 1. **Hub running** — Docker or `uv run adhd-hub serve` on `:8787`.
-2. **MCP** — `.cursor/mcp.json` (or user MCP) points at `http://127.0.0.1:8787/mcp` with bearer token.
-3. **Skills (global)** so every repo gets the protocol:
+2. **Connect once** — prefer the [Connect one-liner](connect.md) so MCP, `AGENTS.md`, Cursor rule, and optional skills land together:
+
+```bash
+# macOS / Linux / WSL
+export ADHD_HUB_AUTH_TOKEN=...
+curl -fsSL http://127.0.0.1:8787/install.sh | sh -s -- /path/to/project
+```
+
+```powershell
+# Windows PowerShell
+$env:ADHD_HUB_AUTH_TOKEN = "..."
+irm http://127.0.0.1:8787/install.ps1 | iex
+```
+
+```bash
+adhd-hub doctor --project /path/to/project
+```
+
+3. **Skills (global)** if you skipped `--skills` on connect:
 
 ```powershell
 # Install from GitHub (recommended):
