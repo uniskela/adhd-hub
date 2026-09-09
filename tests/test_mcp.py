@@ -216,3 +216,6 @@ async def test_stale_nudge_pushes_memory_roundtrip(tmp_path: Path) -> None:
     assert result["openclaw"] is True
     assert result["memory"]["ack"] == "saved"
     service.push_openclaw_memory.assert_awaited()
+    kwargs = service.push_openclaw_memory.await_args.kwargs
+    assert kwargs["threads"] == [thread]
+    assert "stale" in kwargs["note"].lower()

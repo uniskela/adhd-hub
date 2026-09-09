@@ -649,10 +649,17 @@ class HubService:
         }
 
     def openclaw_memory_digest(
-        self, *, project_slug: str | None = None, note: str | None = None
+        self,
+        *,
+        project_slug: str | None = None,
+        note: str | None = None,
+        threads: list[Thread] | None = None,
     ) -> tuple[str, str]:
         """Build a short OpenClaw memory digest (summaries only; no transcripts)."""
-        threads = self.list_open_threads(project_slug=project_slug, limit=8)
+        if threads is None:
+            threads = self.list_open_threads(project_slug=project_slug, limit=8)
+        else:
+            threads = threads[:8]
         out: list[str] = []
         for t in threads:
             step = ""
@@ -677,17 +684,29 @@ class HubService:
         return title, body
 
     def push_openclaw_memory_sync(
-        self, *, project_slug: str | None = None, note: str | None = None
+        self,
+        *,
+        project_slug: str | None = None,
+        note: str | None = None,
+        threads: list[Thread] | None = None,
     ) -> dict:
-        title, body = self.openclaw_memory_digest(project_slug=project_slug, note=note)
+        title, body = self.openclaw_memory_digest(
+            project_slug=project_slug, note=note, threads=threads
+        )
         result = self.openclaw.push_memory_roundtrip_sync(title=title, digest=body)
         result["digest_lines"] = len(body.splitlines())
         return result
 
     async def push_openclaw_memory(
-        self, *, project_slug: str | None = None, note: str | None = None
+        self,
+        *,
+        project_slug: str | None = None,
+        note: str | None = None,
+        threads: list[Thread] | None = None,
     ) -> dict:
-        title, body = self.openclaw_memory_digest(project_slug=project_slug, note=note)
+        title, body = self.openclaw_memory_digest(
+            project_slug=project_slug, note=note, threads=threads
+        )
         result = await self.openclaw.push_memory_roundtrip(title=title, digest=body)
         result["digest_lines"] = len(body.splitlines())
         return result
@@ -1325,7 +1344,11 @@ class HubService:
         memory = None
         if sent:
             self.store.touch_reminded([t.id for t in limited])
-            memory = await self.push_openclaw_memory()
+            # Digest the nudged (often older) threads — not only recently updated opens.
+            memory = await self.push_openclaw_memory(
+                threads=limited,
+                note="After stale nudge",
+            )
         return {
             "nudged": len(lines) if sent else 0,
             "openclaw": sent,
