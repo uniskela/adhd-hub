@@ -44,6 +44,21 @@ def test_browser_login_logout_and_csrf(client):
     assert client.get("/api/overview").status_code == 401
 
 
+def test_configured_public_url_is_accepted_behind_tls_proxy(tmp_path):
+    public_origin = "https://adhd.pike.homes"
+    app = create_app(
+        Settings(data_dir=tmp_path, auth_token="secret", public_url=public_origin)
+    )
+    with TestClient(app, base_url="http://adhd-hub.internal:8787") as client:
+        response = client.post(
+            "/api/auth/login",
+            headers={"X-Hub-Request": "1", "Origin": public_origin},
+            json={"token": "secret"},
+        )
+
+    assert response.status_code == 200
+
+
 def test_secure_cookie_and_bearer_compatibility(tmp_path):
     with TestClient(
         create_app(Settings(data_dir=tmp_path, auth_token="secret")), base_url="https://testserver"

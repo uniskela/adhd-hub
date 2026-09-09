@@ -45,7 +45,6 @@ class Settings(BaseSettings):
     max_sessions: int = 50
     public_url: str | None = None
     hub_url: str | None = None
-    public_url: str | None = None
     timezone: str = "UTC"  # IANA, e.g. Australia/Sydney; also overridable via /ui prefs
 
     # Optional forge (GitHub / Gitea) — UI can override via data/forge.json
