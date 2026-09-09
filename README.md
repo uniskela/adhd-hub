@@ -32,14 +32,11 @@ docker compose up -d --build
 curl -s http://127.0.0.1:8787/api/health
 ```
 
-Published images (GitHub Actions on `main` / `v*` tags):
+Published images (only after a manual release-PR merge by `uniskela`):
 
-- `:latest` on every successful publish to GHCR + Docker Hub (`main` or release tags)
-- Semver: `…/adhd-hub:1.2.3`, `…/adhd-hub:1.2` when a `v1.2.3` git tag is published
+- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.3.1`, `0.3`)
 
-**Automated releases (Release Please):** merge to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…). A release PR is opened/updated and **auto-merged**; that creates git tag `vX.Y.Z`, a GitHub Release, and dispatches image builds (`X.Y.Z` + `latest`).
-
-**Manual override:** Actions → **Release (manual)** → patch/minor/major (or exact `X.Y.Z`).
+**Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
 
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
