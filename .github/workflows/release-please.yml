@@ -15,10 +15,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-please:
-    # Prevent any other main-branch writer or automation from creating a
-    # release PR or tag. Branch protection should separately restrict merging.
+  release-gate:
+    # Documentation and maintenance-only changes do not need a version. This
+    # job reads only the push event; it cannot write a release or a PR.
     if: github.actor == 'uniskela'
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+    steps:
+      - name: Check out the trusted push range
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check whether this push can create a release
+        id: gate
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: python3 scripts/release_gate.py "$BEFORE" "$AFTER" >> "$GITHUB_OUTPUT"
+
+  release-please:
+    needs: release-gate
+    # Prevent any other main-branch writer or automation from creating a
+    # release PR or tag. The gate also keeps docs/chore-only pushes from
+    # opening a patch release. Branch protection separately restricts merging.
+    if: needs.release-gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
