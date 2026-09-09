@@ -17,6 +17,7 @@ def start_scheduler(service: HubService) -> AsyncIOScheduler:
 
     stale_kwargs = parse_cron(settings.stale_nudge_cron)
     wiki_kwargs = parse_cron(settings.wiki_index_cron)
+    inbox_kwargs = parse_cron(settings.forge_inbox_cron)
 
     async def stale_job() -> None:
         try:
@@ -31,6 +32,16 @@ def start_scheduler(service: HubService) -> AsyncIOScheduler:
             log.info("wiki index rebuilt: %s", path)
         except Exception:
             log.exception("wiki index job failed")
+
+    def forge_inbox_job() -> None:
+        try:
+            cfg = service.forge_config()
+            if not (cfg.enabled() and cfg.board_enabled and cfg.board_inbox_enabled):
+                return
+            result = service.import_forge_inbox()
+            log.info("forge inbox job: %s", result.get("count", result))
+        except Exception:
+            log.exception("forge inbox job failed")
 
     scheduler.add_job(
         stale_job,
@@ -49,10 +60,17 @@ def start_scheduler(service: HubService) -> AsyncIOScheduler:
         id="wiki_index",
         replace_existing=True,
     )
+    scheduler.add_job(
+        forge_inbox_job,
+        CronTrigger(**inbox_kwargs),
+        id="forge_inbox",
+        replace_existing=True,
+    )
     scheduler.start()
     log.info(
-        "Scheduler started (stale=%s, wiki=%s)",
+        "Scheduler started (stale=%s, wiki=%s, forge_inbox=%s)",
         settings.stale_nudge_cron,
         settings.wiki_index_cron,
+        settings.forge_inbox_cron,
     )
     return scheduler

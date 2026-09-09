@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     stale_nudge_cron: str = "0 9 * * *"
     wiki_index_cron: str = "30 9 * * *"
+    forge_inbox_cron: str = "*/15 * * * *"
 
     # Indexer (used by CLI; also loadable from config.toml [indexer])
     cursor_projects_dir: Path | None = None
@@ -60,6 +61,8 @@ class Settings(BaseSettings):
     forge_wiki_branch: str = "main"
     forge_primary_memory_repo: bool = False
     forge_board_enabled: bool = False
+    forge_board_inbox_enabled: bool = False
+    forge_board_inbox_synced_label: str = "adhd-hub-synced"
     forge_project_number: int | None = None
     forge_project_id: str | None = None
 

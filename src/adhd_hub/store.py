@@ -456,6 +456,14 @@ class Store:
                 (key, value),
             )
 
+    def list_meta_prefix(self, prefix: str) -> dict[str, str]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT key, value FROM meta WHERE key LIKE ?",
+                (f"{prefix}%",),
+            ).fetchall()
+        return {row["key"]: row["value"] for row in rows}
+
     def _row_pending(self, row: sqlite3.Row) -> PendingAction:
         try:
             payload = json.loads(row["payload"] or "{}")

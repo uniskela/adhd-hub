@@ -327,6 +327,22 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             overwrite_local=bool(body.get("overwrite_local")),
         )
 
+    @router.post("/forge/inbox/import", dependencies=[Depends(auth_dep)])
+    def forge_inbox_import(payload: dict | None = None):
+        body = payload or {}
+        limit = body.get("limit", 50)
+        try:
+            limit_i = int(limit)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, "limit must be an integer") from exc
+        if limit_i < 1 or limit_i > 100:
+            raise HTTPException(400, "limit must be between 1 and 100")
+        close_imported = body.get("close_imported", True)
+        return service.import_forge_inbox(
+            limit=limit_i,
+            close_imported=bool(close_imported),
+        )
+
     @router.get("/admin/export", dependencies=[Depends(auth_dep)])
     def admin_export():
         from fastapi.responses import Response

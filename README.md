@@ -141,6 +141,8 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 
 **Note:** Hub “wiki” = normal markdown files in the repo (`INDEX.md`, `projects/*/PROGRESS.md`). That is separate from Gitea/GitHub’s built-in Wiki feature. Issues show under the Issues tab when board sync works. Projects boards only if you set a project id/number.
 
+**Cloud-agent mailbox:** enable **Import cloud-agent issues (inbox)** so the Hub polls open `adhd-hub` issues, creates threads, then closes them with `adhd-hub-synced` (never deletes). See [docs/forge-issue-inbox.md](docs/forge-issue-inbox.md).
+
 **PAT permissions:** see [docs/forge-permissions.md](docs/forge-permissions.md) for GitHub (fine-grained + classic) and Gitea scopes.
 
 ## Privacy

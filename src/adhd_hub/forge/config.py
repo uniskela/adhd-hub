@@ -35,6 +35,10 @@ class ForgeConfig(BaseModel):
     hub_public_url: str = ""
 
     board_enabled: bool = False
+    # Poll forge issues labeled for Hub and import them as threads (cloud-agent mailbox).
+    board_inbox_enabled: bool = False
+    # After import: close the issue and add this label (never delete).
+    board_inbox_synced_label: str = "adhd-hub-synced"
     # GitHub Projects v2 number (org/user project), or Gitea project id as string
     project_number: int | None = None
     project_id: str | None = None  # Gitea numeric id as string, or GitHub node id if known
@@ -134,6 +138,9 @@ def forge_from_settings(settings: Any) -> ForgeConfig:
         hub_public_url=(getattr(settings, "public_url", None) or getattr(settings, "hub_url", None) or "")
         or "",
         board_enabled=bool(getattr(settings, "forge_board_enabled", False)),
+        board_inbox_enabled=bool(getattr(settings, "forge_board_inbox_enabled", False)),
+        board_inbox_synced_label=getattr(settings, "forge_board_inbox_synced_label", None)
+        or "adhd-hub-synced",
         project_number=getattr(settings, "forge_project_number", None),
         project_id=getattr(settings, "forge_project_id", None),
     )
