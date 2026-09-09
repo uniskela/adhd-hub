@@ -201,12 +201,10 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). Near-term highlights:
 
 - **Wave 0 (shipped in 0.3.5):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
-- **Wave 1 (merged):** Soft-archive projects; reminders in `/ui`; focus mode
-- **Wave 2 (PR #24):** MCP parity (`pause` / `dismiss` / `list_reminders` / `get_overview`); `register_workspace`; OpenClaw memory digest
-- Durable sessions + Tailscale hardening; forge legacy path cleanup
+- **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
+- **Next:** Connect leftovers, then Wave 3 (durable sessions, Tailscale, forge path cleanup, doctor remote checks)
+- Wave 4 (split `app.js` / a11y) and Wave 5 (opt-in Slack/Discord/calendar) come after Wave 3
 - skills.sh listing after publish
-
-Waves 1 and 2 are intended for the **same release** after Wave 2 merges.
 
 ### Dashboard comfort
 

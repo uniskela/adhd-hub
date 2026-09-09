@@ -22,16 +22,14 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 | Priority | Wave | Focus |
 |----------|------|--------|
 | Done | Inbox harden | Author allowlist (0.3.5) |
-| Done | Wave 1 | ADHD UX depth in `/ui` (#16 / PR #22) |
-| Now | Wave 2 | MCP parity + OpenClaw memory (#17 / PR #24) |
-| Later | Connect leftovers | Windows smoke, setup-complete cue |
-| Then | Wave 3 | Homelab ops & trust |
-| Then | Wave 4 | Split `app.js` / facades / a11y |
-| Opt-in | Wave 5 | Slack/Discord, calendar; leaderboard only with identity review |
+| Done | Wave 1 | ADHD UX depth in `/ui` (#16 / PR #22) — shipped in 0.3.6 |
+| Done | Wave 2 | MCP parity + OpenClaw memory (#17 / PR #24) — shipped in 0.3.6 |
+| Now | Connect leftovers | Windows smoke, setup-complete cue |
+| Then | Wave 3 | Homelab ops & trust (#18) |
+| Then | Wave 4 | Split `app.js` / facades / a11y (#19) |
+| Opt-in | Wave 5 | Slack/Discord, calendar; leaderboard only with identity review (#20) |
 
-Wave 1 + Wave 2 are intended to ship in the **same release version** after both PRs merge.
-
-Keep PRs focused: do not pile Wave 1 onto the forge-inbox PR.
+Wave 1 + Wave 2 shipped together in **0.3.6**. Do not start Wave 5 early (see issue #20).
 
 ## Wave 1 — ADHD UX depth
 
