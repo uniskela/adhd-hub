@@ -22,10 +22,12 @@ def test_project_resolve_and_progress(tmp_path: Path) -> None:
         ProjectUpsert(
             title="My Website",
             slug="my-website",
+            repo_url="https://github.com/example/my-website/",
             workspace_paths=[str(tmp_path / "sites" / "my-website")],
         )
     )
     assert proj.slug == "my-website"
+    assert proj.repo_url == "https://github.com/example/my-website"
     resolved = service.resolve_project(
         workspace_path=str(tmp_path / "sites" / "my-website" / "src"),
         create_if_missing=False,
@@ -41,6 +43,19 @@ def test_project_resolve_and_progress(tmp_path: Path) -> None:
     )
     assert out["project_slug"] == "my-website"
     assert out["thread_id"]
+
+    updated = service.upsert_project(
+        ProjectUpsert(title="My Website", slug="my-website", repo_url=None)
+    )
+    assert updated.repo_url is None
+
+
+def test_project_repo_url_rejects_credentials_and_non_http_schemes() -> None:
+    import pytest
+
+    for value in ("git@example.com:owner/repo.git", "file:///tmp/repo", "https://u:p@example.com/r"):
+        with pytest.raises(ValueError, match="repository URL"):
+            ProjectUpsert(title="Unsafe", repo_url=value)
 
 
 def test_upsert_thread_creates_project(tmp_path: Path) -> None:

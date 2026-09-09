@@ -130,6 +130,7 @@ class Store:
                     slug TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     description TEXT,
+                    repo_url TEXT,
                     workspace_paths TEXT NOT NULL DEFAULT '[]',
                     default_energy TEXT NOT NULL DEFAULT 'unknown',
                     forge_owner TEXT,
@@ -157,6 +158,8 @@ class Store:
             cols = {r[1] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
             if "forge_project_id" not in cols:
                 conn.execute("ALTER TABLE projects ADD COLUMN forge_project_id TEXT")
+            if "repo_url" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN repo_url TEXT")
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
             for column in ("resume_step", "paused_at"):
@@ -590,6 +593,7 @@ class Store:
             slug=row["slug"],
             title=row["title"],
             description=row["description"],
+            repo_url=dict(row).get("repo_url"),
             workspace_paths=[str(p) for p in paths],
             default_energy=EnergyLevel(row["default_energy"] or "unknown"),
             forge_owner=row["forge_owner"],
@@ -617,10 +621,15 @@ class Store:
                 except json.JSONDecodeError:
                     old = []
                 merged = list(dict.fromkeys([*(str(x) for x in old), *paths]))
+                repo_url = (
+                    payload.repo_url
+                    if "repo_url" in payload.model_fields_set
+                    else dict(existing).get("repo_url")
+                )
                 conn.execute(
                     """
                     UPDATE projects SET
-                        title = ?, description = COALESCE(?, description),
+                        title = ?, description = COALESCE(?, description), repo_url = ?,
                         workspace_paths = ?, default_energy = ?,
                         forge_owner = COALESCE(?, forge_owner),
                         forge_repo = COALESCE(?, forge_repo),
@@ -632,6 +641,7 @@ class Store:
                     (
                         payload.title,
                         payload.description,
+                        repo_url,
                         json.dumps(merged),
                         payload.default_energy.value,
                         payload.forge_owner,
@@ -646,15 +656,16 @@ class Store:
                 conn.execute(
                     """
                     INSERT INTO projects (
-                        slug, title, description, workspace_paths, default_energy,
+                        slug, title, description, repo_url, workspace_paths, default_energy,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slug,
                         payload.title,
                         payload.description,
+                        payload.repo_url,
                         json.dumps(paths),
                         payload.default_energy.value,
                         payload.forge_owner,
@@ -725,6 +736,7 @@ class Store:
                         slug=existing.slug,
                         title=existing.title,
                         description=existing.description,
+                        repo_url=existing.repo_url,
                         workspace_paths=paths,
                         default_energy=existing.default_energy,
                         forge_owner=existing.forge_owner,

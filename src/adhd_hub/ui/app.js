@@ -64,11 +64,15 @@
     } catch (_) { setMsg("Clipboard unavailable. Thread reference: " + id); }
   }
 
-  function safeLink(value) {
+  function safeHttpUrl(value) {
     try {
       const url = new URL(value);
-      return ["http:", "https:"].includes(url.protocol) ? escapeHtml(url.href) : "#";
-    } catch (_) { return "#"; }
+      return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    } catch (_) { return ""; }
+  }
+
+  function safeLink(value) {
+    return escapeHtml(safeHttpUrl(value) || "#");
   }
 
   function browserTz() {
@@ -625,9 +629,7 @@
   }
 
   function fillProjectForm(p) {
-    $("project-edit").hidden = !p;
     if (!p) return;
-    $("project-edit").open = !!p.unregistered;
     $("edit-heading").textContent = p.unregistered
       ? `Register ${p.slug}`
       : `Edit ${p.title || p.slug}`;
@@ -636,10 +638,38 @@
     $("p_slug").readOnly = !p.unregistered;
     $("p_path").value = (p.workspace_paths && p.workspace_paths[0]) || "";
     $("p_desc").value = p.description || "";
+    $("p_repo_url").value = p.repo_url || "";
     $("p_forge_owner").value = p.forge_owner || "";
     $("p_forge_repo").value = p.forge_repo || "";
     $("p_forge_wiki").value = p.forge_wiki_path || "";
     $("p_forge_project_id").value = p.forge_project_id || "";
+    $("btn-rename-project").hidden = !!p.unregistered;
+    $("btn-delete-project").hidden = !!p.unregistered;
+  }
+
+  function renderProjectHeader(p) {
+    const edit = $("btn-edit-project");
+    const repo = $("btn-open-project-repo");
+    if (!p) {
+      edit.hidden = true;
+      repo.hidden = true;
+      repo.removeAttribute("href");
+      return;
+    }
+    edit.hidden = false;
+    edit.setAttribute("aria-label", p.unregistered ? "Register project" : `Edit ${p.title || p.slug}`);
+    edit.title = p.unregistered ? "Register project" : "Edit project";
+    const href = safeHttpUrl(p.repo_url);
+    repo.hidden = !href;
+    if (href) repo.href = href;
+    else repo.removeAttribute("href");
+  }
+
+  function openProjectDialog(project) {
+    if (!project) return;
+    fillProjectForm(project);
+    $("project-dialog").showModal();
+    $("p_title").focus();
   }
 
   function renderFocus() {
@@ -773,7 +803,7 @@
     threadsCache = [];
 
     renderProjects(overviewCache?.projects || []);
-    fillProjectForm(null);
+    renderProjectHeader(null);
     $("threads").textContent = "Loading your steps…";
     $("thread-count").textContent = "";
     $("focus-links").replaceChildren();
@@ -789,6 +819,7 @@
       detailCache = detail;
       fillProjectForm(detailCache);
       $("work-title").textContent = detailCache.slug === "unclassified" ? "Inbox" : detailCache.title || detailCache.slug;
+      renderProjectHeader(detailCache);
     } catch (e) {
       if (request !== projectRequest) return;
       $("work-title").textContent = "Project unavailable";
@@ -1011,6 +1042,58 @@
     }
   }
 
+  async function loadOpenClaw() {
+    const config = await api("/openclaw/config");
+    $("oc_enabled").checked = !!config.alerts_enabled;
+    $("oc_webhook_url").value = config.webhook_url || "";
+    $("oc_agent_url").value = config.agent_url || "";
+    $("oc_token").value = "";
+    $("oc_clear_token").checked = false;
+    $("oc_cron").value = config.stale_nudge_cron || "0 9 * * *";
+    $("oc_stale_days").value = config.stale_days || 3;
+    $("oc_cooldown_days").value = config.remind_cooldown_days || 3;
+    $("oc_digest_limit").value = config.digest_max_nudge || 2;
+    $("oc_token_status").textContent = config.token_configured
+      ? "A bearer token is saved. Enter a new one only to replace it."
+      : "No saved bearer token.";
+  }
+
+  function openClawPayload() {
+    return {
+      alerts_enabled: $("oc_enabled").checked,
+      webhook_url: $("oc_webhook_url").value.trim(),
+      agent_url: $("oc_agent_url").value.trim(),
+      token: $("oc_token").value.trim() || null,
+      clear_token: $("oc_clear_token").checked,
+      stale_nudge_cron: $("oc_cron").value.trim(),
+      stale_days: Number($("oc_stale_days").value),
+      remind_cooldown_days: Number($("oc_cooldown_days").value),
+      digest_max_nudge: Number($("oc_digest_limit").value),
+    };
+  }
+
+  async function saveOpenClaw() {
+    $("openclaw-msg").textContent = "Saving…";
+    const config = await api("/openclaw/config", {
+      method: "PUT",
+      body: JSON.stringify(openClawPayload()),
+    });
+    $("oc_token").value = "";
+    $("oc_clear_token").checked = false;
+    $("oc_token_status").textContent = config.token_configured
+      ? "A bearer token is saved. Enter a new one only to replace it."
+      : "No saved bearer token.";
+    $("openclaw-msg").textContent = "OpenClaw settings saved.";
+    return config;
+  }
+
+  async function testOpenClaw() {
+    await saveOpenClaw();
+    $("openclaw-msg").textContent = "Sending a private test alert…";
+    const result = await api("/openclaw/test", { method: "POST", body: "{}" });
+    $("openclaw-msg").textContent = result.message || "Test alert sent.";
+  }
+
   async function saveProject() {
     const title = $("p_title").value.trim();
     if (!title) {
@@ -1024,6 +1107,7 @@
       workspace_paths: $("p_path").value.trim()
         ? [$("p_path").value.trim()]
         : [],
+      repo_url: $("p_repo_url").value.trim() || null,
       forge_owner: $("p_forge_owner").value.trim() || null,
       forge_repo: $("p_forge_repo").value.trim() || null,
       forge_wiki_path: $("p_forge_wiki").value.trim() || null,
@@ -1035,6 +1119,7 @@
     });
     setMsg("Project saved.");
     projectFilter = saved.slug;
+    $("project-dialog").close();
     await loadAll();
   }
 
@@ -1084,6 +1169,7 @@
         { method: "POST", body: JSON.stringify({ new_slug: newSlug }) }
       );
       projectFilter = out.project.slug;
+      $("project-dialog").close();
       setMsg("Renamed to " + projectFilter);
       await loadAll();
     } catch (e) {
@@ -1114,6 +1200,7 @@
         { method: "DELETE" }
       );
       projectFilter = null;
+      $("project-dialog").close();
       setMsg("Project deleted.");
       await loadAll();
     } catch (e) {
@@ -1186,6 +1273,7 @@
   });
   $("btn-settings").addEventListener("click", () => {
     loadForge().catch((error) => setMsg(error.message));
+    loadOpenClaw().catch((error) => setMsg(error.message));
     selectSettingsTab("preferences");
     $("settings-theme").value = $("theme-select").value;
     $("mcp-url").value = location.origin + "/mcp";
@@ -1250,6 +1338,12 @@
   $("btn-save-forge").addEventListener("click", () =>
     saveForge().catch((e) => setMsg(String(e)))
   );
+  $("btn-save-openclaw").addEventListener("click", () =>
+    saveOpenClaw().catch((e) => { $("openclaw-msg").textContent = e.message; })
+  );
+  $("btn-test-openclaw").addEventListener("click", () =>
+    testOpenClaw().catch((e) => { $("openclaw-msg").textContent = e.message; })
+  );
   $("btn-sync-forge").addEventListener("click", () =>
     syncForge().catch((e) => setMsg(String(e)))
   );
@@ -1264,26 +1358,26 @@
     e.target.value = "";
     if (file) importBackup(file).catch((err) => setMsg(String(err)));
   });
-  $("btn-save-project").addEventListener("click", () =>
-    saveProject().catch((e) => setMsg(String(e)))
-  );
+  $("project-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveProject().catch((e) => setMsg(String(e)));
+  });
+  $("btn-close-project").addEventListener("click", () => $("project-dialog").close());
+  $("btn-edit-project").addEventListener("click", () => openProjectDialog(detailCache));
   $("btn-rename-project").addEventListener("click", () => renameProject());
   $("btn-delete-project").addEventListener("click", () => deleteProject());
   $("btn-new-project").addEventListener("click", () => {
-    ++projectRequest;
-    ++threadsRequest;
-    projectFilter = null;
-    fillProjectForm({
+    const newProject = {
       title: "",
       slug: "",
+      repo_url: "",
       workspace_paths: [],
       unregistered: true,
-    });
-    $("project-edit").hidden = false;
-    $("project-edit").open = true;
+    };
+    fillProjectForm(newProject);
     $("p_slug").readOnly = false;
-    $("work-title").textContent = "New project";
     setMsg("Creating a new project.");
+    $("project-dialog").showModal();
     $("p_title").focus();
   });
 

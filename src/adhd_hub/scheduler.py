@@ -38,6 +38,11 @@ def start_scheduler(service: HubService) -> AsyncIOScheduler:
         id="stale_nudge",
         replace_existing=True,
     )
+    service.set_stale_schedule_callback(
+        lambda expr: scheduler.reschedule_job(
+            "stale_nudge", trigger=CronTrigger(**parse_cron(expr))
+        )
+    )
     scheduler.add_job(
         wiki_job,
         CronTrigger(**wiki_kwargs),

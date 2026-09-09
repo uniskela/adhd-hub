@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import socket
 import subprocess
@@ -70,12 +71,12 @@ def main():
                     time.sleep(0.1)
             else:
                 raise RuntimeError("Temporary test server did not start")
-            for slug, title in [
-                ("my-website", "Personal website"),
-                ("learning", "Learning corner"),
-                ("home", "Little life admin"),
+            for slug, title, project_repo in [
+                ("my-website", "Personal website", "https://github.com/example/my-website"),
+                ("learning", "Learning corner", None),
+                ("home", "Little life admin", None),
             ]:
-                seed("/projects", {"slug": slug, "title": title})
+                seed("/projects", {"slug": slug, "title": title, "repo_url": project_repo})
             for summary, slug, status in [
                 ("Collect a few homepage ideas", "my-website", "done"),
                 ("Make a place for project notes", "learning", "done"),
@@ -219,7 +220,9 @@ def main():
                 download.value.save_as(str(screenshots / "progress-card.png"))
                 assert (screenshots / "progress-card.png").read_bytes().startswith(b"\x89PNG")
                 page.get_by_role("button", name="Copy text", exact=True).click()
-                expect(page.locator("#share-msg")).to_contain_text("copied")
+                expect(page.locator("#share-msg")).to_contain_text(
+                    re.compile(r"copied|Select and copy")
+                )
                 page.keyboard.press("Escape")
                 expect(
                     page.get_by_role("button", name="Share progress", exact=True)
@@ -246,6 +249,13 @@ def main():
                 page.locator("#settings-theme").select_option("dark")
                 page.get_by_role("tab", name="Connections", exact=True).click()
                 expect(page.locator("#mcp-url")).to_be_visible()
+                page.get_by_text("OpenClaw connection & gentle alerts", exact=False).click()
+                page.locator("#oc_webhook_url").fill("http://openclaw:18789/hooks/wake")
+                page.locator("#oc_token").fill("browser-smoke-secret")
+                page.get_by_role("button", name="Save OpenClaw", exact=True).click()
+                expect(page.locator("#openclaw-msg")).to_contain_text("saved")
+                expect(page.locator("#oc_token")).to_have_value("")
+                expect(page.locator("#oc_token_status")).to_contain_text("saved")
                 page.screenshot(path=str(screenshots / "settings-connections.png"), full_page=True)
                 page.get_by_role("button", name="Close settings", exact=True).click()
                 expect(page.get_by_role("button", name="Settings", exact=True)).to_be_focused()
@@ -275,12 +285,20 @@ def main():
                     path=str(screenshots / "dashboard-dark-preview.png"), animations="disabled"
                 )
                 page.get_by_role("button", name="My work", exact=True).click()
-                # Project settings stay tucked away until explicitly opened.
+                # Project editing lives beside the title and opens as a focused dialog.
                 page.locator('#project-list [data-slug="my-website"]').click()
-                expect(page.locator("#project-edit")).to_be_visible()
-                assert page.locator("#project-edit").get_attribute("open") is None
-                page.locator("#project-edit > summary").click()
+                expect(page.locator("#btn-edit-project")).to_be_visible()
+                expect(page.locator("#btn-open-project-repo")).to_have_attribute(
+                    "href", "https://github.com/example/my-website"
+                )
+                page.locator("#btn-edit-project").click()
+                expect(page.locator("#project-dialog")).to_be_visible()
                 expect(page.locator("#p_title")).to_be_visible()
+                expect(page.locator("#p_repo_url")).to_have_value(
+                    "https://github.com/example/my-website"
+                )
+                page.screenshot(path=str(screenshots / "project-edit-dialog.png"))
+                page.locator("#btn-close-project").click()
                 page.get_by_role("button", name="All projects", exact=True).click()
                 # Deliver project A after B; B must remain selected and editable.
                 held = []
@@ -291,7 +309,7 @@ def main():
                 page.route("**/api/projects/my-website", hold_project)
                 page.locator('#project-list [data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Loading project…")
-                expect(page.locator("#project-edit")).to_be_hidden()
+                expect(page.locator("#btn-edit-project")).to_be_hidden()
                 page.locator('#project-list [data-slug="learning"]').click()
                 expect(page.locator("#work-title")).to_have_text("Learning corner")
                 assert held
@@ -302,7 +320,9 @@ def main():
                     "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
                 )
                 expect(page.locator("#work-title")).to_have_text("Learning corner")
+                page.locator("#btn-edit-project").click()
                 expect(page.locator("#p_slug")).to_have_value("learning")
+                page.locator("#btn-close-project").click()
                 page.unroute("**/api/projects/my-website", hold_project)
                 page.route(
                     "**/api/projects/my-website",
@@ -314,7 +334,7 @@ def main():
                 )
                 page.locator('#project-list [data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Project unavailable")
-                expect(page.locator("#project-edit")).to_be_hidden()
+                expect(page.locator("#btn-edit-project")).to_be_hidden()
                 page.unroute("**/api/projects/my-website")
                 page.get_by_role("button", name="All projects", exact=True).click()
                 page.get_by_role("button", name="Now", exact=True).click()

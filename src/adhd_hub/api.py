@@ -4,6 +4,7 @@ import zipfile
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import ValidationError
 
 from adhd_hub.models import (
     EnergyLevel,
@@ -17,6 +18,7 @@ from adhd_hub.models import (
     ThreadStatus,
     ThreadUpsert,
 )
+from adhd_hub.openclaw_config import OpenClawConfig
 from adhd_hub.service import HubService
 
 
@@ -241,6 +243,46 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     @router.post("/admin/stale-nudge", dependencies=[Depends(auth_dep)])
     async def stale_nudge():
         return await service.run_stale_nudge()
+
+    @router.get("/openclaw/config", dependencies=[Depends(auth_dep)])
+    def get_openclaw_config():
+        return service.openclaw_config().public_dict()
+
+    @router.put("/openclaw/config", dependencies=[Depends(auth_dep)])
+    def put_openclaw_config(payload: dict):
+        current = service.openclaw_config()
+        data = current.model_dump()
+        supplied_token = payload.pop("token", None)
+        clear_token = bool(payload.pop("clear_token", False))
+        endpoint_changed = any(
+            key in payload
+            and str(payload[key] or "").strip().rstrip("/") != getattr(current, key)
+            for key in ("webhook_url", "agent_url")
+        )
+        data.update({k: v for k, v in payload.items() if v is not None})
+        if clear_token:
+            data["token"] = ""
+        elif isinstance(supplied_token, str) and supplied_token.strip():
+            data["token"] = supplied_token.strip()
+        elif endpoint_changed:
+            # Never send a previously saved bearer token to a newly supplied host.
+            data["token"] = ""
+        try:
+            config = OpenClawConfig.model_validate(data)
+        except ValidationError as exc:
+            detail = "; ".join(
+                str(error.get("msg", "Invalid OpenClaw setting")).removeprefix("Value error, ")
+                for error in exc.errors(include_input=False)
+            )
+            raise HTTPException(400, detail) from exc
+        return service.save_openclaw_config(config).public_dict()
+
+    @router.post("/openclaw/test", dependencies=[Depends(auth_dep)])
+    async def test_openclaw_connection():
+        result = await service.test_openclaw_connection()
+        if not result["ok"]:
+            raise HTTPException(502, str(result["message"]))
+        return result
 
     @router.get("/wiki/{slug}/progress", dependencies=[Depends(auth_dep)])
     def read_progress(slug: str):

@@ -5,29 +5,37 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from adhd_hub.config import Settings
-
 log = logging.getLogger(__name__)
 
 
 class OpenClawBridge:
     """Optional outbound bridge to OpenClaw webhooks."""
 
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
+    def __init__(
+        self,
+        *,
+        webhook_url: str = "",
+        agent_url: str = "",
+        token: str = "",
+        alerts_enabled: bool = False,
+    ) -> None:
+        self.webhook_url = webhook_url
+        self.agent_url = agent_url
+        self.token = token
+        self.alerts_enabled = alerts_enabled
 
     @property
     def enabled(self) -> bool:
-        return bool(self.settings.openclaw_webhook_url or self.settings.openclaw_agent_url)
+        return self.alerts_enabled and bool(self.webhook_url or self.agent_url)
 
     def _headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
-        if self.settings.openclaw_token:
-            headers["Authorization"] = f"Bearer {self.settings.openclaw_token}"
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
         return headers
 
     async def wake(self, text: str) -> bool:
-        url = self.settings.openclaw_webhook_url
+        url = self.webhook_url
         if not url:
             return False
         payload = {"text": text, "mode": "now"}
@@ -42,7 +50,7 @@ class OpenClawBridge:
             return False
 
     async def agent(self, prompt: str) -> bool:
-        url = self.settings.openclaw_agent_url
+        url = self.agent_url
         if not url:
             # Fall back to wake with the prompt text
             return await self.wake(prompt)
@@ -69,7 +77,7 @@ class OpenClawBridge:
             + "\n".join(f"- {line}" for line in lines)
             + "\n\nReply or open Cursor/Codex and call check_overlap / session_digest."
         )
-        if self.settings.openclaw_agent_url:
+        if self.agent_url:
             return await self.agent(
                 "Gently remind the user about these half-finished projects. "
                 "Keep it short and non-nagging. Suggest one next step each if obvious.\n\n"
@@ -86,6 +94,19 @@ class OpenClawBridge:
             f"Title: {title}\n\n{content}"
         )
         return await self.agent(prompt)
+
+    async def test_connection(self) -> dict[str, str | bool]:
+        target = "agent" if self.agent_url else "webhook"
+        if not (self.agent_url or self.webhook_url):
+            return {"ok": False, "target": target, "message": "Add an endpoint first."}
+        sent = await self.agent(
+            "ADHD Hub connection test. Reply only with a short confirmation; no action is needed."
+        )
+        return {
+            "ok": sent,
+            "target": target,
+            "message": "Test alert sent." if sent else "OpenClaw did not accept the test alert.",
+        }
 
 
 def parse_cron(expr: str) -> dict[str, str]:

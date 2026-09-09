@@ -3,8 +3,21 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
+
+
+def _validated_repo_url(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    cleaned = value.strip().rstrip("/")
+    parsed = urlsplit(cleaned)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("repository URL must be a complete http(s) URL")
+    if parsed.username or parsed.password:
+        raise ValueError("repository URL must not contain credentials")
+    return cleaned
 
 
 class ThreadStatus(StrEnum):
@@ -72,6 +85,7 @@ class Project(BaseModel):
     slug: str
     title: str
     description: str | None = None
+    repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
     default_energy: EnergyLevel = EnergyLevel.unknown
     # Optional per-project forge override (empty = use global forge config)
@@ -82,17 +96,28 @@ class Project(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_validator("repo_url")
+    @classmethod
+    def validate_repo_url(cls, value: str | None) -> str | None:
+        return _validated_repo_url(value)
+
 
 class ProjectUpsert(BaseModel):
     slug: str | None = None
     title: str
     description: str | None = None
+    repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
     default_energy: EnergyLevel = EnergyLevel.unknown
     forge_owner: str | None = None
     forge_repo: str | None = None
     forge_wiki_path: str | None = None
     forge_project_id: str | None = None
+
+    @field_validator("repo_url")
+    @classmethod
+    def validate_repo_url(cls, value: str | None) -> str | None:
+        return _validated_repo_url(value)
 
 
 class ProjectRename(BaseModel):

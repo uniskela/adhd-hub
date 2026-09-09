@@ -12,6 +12,7 @@ version = "0.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "markdown-it-py" },
@@ -33,6 +34,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "apscheduler", specifier = ">=3.11.3" },
+    { name = "cryptography", specifier = ">=50.0.1" },
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "markdown-it-py", specifier = ">=4.0.0" },

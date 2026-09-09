@@ -101,7 +101,7 @@ summary::marker { color: var(--muted); }
 .stats { display: flex; gap: 1.2rem; flex-shrink: 0; }
 .stat { color: var(--muted); font-size: .7rem; text-align: center; }
 .stat strong { display: block; color: var(--ink); font-size: 1.6rem; font-weight: 650; }
-.stage > section, .capture-panel, .project-edit { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; }
+.stage > section, .capture-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; }
 .stage > .focus { border-top: 3px solid var(--accent); }
 .focus-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 #focus-title { font-size: 1rem; font-weight: 600; margin: 0; }
@@ -263,6 +263,11 @@ body.focus-mode #btn-focus-mode { background: var(--accent-soft); border-color: 
 .work-content { min-width: 0; }
 .work-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .7rem; }
 .work-heading h2 { margin: 0; }
+.project-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; min-width: 0; }
+.edit-project-button { width: 36px; height: 36px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--line); background: transparent; color: var(--muted); }
+.edit-project-button:hover { color: var(--accent); background: var(--accent-soft); }
+.edit-project-button svg { fill: currentColor; }
+#project-dialog { width: min(680px, calc(100vw - 2rem)); }
 .progress-view { max-width: 780px; margin: 2rem auto; }
 .progress-numbers { margin-bottom: 1rem; }
 .progress-numbers .stats { padding: .8rem 0; }

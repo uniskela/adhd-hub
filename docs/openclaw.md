@@ -14,7 +14,16 @@ This installs the skills in OpenClaw's global skills directory. If you are devel
 
 ## 2. Connect the Hub to OpenClaw
 
-Enable hooks on the OpenClaw gateway and create a bearer token there. On the **Hub server**, save the hook details in its untracked `.env` file:
+Enable hooks on the OpenClaw gateway and create a bearer token there. In ADHD Hub, open **Settings → Connections → OpenClaw connection & gentle alerts**.
+
+1. Add the private webhook URL, or the optional agent URL for a richer message.
+2. Enter the OpenClaw hook bearer token.
+3. Choose whether alerts are enabled.
+4. Save, then choose **Save & send test**.
+
+The token is encrypted using the Hub's server access token before it is stored in `openclaw.json`. The API returns only whether a token is configured, never the token or a fragment of it. If you rotate `ADHD_HUB_AUTH_TOKEN`, enter the OpenClaw token again.
+
+For initial provisioning, you can still use an untracked `.env` file on the **Hub server**:
 
 ```env
 ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
@@ -23,13 +32,13 @@ ADHD_HUB_OPENCLAW_TOKEN=<OpenClaw hook bearer token>
 # ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent
 ```
 
-Restart the Hub after changing `.env`. Keep the gateway on your LAN or Tailscale. The webhook token belongs only in the Hub server environment — never in an MCP client, skill file, or committed configuration.
+Restart the Hub after changing `.env`; changes saved in the web UI apply immediately. Keep the gateway on your LAN or Tailscale. The webhook token belongs only in the Hub server environment or encrypted Hub configuration — never in an MCP client, skill file, or committed configuration.
 
 ## 3. Choose the alert rhythm
 
 The Hub checks for stale open threads every day at 09:00 by default. It sends nothing when there is no stale work, and it uses the Hub's reminder cooldown to avoid repeats.
 
-To choose a different five-field cron schedule, set this on the Hub server and restart it:
+Choose the schedule, stale age, repeat cooldown, and maximum items in the Connections panel. Changes take effect immediately. For an environment-provisioned schedule, set this on the Hub server and restart it:
 
 ```env
 ADHD_HUB_STALE_NUDGE_CRON=0 18 * * 1-5
@@ -39,7 +48,7 @@ That example sends one weekday check-in at 18:00. Keep the message useful: one s
 
 ## 4. Test once
 
-Create or keep one deliberately stale open thread, then trigger the check with the Hub access token from a trusted machine:
+Use **Save & send test** for a harmless connection check. To exercise the complete stale-work path, create or keep one deliberately stale open thread, then trigger the check with the Hub access token from a trusted machine:
 
 ```bash
 curl -sS -X POST \
@@ -60,3 +69,7 @@ curl -sS \
 ```
 
 Treat the token as a secret and limit network access to trusted devices.
+
+## Why there is no OAuth callback
+
+The supported OpenClaw hook interface uses bearer authentication and does not provide an OAuth authorization contract for ADHD Hub to complete. The Connections panel therefore uses the same private, token-authenticated hook flow rather than presenting a callback that cannot be verified.

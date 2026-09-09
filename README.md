@@ -96,7 +96,9 @@ Install the Hub skills for OpenClaw:
 npx skills add uniskela/adhd-hub -g -a openclaw
 ```
 
-Enable private hooks on the OpenClaw gateway, then set these values on the **Hub server** in `.env` / config:
+Enable private hooks on the OpenClaw gateway. Then open **Hub Settings → Connections → OpenClaw connection & gentle alerts** to save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save & send test** to verify the route.
+
+The bearer token is encrypted before it is written to the Hub data directory and is never returned to the browser. Environment variables remain available for initial provisioning:
 
 ```env
 ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
@@ -105,7 +107,7 @@ ADHD_HUB_OPENCLAW_TOKEN=<OpenClaw hook bearer token>
 # ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent
 ```
 
-Restart the Hub. Its daily stale-work job sends OpenClaw one concise, non-nagging reminder; set `ADHD_HUB_STALE_NUDGE_CRON` to change the time. Keep the hook URL and token out of assistant configs and repositories, and keep both services on your LAN or Tailscale. See [the OpenClaw guide](docs/openclaw.md) for setup and a safe test.
+Environment changes require a restart; web UI changes apply immediately. The stale-work job sends OpenClaw one concise, non-nagging reminder and stays quiet when there is no stale work. Keep both services on your LAN or Tailscale. See [the OpenClaw guide](docs/openclaw.md) for details.
 
 ## Optional transcript indexer
 
