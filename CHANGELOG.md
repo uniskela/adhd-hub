@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/uniskela/adhd-hub/compare/v0.3.2...v0.3.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* **auth:** trust configured public origin ([#8](https://github.com/uniskela/adhd-hub/issues/8)) ([e3ade36](https://github.com/uniskela/adhd-hub/commit/e3ade36efc51524f9ffecfcc4d177461acb13d45))
+
 ## [0.3.2](https://github.com/uniskela/adhd-hub/compare/v0.3.1...v0.3.2) (2026-09-09)
 
 

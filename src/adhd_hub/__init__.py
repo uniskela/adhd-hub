@@ -5,4 +5,4 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("adhd-hub")
 except PackageNotFoundError:  # pragma: no cover - editable / source tree
-    __version__ = "0.3.2"
+    __version__ = "0.3.3"
