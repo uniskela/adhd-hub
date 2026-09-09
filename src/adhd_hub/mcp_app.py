@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from adhd_hub import __version__
 from adhd_hub.models import (
@@ -12,6 +14,7 @@ from adhd_hub.models import (
     ProjectUpsert,
     ReminderCreate,
     ReminderKind,
+    ThreadStatus,
     ThreadUpsert,
 )
 from adhd_hub.service import HubService
@@ -27,29 +30,34 @@ def build_mcp(service: HubService) -> MCPServer:
             "Use this hub to avoid losing half-finished work. "
             "On session start call resolve_project (optional), session_digest, and check_overlap. "
             "When leaving work incomplete, call upsert_progress and/or upsert_thread with workspace_path. "
-            "When finished, call mark_done. Prefer project_slug from resolve_project."
+            "When finished, call mark_done with the returned thread_id. "
+            "upsert_progress already returns a thread_id; avoid creating a duplicate thread. "
+            "Prefer project_slug from resolve_project. Never save secrets or full transcripts."
         ),
     )
 
-    @mcp.tool()
-    def check_overlap(query: str, limit: int = 5) -> dict[str, Any]:
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def check_overlap(
+        query: Annotated[str, Field(min_length=2, max_length=2000)],
+        limit: Annotated[int, Field(ge=1, le=50)] = 5,
+    ) -> dict[str, Any]:
         """Find open threads that overlap with what you are about to work on."""
         result = service.check_overlap(query, limit=limit)
         return result.model_dump(mode="json")
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_open_threads(
-        energy: str | None = None,
+        energy: EnergyLevel | None = None,
         project_slug: str | None = None,
-        limit: int = 50,
+        limit: Annotated[int, Field(ge=1, le=500)] = 50,
     ) -> list[dict[str, Any]]:
         """List open (unfinished) threads in the hub."""
         e = EnergyLevel(energy) if energy else None
         threads = service.list_open_threads(energy=e, project_slug=project_slug, limit=limit)
         return [t.model_dump(mode="json") for t in threads]
 
-    @mcp.tool()
-    def list_projects(limit: int = 100) -> list[dict[str, Any]]:
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def list_projects(limit: Annotated[int, Field(ge=1, le=500)] = 100) -> list[dict[str, Any]]:
         """List registered projects with open/done counts."""
         return service.list_projects(limit=limit)
 
@@ -81,7 +89,7 @@ def build_mcp(service: HubService) -> MCPServer:
         forge_repo: str | None = None,
         forge_wiki_path: str | None = None,
         forge_project_id: str | None = None,
-        energy: str = "unknown",
+        energy: EnergyLevel = EnergyLevel.unknown,
     ) -> dict[str, Any]:
         """Create or update a project registry entry (paths + optional forge target)."""
         paths = [workspace_path] if workspace_path else []
@@ -140,7 +148,7 @@ def build_mcp(service: HubService) -> MCPServer:
         except KeyError:
             return {"error": "not_found"}
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_pending_actions() -> list[dict[str, Any]]:
         """List project delete/rename requests waiting for /ui confirmation."""
         return service.list_pending_actions()
@@ -151,15 +159,13 @@ def build_mcp(service: HubService) -> MCPServer:
         project_slug: str | None = None,
         workspace_path: str | None = None,
         source_tool: str | None = None,
-        energy: str = "unknown",
+        energy: EnergyLevel = EnergyLevel.unknown,
         chat_ref: str | None = None,
         transcript_ref: str | None = None,
-        status: str = "open",
+        status: ThreadStatus = ThreadStatus.open,
         thread_id: str | None = None,
     ) -> dict[str, Any]:
         """Create or update an unfinished-work thread."""
-        from adhd_hub.models import ThreadStatus
-
         thread = service.upsert_thread(
             ThreadUpsert(
                 id=thread_id,
@@ -183,12 +189,14 @@ def build_mcp(service: HubService) -> MCPServer:
         title: str | None = None,
         workspace_path: str | None = None,
         source_tool: str | None = None,
+        create_thread_if_missing: bool = True,
     ) -> dict[str, Any]:
         """Append to a project PROGRESS.md wiki page (and keep/create an open thread)."""
         return service.upsert_progress(
             ProgressUpsert(
                 project_slug=project_slug,
                 content=content,
+                create_thread_if_missing=create_thread_if_missing,
                 title=title,
                 workspace_path=workspace_path,
                 source_tool=source_tool,
@@ -206,7 +214,7 @@ def build_mcp(service: HubService) -> MCPServer:
     @mcp.tool()
     def set_reminder(
         message: str,
-        kind: str = "once",
+        kind: ReminderKind = ReminderKind.once,
         due_at_iso: str | None = None,
     ) -> dict[str, Any]:
         """Set a reminder (once | session | daily | random). due_at_iso for once."""
@@ -220,13 +228,11 @@ def build_mcp(service: HubService) -> MCPServer:
     def session_digest(
         workspace_path: str | None = None,
         query: str | None = None,
-        energy: str | None = None,
+        energy: EnergyLevel | None = None,
     ) -> dict[str, Any]:
         """Session-start digest: stale/open threads + due reminders + wiki snippet."""
         e = EnergyLevel(energy) if energy else None
-        digest = service.session_digest(
-            workspace_path=workspace_path, query=query, energy=e
-        )
+        digest = service.session_digest(workspace_path=workspace_path, query=query, energy=e)
         return digest.model_dump(mode="json")
 
     return mcp

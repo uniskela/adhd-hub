@@ -3,7 +3,7 @@
     "adhd-hub": {
       "url": "http://127.0.0.1:8787/mcp",
       "headers": {
-        "Authorization": "Bearer change-me"
+        "Authorization": "Bearer ${env:ADHD_HUB_AUTH_TOKEN}"
       }
     }
   }

@@ -4,39 +4,81 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ADHD Progress Hub</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;550;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet" />
+  <meta name="color-scheme" content="light dark" />
+  <script>
+    let theme = "system";
+    try { theme = localStorage.getItem("adhd_hub_theme") || "system"; } catch (_) {}
+    if (!["light", "dark", "system"].includes(theme)) theme = "system";
+    document.documentElement.dataset.theme = theme === "system"
+      ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme;
+  </script>
+  <link rel="icon" href="/ui/brand/icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/ui/app.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="appearance-bar">
+    <label for="theme-select">Appearance</label>
+    <select id="theme-select" aria-label="Color theme">
+      <option value="system">◐ System</option><option value="light">☀ Light</option><option value="dark">☾ Dark</option>
+    </select>
+  </div>
   <div id="login-gate" class="login-gate" hidden>
+    <div class="login-intro">
+      <img class="brand-mark" src="/ui/brand/icon.svg" alt="" width="64" height="64" />
+      <p class="eyebrow">Your place to pick things up</p>
+      <h1>A fresh start.<br />Every time.</h1>
+      <p>Your projects, your pace. Keep a little context for the next time you’re ready.</p>
+      <div class="login-promise"><span aria-hidden="true">✓</span> Small steps count. Breaks belong here, too.</div>
+    </div>
     <form id="login-form" class="login-card" autocomplete="on">
-      <p class="brand">ADHD Progress Hub</p>
-      <p class="tagline">Sign in with the hub bearer token from your <code>.env</code> (<code>ADHD_HUB_AUTH_TOKEN</code>).</p>
-      <label>Hub token
-        <input id="login-token" name="password" type="password" autocomplete="current-password" required />
-      </label>
+      <p class="eyebrow">ADHD Progress Hub</p>
+      <h2>Welcome back</h2>
+      <p class="tagline" id="login-description">Sign in to your space.</p>
+      <input type="text" name="username" value="dashboard" autocomplete="username" hidden />
+      <label for="login-token" id="login-label">Password</label>
+      <div class="password-input">
+        <input id="login-token" name="password" type="password" autocomplete="current-password" required maxlength="4096" />
+        <button id="btn-show-password" type="button" class="ghost" aria-label="Show password" aria-pressed="false">Show</button>
+      </div>
       <p id="login-error" class="msg error" role="alert"></p>
       <button type="submit" class="primary">Sign in</button>
+      <button type="button" class="text-button" id="btn-login-method">Use access token instead</button>
+      <details class="login-help"><summary>Need help signing in?</summary>
+        <p class="hint">On your first visit, use the server’s <code>ADHD_HUB_AUTH_TOKEN</code>. You can create a separate dashboard password in Settings. The same token lets you reset a forgotten password.</p>
+      </details>
+      <p class="session-note">A private, 12-hour session on this browser.</p>
     </form>
   </div>
 
   <div class="shell" id="app-shell" hidden>
     <header class="top">
-      <div>
-        <p class="brand">ADHD Progress Hub</p>
-        <p class="tagline">Pick a project. Do the next thing. Come back later.</p>
-      </div>
+      <p class="brand"><img class="brand-mark small" src="/ui/brand/icon.svg" alt="" width="34" height="34" /> Progress Hub</p>
+      <nav class="view-nav" aria-label="Main views">
+        <button type="button" data-screen="now" aria-current="page">Now</button>
+        <button type="button" data-screen="work">My work</button>
+        <button type="button" data-screen="progress">Progress</button>
+      </nav>
       <div class="top-actions">
-        <div class="stats" id="stats"></div>
-        <button type="button" class="ghost" id="btn-settings" aria-expanded="false">Settings</button>
-        <button type="button" class="ghost" id="btn-refresh">Refresh</button>
-        <button type="button" class="ghost" id="btn-logout">Log out</button>
+        <button type="button" class="ghost" id="btn-capture" aria-haspopup="dialog">Save a thought</button>
+        <button type="button" class="ghost" id="btn-settings" aria-haspopup="dialog">Settings</button>
       </div>
     </header>
-
-    <div class="layout">
+    <main id="main-content" tabindex="-1">
+      <p id="msg" class="msg" role="status"></p>
+      <section id="now-view" class="view now-view" aria-label="Now">
+        <div class="view-heading"><p class="eyebrow">NOW</p><h1>One thing at a time.</h1></div>
+        <section class="focus" id="focus-panel" aria-labelledby="focus-title">
+          <p class="eyebrow" id="focus-eyebrow">YOUR CHOICE</p>
+          <h2 id="focus-title">What would you like to work on?</h2>
+          <div id="next-card" class="next-card empty"></div>
+        </section>
+      </section>
+      <section id="work-view" class="view" aria-label="My work" hidden>
+        <div class="view-heading"><h1>My work</h1><p>Choose a task to bring into Now.</p></div>
+        <section id="pending-banner" class="pending-banner" hidden></section>
+        <section id="import-banner" class="pending-banner import-banner" hidden></section>
+        <div class="layout">
       <aside class="rail" aria-label="Projects">
         <div class="rail-head">
           <h2>Projects</h2>
@@ -44,39 +86,22 @@
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
         <div id="project-list"></div>
-      </aside>
-
-      <main class="stage">
-        <p id="msg" class="msg" role="status"></p>
-        <section id="pending-banner" class="pending-banner" hidden></section>
-        <section id="import-banner" class="pending-banner import-banner" hidden></section>
-
-        <section class="focus" id="focus-panel">
-          <div class="focus-head">
-            <div>
-              <p class="eyebrow" id="focus-eyebrow">Next up</p>
-              <h1 id="focus-title">Loading…</h1>
-            </div>
-            <div class="focus-links" id="focus-links"></div>
-          </div>
-          <div id="next-card" class="next-card empty">Select a project to focus.</div>
-          <div class="chart-wrap" id="chart-wrap" hidden>
-            <p class="eyebrow">Last 14 days</p>
-            <div class="chart" id="chart"></div>
-          </div>
-        </section>
-
+      </aside>          <div class="work-content">
+            <div class="work-heading"><h2 id="work-title">All projects</h2><div id="focus-links" class="focus-links"></div></div>
         <section class="threads-panel">
-          <div class="tabs" role="tablist">
-            <button type="button" class="tab active" data-view="open">Open</button>
-            <button type="button" class="tab" data-view="stale">Stale</button>
-            <button type="button" class="tab" data-view="done">Finished</button>
+          <div class="tabs" role="group" aria-label="Thread status">
+            <button type="button" class="tab active" data-view="open" aria-pressed="true">Open</button>
+            <button type="button" class="tab" data-view="stale" aria-pressed="false">Pick up later</button>
+            <button type="button" class="tab" data-view="done" aria-pressed="false">Finished</button>
           </div>
+          <label for="thread-search">Search loaded threads</label>
+          <input id="thread-search" type="search" placeholder="Search work, projects, or progress…" />
+          <p id="thread-count" class="hint" role="status"></p>
           <div id="threads"></div>
         </section>
 
-        <section class="project-edit" id="project-edit" hidden>
-          <h2 id="edit-heading">Edit project</h2>
+        <details class="project-edit" id="project-edit" hidden>
+          <summary id="edit-heading">Project settings</summary>
           <div class="form-grid">
             <label>Title <input id="p_title" /></label>
             <label>Slug <input id="p_slug" placeholder="my-project" /></label>
@@ -97,35 +122,72 @@
             <button type="button" class="ghost" id="btn-rename-project">Rename slug…</button>
             <button type="button" class="danger" id="btn-delete-project">Delete…</button>
           </div>
+        </details>
+          </div>
+        </div>
+      </section>
+      <section id="progress-view" class="view progress-view" aria-label="Progress" hidden>
+        <div class="view-heading"><h1>Progress, at your pace.</h1><p>Your finished work stays here when you take a break.</p></div>
+        <details class="progress-numbers"><summary>Show my activity</summary><div class="stats" id="stats"></div>
+          <details class="activity-details"><summary>Your last 14 days</summary><div class="chart-wrap" id="chart-wrap" hidden>
+            <p class="eyebrow">Last 14 days · gold: added · teal: finished</p>
+            <div class="chart" id="chart" role="img" aria-label="Activity over the last 14 days"></div>
+          </div></details>        </details>
+        <section id="rewards-panel" aria-labelledby="rewards-title" hidden>
+          <div class="rank-hero">
+            <div class="rank-copy"><p class="eyebrow">YOUR JOURNEY</p><h2 id="rank-name">Seedling</h2>
+              <p id="reward-level" class="rank-level"></p><p id="rank-next" class="hint"></p>
+              <progress id="rank-progress" aria-label="Progress to next rank" max="5" value="0"></progress>
+            </div>
+            <img class="rank-emblem" src="/ui/brand/icon.svg" alt="" width="80" height="80" />
+          </div>
+          <div class="reward-daily">
+            <div><h3 id="rewards-title">Small steps add up.</h3><p id="rewards-caption" class="hint"></p></div>
+            <div class="reward-goal"><div class="goal-heading"><span id="goal-label">Today’s gentle goal</span><strong id="goal-count">0 / 1</strong></div><progress id="daily-progress" max="1" value="0" aria-labelledby="goal-label"></progress></div>
+          </div>
+          <section class="badges-section" aria-labelledby="badges-title"><div class="section-heading"><h3 id="badges-title">Little milestones</h3><span id="badge-count" class="hint"></span></div><ul id="badges" class="badge-grid"></ul></section>
+          <div class="share-row"><div><h3>A little progress worth sharing.</h3><p class="hint">Make a card with your rank and milestones.</p></div><button type="button" class="primary" id="btn-share-progress">Share progress</button></div>
+          <p class="hint reward-scope">Ranks reflect finished work in this hub. Breaks never reset them. Reopening or removing work updates your totals.</p>
         </section>
-      </main>
-    </div>
+        <p id="rewards-off" class="hint">Rewards are optional. You can enable them in Settings.</p>
+      </section>
+    </main>
   </div>
 
-  <dialog id="settings-dialog">
-    <form method="dialog" class="dialog-card">
-      <h2>Settings</h2>
-      <label>Hub bearer token
-        <input id="token" type="password" autocomplete="off" />
-      </label>
-      <label>Timezone
-        <select id="timezone"></select>
-      </label>
-      <div class="actions">
-        <button type="submit" class="primary" value="ok" id="btn-save-settings">Save</button>
-        <button type="submit" class="ghost" value="cancel">Close</button>
-      </div>
-      <hr />
-      <h3>Backup / migrate</h3>
-      <p class="hint">Export SQLite + wiki + forge prefs as a zip (for Proxmox LXC moves). Import replaces hub data files.</p>
-      <div class="actions">
-        <button type="button" class="ghost" id="btn-export">Download backup</button>
-        <label class="ghost file-btn">Restore backup
-          <input type="file" id="import-file" accept=".zip,application/zip" hidden />
-        </label>
-      </div>
-      <hr />
-      <h3>Forge mirror</h3>
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <div class="settings-header"><div><p class="eyebrow">MAKE YOURSELF AT HOME</p><h2 id="settings-title">Settings</h2></div><button type="button" class="icon-button" id="btn-close-settings" aria-label="Close settings">×</button></div>
+    <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+      <button type="button" role="tab" id="tab-preferences" aria-controls="settings-preferences" aria-selected="true" data-settings-tab="preferences">Preferences</button>
+      <button type="button" role="tab" id="tab-account" aria-controls="settings-account" aria-selected="false" tabindex="-1" data-settings-tab="account">Account</button>
+      <button type="button" role="tab" id="tab-connections" aria-controls="settings-connections" aria-selected="false" tabindex="-1" data-settings-tab="connections">Connections</button>
+      <button type="button" role="tab" id="tab-data" aria-controls="settings-data" aria-selected="false" tabindex="-1" data-settings-tab="data">Data</button>
+    </div>
+    <p id="settings-msg" class="msg" role="status"></p>
+    <div class="settings-content">
+      <section id="settings-preferences" role="tabpanel" aria-labelledby="tab-preferences" tabindex="0">
+        <h3>Your space, your pace.</h3><p class="hint">Appearance and rewards save automatically in this browser.</p>
+        <label for="settings-theme">Appearance</label><select id="settings-theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+        <div class="preference-row"><div><strong>Gentle rewards</strong><p class="hint">Ranks, badges, and shareable wins. No streaks to lose.</p></div><label class="switch"><input type="checkbox" id="rewards-enabled" /> <span>Enable rewards</span></label></div>
+        <label>Daily goal <select id="daily-goal"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select></label>
+        <div class="settings-divider"><label for="timezone">Hub timezone</label><select id="timezone"></select><p class="hint">Used for daily activity across this hub.</p><button type="button" class="primary" id="btn-save-settings">Save</button></div>
+      </section>
+      <section id="settings-account" role="tabpanel" aria-labelledby="tab-account" tabindex="0" hidden>
+        <h3>Sign-in &amp; security</h3>
+        <section id="password-banner" class="setup-banner" hidden><div><strong>Make your next sign-in simpler</strong><p>Create a dashboard password. Keep your access token for your assistants.</p></div><button type="button" class="primary" id="btn-setup-password">Create password</button></section>
+        <p class="hint" id="password-status"></p><button type="button" class="ghost" id="btn-manage-password">Create or change password</button>
+        <p class="hint">Changing your password signs out other browsers. Your MCP access token keeps working.</p>
+        <div class="settings-divider"><h3>This session</h3><p class="hint">Sign out on a shared device when you’re finished.</p><button type="button" class="ghost" id="btn-logout">Log out</button></div>
+      </section>
+      <section id="settings-connections" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
+        <h3>Connect your assistant</h3>
+      <p class="hint">Add this Streamable HTTP server in Cursor, Codex, or Claude Code. Set the client’s bearer token from <code>ADHD_HUB_AUTH_TOKEN</code>.</p>
+      <label>MCP server URL <input id="mcp-url" readonly /></label>
+      <button type="button" class="ghost" id="btn-copy-mcp">Copy URL</button>
+      <p class="hint">Install the bundled skills from your local checkout:</p>
+      <pre class="snippet">npx skills add ./skills -g</pre>
+      <p class="hint">Restart your assistant and ask it to call <code>session_digest</code> to verify the connection.</p>
+
+        <details class="settings-section"><summary>Forge mirror <span class="hint">· Optional</span></summary>
       <p class="hint">Primary memory repos sync at repo root: <code>projects/&lt;slug&gt;/PROGRESS.md</code>. After save/sync, missing remote projects can be imported.</p>
       <div class="form-grid">
         <label>Provider
@@ -154,10 +216,37 @@
         <button type="button" class="ghost" id="btn-sync-forge">Sync now</button>
         <button type="button" class="ghost" id="btn-scan-forge">Scan for import</button>
       </div>
-    </form>
+
+        </details>
+      </section>
+      <section id="settings-data" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden>
+        <h3>Keep your work with you.</h3><p class="hint">Download a backup of your hub’s records, notes, and settings.</p><button type="button" class="primary" id="btn-export">Download backup</button>
+        <details class="settings-section"><summary>Restore a backup</summary><p class="hint">Restoring replaces the hub’s current data. Download a backup first if you want to keep it.</p><label class="ghost file-btn">Choose backup file<input type="file" id="import-file" accept=".zip,application/zip" hidden /></label></details>
+        <div class="settings-divider"><h3>Refresh your hub</h3><p class="hint">Load the latest changes from your assistants.</p><button type="button" class="ghost" id="btn-refresh">Refresh</button></div>
+      </section>
+    </div>
+    <footer class="settings-footer">
+      <a id="repo-link" href="https://github.com/uniskela/adhd-hub" target="_blank" rel="noopener noreferrer" aria-label="Progress Hub on GitHub (opens in a new tab)">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 .75a11.25 11.25 0 0 0-3.56 21.92c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.64 1.22 3.28.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.28-.5-1.43.11-2.98 0 0 .95-.3 3.09 1.16a10.75 10.75 0 0 1 5.62 0c2.14-1.45 3.08-1.16 3.08-1.16.62 1.55.24 2.7.12 2.98.72.79 1.15 1.79 1.15 3.02 0 4.32-2.63 5.27-5.14 5.55.4.35.76 1.03.76 2.08v3.11c0 .3.2.65.78.54A11.25 11.25 0 0 0 12 .75Z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <span id="app-version" class="hint" aria-live="polite">Version unavailable</span>
+    </footer>
   </dialog>
 
-  <dialog id="confirm-dialog">
+  <dialog id="share-dialog" aria-labelledby="share-title">
+    <div class="dialog-card">
+      <div class="section-heading"><h2 id="share-title">Share a little progress.</h2><button type="button" class="icon-button" id="btn-close-share" aria-label="Close share preview">×</button></div>
+      <p class="hint">Preview exactly what you’ll share: hub totals, rank, earned badges, and the public project repository URL. No task names, project names, or account details.</p>
+      <canvas id="share-card" width="1200" height="720" role="img" aria-label="Progress card preview"></canvas>
+      <label for="share-text">Text version</label><textarea id="share-text" readonly></textarea>
+      <p id="share-msg" class="msg" role="status"></p>
+      <div class="actions"><button type="button" class="primary" id="btn-download-card">Download PNG</button><button type="button" class="ghost" id="btn-copy-progress">Copy text</button><button type="button" class="ghost" id="btn-native-share" hidden>Share…</button></div>
+      <p class="hint">Nothing is published automatically. Choose where to share your download or text.</p>
+    </div>
+  </dialog>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
     <form method="dialog" class="dialog-card">
       <h2 id="confirm-title">Confirm</h2>
       <p id="confirm-body" class="hint"></p>
@@ -169,6 +258,40 @@
     </form>
   </dialog>
 
+  <dialog id="password-dialog" aria-labelledby="password-title">
+    <form id="password-form" class="dialog-card">
+      <p class="eyebrow">YOUR SPACE, YOUR PASSWORD</p><h2 id="password-title">Set a dashboard password</h2>
+      <p class="hint">Use at least 12 characters. A few memorable words work well.</p>
+      <input type="text" name="username" value="dashboard" autocomplete="username" hidden />
+      <label>Verify with <select id="password-method"><option value="password">Current password</option><option value="token">Recovery access token</option></select></label>
+      <label>Current password or access token <input id="password-current" type="password" autocomplete="current-password" required maxlength="4096" /></label>
+      <label>New password <input id="password-new" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" /></label>
+      <label>Confirm new password <input id="password-confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" /></label>
+      <p class="msg error" id="password-error" role="alert"></p>
+      <div class="actions"><button type="submit" class="primary">Save password</button><button type="button" class="ghost" id="btn-cancel-password">Cancel</button></div>
+    </form>
+  </dialog>
+  <dialog id="capture-dialog" aria-labelledby="capture-title">
+    <form id="quick-capture" class="dialog-card">
+      <h2 id="capture-title">Save a thought</h2>
+      <label for="capture-summary">What do you want to remember?</label>
+      <textarea id="capture-summary" placeholder="An idea, a task, something to come back to…" maxlength="500" required></textarea>
+      <p class="hint" id="capture-project">Saved to your inbox. You can sort it out later.</p>
+      <p id="capture-error" class="msg error" role="alert"></p>
+      <div class="actions"><button type="submit" class="primary">Save thought</button><button type="button" class="ghost" id="btn-cancel-capture">Cancel</button></div>
+    </form>
+  </dialog>
+  <dialog id="pause-dialog" aria-labelledby="pause-title">
+    <form id="pause-form" class="dialog-card">
+      <h2 id="pause-title">Leave yourself a next step.</h2>
+      <p id="pause-task" class="hint"></p>
+      <label for="pause-step">What’s the next tiny step?</label>
+      <textarea id="pause-step" placeholder="Open the draft and write the first sentence…" maxlength="2000" required></textarea>
+      <p id="pause-error" class="msg error" role="alert"></p>
+      <div class="actions"><button type="submit" class="primary">Save &amp; pause</button><button type="button" class="ghost" id="btn-cancel-pause">Keep working</button></div>
+    </form>
+  </dialog>
+  <div id="celebration" class="celebration" role="status" hidden></div>
   <script src="/ui/app.js"></script>
 </body>
 </html>

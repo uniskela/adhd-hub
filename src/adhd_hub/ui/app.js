@@ -1,18 +1,54 @@
 (() => {
-  const tokenKey = "adhd_hub_token";
+  // Some browsers deny storage access. Keep the app usable for this visit.
+  const preferenceCache = new Map();
+  const preferences = {
+    getItem(key) {
+      if (preferenceCache.has(key)) return preferenceCache.get(key);
+      try { return localStorage.getItem(key); } catch (_) { return null; }
+    },
+    setItem(key, value) {
+      preferenceCache.set(key, String(value));
+      try { localStorage.setItem(key, value); } catch (_) { /* In-memory fallback. */ }
+    },
+    removeItem(key) {
+      preferenceCache.set(key, null);
+      try { localStorage.removeItem(key); } catch (_) { /* Storage is unavailable. */ }
+    },
+  };
+  // Remove credentials persisted by older dashboard versions.
+  preferences.removeItem("adhd_hub_token");
+  let authStatus = { password_configured: false, development_mode: false };
+  let loginMode = "token";
+  let celebrationTimeout;
+  const completing = new Set();
+  let threadsCache = [];
+  let threadsRequest = 0;
+  let projectRequest = 0;
   const tzKey = "adhd_hub_timezone";
   let currentView = "open";
   let projectFilter = null;
   let overviewCache = null;
   let detailCache = null;
+  let activeScreen = "now";
+  let chosenId = preferences.getItem("adhd_hub_chosen_thread");
+  let chosenThread = null;
+  let focusState = preferences.getItem("adhd_hub_focus_state") || "ready";
+  let focusRequest = 0;
+  let pauseTarget = null;
+  let nowMessage = "";
+  let shareFile = null;
+  let shareVersion = 0;
   let currentTz =
-    localStorage.getItem(tzKey) ||
+    preferences.getItem(tzKey) ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
     "UTC";
 
   const $ = (id) => document.getElementById(id);
+  const repoUrl = $("repo-link").href;
+  const repoDisplayUrl = repoUrl.replace(/^https:\/\//, "");
   const setMsg = (t) => {
     $("msg").textContent = t || "";
+    $("settings-msg").textContent = t || "";
   };
   const escapeHtml = (s) =>
     String(s ?? "")
@@ -21,8 +57,18 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;");
 
-  function token() {
-    return localStorage.getItem(tokenKey) || $("token").value || "";
+  async function copyReference(id) {
+    try {
+      await navigator.clipboard.writeText(id);
+      setMsg("Reference copied. You can paste it into your assistant.");
+    } catch (_) { setMsg("Clipboard unavailable. Thread reference: " + id); }
+  }
+
+  function safeLink(value) {
+    try {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) ? escapeHtml(url.href) : "#";
+    } catch (_) { return "#"; }
   }
 
   function browserTz() {
@@ -74,18 +120,23 @@
 
   async function api(path, opts = {}) {
     const headers = Object.assign(
-      { "Content-Type": "application/json" },
+      { "Content-Type": "application/json", "X-Hub-Request": "1" },
       opts.headers || {}
     );
-    const t = token();
-    if (t) headers.Authorization = "Bearer " + t;
     const res = await fetch("/api" + path, Object.assign({}, opts, { headers }));
-    if (res.status === 401) {
-      const err = new Error("Unauthorized");
-      err.status = 401;
+    if (!res.ok) {
+      let message = "Something went wrong. Please try again.";
+      try {
+        const body = await res.json();
+        message = typeof body.detail === "string" ? body.detail : "Please check the fields and try again.";
+      } catch (_) { /* The server may return a non-JSON gateway error. */ }
+      if (res.status === 401 && !path.startsWith("/auth/")) {
+        showLogin("Your session ended. Sign in to continue.");
+      }
+      const err = new Error(message);
+      err.status = res.status;
       throw err;
     }
-    if (!res.ok) throw new Error(await res.text());
     if (res.status === 204) return null;
     const ct = res.headers.get("content-type") || "";
     if (ct.includes("application/json")) return res.json();
@@ -93,17 +144,25 @@
   }
 
   function showLogin(message) {
+    ++projectRequest;
+    ++threadsRequest;
+    ++focusRequest;
+    clearTimeout(celebrationTimeout);
+    $("celebration").hidden = true;
+    document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
     $("app-shell").hidden = true;
     $("login-gate").hidden = false;
     $("login-error").textContent = message || "";
     $("login-token").value = "";
+    setLoginMode(authStatus.password_configured ? "password" : "token");
     $("login-token").focus();
   }
 
   function showApp() {
     $("login-gate").hidden = true;
     $("app-shell").hidden = false;
-    $("token").value = localStorage.getItem(tokenKey) || "";
+    $("password-banner").hidden = authStatus.password_configured || authStatus.development_mode;
+    showScreen("now");
   }
 
   async function tryAuth() {
@@ -113,37 +172,377 @@
       return true;
     } catch (e) {
       if (e.status === 401) {
-        localStorage.removeItem(tokenKey);
-        showLogin(
-          token()
-            ? "Invalid token. Check ADHD_HUB_AUTH_TOKEN in .env."
-            : "Enter the hub bearer token from ADHD_HUB_AUTH_TOKEN."
-        );
+        showLogin("");
         return false;
       }
-      // Network / other — still show app so user can see error
-      showApp();
-      setMsg(String(e.message || e));
-      return true;
+      showLogin("Could not reach your hub. Check your connection and try again.");
+      return false;
     }
   }
 
   async function handleLogin(ev) {
     ev.preventDefault();
-    const value = $("login-token").value.trim();
+    const value = loginMode === "token" ? $("login-token").value.trim() : $("login-token").value;
     if (!value) return;
-    localStorage.setItem(tokenKey, value);
-    $("token").value = value;
-    $("login-error").textContent = "Checking…";
-    const ok = await tryAuth();
-    if (ok) {
+    const button = $("login-form").querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = "Signing in…";
+    $("login-error").textContent = "";
+    try {
+      await api("/auth/login", { method: "POST", body: JSON.stringify({ [loginMode]: value }) });
+      $("login-token").value = "";
+      showApp();
       await loadAll();
+    } catch (error) {
+      if (error.status === 401) { $("login-error").textContent = error.message; $("login-token").focus(); }
+      else if (!$("app-shell").hidden) setMsg("Could not load dashboard: " + error.message);
+      else $("login-error").textContent = error.status ? error.message : "Could not sign in. Check your connection and try again.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Sign in";
     }
   }
 
-  function logout() {
-    localStorage.removeItem(tokenKey);
-    showLogin("");
+  async function logout() {
+    try {
+      await api("/auth/logout", { method: "POST" });
+      overviewCache = null;
+      detailCache = null;
+      threadsCache = [];
+      showLogin("Signed out.");
+    } catch (error) {
+      setMsg("Could not sign out. Please try again: " + error.message);
+    }
+  }
+
+  function setLoginMode(mode) {
+    loginMode = mode;
+    const password = mode === "password";
+    $("login-label").textContent = password ? "Password" : "Access token";
+    $("login-description").textContent = password ? "Your next step is right where you left it." :
+      "Use your hub token to get started. You can create a password once you’re in.";
+    $("btn-login-method").textContent = password ? "Use recovery access token" : "Use dashboard password";
+    $("btn-login-method").hidden = !authStatus.password_configured;
+    $("login-token").type = "password";
+    $("btn-show-password").textContent = "Show";
+    $("btn-show-password").setAttribute("aria-pressed", "false");
+    $("btn-show-password").setAttribute("aria-label", password ? "Show password" : "Show access token");
+  }
+
+  async function loadAuthStatus() {
+    authStatus = await api("/auth/status");
+    setLoginMode(authStatus.password_configured ? "password" : "token");
+    $("password-banner").hidden = authStatus.password_configured || authStatus.development_mode;
+    $("password-status").textContent = authStatus.development_mode
+      ? "Local development mode. Set a private ADHD_HUB_AUTH_TOKEN on your server to enable password setup."
+      : authStatus.password_configured ? "Dashboard password is set. Your assistant access token is separate."
+      : "Create a password so you can keep the access token in your assistant configuration.";
+  }
+
+  function openPasswordDialog() {
+    $("settings-dialog").close();
+    $("password-title").textContent = authStatus.password_configured ? "Change your password" : "Set a dashboard password";
+    $("password-method").value = authStatus.password_configured ? "password" : "token";
+    $("password-dialog").showModal();
+  }
+
+  async function savePassword(event) {
+    event.preventDefault();
+    if ($("password-new").value !== $("password-confirm").value) {
+      $("password-error").textContent = "The new passwords don’t match yet.";
+      $("password-confirm").focus();
+      return;
+    }
+    const button = $("password-form").querySelector('[type="submit"]');
+    button.disabled = true;
+    $("password-error").textContent = "";
+    try {
+      await api("/auth/password", { method: "PUT", body: JSON.stringify({
+        current_secret: $("password-current").value,
+        current_method: $("password-method").value,
+        password: $("password-new").value,
+      }) });
+      $("password-dialog").close();
+      await loadAuthStatus();
+      setMsg("Password saved. Other browser sessions have been signed out.");
+    } catch (error) { $("password-error").textContent = error.message; }
+    finally { button.disabled = false; }
+  }
+
+  function applyTheme() {
+    const selection = $("theme-select").value;
+    document.documentElement.dataset.theme = selection === "system"
+      ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : selection;
+  }
+
+  function renderRewards() {
+    const enabled = $("rewards-enabled").checked;
+    $("rewards-panel").hidden = !enabled;
+    $("rewards-off").hidden = enabled;
+    $("daily-goal").disabled = !enabled;
+    if (!enabled || !overviewCache) return;
+    const total = overviewCache.done || 0;
+    const today = overviewCache.done_today || 0;
+    const goal = Number($("daily-goal").value);
+    $("goal-count").textContent = `${today} / ${goal}`;
+    $("daily-progress").max = goal;
+    $("daily-progress").value = Math.min(today, goal);
+    $("rewards-title").textContent = today >= goal ? "A little win, well earned." : "Small steps add up.";
+    $("rewards-caption").textContent = today >= goal ? "You’ve met your goal. It’s okay to leave it here." : "Your progress stays with you. Breaks don’t reset it.";
+    const rewards = overviewCache.rewards;
+    if (!rewards) return;
+    $("reward-level").textContent = `Level ${rewards.level} · ${rewards.xp} XP · ${total} finished`;
+    $("rank-name").textContent = rewards.rank.name;
+    $("rank-next").textContent = rewards.next_rank
+      ? `${rewards.next_rank.remaining} more finished steps to ${rewards.next_rank.name}. Whenever you’re ready.`
+      : "You’ve reached Trailblazer. Every little step still counts.";
+    $("rank-progress").max = rewards.next_rank ? rewards.next_rank.threshold - rewards.rank.threshold : 1;
+    $("rank-progress").value = rewards.next_rank ? total - rewards.rank.threshold : 1;
+    $("rank-progress").setAttribute("aria-valuetext", rewards.next_rank ? `${rewards.next_rank.remaining} steps to ${rewards.next_rank.name}` : "Highest rank reached");
+    const earned = rewards.badges.filter((badge) => badge.earned);
+    $("badge-count").textContent = `${earned.length} of ${rewards.badges.length} earned`;
+    $("badges").innerHTML = rewards.badges.map((badge, index) => `
+      <li class="badge ${badge.earned ? "earned" : ""}">
+        ${badgeIcon(index)}<strong>${escapeHtml(badge.name)}</strong>
+        <span class="hint">${badge.threshold} finished ${badge.threshold === 1 ? "step" : "steps"}</span>
+        <span class="badge-state">${badge.earned ? "Earned ✓" : `${badge.threshold - total} to go · no deadline`}</span>
+      </li>`).join("");
+  }
+
+  function badgeIcon(index) {
+    const paths = [
+      '<path d="m9 16 5 5 10-11"/>',
+      '<path d="M9 23v-6m7 6V9m7 14V5"/>',
+      '<path d="M16 26V14M16 18C7 18 6 10 7 7c8 0 9 6 9 11Zm0-3c8 0 10-6 9-10-6 0-9 4-9 10Z"/>',
+      '<path d="M16 27V11m0 9L7 12m9 3 9-8"/><circle cx="7" cy="9" r="3"/><circle cx="25" cy="5" r="3"/>',
+      '<path d="m16 4 4 8 9 1-7 6 2 9-8-4-8 4 2-9-7-6 9-1Z"/>',
+      '<path d="m6 11 5 5 5-10 5 10 5-5-3 15H9Z"/>',
+    ];
+    return `<svg class="badge-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[index % paths.length]}</svg>`;
+  }
+
+  function selectSettingsTab(name, focus = false) {
+    document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
+      const selected = tab.dataset.settingsTab === name;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      $(tab.getAttribute("aria-controls")).hidden = !selected;
+      if (selected && focus) tab.focus();
+    });
+    $("settings-dialog").querySelector(".settings-content").scrollTop = 0;
+  }
+
+  function openSharePreview() {
+    const rewards = overviewCache?.rewards;
+    if (!rewards || !$("rewards-enabled").checked) return;
+    const version = ++shareVersion;
+    shareFile = null;
+    $("btn-native-share").hidden = true;
+    $("share-msg").textContent = "";
+    const earned = rewards.badges.filter((badge) => badge.earned);
+    const text = `My Progress Hub: ${rewards.rank.name} · Level ${rewards.level} · ${rewards.xp} XP · ${rewards.completed} finished steps.\n${earned.length ? "Milestones: " + earned.map((badge) => badge.name).join(", ") + "." : "A fresh start. One step at a time."}\nSmall steps. Your pace.\n${repoUrl}`;
+    $("share-text").value = text;
+    const canvas = $("share-card");
+    canvas.setAttribute("aria-label", text);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { setMsg("Your browser cannot create a progress card."); return; }
+    ctx.fillStyle = "#F7F5EF"; ctx.fillRect(0, 0, 1200, 720);
+    ctx.fillStyle = "#E4F0E9"; ctx.fillRect(0, 0, 1200, 18);
+    ctx.fillStyle = "#176B60"; ctx.beginPath(); ctx.roundRect(64, 58, 64, 64, 18); ctx.fill();
+    ctx.strokeStyle = "#F7F5EF"; ctx.lineWidth = 7; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(82, 102); ctx.lineTo(91, 102); ctx.quadraticCurveTo(104, 102, 104, 89); ctx.lineTo(104, 79); ctx.stroke();
+    ctx.fillStyle = "#EFC978"; ctx.beginPath(); ctx.arc(83, 81, 5, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = "#203832"; ctx.font = "bold 30px system-ui, sans-serif"; ctx.fillText("Progress Hub", 148, 101);
+    ctx.fillStyle = "#5B6F66"; ctx.font = "20px system-ui, sans-serif"; ctx.fillText("MY HUB’S LITTLE WINS", 64, 188);
+    ctx.fillStyle = "#203832"; ctx.font = "bold 76px system-ui, sans-serif"; ctx.fillText(rewards.rank.name, 60, 279);
+    ctx.fillStyle = "#176B60"; ctx.font = "32px system-ui, sans-serif";
+    ctx.fillText(`Level ${rewards.level}   ·   ${rewards.xp} XP   ·   ${rewards.completed} finished steps`, 64, 343, 1070);
+    ctx.fillStyle = "#D4DDD5"; ctx.fillRect(64, 385, 1072, 2);
+    ctx.fillStyle = "#5B6F66"; ctx.font = "20px system-ui, sans-serif"; ctx.fillText("EARNED MILESTONES", 64, 437);
+    if (!earned.length) { ctx.fillText("A fresh start. One step at a time.", 64, 490); }
+    earned.forEach((badge, i) => {
+      const x = 64 + (i % 3) * 358, y = 462 + Math.floor(i / 3) * 66;
+      ctx.fillStyle = "#FAF0D6"; ctx.beginPath(); ctx.roundRect(x, y, 338, 52, 12); ctx.fill();
+      ctx.fillStyle = "#715017"; ctx.font = "bold 21px system-ui, sans-serif"; ctx.fillText("✓ " + badge.name, x + 18, y + 33);
+    });
+    ctx.fillStyle = "#5B6F66"; ctx.font = "22px system-ui, sans-serif"; ctx.fillText("Small steps. Your pace.", 64, 658);
+    ctx.textAlign = "right"; ctx.font = "21px system-ui, sans-serif";
+    ctx.fillText(repoDisplayUrl, 1136, 658); ctx.textAlign = "left";
+    $("share-dialog").showModal();
+    canvas.toBlob((blob) => {
+      if (!blob || version !== shareVersion || !$("share-dialog").open) return;
+      shareFile = new File([blob], "progress-hub.png", { type: "image/png" });
+      try { $("btn-native-share").hidden = !(navigator.share && navigator.canShare?.({ files: [shareFile] })); }
+      catch (_) { $("btn-native-share").hidden = true; }
+    }, "image/png");
+  }
+
+  function celebrate() {
+    if (!$("rewards-enabled").checked) return;
+    clearTimeout(celebrationTimeout);
+    $("celebration").textContent = "One step finished. Take a breath.";
+    $("celebration").hidden = false;
+    celebrationTimeout = setTimeout(() => { $("celebration").hidden = true; }, 4500);
+  }
+
+  function saveRewardPreferences() {
+    preferences.setItem("adhd_hub_rewards", String($("rewards-enabled").checked));
+    preferences.setItem("adhd_hub_daily_goal", $("daily-goal").value);
+    if (!$("rewards-enabled").checked) {
+      $("celebration").hidden = true;
+      $("share-dialog").close();
+    }
+    renderRewards();
+  }
+
+  async function captureStep(event) {
+    event.preventDefault();
+    const summary = $("capture-summary").value.trim();
+    if (!summary) return;
+    const button = $("quick-capture").querySelector('[type="submit"]');
+    button.disabled = true;
+    $("capture-error").textContent = "";
+    try {
+      await api("/threads", { method: "POST", body: JSON.stringify({
+        summary, project_slug: "unclassified", source_tool: "web",
+      }) });
+      $("capture-summary").value = "";
+      $("capture-dialog").close();
+      setMsg("Saved to your inbox.");
+      await loadOverview();
+      if (activeScreen === "work") await loadThreads();
+    } catch (error) {
+      if ($("capture-dialog").open) $("capture-error").textContent = "Could not save your thought: " + error.message;
+      else setMsg("Thought saved; could not refresh your list.");
+    } finally { button.disabled = false; }
+  }
+
+  function showScreen(screen) {
+    activeScreen = screen;
+    ["now", "work", "progress"].forEach((name) => { $(name + "-view").hidden = name !== screen; });
+    document.querySelectorAll("[data-screen]").forEach((button) => {
+      if (button.dataset.screen === screen) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+    if (screen !== "work") { ++projectRequest; ++threadsRequest; }
+  }
+
+  async function openWork() {
+    showScreen("work");
+    await selectProject(projectFilter);
+  }
+
+  function rememberFocus() {
+    if (chosenId) preferences.setItem("adhd_hub_chosen_thread", chosenId);
+    else preferences.removeItem("adhd_hub_chosen_thread");
+    preferences.setItem("adhd_hub_focus_state", focusState);
+  }
+
+  async function chooseThread(id) {
+    const request = ++focusRequest;
+    setMsg("Loading your choice…");
+    try {
+      const thread = await api("/threads/" + encodeURIComponent(id));
+      if (request !== focusRequest) return;
+      if (!["open", "blocked"].includes(thread.status)) {
+        setMsg("That task is already finished. Choose another when you’re ready.");
+        if (activeScreen === "work") await loadThreads();
+        return;
+      }
+      chosenId = id;
+      chosenThread = thread;
+      focusState = thread.paused_at ? "paused" : "ready";
+      nowMessage = "";
+      rememberFocus();
+      showScreen("now");
+      renderFocus();
+      setMsg("");
+      $("focus-title").focus();
+    } catch (error) { setMsg("Could not choose this task: " + error.message); }
+  }
+
+  async function loadChosenThread() {
+    const request = ++focusRequest;
+    if (!chosenId) { chosenThread = null; renderFocus(); return; }
+    try {
+      const thread = await api("/threads/" + encodeURIComponent(chosenId));
+      if (request !== focusRequest) return;
+      if (!["open", "blocked"].includes(thread.status)) {
+        chosenId = null;
+        chosenThread = null;
+        nowMessage = "That task is finished. You can leave it here or choose another.";
+        rememberFocus();
+      } else { chosenThread = thread; }
+      renderFocus();
+    } catch (error) {
+      if (request !== focusRequest) return;
+      chosenThread = null;
+      if (error.status === 404) {
+        chosenId = null;
+        rememberFocus();
+        nowMessage = "That task is no longer available. Choose another when you’re ready.";
+      } else { nowMessage = "Could not load your saved task. Retry when your connection returns."; }
+      renderFocus();
+    }
+  }
+
+  async function suggestThread() {
+    const button = $("btn-suggest");
+    button.disabled = true;
+    try {
+      const threads = await api("/threads?status=open&limit=100");
+      if (activeScreen !== "now") return;
+      const candidate = threads.find((thread) => thread.energy === "low") || threads[0];
+      if (!candidate) { $("suggestion").textContent = "No open tasks yet. Save a thought to get started."; return; }
+      $("suggestion").innerHTML = `<p class="hint">${candidate.energy === "low" ? "A low-energy option" : "One option to consider"}</p><h3>${escapeHtml(candidate.summary)}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
+      $("btn-accept-suggestion").addEventListener("click", () => chooseThread(candidate.id));
+    } catch (error) { setMsg("Could not suggest a task: " + error.message); }
+    finally { button.disabled = false; }
+  }
+
+  function openPause() {
+    pauseTarget = chosenThread?.id;
+    if (!pauseTarget) return;
+    $("pause-step").value = chosenThread.resume_step || "";
+    $("pause-task").textContent = chosenThread.summary;
+    $("pause-error").textContent = "";
+    $("pause-dialog").showModal();
+  }
+
+  async function pauseHere(event) {
+    event.preventDefault();
+    const step = $("pause-step").value.trim();
+    if (!step || !pauseTarget) return;
+    const button = $("pause-form").querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      await api("/threads/" + encodeURIComponent(pauseTarget) + "/pause", {
+        method: "POST", body: JSON.stringify({ next_step: step }),
+      });
+      focusState = "paused";
+      rememberFocus();
+      $("pause-dialog").close();
+      await loadChosenThread();
+      setMsg("Next step saved. You can stop here.");
+    } catch (error) { $("pause-error").textContent = error.message; }
+    finally { button.disabled = false; }
+  }
+
+  function wireNotes(root) {
+    root.querySelectorAll("details[data-notes]").forEach((details) => {
+      details.addEventListener("toggle", async () => {
+        if (!details.open || details.dataset.loaded || details.dataset.loading) return;
+        details.dataset.loading = "true";
+        const content = details.querySelector(".markdown-body");
+        content.textContent = "Loading notes…";
+        try {
+          const thread = await api("/threads/" + encodeURIComponent(details.dataset.notes));
+          content.innerHTML = thread.progress_html || "<p>No saved notes yet.</p>";
+          details.dataset.loaded = "true";
+        } catch (_) { content.textContent = "Could not load notes. Close and reopen to retry."; }
+        finally { delete details.dataset.loading; }
+      });
+    });
   }
 
   async function loadPrefs() {
@@ -151,16 +550,16 @@
       const p = await api("/prefs");
       if (p.timezone) {
         currentTz = p.timezone;
-        localStorage.setItem(tzKey, currentTz);
+        preferences.setItem(tzKey, currentTz);
       }
     } catch (_e) {
       /* keep local */
     }
-    if (!localStorage.getItem(tzKey + "_initialized")) {
+    if (!preferences.getItem(tzKey + "_initialized")) {
       const local = browserTz();
       if (!currentTz || currentTz === "UTC") currentTz = local;
-      localStorage.setItem(tzKey, currentTz);
-      localStorage.setItem(tzKey + "_initialized", "1");
+      preferences.setItem(tzKey, currentTz);
+      preferences.setItem(tzKey + "_initialized", "1");
       try {
         await api("/prefs", {
           method: "PUT",
@@ -176,15 +575,14 @@
   function renderStats(o) {
     $("stats").innerHTML = [
       ["Open", o.open],
-      ["Stale", o.stale],
-      ["Done today", o.done_today],
-      ["Streak", o.day_streak],
+      ["Finished this week", o.done_week],
     ]
       .map(
         ([k, v]) =>
           `<span class="stat"><strong>${escapeHtml(v)}</strong> ${escapeHtml(k)}</span>`
       )
       .join("");
+    renderRewards();
     const series = o.added_vs_finished || [];
     const wrap = $("chart-wrap");
     const chart = $("chart");
@@ -193,7 +591,8 @@
       return;
     }
     wrap.hidden = false;
-    const max = Math.max(1, ...series.map((d) => Math.max(d.added || 0, d.finished || 0)));
+    chart.setAttribute("aria-label", "Last 14 days: " + series.map((day) => `${day.date}: ${day.added} added, ${day.finished} finished`).join("; "));
+    const max = Math.max(1, ...series.map((d) => (d.added || 0) + (d.finished || 0)));
     chart.innerHTML = series
       .map((d) => {
         const a = Math.round(((d.added || 0) / max) * 100);
@@ -212,21 +611,23 @@
       .map((p) => {
         const open = (p.counts && p.counts.open) || 0;
         const active = projectFilter === p.slug ? "active" : "";
-        return `<button type="button" class="proj ${active}" data-slug="${escapeHtml(p.slug)}">
-          <div>${escapeHtml(p.title || p.slug)}</div>
-          <div class="meta">${open} open · ${escapeHtml(p.slug)}</div>
+        return `<button type="button" class="proj ${active}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${projectFilter === p.slug}">
+          <div>${escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug)}</div>
+          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
         </button>`;
       })
       .join("");
     $("proj-all").classList.toggle("active", !projectFilter);
+    $("proj-all").setAttribute("aria-pressed", String(!projectFilter));
     list.querySelectorAll(".proj").forEach((el) => {
-      el.addEventListener("click", () => selectProject(el.dataset.slug || null));
+      el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
     });
   }
 
   function fillProjectForm(p) {
     $("project-edit").hidden = !p;
     if (!p) return;
+    $("project-edit").open = !!p.unregistered;
     $("edit-heading").textContent = p.unregistered
       ? `Register ${p.slug}`
       : `Edit ${p.title || p.slug}`;
@@ -241,130 +642,159 @@
     $("p_forge_project_id").value = p.forge_project_id || "";
   }
 
-  function renderFocus(detail) {
-    const title = detail
-      ? detail.title || detail.slug
-      : "All open work";
-    $("focus-title").textContent = title;
-    $("focus-eyebrow").textContent = detail ? "Project focus" : "Overview";
-    const links = $("focus-links");
-    links.innerHTML = "";
-    if (detail && detail.forge && detail.forge.folder_url) {
-      links.innerHTML = `<a class="btn ghost" href="${escapeHtml(detail.forge.folder_url)}" target="_blank" rel="noopener">Folder on forge</a>`;
-    }
+  function renderFocus() {
     const card = $("next-card");
-    const next = detail && detail.next_up;
-    if (!next) {
+    const thread = chosenThread;
+    $("focus-title").setAttribute("tabindex", "-1");
+    if (!thread) {
+      $("focus-eyebrow").textContent = "YOUR CHOICE";
+      $("focus-title").textContent = "What would you like to work on?";
       card.className = "next-card empty";
-      card.innerHTML = projectFilter
-        ? "Nothing open in this project. Nice."
-        : "No open threads. Capture the next unfinished thing from an agent, or pick a project.";
+      card.innerHTML = `<p>${escapeHtml(nowMessage || "Choose one task. Everything else can wait.")}</p><div class="next-actions"><button type="button" class="primary" id="btn-choose-work">Choose a task</button><button type="button" class="ghost" id="btn-suggest">Help me choose</button>${chosenId ? '<button type="button" class="ghost" id="btn-retry-focus">Retry saved task</button>' : ""}</div><div id="suggestion" aria-live="polite"></div>`;
+      $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
+      $("btn-suggest").addEventListener("click", suggestThread);
+      $("btn-retry-focus")?.addEventListener("click", loadChosenThread);
       return;
     }
+    $("focus-eyebrow").textContent = `${focusState === "working" ? "WORKING ON" : focusState === "paused" ? "SAVED FOR YOUR RETURN" : "YOUR CHOICE"} · ${thread.project_slug === "unclassified" ? "Inbox" : thread.project_slug || ""}`;
+    $("focus-title").textContent = thread.summary;
     card.className = "next-card has-item";
-    const snippet = (detail.progress || "").slice(0, 500);
     card.innerHTML = `
-      <p class="eyebrow">Next up</p>
-      <h3>${escapeHtml(next.summary)}</h3>
-      <div class="meta">updated ${escapeHtml(formatWhen(next.updated_at))}</div>
-      ${snippet ? `<pre class="snippet">${escapeHtml(snippet)}</pre>` : ""}
+      ${thread.resume_step ? `<div class="resume-step"><p class="eyebrow">NEXT TINY STEP</p><div class="markdown-body">${thread.resume_step_html}</div></div>` : '<p class="start-cue">Start with the smallest part. You can leave a next step whenever you stop.</p>'}
+      ${focusState === "working" ? '<p class="work-state" role="status">This is your focus. No timer, no rush.</p>' : ""}
       <div class="next-actions">
-        <button type="button" class="primary" data-done="${escapeHtml(next.id)}">Mark done</button>
-        ${
-          next.forge_issue_url
-            ? `<a class="btn ghost" href="${escapeHtml(next.forge_issue_url)}" target="_blank" rel="noopener">Open issue #${escapeHtml(next.forge_issue_number)}</a>`
-            : ""
-        }
-        <button type="button" class="ghost" data-copy="${escapeHtml(next.id)}">Copy id</button>
-      </div>`;
-    card.querySelector("[data-done]")?.addEventListener("click", () =>
-      markDone(next.id)
-    );
-    card.querySelector("[data-copy]")?.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(next.id);
-      setMsg("Thread id copied.");
+        <button type="button" class="primary" id="btn-start">${focusState === "working" ? "Pause here" : focusState === "paused" ? "Resume" : "Start"}</button>
+        <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
+        <button type="button" class="ghost" data-done="${escapeHtml(thread.id)}">Done</button>
+      </div>
+      <details class="progress-details"><summary>Where you left off</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
+    $("btn-start").addEventListener("click", () => {
+      if (focusState === "working") { openPause(); return; }
+      focusState = "working";
+      rememberFocus();
+      renderFocus();
+      $("btn-start").focus();
     });
+    $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
+    card.querySelector("[data-done]").addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
   }
 
   function renderThreads(threads) {
+    const query = $("thread-search").value.trim().toLowerCase();
+    const total = threads.length;
+    threads = threads.filter((thread) =>
+      [thread.summary, thread.project_slug, thread.progress_snippet].some((value) =>
+        String(value || "").toLowerCase().includes(query)
+      )
+    );
+    $("thread-count").textContent = `${threads.length} of ${total} loaded threads${total === 100 ? " (latest 100)" : ""}`;
     const root = $("threads");
     if (!threads.length) {
-      root.innerHTML = `<p class="hint">Nothing here.</p>`;
+      const message = query ? "No matches. Try a different search." :
+        currentView === "done" ? "Finished work will appear here when you mark a thread done." :
+        currentView === "stale" ? "Nothing waiting here. Return whenever you’re ready." :
+        "No open threads here. Save progress from your connected assistant to pick it up later.";
+      root.innerHTML = `<p class="hint">${message}</p>`;
       return;
     }
     root.innerHTML = threads
       .map((t) => {
-        const snip = (t.progress_snippet || "").slice(0, 280);
+
         return `<article class="thread">
           <h3>${escapeHtml(t.summary)}</h3>
           <div class="meta">${escapeHtml(t.project_slug || "")} · ${escapeHtml(
           t.source_tool || t.origin || ""
         )} · updated ${escapeHtml(formatWhen(t.updated_at))}</div>
-          ${snip ? `<pre class="snippet">${escapeHtml(snip)}</pre>` : ""}
+          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Progress notes</summary><div class="markdown-body"></div></details>
           <div class="actions">
             ${
               t.status !== "done"
-                ? `<button type="button" class="primary compact" data-done="${escapeHtml(t.id)}">Mark done</button>`
+                ? `<button type="button" class="ghost compact" data-choose="${escapeHtml(t.id)}">${t.id === chosenId ? "Return to Now" : "Work on this"}</button>`
                 : ""
             }
             ${
               t.forge_issue_url
-                ? `<a class="btn ghost compact" href="${escapeHtml(t.forge_issue_url)}" target="_blank" rel="noopener">Issue #${escapeHtml(t.forge_issue_number)}</a>`
+                ? `<a class="btn ghost compact" href="${safeLink(t.forge_issue_url)}" target="_blank" rel="noopener">Issue #${escapeHtml(t.forge_issue_number)}</a>`
                 : ""
             }
-            <button type="button" class="ghost compact" data-copy="${escapeHtml(t.id)}">Copy id</button>
+            <button type="button" class="ghost compact" data-copy="${escapeHtml(t.id)}">Copy reference</button>
           </div>
         </article>`;
       })
       .join("");
-    root.querySelectorAll("[data-done]").forEach((btn) =>
-      btn.addEventListener("click", () => markDone(btn.dataset.done))
+    wireNotes(root);
+    root.querySelectorAll("[data-choose]").forEach((btn) =>
+      btn.addEventListener("click", () => chooseThread(btn.dataset.choose))
     );
     root.querySelectorAll("[data-copy]").forEach((btn) =>
-      btn.addEventListener("click", async () => {
-        await navigator.clipboard.writeText(btn.dataset.copy);
-        setMsg("Thread id copied.");
-      })
+      btn.addEventListener("click", () => copyReference(btn.dataset.copy))
     );
   }
 
   async function markDone(id) {
-    await api("/threads/mark-done", {
-      method: "POST",
-      body: JSON.stringify({ id, note: "Marked done from /ui" }),
-    });
-    setMsg("Marked done.");
-    await loadAll();
+    if (completing.has(id)) return;
+    completing.add(id);
+    try {
+      await api("/threads/mark-done", {
+        method: "POST", body: JSON.stringify({ id, note: "Marked done from /ui" }),
+      });
+      if (chosenId === id) {
+        chosenId = null;
+        chosenThread = null;
+        focusState = "ready";
+        nowMessage = "That’s done. You can stop here, or choose another when you’re ready.";
+        rememberFocus();
+        renderFocus();
+      }
+      setMsg("Done. That’s one less thing to hold in your head.");
+      celebrate();
+      await loadAll();
+    } finally { completing.delete(id); }
   }
 
   async function loadThreads() {
+    const request = ++threadsRequest;
     const params = new URLSearchParams();
     if (currentView === "stale") params.set("stale", "true");
     else params.set("status", currentView === "done" ? "done" : "open");
     if (projectFilter) params.set("project_slug", projectFilter);
     params.set("limit", "100");
     const threads = await api("/threads?" + params.toString());
-    renderThreads(threads);
+    if (request !== threadsRequest) return;
+    threadsCache = threads;
+    renderThreads(threadsCache);
   }
 
   async function selectProject(slug) {
+    const request = ++projectRequest;
+    ++threadsRequest;
     projectFilter = slug || null;
+    detailCache = null;
+    threadsCache = [];
+
     renderProjects(overviewCache?.projects || []);
+    fillProjectForm(null);
+    $("threads").textContent = "Loading your steps…";
+    $("thread-count").textContent = "";
+    $("focus-links").replaceChildren();
     if (!projectFilter) {
-      detailCache = null;
-      fillProjectForm(null);
-      renderFocus(null);
+      $("work-title").textContent = "All projects";
       await loadThreads();
       return;
     }
+    $("work-title").textContent = "Loading project…";
     try {
-      detailCache = await api("/projects/" + encodeURIComponent(projectFilter));
+      const detail = await api("/projects/" + encodeURIComponent(projectFilter));
+      if (request !== projectRequest) return;
+      detailCache = detail;
       fillProjectForm(detailCache);
-      renderFocus(detailCache);
+      $("work-title").textContent = detailCache.slug === "unclassified" ? "Inbox" : detailCache.title || detailCache.slug;
     } catch (e) {
+      if (request !== projectRequest) return;
+      $("work-title").textContent = "Project unavailable";
       setMsg("Could not load project: " + e.message);
     }
-    await loadThreads();
+    if (request === projectRequest) await loadThreads();
   }
 
   function renderPending(actions) {
@@ -513,9 +943,8 @@
   }
 
   async function exportBackup() {
-    const t = token();
     const res = await fetch("/api/admin/export", {
-      headers: t ? { Authorization: "Bearer " + t } : {},
+      headers: { "X-Hub-Request": "1" },
     });
     if (res.status === 401) {
       logout();
@@ -538,12 +967,11 @@
       body: "This replaces SQLite, wiki, and forge/prefs on this instance. Prefer stopping the container for large restores. Continue?",
     });
     if (!result.ok) return;
-    const t = token();
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/admin/import?replace=true", {
       method: "POST",
-      headers: t ? { Authorization: "Bearer " + t } : {},
+      headers: { "X-Hub-Request": "1" },
       body: fd,
     });
     if (res.status === 401) {
@@ -694,19 +1122,20 @@
   }
 
   async function saveSettings() {
-    localStorage.setItem(tokenKey, $("token").value.trim());
+    saveRewardPreferences();
     const tz = $("timezone").value || browserTz();
     currentTz = tz;
-    localStorage.setItem(tzKey, tz);
+    preferences.setItem(tzKey, tz);
     try {
       await api("/prefs", { method: "PUT", body: JSON.stringify({ timezone: tz }) });
+      await loadOverview();
       setMsg("Settings saved.");
     } catch (e) {
       if (e.status === 401) {
         showLogin("Token rejected. Update ADHD_HUB_AUTH_TOKEN or try again.");
         return;
       }
-      setMsg("Token saved locally; prefs: " + e.message);
+      setMsg("Could not save settings: " + e.message);
     }
   }
 
@@ -742,24 +1171,72 @@
   async function loadAll() {
     await loadPrefs();
     await loadOverview();
-    await loadForge();
-    if (projectFilter) await selectProject(projectFilter);
-    else {
-      renderFocus(null);
-      fillProjectForm(null);
-      await loadThreads();
-    }
-    try {
-      const preview = await api("/forge/import/preview");
-      renderImportBanner(preview);
-    } catch (_e) {
-      /* forge optional */
-    }
+    await loadChosenThread();
+    if (activeScreen === "work") await selectProject(projectFilter);
   }
 
-  $("proj-all").addEventListener("click", () => selectProject(null));
-  $("btn-refresh").addEventListener("click", () => loadAll().catch((e) => setMsg(String(e))));
-  $("btn-settings").addEventListener("click", () => $("settings-dialog").showModal());
+  $("proj-all").addEventListener("click", () => selectProject(null).catch((e) => setMsg(e.message)));
+  $("btn-refresh").addEventListener("click", async () => {
+    const button = $("btn-refresh");
+    button.disabled = true;
+    button.textContent = "Refreshing…";
+    try { await loadAll(); setMsg("Up to date."); }
+    catch (error) { setMsg("Could not refresh: " + error.message); }
+    finally { button.disabled = false; button.textContent = "Refresh"; }
+  });
+  $("btn-settings").addEventListener("click", () => {
+    loadForge().catch((error) => setMsg(error.message));
+    selectSettingsTab("preferences");
+    $("settings-theme").value = $("theme-select").value;
+    $("mcp-url").value = location.origin + "/mcp";
+    $("settings-msg").textContent = "";
+    $("settings-dialog").showModal();
+    api("/health").then((health) => {
+      $("app-version").textContent = health.version ? `v${health.version}` : "Version unavailable";
+    }).catch(() => { $("app-version").textContent = "Version unavailable"; });
+  });
+  $("btn-close-settings").addEventListener("click", () => $("settings-dialog").close());
+  document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => selectSettingsTab(tab.dataset.settingsTab));
+    tab.addEventListener("keydown", (event) => {
+      const tabs = [...document.querySelectorAll("[data-settings-tab]")];
+      let index = tabs.indexOf(tab);
+      if (event.key === "ArrowRight") index = (index + 1) % tabs.length;
+      else if (event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
+      else if (event.key === "Home") index = 0;
+      else if (event.key === "End") index = tabs.length - 1;
+      else return;
+      event.preventDefault(); selectSettingsTab(tabs[index].dataset.settingsTab, true);
+    });
+  });
+  $("settings-theme").addEventListener("change", () => {
+    $("theme-select").value = $("settings-theme").value;
+    $("theme-select").dispatchEvent(new Event("change"));
+  });
+  $("btn-share-progress").addEventListener("click", openSharePreview);
+  $("btn-close-share").addEventListener("click", () => $("share-dialog").close());
+  $("share-dialog").addEventListener("close", () => { ++shareVersion; shareFile = null; });
+  $("btn-download-card").addEventListener("click", () => {
+    try {
+      const link = document.createElement("a");
+      link.download = "progress-hub.png"; link.href = $("share-card").toDataURL("image/png");
+      document.body.append(link); link.click(); link.remove();
+      $("share-msg").textContent = "Download ready. Share it wherever you like.";
+    } catch (_) { $("share-msg").textContent = "Could not download the card. You can copy the text below."; }
+  });
+  $("btn-copy-progress").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("share-text").value); $("share-msg").textContent = "Progress text copied."; }
+    catch (_) { $("share-text").focus(); $("share-text").select(); $("share-msg").textContent = "Select and copy the text above."; }
+  });
+  $("btn-native-share").addEventListener("click", async () => {
+    if (!shareFile) return;
+    try { await navigator.share({ files: [shareFile], title: "My Progress Hub", text: $("share-text").value }); }
+    catch (error) { if (error.name !== "AbortError") $("share-msg").textContent = "Sharing unavailable. Download the PNG or copy the text instead."; }
+  });
+  $("btn-copy-mcp").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("mcp-url").value); setMsg("MCP URL copied."); }
+    catch (_) { $("mcp-url").focus(); $("mcp-url").select(); setMsg("Select and copy the MCP URL above."); }
+  });
   $("btn-logout").addEventListener("click", () => logout());
   $("login-form").addEventListener("submit", (e) =>
     handleLogin(e).catch((err) => {
@@ -793,6 +1270,8 @@
   $("btn-rename-project").addEventListener("click", () => renameProject());
   $("btn-delete-project").addEventListener("click", () => deleteProject());
   $("btn-new-project").addEventListener("click", () => {
+    ++projectRequest;
+    ++threadsRequest;
     projectFilter = null;
     fillProjectForm({
       title: "",
@@ -801,25 +1280,84 @@
       unregistered: true,
     });
     $("project-edit").hidden = false;
+    $("project-edit").open = true;
     $("p_slug").readOnly = false;
-    $("focus-title").textContent = "New project";
-    $("next-card").className = "next-card empty";
-    $("next-card").textContent = "Fill the form below, then Save.";
+    $("work-title").textContent = "New project";
     setMsg("Creating a new project.");
+    $("p_title").focus();
   });
 
+  $("thread-search").addEventListener("input", () => renderThreads(threadsCache));
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".tab").forEach((t) => {
+        t.classList.remove("active");
+        t.setAttribute("aria-pressed", "false");
+      });
       tab.classList.add("active");
+      tab.setAttribute("aria-pressed", "true");
       currentView = tab.dataset.view;
       loadThreads().catch((e) => setMsg(String(e)));
     });
   });
 
-  $("token").value = localStorage.getItem(tokenKey) || "";
+  $("theme-select").value = preferences.getItem("adhd_hub_theme") || "system";
+  if (!$("theme-select").value) $("theme-select").value = "system";
+  applyTheme();
+  $("theme-select").addEventListener("change", () => {
+    preferences.setItem("adhd_hub_theme", $("theme-select").value);
+    $("settings-theme").value = $("theme-select").value;
+    applyTheme();
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+  $("rewards-enabled").checked = preferences.getItem("adhd_hub_rewards") === "true";
+  const savedGoal = preferences.getItem("adhd_hub_daily_goal") || "1";
+  $("daily-goal").value = ["1", "3", "5"].includes(savedGoal) ? savedGoal : "1";
+  $("rewards-enabled").addEventListener("change", saveRewardPreferences);
+  $("daily-goal").addEventListener("change", saveRewardPreferences);
+  document.querySelectorAll("[data-screen]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      setMsg("");
+      showScreen(button.dataset.screen);
+      try {
+        if (activeScreen === "work") await selectProject(projectFilter);
+        else if (activeScreen === "now") await loadChosenThread();
+        else await loadOverview();
+      } catch (error) { setMsg(error.message); }
+    });
+  });
+  $("btn-capture").addEventListener("click", () => {
+    $("capture-error").textContent = "";
+    $("capture-dialog").showModal();
+    $("capture-summary").focus();
+  });
+  $("btn-cancel-capture").addEventListener("click", () => $("capture-dialog").close());
+  $("pause-form").addEventListener("submit", pauseHere);
+  $("btn-cancel-pause").addEventListener("click", () => $("pause-dialog").close());
+  $("btn-login-method").addEventListener("click", () => {
+    setLoginMode(loginMode === "password" ? "token" : "password");
+    $("login-token").value = "";
+    $("login-error").textContent = "";
+    $("login-token").focus();
+  });
+  $("btn-show-password").addEventListener("click", () => {
+    const show = $("login-token").type === "password";
+    $("login-token").type = show ? "text" : "password";
+    $("btn-show-password").textContent = show ? "Hide" : "Show";
+    $("btn-show-password").setAttribute("aria-pressed", String(show));
+    $("btn-show-password").setAttribute("aria-label", `${show ? "Hide" : "Show"} ${loginMode === "password" ? "password" : "access token"}`);
+  });
+  $("btn-setup-password").addEventListener("click", openPasswordDialog);
+  $("btn-manage-password").addEventListener("click", openPasswordDialog);
+  $("password-form").addEventListener("submit", savePassword);
+  $("btn-cancel-password").addEventListener("click", () => $("password-dialog").close());
+  $("password-dialog").addEventListener("close", () => {
+    $("password-form").reset();
+    $("password-error").textContent = "";
+  });
+  $("quick-capture").addEventListener("submit", captureStep);
   fillTimezoneSelect(currentTz);
-  tryAuth()
+  loadAuthStatus().then(() => tryAuth())
     .then((ok) => (ok ? loadAll() : null))
-    .catch((e) => setMsg(String(e)));
+    .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
 })();

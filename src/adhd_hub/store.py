@@ -154,17 +154,21 @@ class Store:
                 CREATE INDEX IF NOT EXISTS idx_pending_status ON pending_actions(status);
                 """
             )
-            cols = {
-                r[1]
-                for r in conn.execute("PRAGMA table_info(projects)").fetchall()
-            }
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
             if "forge_project_id" not in cols:
                 conn.execute("ALTER TABLE projects ADD COLUMN forge_project_id TEXT")
+
+            thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
+            for column in ("resume_step", "paused_at"):
+                if column not in thread_cols:
+                    conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
 
     def _row_thread(self, row: sqlite3.Row) -> Thread:
         return Thread(
             id=row["id"],
             summary=row["summary"],
+            resume_step=row["resume_step"],
+            paused_at=datetime.fromisoformat(row["paused_at"]) if row["paused_at"] else None,
             status=ThreadStatus(row["status"]),
             energy=EnergyLevel(row["energy"]),
             source_tool=row["source_tool"],
@@ -176,9 +180,7 @@ class Store:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             last_reminded_at=(
-                datetime.fromisoformat(row["last_reminded_at"])
-                if row["last_reminded_at"]
-                else None
+                datetime.fromisoformat(row["last_reminded_at"]) if row["last_reminded_at"] else None
             ),
         )
 
@@ -281,16 +283,26 @@ class Store:
     def mark_status(
         self, thread_id: str, status: ThreadStatus, note: str | None = None
     ) -> Thread | None:
+        thread, _ = self.transition_status(thread_id, status, note=note)
+        return thread
+
+    def transition_status(
+        self, thread_id: str, status: ThreadStatus, note: str | None = None
+    ) -> tuple[Thread | None, bool]:
+        """Atomically change status; retries preserve the original completion time."""
         now = utcnow()
         with self._conn() as conn:
+            changed = (
+                conn.execute(
+                    "UPDATE threads SET status = ?, updated_at = ? WHERE id = ? AND status <> ?",
+                    (status.value, now.isoformat(), thread_id, status.value),
+                ).rowcount
+                > 0
+            )
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
             if not row:
-                return None
-            conn.execute(
-                "UPDATE threads SET status = ?, updated_at = ? WHERE id = ?",
-                (status.value, now.isoformat(), thread_id),
-            )
-            if note:
+                return None, False
+            if changed and note:
                 conn.execute(
                     "INSERT INTO progress_notes (id, project_slug, content, created_at) VALUES (?, ?, ?, ?)",
                     (
@@ -300,8 +312,21 @@ class Store:
                         now.isoformat(),
                     ),
                 )
+        return self._row_thread(row), changed
+
+    def pause_thread(self, thread_id: str, next_step: str) -> Thread:
+        with self._conn() as conn:
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
-        assert row is not None
+            if not row:
+                raise KeyError(thread_id)
+            if row["status"] not in {"open", "blocked"}:
+                raise ValueError("Only unfinished work can be paused")
+            now = utcnow().isoformat()
+            conn.execute(
+                "UPDATE threads SET resume_step = ?, paused_at = ?, updated_at = ? WHERE id = ?",
+                (next_step, now, now, thread_id),
+            )
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
         return self._row_thread(row)
 
     def touch_reminded(self, thread_ids: list[str]) -> None:
@@ -377,9 +402,7 @@ class Store:
     def list_reminders(self, *, include_handled: bool = False) -> list[Reminder]:
         with self._conn() as conn:
             if include_handled:
-                rows = conn.execute(
-                    "SELECT * FROM reminders ORDER BY created_at DESC"
-                ).fetchall()
+                rows = conn.execute("SELECT * FROM reminders ORDER BY created_at DESC").fetchall()
             else:
                 rows = conn.execute(
                     "SELECT * FROM reminders WHERE handled = 0 ORDER BY created_at DESC"
@@ -407,9 +430,7 @@ class Store:
     def mark_reminder_fired(self, reminder_id: str, *, handle_once: bool = True) -> None:
         now = utcnow().isoformat()
         with self._conn() as conn:
-            row = conn.execute(
-                "SELECT kind FROM reminders WHERE id = ?", (reminder_id,)
-            ).fetchone()
+            row = conn.execute("SELECT kind FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
             if not row:
                 return
             handled = 1 if handle_once and row["kind"] == ReminderKind.once.value else 0
@@ -487,9 +508,7 @@ class Store:
                     now.isoformat(),
                 ),
             )
-            row = conn.execute(
-                "SELECT * FROM pending_actions WHERE id = ?", (aid,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM pending_actions WHERE id = ?", (aid,)).fetchone()
         assert row is not None
         return self._row_pending(row)
 
@@ -576,7 +595,7 @@ class Store:
             forge_owner=row["forge_owner"],
             forge_repo=row["forge_repo"],
             forge_wiki_path=row["forge_wiki_path"],
-            forge_project_id=row["forge_project_id"] if "forge_project_id" in row.keys() else None,
+            forge_project_id=dict(row).get("forge_project_id"),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
@@ -590,9 +609,7 @@ class Store:
             if n and n not in paths:
                 paths.append(n)
         with self._conn() as conn:
-            existing = conn.execute(
-                "SELECT * FROM projects WHERE slug = ?", (slug,)
-            ).fetchone()
+            existing = conn.execute("SELECT * FROM projects WHERE slug = ?", (slug,)).fetchone()
             if existing:
                 # Merge paths
                 try:
@@ -654,9 +671,7 @@ class Store:
 
     def get_project(self, slug: str) -> Project | None:
         with self._conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM projects WHERE slug = ?", (slugify(slug),)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM projects WHERE slug = ?", (slugify(slug),)).fetchone()
         return self._row_project(row) if row else None
 
     def list_projects(self, limit: int = 200) -> list[Project]:
@@ -681,10 +696,9 @@ class Store:
                 np = normalize_workspace_path(p)
                 if not np:
                     continue
-                if (
-                    (norm == np or norm.startswith(np + "/") or np.startswith(norm + "/"))
-                    and len(np) > best_len
-                ):
+                if (norm == np or norm.startswith(np + "/") or np.startswith(norm + "/")) and len(
+                    np
+                ) > best_len:
                     best = proj
                     best_len = len(np)
         if best:
@@ -721,9 +735,7 @@ class Store:
                 )
             return existing
         display = title or slug.replace("-", " ").title()
-        return self.upsert_project(
-            ProjectUpsert(slug=slug, title=display, workspace_paths=paths)
-        )
+        return self.upsert_project(ProjectUpsert(slug=slug, title=display, workspace_paths=paths))
 
     def rename_project(
         self,
@@ -741,9 +753,7 @@ class Store:
             if not row:
                 raise KeyError("not_found")
             if old != new:
-                clash = conn.execute(
-                    "SELECT 1 FROM projects WHERE slug = ?", (new,)
-                ).fetchone()
+                clash = conn.execute("SELECT 1 FROM projects WHERE slug = ?", (new,)).fetchone()
                 if clash:
                     raise ValueError("conflict")
             now = utcnow().isoformat()
@@ -771,9 +781,7 @@ class Store:
                         row["forge_owner"],
                         row["forge_repo"],
                         row["forge_wiki_path"],
-                        row["forge_project_id"]
-                        if "forge_project_id" in row.keys()
-                        else None,
+                        dict(row).get("forge_project_id"),
                         row["created_at"],
                         now,
                     ),
@@ -838,11 +846,14 @@ class Store:
                 bucket[status] = int(row["c"])
         return out
 
-    def analytics_added_done(self, days: int = 14) -> list[dict[str, Any]]:
+    def analytics_added_done(self, days: int = 14, timezone: str = "UTC") -> list[dict[str, Any]]:
         """Per-day counts of threads created vs marked done (approx via updated_at when done)."""
         from datetime import timedelta
 
-        now = utcnow()
+        from adhd_hub.timeutil import resolve_zone
+
+        zone = resolve_zone(timezone)
+        now = utcnow().astimezone(zone)
         start = (now - timedelta(days=days - 1)).date()
         days_map: dict[str, dict[str, int]] = {}
         for i in range(days):
@@ -852,7 +863,12 @@ class Store:
             created = conn.execute("SELECT created_at FROM threads").fetchall()
             for row in created:
                 try:
-                    created_day = datetime.fromisoformat(row["created_at"]).date().isoformat()
+                    created_day = (
+                        datetime.fromisoformat(row["created_at"])
+                        .astimezone(zone)
+                        .date()
+                        .isoformat()
+                    )
                 except ValueError:
                     continue
                 if created_day in days_map:
@@ -863,17 +879,25 @@ class Store:
             ).fetchall()
             for row in done_rows:
                 try:
-                    day = datetime.fromisoformat(row["updated_at"]).date().isoformat()
+                    day = (
+                        datetime.fromisoformat(row["updated_at"])
+                        .astimezone(zone)
+                        .date()
+                        .isoformat()
+                    )
                 except ValueError:
                     continue
                 if day in days_map:
                     days_map[day]["finished"] += 1
         return [days_map[k] for k in sorted(days_map.keys())]
 
-    def done_counts(self) -> dict[str, int]:
+    def done_counts(self, timezone: str = "UTC") -> dict[str, int]:
         from datetime import timedelta
 
-        now = utcnow()
+        from adhd_hub.timeutil import resolve_zone
+
+        zone = resolve_zone(timezone)
+        now = utcnow().astimezone(zone)
         today = now.date()
         week_start = today - timedelta(days=today.weekday())
         done_today = 0
@@ -886,12 +910,12 @@ class Store:
             ).fetchall()
         for row in rows:
             try:
-                d = datetime.fromisoformat(row["updated_at"]).date()
+                d = datetime.fromisoformat(row["updated_at"]).astimezone(zone).date()
             except ValueError:
                 continue
             if d == today:
                 done_today += 1
-            if d >= week_start:
+            if week_start <= d <= today:
                 done_week += 1
             streak_days.add(d)
         streak = 0
@@ -899,4 +923,9 @@ class Store:
         while cursor in streak_days:
             streak += 1
             cursor = cursor - timedelta(days=1)
-        return {"done_today": done_today, "done_week": done_week, "day_streak": streak}
+        return {
+            "done_today": done_today,
+            "done_week": done_week,
+            "day_streak": streak,
+            "done_total": len(rows),
+        }
