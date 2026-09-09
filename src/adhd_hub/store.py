@@ -427,13 +427,12 @@ class Store:
             elif rem.kind == ReminderKind.session:
                 out.append(rem)
             elif rem.kind == ReminderKind.daily:
-                # Fire once per calendar day (after any snooze gate above).
-                if rem.last_fired_at is None or rem.last_fired_at.date() < now.date():
-                    out.append(rem)
-                elif rem.due_at and rem.due_at <= now and (
+                # Once per calendar day, unless a snooze window just ended.
+                if rem.due_at is not None and (
                     rem.last_fired_at is None or rem.last_fired_at < rem.due_at
                 ):
-                    # Snooze ended later the same day — allow one more gentle surface.
+                    out.append(rem)
+                elif rem.last_fired_at is None or rem.last_fired_at.date() < now.date():
                     out.append(rem)
             elif rem.kind == ReminderKind.random:
                 # Surfaced by digest with low probability at API layer; still list here

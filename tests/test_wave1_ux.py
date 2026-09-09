@@ -82,12 +82,13 @@ def test_daily_snooze_can_resurface_same_day(tmp_path) -> None:
     rem = service.set_reminder(
         ReminderCreate(message="Daily stretch", kind=ReminderKind.daily)
     )
-    service.store.mark_reminder_fired(rem.id, handle_once=False)
-    service.snooze_reminder(rem.id, minutes=5)
-    # Force snooze window into the past
-    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    fired_at = datetime.now(UTC) - timedelta(minutes=30)
+    snooze_end = datetime.now(UTC) - timedelta(minutes=1)
     with service.store._conn() as conn:
-        conn.execute("UPDATE reminders SET due_at = ? WHERE id = ?", (past, rem.id))
+        conn.execute(
+            "UPDATE reminders SET last_fired_at = ?, due_at = ? WHERE id = ?",
+            (fired_at.isoformat(), snooze_end.isoformat(), rem.id),
+        )
     due_ids = {r.id for r in service.store.due_reminders()}
     assert rem.id in due_ids
 
