@@ -75,7 +75,11 @@ def test_import_forge_inbox_creates_thread_and_closes(tmp_path) -> None:
         "number": 42,
         "title": "[ADHD] Cloud handoff",
         "body": "## Now\n- wire inbox\n\n## Return cue\n- When I return, I will test.",
-        "labels": [{"name": "adhd-hub"}, {"name": "project:adhd-hub"}],
+        "labels": [
+            {"name": "adhd-hub"},
+            {"name": "project:adhd-hub"},
+            {"name": "source:codex"},
+        ],
         "html_url": "https://github.com/o/r/issues/42",
     }
 
@@ -100,7 +104,7 @@ def test_import_forge_inbox_creates_thread_and_closes(tmp_path) -> None:
     assert thread is not None
     assert thread.summary == "Cloud handoff"
     assert thread.project_slug == "adhd-hub"
-    assert thread.source_tool == "forge-inbox"
+    assert thread.source_tool == "codex"
 
 
 def test_import_forge_inbox_skips_when_disabled(tmp_path) -> None:

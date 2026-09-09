@@ -683,16 +683,30 @@ class HubService:
                 continue
 
             project_slug = None
+            source_tool = "forge-inbox"
             for lab in issue.get("labels") or []:
                 name = lab.get("name") if isinstance(lab, dict) else str(lab)
-                if isinstance(name, str) and name.startswith("project:"):
+                if not isinstance(name, str):
+                    continue
+                if name.startswith("project:"):
                     project_slug = name.split(":", 1)[1].strip() or None
-                    break
+                elif name.startswith("source:"):
+                    raw_source = name.split(":", 1)[1].strip().lower()
+                    allowed = {
+                        "codex",
+                        "chatgpt",
+                        "cursor",
+                        "claude",
+                        "claude-code",
+                        "openclaw",
+                    }
+                    if raw_source in allowed:
+                        source_tool = raw_source
 
             payload = ThreadUpsert(
                 summary=summary[:500],
                 project_slug=project_slug,
-                source_tool="forge-inbox",
+                source_tool=source_tool,
                 origin="forge-inbox",
                 chat_ref=f"forge-issue:{number}",
             )

@@ -15,14 +15,15 @@ The Hub receives only the arguments needed for the requested tool: workspace pat
 
 If tools are unavailable, say so briefly, continue the authorized work, and provide a concise local handoff; never claim a hub write succeeded. Never invent hub state; only report tool results. Never put secrets or full chat transcripts in notes.
 
-## Cloud agents / no Hub MCP (forge mailbox)
+## Cloud / remote agents without Hub MCP (forge mailbox)
 
-When this session cannot reach the operator's private Hub MCP (common for Cursor Cloud), use the **forge issue mailbox** instead of claiming Hub updates:
+When this session cannot reach the operator's private Hub MCP — Cursor Cloud, Codex/ChatGPT cloud, Claude remote, or any sandboxed agent without Tailscale/LAN — use the **forge issue mailbox** instead of claiming Hub updates:
 
 1. Open or update a GitHub/Gitea issue titled `[ADHD] <short summary>`.
 2. Apply labels `adhd-hub` and, when known, `project:<slug>`.
-3. Put a short Now / Done / Next / Return cue in the issue body (summaries only; no secrets).
-4. Tell the operator the Hub will import the issue on its next inbox poll (or when they click **Import issue inbox**), then close it with label `adhd-hub-synced` — it is not deleted.
+3. Optional label `source:codex`, `source:chatgpt`, `source:cursor`, `source:claude`, or `source:claude-code` so the Hub records which tool wrote it.
+4. Put a short Now / Done / Next / Return cue in the issue body (summaries only; no secrets).
+5. Tell the operator the Hub will import the issue on its next inbox poll (or when they click **Import issue inbox**), then close it with label `adhd-hub-synced` — it is not deleted.
 
 Prefer Hub MCP whenever it is available. Do not invent Hub thread ids after a forge-only write.
 
