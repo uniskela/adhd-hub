@@ -628,24 +628,27 @@ class HubService:
     ) -> tuple[str, str]:
         """Build a short OpenClaw memory digest (summaries only; no transcripts)."""
         threads = self.list_open_threads(project_slug=project_slug, limit=8)
-        lines: list[str] = []
+        out: list[str] = []
         for t in threads:
-            step = (t.resume_step or "").strip().splitlines()[0] if t.resume_step else ""
+            step = ""
+            if t.resume_step:
+                parts = [ln.strip() for ln in t.resume_step.splitlines() if ln.strip()]
+                step = parts[0] if parts else ""
             bit = f"- {t.summary}"
             if t.project_slug:
                 bit += f" [{t.project_slug}]"
             if step:
                 bit += f" → {step[:120]}"
-            lines.append(bit)
-        if not lines:
-            lines.append("- No open Hub threads right now.")
+            out.append(bit)
+        if not out:
+            out.append("- No open Hub threads right now.")
         extra = (note or "").strip()
         if extra:
-            lines.append(f"- Note: {extra[:240]}")
+            out.append(f"- Note: {extra[:240]}")
         title = (
             f"ADHD Hub · {project_slug}" if project_slug else "ADHD Hub · open work"
         )
-        body = "\n".join(lines[:10])
+        body = "\n".join(out[:10])
         return title, body
 
     def push_openclaw_memory_sync(

@@ -178,6 +178,16 @@ def test_openclaw_memory_digest_and_sync(tmp_path: Path) -> None:
     assert "Keep it short" in body
     assert "transcript" not in body.lower()
 
+    # Whitespace-only resume_step must not crash digest
+    blank = service.upsert_thread(
+        ThreadUpsert(summary="Whitespace pause", project_slug="docs", source_tool="cursor")
+    )
+    service.store.pause_thread(blank.id, "real step")
+    with service.store._conn() as conn:
+        conn.execute("UPDATE threads SET resume_step = ? WHERE id = ?", ("   \n  ", blank.id))
+    _, body2 = service.openclaw_memory_digest()
+    assert "Whitespace pause" in body2
+
     service.openclaw.sync_memory_note_sync = lambda title, content: True  # type: ignore[method-assign]
     out = service.push_openclaw_memory_sync(note="ack please")
     assert out["ok"] is True

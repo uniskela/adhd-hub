@@ -221,8 +221,11 @@ def build_mcp(service: HubService) -> MCPServer:
         next_step: Annotated[str, Field(min_length=1, max_length=2000)],
     ) -> dict[str, Any]:
         """Pause a thread and leave a next tiny step for when you return."""
+        step = next_step.strip()
+        if not step:
+            return {"error": "next_step required", "id": thread_id}
         try:
-            thread = service.store.pause_thread(thread_id, next_step)
+            thread = service.store.pause_thread(thread_id, step)
         except KeyError:
             return {"error": "not_found", "id": thread_id}
         except ValueError as exc:
