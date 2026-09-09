@@ -117,6 +117,7 @@ def cmd_connect(args: argparse.Namespace) -> int:
         register=args.register,
         find_roots=find_roots or None,
         token=args.token,
+        dry_run=args.dry_run,
     )
     print_report(report)
     return 0 if report.ok else 1
@@ -251,6 +252,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--token",
         default=None,
         help="Hub bearer token (default: ADHD_HUB_AUTH_TOKEN env)",
+    )
+    connect.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show planned writes without changing files or calling register",
     )
     connect.set_defaults(func=cmd_connect)
 

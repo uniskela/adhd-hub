@@ -11,6 +11,9 @@ On the Hub host, set `ADHD_HUB_PUBLIC_URL` to the URL clients should use (for ex
 ```bash
 export ADHD_HUB_AUTH_TOKEN=...   # keep this in your environment; the script never embeds it
 curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project
+# optional flags:
+curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project --register --dry-run
+curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project --agents cursor,codex --openclaw-skills
 ```
 
 ### Windows PowerShell
@@ -18,11 +21,16 @@ curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project
 ```powershell
 $env:ADHD_HUB_AUTH_TOKEN = "..."
 irm "$env:ADHD_HUB_PUBLIC_URL/install.ps1" | iex
-# explicit project:
-iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project'"
+# explicit project + flags:
+iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project' -Register -DryRun"
+# safer download-then-run (when iex is blocked):
+iwr "$env:ADHD_HUB_PUBLIC_URL/install.ps1" -OutFile $env:TEMP\adhd-hub-install.ps1
+powershell -ExecutionPolicy Bypass -File $env:TEMP\adhd-hub-install.ps1 -Project . -Register
 ```
 
 Both scripts look for `adhd-hub` or `uvx` on `PATH`, then run `adhd-hub connect` with the Hub URL baked in. Prefer `uv tool install adhd-hub` once per machine.
+
+Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
 
 ## CLI
 
@@ -36,6 +44,9 @@ adhd-hub connect /path/to/project \
   --openclaw-skills \
   --register \
   --find-roots ~/Projects
+
+# Preview without writing files or registering:
+adhd-hub connect /path/to/project --hub http://100.x.x.x:8787 --cursor-rule --skills --dry-run
 
 adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 ```

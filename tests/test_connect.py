@@ -84,6 +84,39 @@ def test_run_connect_writes_agents_and_mcp(tmp_path: Path, monkeypatch) -> None:
     assert "change-me" not in mcp
 
 
+def test_run_connect_dry_run_writes_nothing(tmp_path: Path, monkeypatch) -> None:
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+
+    with patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok (0.0)")):
+        report = run_connect(
+            project=project,
+            hub_url="http://127.0.0.1:8787",
+            agents=["cursor"],
+            scope="project",
+            install_skills_flag=True,
+            skills_source="uniskela/adhd-hub",
+            cursor_rule=True,
+            openclaw_skills=True,
+            register=True,
+            find_roots=None,
+            token="test-token",
+            dry_run=True,
+        )
+
+    assert report.ok
+    assert any(s.name == "mode" and "dry-run" in s.detail for s in report.steps)
+    assert not (project / "AGENTS.md").exists()
+    assert not (project / ".cursor").exists()
+    assert any(
+        s.name == "skills" and (s.detail.startswith("would run:") or "npx not found" in s.detail)
+        for s in report.steps
+    )
+    assert any(s.name == "register" and s.detail.startswith("would resolve") for s in report.steps)
+
+
 def test_run_doctor_reports_missing_pieces(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     (tmp_path / "home").mkdir()
@@ -132,12 +165,20 @@ def test_render_install_sh_mentions_uvx() -> None:
     assert "ADHD_HUB_AUTH_TOKEN" in script
 
 
-def test_render_install_ps1_is_powershell() -> None:
+def test_render_install_sh_supports_flags() -> None:
+    script = render_install_sh("http://example:8787")
+    assert "--register" in script
+    assert "--dry-run" in script
+    assert "ADHD_HUB_CONNECT_FLAGS" in script
+    assert "ADHD_HUB_CONNECT_AGENTS" in script
+
+
+def test_render_install_ps1_supports_flags() -> None:
     script = render_install_ps1("http://example:8787")
-    assert "param(" in script
-    assert "Get-Command uvx" in script
-    assert "ADHD_HUB_AUTH_TOKEN" in script
-    assert "secret" not in script
+    assert "[switch]$Register" in script
+    assert "[switch]$DryRun" in script
+    assert "ADHD_HUB_CONNECT_OPENCLAW_SKILLS" in script
+    assert "iwr $HubUrl/install.ps1 -OutFile" in script
 
 
 def test_merge_codex_mcp_preserves_other_servers_with_brackets(tmp_path: Path) -> None:
