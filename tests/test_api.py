@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 from fastapi.testclient import TestClient
 
 from adhd_hub.app import create_app
@@ -43,6 +44,33 @@ def test_api_health_and_auth(tmp_path: Path) -> None:
         )
         assert ov.status_code == 200
         assert ov.json()["hits"]
+
+
+async def test_public_url_allows_browser_preflight_for_bearer_requests(tmp_path: Path) -> None:
+    origin = "https://adhd.pike.homes"
+    app = create_app(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="secret",
+            public_url=f"{origin}/",
+        )
+    )
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.options(
+            "/api/threads",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Authorization",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "authorization" in response.headers["access-control-allow-headers"].lower()
 
 
 def test_thread_resume_and_pause_are_exposed(tmp_path: Path) -> None:

@@ -1,23 +1,14 @@
 name: Release Please
 
-# Automated semver from conventional commits on main:
-#   feat: → minor (or patch while 0.x with bump-patch-for-minor-pre-major)
-#   fix:  → patch
-#   feat!: / BREAKING CHANGE → major
-#
-# Opens/updates a release PR; auto-merges it; on merge creates git tag +
-# GitHub Release. Then dispatches Container images (GITHUB_TOKEN tag pushes
-# do not trigger other workflows).
-
+# A push to main is trusted only after uniskela manually merges a PR. Release
+# Please then opens a release PR; it never merges that PR itself. When uniskela
+# manually merges the release PR, Release Please creates the immutable tag and
+# this run publishes the matching container image.
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+permissions: {}
 
 concurrency:
   group: release-please
@@ -25,52 +16,34 @@ concurrency:
 
 jobs:
   release-please:
+    # Prevent any other main-branch writer or automation from creating a
+    # release PR or tag. Branch protection should separately restrict merging.
+    if: github.actor == 'uniskela'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      pr: ${{ steps.release.outputs.pr }}
     steps:
       - name: Release Please
         id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      - name: Auto-merge release PR
-        if: ${{ steps.release.outputs.pr != '' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_JSON: ${{ steps.release.outputs.pr }}
-        run: |
-          set -euo pipefail
-          NUM="$(printf '%s' "$PR_JSON" | python3 -c '
-          import json, sys
-          raw = sys.stdin.read().strip()
-          if not raw:
-              print("")
-          elif raw.isdigit():
-              print(raw)
-          else:
-              data = json.loads(raw)
-              print(data.get("number") or "")
-          ')"
-          if [ -z "$NUM" ]; then
-            echo "No release PR number; skip auto-merge"
-            exit 0
-          fi
-          echo "Merging release PR #$NUM"
-          gh pr merge "$NUM" --squash --auto --delete-branch \
-            || gh pr merge "$NUM" --squash --delete-branch
-
-      - name: Publish container images for release tag
-        if: ${{ steps.release.outputs.release_created == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.release.outputs.tag_name }}
-        run: |
-          set -euo pipefail
-          echo "Dispatching Container images for ${TAG}"
-          gh workflow run "Container images" --repo "${{ github.repository }}" --ref "${TAG}"
+  publish-images:
+    needs: release-please
+    if: >-
+      github.actor == 'uniskela' &&
+      needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/container.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit
