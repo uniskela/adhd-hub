@@ -202,7 +202,7 @@ Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improveme
 
 - **Wave 0 (shipped in 0.3.5):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
 - **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
-- **Next:** Connect leftovers, then Wave 3 (durable sessions, Tailscale, forge path cleanup, doctor remote checks)
+- **Wave 3 (PR):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
 - Wave 4 (split `app.js` / a11y) and Wave 5 (opt-in Slack/Discord/calendar) come after Wave 3
 - skills.sh listing after publish
 

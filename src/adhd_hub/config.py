@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     public_url: str | None = None
     hub_url: str | None = None
     timezone: str = "UTC"  # IANA, e.g. Australia/Sydney; also overridable via /ui prefs
+    # Cookie Secure: None = auto (https request or trusted X-Forwarded-Proto).
+    cookie_secure: bool | None = None
+    # When true, honour X-Forwarded-Proto / Host from a trusted reverse proxy (Tailscale, Caddy).
+    trust_proxy_headers: bool = False
 
     # Optional forge (GitHub / Gitea) — UI can override via data/forge.json
     forge_provider: str = "none"  # none | github | gitea

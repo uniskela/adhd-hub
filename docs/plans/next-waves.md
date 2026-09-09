@@ -24,8 +24,7 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 | Done | Inbox harden | Author allowlist (0.3.5) |
 | Done | Wave 1 | ADHD UX depth in `/ui` (#16 / PR #22) — shipped in 0.3.6 |
 | Done | Wave 2 | MCP parity + OpenClaw memory (#17 / PR #24) — shipped in 0.3.6 |
-| Now | Connect leftovers | Windows smoke, setup-complete cue |
-| Then | Wave 3 | Homelab ops & trust (#18) |
+| Now | Wave 3 | Homelab ops, trust, PWA (#18) |
 | Then | Wave 4 | Split `app.js` / facades / a11y (#19) |
 | Opt-in | Wave 5 | Slack/Discord, calendar; leaderboard only with identity review (#20) |
 
@@ -55,6 +54,9 @@ Wave 1 + Wave 2 shipped together in **0.3.6**. Do not start Wave 5 early (see is
 3. Forge legacy path cleanup helper.
 4. Backup schedule docs + optional encrypted passphrase.
 5. `doctor` remote checks (forge, OpenClaw, indexer).
+6. Installable PWA for `/ui` (manifest + shell service worker).
+
+**Status:** this PR / issue #18.
 
 ## Wave 4 — Design system & maintainability
 

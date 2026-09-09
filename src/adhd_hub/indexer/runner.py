@@ -98,4 +98,5 @@ def run_indexer(
         for item in items:
             svc.upsert_thread(ThreadUpsert(**item))
             n += 1
+        svc.record_indexer_run(upserted=n, candidates=len(items))
         return {"upserted": n, "candidates": len(items), "mode": "local"}

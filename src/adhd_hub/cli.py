@@ -57,11 +57,16 @@ def cmd_rebuild_wiki(args: argparse.Namespace) -> int:
 
 def cmd_export(args: argparse.Namespace) -> int:
     settings = load_settings(Path(args.config) if args.config else None)
-    from adhd_hub.backup import export_data_dir
+    from adhd_hub.backup import export_data_dir, is_encrypted_backup
 
+    passphrase = args.passphrase or None
     out = Path(args.output)
-    out.write_bytes(export_data_dir(settings.data_dir))
-    print(out.resolve())
+    data = export_data_dir(settings.data_dir, passphrase=passphrase)
+    if passphrase and out.suffix == ".zip":
+        out = out.with_suffix(".zip.enc")
+    out.write_bytes(data)
+    kind = "encrypted" if is_encrypted_backup(data) else "zip"
+    print(f"{out.resolve()} ({kind})")
     return 0
 
 
@@ -70,8 +75,28 @@ def cmd_import(args: argparse.Namespace) -> int:
     from adhd_hub.backup import import_data_dir
 
     archive = Path(args.archive).read_bytes()
-    result = import_data_dir(settings.data_dir, archive, replace=not args.merge)
+    result = import_data_dir(
+        settings.data_dir,
+        archive,
+        replace=not args.merge,
+        passphrase=args.passphrase or None,
+    )
     print(result)
+    return 0
+
+
+def cmd_forge_wiki_paths(args: argparse.Namespace) -> int:
+    settings = load_settings(Path(args.config) if args.config else None)
+    from adhd_hub.forge.migrate_wiki_paths import apply_forge_wiki_path_cleanup
+
+    result = apply_forge_wiki_path_cleanup(settings, dry_run=not args.apply)
+    print(result)
+    if result["count"] == 0:
+        print("No legacy adhd-hub/wiki paths found in Hub config.")
+    elif result.get("applied"):
+        print("Updated Hub config. Move remote forge files separately if needed.")
+    else:
+        print("Dry-run only. Pass --apply to write changes.")
     return 0
 
 
@@ -163,16 +188,37 @@ def build_parser() -> argparse.ArgumentParser:
         default="adhd-hub-backup.zip",
         help="Output zip path",
     )
+    export_p.add_argument(
+        "--passphrase",
+        default=None,
+        help="Optional passphrase to encrypt the backup (Fernet envelope)",
+    )
     export_p.set_defaults(func=cmd_export)
 
     import_p = sub.add_parser("import", help="Import a migrate zip into data/")
-    import_p.add_argument("archive", help="Path to adhd-hub-backup.zip")
+    import_p.add_argument("archive", help="Path to adhd-hub-backup.zip[.enc]")
     import_p.add_argument(
         "--merge",
         action="store_true",
         help="Do not delete existing files before copy (default replaces)",
     )
+    import_p.add_argument(
+        "--passphrase",
+        default=None,
+        help="Passphrase for an encrypted backup",
+    )
     import_p.set_defaults(func=cmd_import)
+
+    forge_paths = sub.add_parser(
+        "forge-wiki-paths",
+        help="Migrate legacy forge wiki_path adhd-hub/wiki → repo-root projects/",
+    )
+    forge_paths.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write config changes (default is dry-run)",
+    )
+    forge_paths.set_defaults(func=cmd_forge_wiki_paths)
 
     setup = sub.add_parser(
         "setup",

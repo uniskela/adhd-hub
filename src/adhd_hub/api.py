@@ -271,6 +271,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
                 )
             )
             created.append(t)
+        service.record_indexer_run(upserted=len(created), candidates=len(payload.items))
         return {"upserted": len(created), "items": created}
 
     @router.post("/admin/rebuild-wiki", dependencies=[Depends(auth_dep)])
@@ -381,23 +382,29 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         )
 
     @router.get("/admin/export", dependencies=[Depends(auth_dep)])
-    def admin_export():
+    def admin_export(passphrase: str | None = None):
         from fastapi.responses import Response
 
-        data = service.export_backup()
+        from adhd_hub.backup import is_encrypted_backup
+
+        data = service.export_backup(passphrase=passphrase or None)
+        encrypted = is_encrypted_backup(data)
+        filename = "adhd-hub-backup.zip.enc" if encrypted else "adhd-hub-backup.zip"
+        media = "application/octet-stream" if encrypted else "application/zip"
         return Response(
             content=data,
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": 'attachment; filename="adhd-hub-backup.zip"'
-            },
+            media_type=media,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     @router.post("/admin/import", dependencies=[Depends(auth_dep)])
     async def admin_import(
         file: Annotated[UploadFile, File()],
         replace: bool = True,
+        passphrase: str | None = None,
     ):
+        from adhd_hub.backup import is_encrypted_backup
+
         raw = await file.read()
         if not raw:
             raise HTTPException(400, "empty archive")
@@ -405,10 +412,14 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         if len(raw) > 80 * 1024 * 1024:
             raise HTTPException(400, "archive too large (max 80 MiB)")
         try:
-            return service.import_backup(raw, replace=replace)
+            return service.import_backup(
+                raw, replace=replace, passphrase=passphrase or None
+            )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         except zipfile.BadZipFile as exc:
+            if is_encrypted_backup(raw):
+                raise HTTPException(400, "encrypted backup needs a passphrase") from exc
             raise HTTPException(400, "not a valid zip archive") from exc
 
     return router
