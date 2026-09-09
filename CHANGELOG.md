@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.6](https://github.com/uniskela/adhd-hub/compare/v0.3.5...v0.3.6) (2026-09-09)
+
+
+### Features
+
+* Wave 1 ADHD UX — reminders, soft-archive, focus mode ([#22](https://github.com/uniskela/adhd-hub/issues/22)) ([634dbab](https://github.com/uniskela/adhd-hub/commit/634dbab6e3e311383ac4e2386bdca34259a55ba5))
+* Wave 2 MCP parity — pause, overview, workspace register ([#24](https://github.com/uniskela/adhd-hub/issues/24)) ([c05308f](https://github.com/uniskela/adhd-hub/commit/c05308f0409f6ad85d945fda13fd96e76d33d589))
+
 ## [0.3.5](https://github.com/uniskela/adhd-hub/compare/v0.3.4...v0.3.5) (2026-09-09)
 
 
