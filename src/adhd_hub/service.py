@@ -38,7 +38,7 @@ from adhd_hub.openclaw_config import (
 )
 from adhd_hub.overlap import check_overlap
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
-from adhd_hub.store import Store, slugify, workspace_basename
+from adhd_hub.store import Store, item_id, slugify, workspace_basename
 from adhd_hub.wiki import Wiki
 
 log = logging.getLogger(__name__)
@@ -717,6 +717,11 @@ class HubService:
                         source_tool = raw_source
 
             payload = ThreadUpsert(
+                # Stable per forge issue so same titles do not collide into one thread.
+                id=item_id(
+                    f"forge-issue:{number}",
+                    f"{cfg.owner}/{cfg.repo}",
+                ),
                 summary=summary[:500],
                 project_slug=project_slug,
                 source_tool=source_tool,

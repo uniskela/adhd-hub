@@ -191,6 +191,53 @@ def test_import_skips_already_mapped(tmp_path) -> None:
     assert out["skipped_issues"][0]["reason"] == "already_mapped"
 
 
+def test_import_same_title_different_issues_do_not_collide(tmp_path) -> None:
+    service = HubService(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="t",
+            forge_provider="github",
+            forge_token="tok",
+            forge_owner="o",
+            forge_repo="r",
+            forge_board_enabled=True,
+            forge_board_inbox_enabled=True,
+            forge_board_inbox_authors="trusted-user",
+        )
+    )
+    issues = [
+        {
+            "number": 10,
+            "title": "[ADHD] Same title",
+            "body": "first",
+            "user": {"login": "trusted-user"},
+            "labels": [{"name": "adhd-hub"}, {"name": "project:adhd-hub"}],
+        },
+        {
+            "number": 11,
+            "title": "[ADHD] Same title",
+            "body": "second",
+            "user": {"login": "trusted-user"},
+            "labels": [{"name": "adhd-hub"}, {"name": "project:adhd-hub"}],
+        },
+    ]
+
+    def fake_mark(number, *, thread_id):
+        return {"closed": True, "number": number, "thread_id": thread_id}
+
+    with (
+        patch.object(BoardForgeSync, "list_inbox_issues", return_value=issues),
+        patch.object(BoardForgeSync, "mark_issue_imported", side_effect=fake_mark),
+    ):
+        out = service.import_forge_inbox()
+
+    assert out["count"] == 2
+    ids = {item["thread_id"] for item in out["imported"]}
+    assert len(ids) == 2
+    assert service.store.get_meta(f"forge_issue:{out['imported'][0]['thread_id']}") == "10"
+    assert service.store.get_meta(f"forge_issue:{out['imported'][1]['thread_id']}") == "11"
+
+
 def test_mark_issue_imported_never_deletes() -> None:
     board = BoardForgeSync(_cfg(), lambda _k: None, lambda _k, _v: None)
     get_resp = MagicMock()
