@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.4](https://github.com/uniskela/adhd-hub/compare/v0.3.3...v0.3.4) (2026-09-09)
+
+
+### Features
+
+* add ADHD-friendly project agent setup and workflow improvements ([#12](https://github.com/uniskela/adhd-hub/issues/12)) ([302e51d](https://github.com/uniskela/adhd-hub/commit/302e51d79b75749eded0e512326fbbc2eba2bfea))
+
+
+### Documentation
+
+* add ADHD-friendly Pages portal ([#10](https://github.com/uniskela/adhd-hub/issues/10)) ([77d43bc](https://github.com/uniskela/adhd-hub/commit/77d43bcb5e091e7ac25d6548120ca07e85fd079c))
+
 ## [0.3.3](https://github.com/uniskela/adhd-hub/compare/v0.3.2...v0.3.3) (2026-09-09)
 
 
