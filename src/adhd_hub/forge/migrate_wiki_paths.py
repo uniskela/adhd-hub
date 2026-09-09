@@ -77,11 +77,21 @@ def apply_forge_wiki_path_cleanup(settings: Settings, *, dry_run: bool = True) -
         if not change["scope"].startswith("project:"):
             continue
         slug = change["scope"].split(":", 1)[1]
+        existing = service.store.get_project(slug)
+        if existing is None:
+            continue
         service.upsert_project(
             ProjectUpsert(
                 slug=slug,
-                title=change.get("title") or slug,
+                title=existing.title,
+                description=existing.description,
+                repo_url=existing.repo_url,
+                workspace_paths=list(existing.workspace_paths),
+                default_energy=existing.default_energy,
+                forge_owner=existing.forge_owner,
+                forge_repo=existing.forge_repo,
                 forge_wiki_path="",
+                forge_project_id=existing.forge_project_id,
             )
         )
 

@@ -150,7 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_origins=[public_url],
             allow_credentials=False,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "X-Hub-Request"],
+            allow_headers=["Authorization", "Content-Type", "X-Hub-Request", "X-Backup-Passphrase"],
         )
 
     # Trailing-slash mount is what Starlette expects for the sub-app root.

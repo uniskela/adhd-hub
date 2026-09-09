@@ -1106,6 +1106,13 @@ class HubService:
         # Re-open store against restored sqlite
         self.store = Store(self.settings.db_path)
         self.wiki = Wiki(self.settings.wiki_dir, timezone=self.prefs().timezone)
+        # Sessions are outside the backup zip — revoke so cookies cannot outlive a restore.
+        try:
+            from adhd_hub.sessions import BrowserSessions
+
+            BrowserSessions(self.settings.data_dir / "browser_sessions.sqlite3").clear()
+        except OSError:
+            pass
         return result
 
     def record_indexer_run(self, *, upserted: int, candidates: int) -> None:

@@ -29,6 +29,7 @@ def test_forge_wiki_path_cleanup_dry_run_and_apply(tmp_path: Path) -> None:
             slug="demo",
             title="Demo",
             forge_wiki_path="adhd-hub/wiki",
+            default_energy="medium",
         )
     )
     plan = apply_forge_wiki_path_cleanup(settings, dry_run=True)
@@ -41,3 +42,4 @@ def test_forge_wiki_path_cleanup_dry_run_and_apply(tmp_path: Path) -> None:
     proj = svc.store.get_project("demo")
     assert proj is not None
     assert proj.forge_wiki_path == ""
+    assert proj.default_energy.value == "medium"

@@ -19,7 +19,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert "Service-Worker-Allowed" in sw.headers
-        assert "adhd-hub-shell" in sw.text
+        assert "adhd-hub-shell-v2" in sw.text
 
         icon = client.get("/ui/brand/icon-192.png")
         assert icon.status_code == 200

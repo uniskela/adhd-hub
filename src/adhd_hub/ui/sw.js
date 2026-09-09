@@ -1,9 +1,7 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
-const CACHE = "adhd-hub-shell-v1";
+const CACHE = "adhd-hub-shell-v2";
 const PRECACHE = [
   "/ui/",
-  "/ui/app.css",
-  "/ui/app.js",
   "/ui/manifest.webmanifest",
   "/ui/brand/icon.svg",
   "/ui/brand/icon-192.png",
@@ -30,22 +28,30 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/mcp")) return;
+  if (!url.pathname.startsWith("/ui")) return;
 
-  // Network-first for HTML shell so deploys show up; cache fallback offline.
-  if (url.pathname === "/ui" || url.pathname === "/ui/" || url.pathname.endsWith(".html")) {
+  // Network-first for HTML/JS/CSS so upgrades land; cache as offline fallback.
+  const networkFirst =
+    url.pathname === "/ui" ||
+    url.pathname === "/ui/" ||
+    url.pathname.endsWith(".html") ||
+    url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".css");
+
+  if (networkFirst) {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put("/ui/", copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(req, copy));
+          }
           return res;
         })
-        .catch(() => caches.match("/ui/"))
+        .catch(() => caches.match(req).then((hit) => hit || caches.match("/ui/")))
     );
     return;
   }
-
-  if (!url.pathname.startsWith("/ui/")) return;
 
   event.respondWith(
     caches.match(req).then(

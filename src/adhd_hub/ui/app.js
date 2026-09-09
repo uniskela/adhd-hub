@@ -1302,10 +1302,9 @@
 
   async function exportBackup() {
     const passphrase = ($("backup-passphrase")?.value || "").trim();
-    const qs = passphrase ? `?passphrase=${encodeURIComponent(passphrase)}` : "";
-    const res = await fetch(`/api/admin/export${qs}`, {
-      headers: { "X-Hub-Request": "1" },
-    });
+    const headers = { "X-Hub-Request": "1" };
+    if (passphrase) headers["X-Backup-Passphrase"] = passphrase;
+    const res = await fetch("/api/admin/export", { headers });
     if (res.status === 401) {
       logout();
       return;
@@ -1328,13 +1327,13 @@
     });
     if (!result.ok) return;
     const passphrase = ($("import-passphrase")?.value || "").trim();
-    const qs = new URLSearchParams({ replace: "true" });
-    if (passphrase) qs.set("passphrase", passphrase);
+    const headers = { "X-Hub-Request": "1" };
+    if (passphrase) headers["X-Backup-Passphrase"] = passphrase;
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`/api/admin/import?${qs}`, {
+    const res = await fetch("/api/admin/import?replace=true", {
       method: "POST",
-      headers: { "X-Hub-Request": "1" },
+      headers,
       body: fd,
     });
     if (res.status === 401) {

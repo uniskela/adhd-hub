@@ -3,7 +3,7 @@ from __future__ import annotations
 import zipfile
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import ValidationError
 
 from adhd_hub.models import (
@@ -382,12 +382,13 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         )
 
     @router.get("/admin/export", dependencies=[Depends(auth_dep)])
-    def admin_export(passphrase: str | None = None):
+    def admin_export(request: Request):
         from fastapi.responses import Response
 
         from adhd_hub.backup import is_encrypted_backup
 
-        data = service.export_backup(passphrase=passphrase or None)
+        secret = (request.headers.get("x-backup-passphrase") or "").strip() or None
+        data = service.export_backup(passphrase=secret)
         encrypted = is_encrypted_backup(data)
         filename = "adhd-hub-backup.zip.enc" if encrypted else "adhd-hub-backup.zip"
         media = "application/octet-stream" if encrypted else "application/zip"
@@ -399,9 +400,9 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/admin/import", dependencies=[Depends(auth_dep)])
     async def admin_import(
+        request: Request,
         file: Annotated[UploadFile, File()],
         replace: bool = True,
-        passphrase: str | None = None,
     ):
         from adhd_hub.backup import is_encrypted_backup
 
@@ -411,10 +412,9 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         # Keep restores bounded (wiki trees + sqlite); raise if you need larger.
         if len(raw) > 80 * 1024 * 1024:
             raise HTTPException(400, "archive too large (max 80 MiB)")
+        secret = (request.headers.get("x-backup-passphrase") or "").strip() or None
         try:
-            return service.import_backup(
-                raw, replace=replace, passphrase=passphrase or None
-            )
+            return service.import_backup(raw, replace=replace, passphrase=secret)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         except zipfile.BadZipFile as exc:
