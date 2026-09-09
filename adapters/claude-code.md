@@ -31,4 +31,4 @@ Habits: `resolve_project` → `session_digest` → work → `upsert_progress` / 
 
 ## When MCP is unreachable (Claude remote / cloud)
 
-Use the [forge issue inbox](../docs/forge-issue-inbox.md): issue title `[ADHD] …`, labels `adhd-hub` + optional `project:<slug>` + optional `source:claude` or `source:claude-code`, short progress body. The Hub imports and closes with `adhd-hub-synced` (never deletes).
+Use the [forge issue inbox](../docs/forge-issue-inbox.md): issue title `[ADHD] …`, labels `adhd-hub` + optional `project:<slug>` + optional `source:claude` or `source:claude-code`, short progress body. The creating account must be on the Hub **Inbox authors** allowlist. The Hub imports and closes with `adhd-hub-synced` (never deletes).

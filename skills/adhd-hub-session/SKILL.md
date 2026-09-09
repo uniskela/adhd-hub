@@ -19,7 +19,7 @@ If tools are unavailable, say so briefly, continue the authorized work, and prov
 
 When this session cannot reach the operator's private Hub MCP — Cursor Cloud, Codex/ChatGPT cloud, Claude remote, or any sandboxed agent without Tailscale/LAN — use the **forge issue mailbox** instead of claiming Hub updates:
 
-1. Open or update a GitHub/Gitea issue titled `[ADHD] <short summary>`.
+1. Open or update a GitHub/Gitea issue titled `[ADHD] <short summary>` using an identity on the operator's **Inbox authors** allowlist (otherwise the Hub will ignore it).
 2. Apply labels `adhd-hub` and, when known, `project:<slug>`.
 3. Optional label `source:codex`, `source:chatgpt`, `source:cursor`, `source:claude`, or `source:claude-code` so the Hub records which tool wrote it.
 4. Put a short Now / Done / Next / Return cue in the issue body (summaries only; no secrets).

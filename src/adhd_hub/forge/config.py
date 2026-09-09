@@ -39,6 +39,9 @@ class ForgeConfig(BaseModel):
     board_inbox_enabled: bool = False
     # After import: close the issue and add this label (never delete).
     board_inbox_synced_label: str = "adhd-hub-synced"
+    # Forge usernames allowed to create inbox issues (login / username). Fail closed:
+    # when inbox is enabled but this list is empty, import nothing.
+    board_inbox_authors: list[str] = Field(default_factory=list)
     # GitHub Projects v2 number (org/user project), or Gitea project id as string
     project_number: int | None = None
     project_id: str | None = None  # Gitea numeric id as string, or GitHub node id if known
@@ -116,6 +119,15 @@ def save_forge_config(data_dir: Path, config: ForgeConfig) -> Path:
     return path
 
 
+def _parse_inbox_authors(raw: Any) -> list[str]:
+    """Normalize allowlist from env (comma string) or list."""
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple, set)):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    return [part.strip() for part in str(raw).replace(";", ",").split(",") if part.strip()]
+
+
 def forge_from_settings(settings: Any) -> ForgeConfig:
     """Build ForgeConfig from ADHD_HUB_FORGE_* settings fields."""
     primary = bool(getattr(settings, "forge_primary_memory_repo", False))
@@ -141,6 +153,9 @@ def forge_from_settings(settings: Any) -> ForgeConfig:
         board_inbox_enabled=bool(getattr(settings, "forge_board_inbox_enabled", False)),
         board_inbox_synced_label=getattr(settings, "forge_board_inbox_synced_label", None)
         or "adhd-hub-synced",
+        board_inbox_authors=_parse_inbox_authors(
+            getattr(settings, "forge_board_inbox_authors", None)
+        ),
         project_number=getattr(settings, "forge_project_number", None),
         project_id=getattr(settings, "forge_project_id", None),
     )

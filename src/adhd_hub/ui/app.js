@@ -1052,6 +1052,9 @@
       $("wiki_enabled").checked = !!c.wiki_enabled;
       $("board_enabled").checked = !!c.board_enabled;
       $("board_inbox_enabled").checked = !!c.board_inbox_enabled;
+      $("board_inbox_authors").value = Array.isArray(c.board_inbox_authors)
+        ? c.board_inbox_authors.join(", ")
+        : c.board_inbox_authors || "";
       $("primary_memory_repo").checked = !!c.primary_memory_repo;
     } catch (_e) {
       /* forge optional */
@@ -1256,6 +1259,10 @@
       wiki_enabled: $("wiki_enabled").checked,
       board_enabled: $("board_enabled").checked,
       board_inbox_enabled: $("board_inbox_enabled").checked,
+      board_inbox_authors: $("board_inbox_authors")
+        .value.split(/[,;]/)
+        .map((s) => s.trim())
+        .filter(Boolean),
       primary_memory_repo: $("primary_memory_repo").checked,
     };
     await api("/forge/config", { method: "PUT", body: JSON.stringify(payload) });
@@ -1276,6 +1283,12 @@
     setMsg("Importing forge issue inbox…");
     const out = await api("/forge/inbox/import", { method: "POST", body: "{}" });
     if (out.skipped) {
+      if (out.reason === "board_inbox_authors_required") {
+        setMsg(
+          "Issue inbox needs an allowlist — add your forge username under Inbox authors, then save."
+        );
+        return;
+      }
       setMsg("Issue inbox import skipped — enable Board sync + Import cloud-agent issues.");
       return;
     }

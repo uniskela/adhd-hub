@@ -627,6 +627,19 @@ class HubService:
                 "imported": [],
                 "skipped_issues": [],
             }
+        authors = [
+            name.strip()
+            for name in (cfg.board_inbox_authors or [])
+            if isinstance(name, str) and name.strip()
+        ]
+        if not authors:
+            return {
+                "skipped": True,
+                "reason": "board_inbox_authors_required",
+                "imported": [],
+                "skipped_issues": [],
+                "hint": "Add allowed forge usernames under Settings → Forge → Inbox authors.",
+            }
         board = BoardForgeSync(
             cfg,
             self.store.get_meta,
@@ -767,6 +780,7 @@ class HubService:
             "config": {
                 "board_inbox_enabled": cfg.board_inbox_enabled,
                 "synced_label": cfg.board_inbox_synced_label,
+                "authors": authors,
             },
         }
 

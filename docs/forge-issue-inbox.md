@@ -4,15 +4,35 @@ Agents that cannot reach a private Tailscale Hub MCP can still leave unfinished 
 
 They *can* use GitHub/Gitea. The Hub polls those issues and turns them into threads.
 
+## Security (author allowlist)
+
+Inbox import is **fail closed**:
+
+1. Only issues whose **author forge login** is in **Inbox authors** are imported.
+2. If the allowlist is empty, the Hub imports **nothing** (even when inbox is enabled).
+3. PRs are never imported. Issues already labeled `adhd-hub-synced` are skipped.
+4. After a successful import, Hub **closes** the issue and adds `adhd-hub-synced` — it never deletes forge content.
+
+Random collaborators (or anyone who can open issues on a public repo) cannot inject Hub threads unless you add their username.
+
+Set authors in Settings → Forge → **Inbox authors**, or via env:
+
+```bash
+export ADHD_HUB_FORGE_BOARD_INBOX_AUTHORS="your-login,automation-bot"
+```
+
+Match GitHub `user.login` / Gitea username (case-insensitive).
+
 ## Enable
 
 1. Settings → Connections → Forge: turn on **Board / issues** and **Import cloud-agent issues (inbox)**.
-2. Save. Optionally click **Import issue inbox** once to test.
-3. The Hub also polls on `ADHD_HUB_FORGE_INBOX_CRON` (default every 15 minutes).
+2. Add your forge username(s) under **Inbox authors**.
+3. Save. Optionally click **Import issue inbox** once to test.
+4. The Hub also polls on `ADHD_HUB_FORGE_INBOX_CRON` (default every 15 minutes).
 
 ## Agent protocol (any tool)
 
-1. Create an issue titled `[ADHD] <short summary>`.
+1. Create an issue titled `[ADHD] <short summary>` **as an allowlisted user** (token/bot identity must be on the allowlist).
 2. Labels:
    - required: `adhd-hub`
    - optional: `project:<slug>`

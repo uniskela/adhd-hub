@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     forge_board_enabled: bool = False
     forge_board_inbox_enabled: bool = False
     forge_board_inbox_synced_label: str = "adhd-hub-synced"
+    # Comma-separated forge logins allowed to create inbox issues (fail closed if empty).
+    forge_board_inbox_authors: str = ""
     forge_project_number: int | None = None
     forge_project_id: str | None = None
 

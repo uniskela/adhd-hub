@@ -327,9 +327,37 @@ class BoardForgeSync:
     def _synced_label(self) -> str:
         return (self.config.board_inbox_synced_label or "adhd-hub-synced").strip()
 
+    def _allowed_authors(self) -> set[str]:
+        return {
+            name.casefold()
+            for name in (self.config.board_inbox_authors or [])
+            if isinstance(name, str) and name.strip()
+        }
+
+    @staticmethod
+    def _issue_author_login(raw: dict[str, Any]) -> str | None:
+        user = raw.get("user")
+        if not isinstance(user, dict):
+            return None
+        for key in ("login", "username", "name"):
+            value = user.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
     def list_inbox_issues(self, *, state: str = "open", limit: int = 50) -> list[dict[str, Any]]:
-        """List open forge issues that carry the Hub label (cloud mailbox)."""
+        """List open forge issues that carry the Hub label (cloud mailbox).
+
+        Fail closed: only issues authored by ``board_inbox_authors`` are returned.
+        An empty allowlist yields no candidates (even when inbox is enabled).
+        """
         if not (self.config.enabled() and self.config.board_enabled):
+            return []
+        allowed = self._allowed_authors()
+        if not allowed:
+            log.info(
+                "forge inbox: skipping list — board_inbox_authors is empty (fail closed)"
+            )
             return []
         label = self._hub_label()
         params: dict[str, Any] = {"state": state, "per_page": min(limit, 100)}
@@ -350,6 +378,9 @@ class BoardForgeSync:
                 continue
             # Skip PRs that GitHub returns from the issues endpoint.
             if "pull_request" in raw:
+                continue
+            author = self._issue_author_login(raw)
+            if not author or author.casefold() not in allowed:
                 continue
             names = {
                 (lab.get("name") if isinstance(lab, dict) else str(lab))

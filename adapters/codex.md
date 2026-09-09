@@ -22,7 +22,7 @@ Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart 
 
 Use the [forge issue inbox](../docs/forge-issue-inbox.md):
 
-1. Open a GitHub/Gitea issue titled `[ADHD] <summary>`.
+1. Open a GitHub/Gitea issue titled `[ADHD] <summary>` as a user on the Hub **Inbox authors** allowlist.
 2. Labels: `adhd-hub`, optional `project:<slug>`, optional `source:codex` (or `source:chatgpt`).
 3. Body: Now / Done / Next / Return cue only — no secrets.
 4. Hub imports on poll or **Import issue inbox**, then closes with `adhd-hub-synced`.

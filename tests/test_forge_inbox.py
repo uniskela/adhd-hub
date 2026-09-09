@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from adhd_hub.config import Settings
 from adhd_hub.forge.board_sync import BoardForgeSync
-from adhd_hub.forge.config import ForgeConfig, ForgeProvider
+from adhd_hub.forge.config import ForgeConfig, ForgeProvider, _parse_inbox_authors
 from adhd_hub.models import ThreadUpsert
 from adhd_hub.service import HubService
 
@@ -19,30 +19,46 @@ def _cfg(**kwargs) -> ForgeConfig:
         "board_inbox_enabled": True,
         "issue_labels": ["adhd-hub"],
         "board_inbox_synced_label": "adhd-hub-synced",
+        "board_inbox_authors": ["trusted-user"],
     }
     base.update(kwargs)
     return ForgeConfig(**base)
 
 
-def test_list_inbox_issues_filters_synced_and_prs() -> None:
+def test_parse_inbox_authors_from_env_string() -> None:
+    assert _parse_inbox_authors("Alice, bob ;Carol") == ["Alice", "bob", "Carol"]
+    assert _parse_inbox_authors(["x", " ", "y"]) == ["x", "y"]
+    assert _parse_inbox_authors(None) == []
+
+
+def test_list_inbox_issues_filters_synced_prs_and_authors() -> None:
     board = BoardForgeSync(_cfg(), lambda _k: None, lambda _k, _v: None)
     payload = [
         {
             "number": 1,
             "title": "[ADHD] Do the thing",
             "body": "Now: start",
+            "user": {"login": "trusted-user"},
             "labels": [{"name": "adhd-hub"}],
             "html_url": "https://github.com/o/r/issues/1",
         },
         {
             "number": 2,
             "title": "[ADHD] Already synced",
+            "user": {"login": "trusted-user"},
             "labels": [{"name": "adhd-hub"}, {"name": "adhd-hub-synced"}],
         },
         {
             "number": 3,
             "title": "PR",
+            "user": {"login": "trusted-user"},
             "pull_request": {},
+            "labels": [{"name": "adhd-hub"}],
+        },
+        {
+            "number": 4,
+            "title": "[ADHD] Random stranger",
+            "user": {"login": "random-person"},
             "labels": [{"name": "adhd-hub"}],
         },
     ]
@@ -58,6 +74,18 @@ def test_list_inbox_issues_filters_synced_and_prs() -> None:
     assert issues[0]["number"] == 1
 
 
+def test_list_inbox_issues_empty_allowlist_imports_nothing() -> None:
+    board = BoardForgeSync(
+        _cfg(board_inbox_authors=[]),
+        lambda _k: None,
+        lambda _k, _v: None,
+    )
+    with patch("httpx.Client") as client_cls:
+        issues = board.list_inbox_issues()
+    assert issues == []
+    client_cls.assert_not_called()
+
+
 def test_import_forge_inbox_creates_thread_and_closes(tmp_path) -> None:
     service = HubService(
         Settings(
@@ -69,12 +97,14 @@ def test_import_forge_inbox_creates_thread_and_closes(tmp_path) -> None:
             forge_repo="r",
             forge_board_enabled=True,
             forge_board_inbox_enabled=True,
+            forge_board_inbox_authors="trusted-user",
         )
     )
     issue = {
         "number": 42,
         "title": "[ADHD] Cloud handoff",
         "body": "## Now\n- wire inbox\n\n## Return cue\n- When I return, I will test.",
+        "user": {"login": "trusted-user"},
         "labels": [
             {"name": "adhd-hub"},
             {"name": "project:adhd-hub"},
@@ -113,6 +143,25 @@ def test_import_forge_inbox_skips_when_disabled(tmp_path) -> None:
     assert out["skipped"] is True
 
 
+def test_import_forge_inbox_requires_authors(tmp_path) -> None:
+    service = HubService(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="t",
+            forge_provider="github",
+            forge_token="tok",
+            forge_owner="o",
+            forge_repo="r",
+            forge_board_enabled=True,
+            forge_board_inbox_enabled=True,
+            forge_board_inbox_authors="",
+        )
+    )
+    out = service.import_forge_inbox()
+    assert out["skipped"] is True
+    assert out["reason"] == "board_inbox_authors_required"
+
+
 def test_import_skips_already_mapped(tmp_path) -> None:
     service = HubService(
         Settings(
@@ -124,6 +173,7 @@ def test_import_skips_already_mapped(tmp_path) -> None:
             forge_repo="r",
             forge_board_enabled=True,
             forge_board_inbox_enabled=True,
+            forge_board_inbox_authors="trusted-user",
         )
     )
     thread = service.upsert_thread(ThreadUpsert(summary="Existing", source_tool="cursor"))
@@ -132,6 +182,7 @@ def test_import_skips_already_mapped(tmp_path) -> None:
         "number": 7,
         "title": "[ADHD] Existing",
         "body": "",
+        "user": {"login": "trusted-user"},
         "labels": [{"name": "adhd-hub"}],
     }
     with patch.object(BoardForgeSync, "list_inbox_issues", return_value=[issue]):
