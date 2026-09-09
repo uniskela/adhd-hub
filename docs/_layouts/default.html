@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ site.description }}">
+    <title>{% if page.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+    <style>
+      :root { color-scheme: light dark; --ink: #203832; --teal: #176b60; --mint: #89d9c3; --paper: #f7f5ef; --line: #d4ddd5; --muted: #5b6f66; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.65 system-ui, sans-serif; }
+      a { color: var(--teal); text-underline-offset: .16em; }
+      a:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+      .skip-link { position: absolute; left: -999px; top: 0; padding: .75rem 1rem; background: var(--ink); color: white; }
+      .skip-link:focus { left: .75rem; z-index: 2; }
+      header { border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 92%, white); }
+      .frame { width: min(100% - 2rem, 900px); margin: 0 auto; }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; }
+      .brand { color: var(--ink); font-weight: 800; text-decoration: none; }
+      nav { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .95rem; }
+      main { padding: clamp(2.5rem, 8vw, 5rem) 0; }
+      h1, h2, h3 { line-height: 1.16; letter-spacing: -.03em; }
+      h1 { max-width: 13ch; margin: 0 0 1rem; font-size: clamp(2.4rem, 7vw, 4.8rem); }
+      h2 { margin-top: 2.75rem; font-size: clamp(1.45rem, 4vw, 2rem); }
+      h3 { margin-top: 1.75rem; }
+      p, li { max-width: 72ch; }
+      .lede { max-width: 58ch; font-size: 1.2rem; color: var(--muted); }
+      .eyebrow { margin-bottom: .5rem; color: var(--teal); font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+      .actions, .doc-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; padding: 0; list-style: none; }
+      .card { display: block; height: 100%; padding: 1.25rem; border: 1px solid var(--line); border-radius: 1rem; background: white; color: inherit; text-decoration: none; }
+      .card:hover { border-color: var(--teal); box-shadow: 0 8px 24px rgb(32 56 50 / .1); }
+      .card strong { display: block; margin-bottom: .35rem; color: var(--teal); }
+      code { padding: .1em .3em; border-radius: .25rem; background: rgb(23 107 96 / .1); font-size: .9em; }
+      pre { overflow-x: auto; padding: 1rem; border-radius: .75rem; background: #152621; color: #edf7f3; }
+      pre code { padding: 0; background: transparent; }
+      blockquote { margin: 1.5rem 0; padding: .25rem 1rem; border-left: .3rem solid var(--mint); color: var(--muted); }
+      table { display: block; overflow-x: auto; border-collapse: collapse; }
+      th, td { padding: .65rem; border: 1px solid var(--line); text-align: left; }
+      footer { padding: 2rem 0 3rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .95rem; }
+      @media (prefers-color-scheme: dark) { :root { --ink: #e7f0ec; --paper: #111e1b; --line: #385049; --muted: #b7c9c1; } .card { background: #172923; } header { background: #111e1b; } a, .card strong, .eyebrow { color: var(--mint); } }
+      @media (max-width: 540px) { .topbar { align-items: flex-start; flex-direction: column; } }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <header>
+      <div class="frame topbar">
+        <a class="brand" href="{{ '/' | relative_url }}">ADHD Progress Hub</a>
+        <nav aria-label="Primary">
+          <a href="{{ '/writing/' | relative_url }}">Writing guide</a>
+          <a href="https://github.com/uniskela/adhd-hub">Source</a>
+        </nav>
+      </div>
+    </header>
+    <main id="content" class="frame">
+      {{ content }}
+    </main>
+    <footer class="frame">
+      Source documentation lives in the <a href="https://github.com/uniskela/adhd-hub/tree/main/docs">ADHD Hub repository</a>.
+    </footer>
+  </body>
+</html>
