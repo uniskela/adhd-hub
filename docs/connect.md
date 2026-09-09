@@ -4,14 +4,25 @@ Point coding agents at a running ADHD Progress Hub without hand-editing every co
 
 ## One-liner (piggybacks on the Hub)
 
-On the Hub host, set `ADHD_HUB_PUBLIC_URL` to the URL clients should use (for example a Tailscale address). Then from any trusted machine:
+On the Hub host, set `ADHD_HUB_PUBLIC_URL` to the URL clients should use (for example a Tailscale address). The Hub serves two public, token-free bootstraps:
+
+### macOS / Linux / WSL / Git Bash
 
 ```bash
 export ADHD_HUB_AUTH_TOKEN=...   # keep this in your environment; the script never embeds it
 curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project
 ```
 
-`/install.sh` is public and token-free. It runs `adhd-hub connect` (or `uvx …`) with the Hub URL baked in.
+### Windows PowerShell
+
+```powershell
+$env:ADHD_HUB_AUTH_TOKEN = "..."
+irm "$env:ADHD_HUB_PUBLIC_URL/install.ps1" | iex
+# explicit project:
+iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project'"
+```
+
+Both scripts look for `adhd-hub` or `uvx` on `PATH`, then run `adhd-hub connect` with the Hub URL baked in. Prefer `uv tool install adhd-hub` once per machine.
 
 ## CLI
 

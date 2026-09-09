@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -93,6 +94,10 @@ def uninstall_agent_guidance(project_dir: Path) -> tuple[Path, str]:
 
 
 def install_skills(source: str) -> int:
-    command = ["npx", "skills", "add", source, "-g"]
+    npx = shutil.which("npx") or shutil.which("npx.cmd")
+    if not npx:
+        print("npx not found on PATH", file=__import__("sys").stderr)
+        return 127
+    command = [npx, "skills", "add", source, "-g"]
     print("Running:", " ".join(command))
     return subprocess.run(command, check=False).returncode

@@ -1294,6 +1294,8 @@
     $("mcp-url").value = location.origin + "/mcp";
     $("install-cmd").value =
       'curl -fsSL "' + location.origin + '/install.sh" | sh -s -- .';
+    $("install-cmd-win").value =
+      'irm "' + location.origin + '/install.ps1" | iex';
     $("settings-msg").textContent = "";
     $("settings-dialog").showModal();
     api("/health").then((health) => {
@@ -1345,6 +1347,10 @@
   $("btn-copy-install").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText($("install-cmd").value); setMsg("Install command copied."); }
     catch (_) { $("install-cmd").focus(); $("install-cmd").select(); setMsg("Select and copy the install command above."); }
+  });
+  $("btn-copy-install-win").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("install-cmd-win").value); setMsg("Windows install command copied."); }
+    catch (_) { $("install-cmd-win").focus(); $("install-cmd-win").select(); setMsg("Select and copy the Windows install command above."); }
   });
   $("btn-logout").addEventListener("click", () => logout());
   $("login-form").addEventListener("submit", (e) =>

@@ -177,8 +177,18 @@ Add `--install-skills` to also run `npx skills add uniskela/adhd-hub -g`, or pas
 With the Hub running and `ADHD_HUB_PUBLIC_URL` set for remote clients:
 
 ```bash
+# macOS / Linux / WSL / Git Bash
 export ADHD_HUB_AUTH_TOKEN=...   # never put the token in the script URL
 curl -fsSL http://<hub-host>:8787/install.sh | sh -s -- /path/to/project
+```
+
+```powershell
+# Windows PowerShell
+$env:ADHD_HUB_AUTH_TOKEN = "..."
+irm http://<hub-host>:8787/install.ps1 | iex
+```
+
+```bash
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
@@ -188,7 +198,7 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 
 Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). Near-term highlights:
 
-- **Wave 0 (shipping):** Hub-backed `/install.sh` + `adhd-hub connect` / `doctor`
+- **Wave 0 (shipping):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
 - Soft-archive projects; reminders in `/ui`; focus mode
 - MCP parity (pause / dismiss / list reminders); one-click workspace add from MCP
 - Durable sessions + Tailscale hardening; forge legacy path cleanup

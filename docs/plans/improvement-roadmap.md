@@ -26,7 +26,15 @@ Largest complexity: [`src/adhd_hub/ui/app.js`](../../src/adhd_hub/ui/app.js), [`
 # From any machine that can reach the Hub (token stays in the env, never in the script):
 export ADHD_HUB_AUTH_TOKEN=...   # optional until MCP probe / register
 curl -fsSL http://<hub-host>:8787/install.sh | sh -s -- /path/to/project
+```
 
+```powershell
+# Windows PowerShell
+$env:ADHD_HUB_AUTH_TOKEN = "..."
+irm http://<hub-host>:8787/install.ps1 | iex
+```
+
+```bash
 # Equivalent once the package is installed:
 adhd-hub connect /path/to/project --hub http://<hub-host>:8787
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
@@ -50,9 +58,9 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 
 ### Server piggyback
 
-- Public `GET /install.sh` — shell bootstrap with Hub base URL derived from request or `ADHD_HUB_PUBLIC_URL`. **No auth token in the script.**
-- Root JSON hint includes `install` path.
-- Connections settings already hold OpenClaw; connect only installs skills and points operators at Save & test.
+- Public `GET /install.sh` (macOS/Linux/WSL) and `GET /install.ps1` (Windows) — shell/PowerShell bootstrap with Hub base URL derived from request or `ADHD_HUB_PUBLIC_URL`. **No auth token in the script.**
+- Root JSON hint includes both install paths.
+- Connections settings already hold OpenClaw; connect only installs skills and points operators at Save & test. UI shows both Unix and Windows copy commands.
 
 ### Non-goals for Wave 0
 

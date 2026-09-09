@@ -53,7 +53,10 @@ def test_install_rejects_incomplete_managed_block(tmp_path: Path) -> None:
 
 def test_install_skills_uses_argument_list_without_shell() -> None:
     completed = Mock(returncode=0)
-    with patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run:
+    with (
+        patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
+        patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
+    ):
         assert install_skills("./skills") == 0
 
     run.assert_called_once_with(

@@ -12,6 +12,7 @@ from adhd_hub.connect import (
     merge_codex_mcp,
     merge_cursor_mcp,
     normalize_hub_url,
+    render_install_ps1,
     render_install_sh,
     run_connect,
     run_doctor,
@@ -107,6 +108,7 @@ def test_install_sh_endpoint_has_no_token(tmp_path: Path) -> None:
     root = client.get("/")
     assert root.status_code == 200
     assert root.json()["install"] == "/install.sh"
+    assert root.json()["install_ps1"] == "/install.ps1"
 
     resp = client.get("/install.sh")
     assert resp.status_code == 200
@@ -114,12 +116,28 @@ def test_install_sh_endpoint_has_no_token(tmp_path: Path) -> None:
     assert "super-secret-token-value" not in body
     assert "http://hub.test:8787" in body
     assert "adhd-hub connect" in body
+    assert "macOS" in body or "Windows PowerShell" in body
+
+    ps1 = client.get("/install.ps1")
+    assert ps1.status_code == 200
+    assert "super-secret-token-value" not in ps1.text
+    assert "http://hub.test:8787" in ps1.text
+    assert "param(" in ps1.text
+    assert "uvx" in ps1.text
 
 
 def test_render_install_sh_mentions_uvx() -> None:
     script = render_install_sh("http://example:8787")
     assert "uvx" in script
     assert "ADHD_HUB_AUTH_TOKEN" in script
+
+
+def test_render_install_ps1_is_powershell() -> None:
+    script = render_install_ps1("http://example:8787")
+    assert "param(" in script
+    assert "Get-Command uvx" in script
+    assert "ADHD_HUB_AUTH_TOKEN" in script
+    assert "secret" not in script
 
 
 def test_merge_codex_mcp_preserves_other_servers_with_brackets(tmp_path: Path) -> None:

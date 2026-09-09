@@ -6,9 +6,18 @@
 2. **Connect once** — prefer the [Connect one-liner](connect.md) so MCP, `AGENTS.md`, Cursor rule, and optional skills land together:
 
 ```bash
+# macOS / Linux / WSL
 export ADHD_HUB_AUTH_TOKEN=...
 curl -fsSL http://127.0.0.1:8787/install.sh | sh -s -- /path/to/project
-# or: adhd-hub connect /path/to/project --hub http://127.0.0.1:8787 --cursor-rule --skills
+```
+
+```powershell
+# Windows PowerShell
+$env:ADHD_HUB_AUTH_TOKEN = "..."
+irm http://127.0.0.1:8787/install.ps1 | iex
+```
+
+```bash
 adhd-hub doctor --project /path/to/project
 ```
 
