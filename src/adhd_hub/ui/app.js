@@ -727,19 +727,34 @@
       root.innerHTML = `<p class="hint">${message}</p>`;
       return;
     }
+    const projectName = (slug) => {
+      if (!slug || slug === "unclassified") return "Inbox";
+      const project = (overviewCache?.projects || []).find((item) => item.slug === slug);
+      return project?.title || slug;
+    };
+    const sourceName = (source) => ({
+      web: "Quick capture",
+      codex: "Codex",
+      cursor: "Cursor",
+      openclaw: "OpenClaw",
+    }[String(source || "").toLowerCase()] || source || "Saved work");
     root.innerHTML = threads
-      .map((t) => {
-
-        return `<article class="thread">
-          <h3>${escapeHtml(t.summary)}</h3>
-          <div class="meta">${escapeHtml(t.project_slug || "")} · ${escapeHtml(
-          t.source_tool || t.origin || ""
-        )} · updated ${escapeHtml(formatWhen(t.updated_at))}</div>
-          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Progress notes</summary><div class="markdown-body"></div></details>
-          <div class="actions">
+      .map((t, index) => {
+        const isChosen = t.id === chosenId;
+        const statusLabel = t.status === "done" ? "Finished" : currentView === "stale" ? "Waiting" : "Ready";
+        return `<article class="thread${isChosen ? " chosen" : ""}" aria-labelledby="thread-title-${index}">
+          <div class="thread-topline">
+            <span class="thread-number">${index + 1}</span>
+            <span class="thread-project">${escapeHtml(projectName(t.project_slug))}</span>
+            <span class="thread-status">${escapeHtml(statusLabel)}</span>
+          </div>
+          <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
+          <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.updated_at))}</span></div>
+          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Notes &amp; context</summary><div class="markdown-body"></div></details>
+          <div class="actions thread-actions">
             ${
               t.status !== "done"
-                ? `<button type="button" class="ghost compact" data-choose="${escapeHtml(t.id)}">${t.id === chosenId ? "Return to Now" : "Work on this"}</button>`
+                ? `<button type="button" class="thread-primary compact" data-choose="${escapeHtml(t.id)}">${isChosen ? "Return to Now" : "Choose this step"}</button>`
                 : ""
             }
             ${
@@ -747,7 +762,7 @@
                 ? `<a class="btn ghost compact" href="${safeLink(t.forge_issue_url)}" target="_blank" rel="noopener">Issue #${escapeHtml(t.forge_issue_number)}</a>`
                 : ""
             }
-            <button type="button" class="ghost compact" data-copy="${escapeHtml(t.id)}">Copy reference</button>
+            <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
           </div>
         </article>`;
       })

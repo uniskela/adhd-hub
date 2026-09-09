@@ -300,6 +300,10 @@ def main():
                 page.screenshot(path=str(screenshots / "project-edit-dialog.png"))
                 page.locator("#btn-close-project").click()
                 page.get_by_role("button", name="All projects", exact=True).click()
+                expect(page.locator("#threads .thread-project").first).to_be_visible()
+                expect(page.locator("#threads .thread-status").first).to_have_text("Ready")
+                expect(page.get_by_role("button", name="Choose this step").first).to_be_visible()
+                page.screenshot(path=str(screenshots / "my-work-thread-cards.png"), full_page=True)
                 # Deliver project A after B; B must remain selected and editable.
                 held = []
 
