@@ -13,7 +13,7 @@ npx skills add ./skills -g
 ```
 
 4. **Start a coding session** in any project — agent should `resolve_project` → `session_digest` → `check_overlap`.
-5. **Pause unfinished work** — `upsert_progress` with Done/Next/Blockers.
+5. **Pause unfinished work** — `upsert_progress` with one **Now**, short Done/Next lists, Waiting/blocked, and a **Return cue**. See [ADHD-friendly writing and planning](adhd-friendly-writing.md).
 6. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
 7. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
 

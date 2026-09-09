@@ -27,15 +27,23 @@ Call `upsert_progress` with:
 - Structured content:
 
 ```markdown
-## Done
-- …
+## Now
+- <one concrete, startable action>
+
+## Done since last time
+- <up to five short bullets>
 
 ## Next
-- …
+- <up to three ordered actions>
 
-## Blockers
-- … (or none)
+## Waiting / blocked
+- <owner or unblock condition, or None>
+
+## Return cue
+- When I return, I will <concrete action>.
 ```
+
+Keep finished detail in dated history below this active section. Prefer explicit paths, commands, links, and owners over a narrative that needs rereading. If time is limited, save `Now` and `Return cue` at minimum. See the repository’s [ADHD-friendly writing guide](../../docs/adhd-friendly-writing.md) for examples.
 
 Keep the `thread_id` returned by `upsert_progress`: it already keeps or creates an open thread. Do not also create a duplicate with `upsert_thread`. Use `upsert_thread(thread_id=...)` to update a known thread, or create one separately only for distinct work. Progress appends are not idempotent; after an ambiguous timeout, inspect the digest before retrying.
 
