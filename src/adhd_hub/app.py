@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -16,6 +16,7 @@ from adhd_hub import __version__
 from adhd_hub.api import build_router
 from adhd_hub.auth import BrowserSessions, auth_dependency, build_auth_router, token_matches
 from adhd_hub.config import Settings, load_settings
+from adhd_hub.connect import render_install_sh
 from adhd_hub.mcp_app import build_mcp
 from adhd_hub.scheduler import start_scheduler
 from adhd_hub.service import HubService
@@ -161,7 +162,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "ui": "/ui",
             "health": "/api/health",
             "mcp": "/mcp",
-            "hint": "Open /ui for the dashboard. MCP at /mcp with Authorization Bearer token.",
+            "install": "/install.sh",
+            "hint": (
+                "Open /ui for the dashboard. MCP at /mcp with Authorization Bearer token. "
+                "Client wire-up: curl -fsSL <hub>/install.sh | sh -s -- ."
+            ),
         }
+
+    @app.get("/install.sh", response_class=PlainTextResponse)
+    def install_sh(request: Request):
+        """Public bootstrap script — never embeds auth tokens."""
+        configured = settings.resolve_public_url()
+        if configured:
+            hub = configured
+        else:
+            hub = str(request.base_url).rstrip("/")
+        script = render_install_sh(hub)
+        return PlainTextResponse(script, media_type="text/x-shellscript")
 
     return app

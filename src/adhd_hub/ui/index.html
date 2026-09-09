@@ -168,6 +168,9 @@
       <p class="hint">Add this Streamable HTTP server in Cursor, Codex, or Claude Code. Set the client’s bearer token from <code>ADHD_HUB_AUTH_TOKEN</code>.</p>
       <label>MCP server URL <input id="mcp-url" readonly /></label>
       <button type="button" class="ghost" id="btn-copy-mcp">Copy URL</button>
+      <p class="hint">Or wire MCP, AGENTS.md, Cursor rule, and optional skills in one step (token stays in your environment):</p>
+      <label>Client install <input id="install-cmd" readonly /></label>
+      <button type="button" class="ghost" id="btn-copy-install">Copy install command</button>
       <p class="hint">Install the ADHD Hub skills for all of your projects:</p>
       <pre class="snippet">npx skills add uniskela/adhd-hub -g</pre>
       <p class="hint">Working on an unreleased local checkout? Use <code>npx skills add ./skills -g</code> instead.</p>

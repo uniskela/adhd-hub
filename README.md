@@ -172,16 +172,27 @@ adhd-hub setup /path/to/project
 
 Add `--install-skills` to also run `npx skills add uniskela/adhd-hub -g`, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes a global directory. See [project agent setup](docs/project-agent-setup.md).
 
+## Connect (one-liner)
+
+With the Hub running and `ADHD_HUB_PUBLIC_URL` set for remote clients:
+
+```bash
+export ADHD_HUB_AUTH_TOKEN=...   # never put the token in the script URL
+curl -fsSL http://<hub-host>:8787/install.sh | sh -s -- /path/to/project
+adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
+```
+
+`adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`. Details: [docs/connect.md](docs/connect.md).
+
 ## Roadmap
 
-- Archive instead of delete — soft-hide projects without clearing threads
-- One-click “add this workspace” from MCP (title from folder + path + open thread defaults)
-- Focus mode (timed task + drift policy; only-show-this-project)
-- Reminder surface in `/ui` — due reminders alongside pending actions
-- Cleanup helper for old forge path `adhd-hub/wiki/**` after root `projects/` migration
-- Richer OpenClaw memory round-trips
-- Hardening for multi-machine Tailscale deploy (Proxmox / Portainer)
-- skills.sh listing after public GitHub publish
+Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). Near-term highlights:
+
+- **Wave 0 (shipping):** Hub-backed `/install.sh` + `adhd-hub connect` / `doctor`
+- Soft-archive projects; reminders in `/ui`; focus mode
+- MCP parity (pause / dismiss / list reminders); one-click workspace add from MCP
+- Durable sessions + Tailscale hardening; forge legacy path cleanup
+- Richer OpenClaw memory round-trips; skills.sh listing after publish
 
 ### Dashboard comfort
 
