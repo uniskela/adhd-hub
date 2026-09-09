@@ -69,13 +69,36 @@
       <section id="now-view" class="view now-view" aria-label="Now">
         <div class="view-heading"><p class="eyebrow">NOW</p><h1>One thing at a time.</h1></div>
         <section class="focus" id="focus-panel" aria-labelledby="focus-title">
-          <p class="eyebrow" id="focus-eyebrow">YOUR CHOICE</p>
+          <div class="focus-toolbar">
+            <p class="eyebrow" id="focus-eyebrow">YOUR CHOICE</p>
+            <div class="focus-toolbar-actions">
+              <label class="focus-timer-label" for="focus-minutes" hidden id="focus-timer-wrap">
+                <span class="visually-hidden">Focus minutes</span>
+                <select id="focus-minutes" aria-label="Focus session length">
+                  <option value="15">15 min</option>
+                  <option value="25" selected>25 min</option>
+                  <option value="45">45 min</option>
+                </select>
+              </label>
+              <button type="button" class="ghost compact" id="btn-focus-mode" aria-pressed="false">Focus mode</button>
+            </div>
+          </div>
           <h2 id="focus-title">What would you like to work on?</h2>
+          <p id="focus-session" class="focus-session" role="status" hidden></p>
           <div id="next-card" class="next-card empty"></div>
         </section>
+        <section id="now-reminders" class="reminder-strip" hidden></section>
       </section>
       <section id="work-view" class="view" aria-label="My work" hidden>
-        <div class="view-heading"><h1>My work</h1><p>Choose a task to bring into Now.</p></div>
+        <div class="view-heading work-heading-row">
+          <div>
+            <h1>My work</h1>
+            <p>Choose a task to bring into Now.</p>
+          </div>
+          <button type="button" class="ghost" id="btn-new-reminder">Leave a reminder</button>
+        </div>
+        <section id="drift-banner" class="pending-banner drift-banner" hidden></section>
+        <section id="reminder-banner" class="pending-banner reminder-banner" hidden></section>
         <section id="pending-banner" class="pending-banner" hidden></section>
         <section id="import-banner" class="pending-banner import-banner" hidden></section>
         <div class="layout">
@@ -86,6 +109,10 @@
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
         <div id="project-list"></div>
+        <details class="archived-projects" id="archived-projects-wrap" hidden>
+          <summary>Archived projects</summary>
+          <div id="archived-project-list"></div>
+        </details>
       </aside>          <div class="work-content">
             <div class="work-heading">
               <div class="project-title-row">
@@ -270,6 +297,8 @@
       </details>
       <div class="actions">
         <button type="submit" class="primary" id="btn-save-project">Save project</button>
+        <button type="button" class="ghost" id="btn-archive-project">Archive</button>
+        <button type="button" class="ghost" id="btn-restore-project" hidden>Restore</button>
         <button type="button" class="ghost" id="btn-rename-project">Rename slug…</button>
         <button type="button" class="danger" id="btn-delete-project">Delete…</button>
       </div>
@@ -318,9 +347,27 @@
       <h2 id="capture-title">Save a thought</h2>
       <label for="capture-summary">What do you want to remember?</label>
       <textarea id="capture-summary" placeholder="An idea, a task, something to come back to…" maxlength="500" required></textarea>
+      <label class="check-row"><input type="checkbox" id="capture-as-thread" checked /> Create an open task in Inbox</label>
       <p class="hint" id="capture-project">Saved to your inbox. You can sort it out later.</p>
       <p id="capture-error" class="msg error" role="alert"></p>
       <div class="actions"><button type="submit" class="primary">Save thought</button><button type="button" class="ghost" id="btn-cancel-capture">Cancel</button></div>
+    </form>
+  </dialog>
+  <dialog id="reminder-dialog" aria-labelledby="reminder-title">
+    <form id="reminder-form" class="dialog-card">
+      <h2 id="reminder-title">Leave a reminder</h2>
+      <label for="reminder-message">What should you come back to?</label>
+      <textarea id="reminder-message" maxlength="500" required placeholder="Stretch, then open the draft…"></textarea>
+      <label for="reminder-kind">When</label>
+      <select id="reminder-kind">
+        <option value="once">At a time</option>
+        <option value="session">Next time I open the hub</option>
+        <option value="daily">Once a day</option>
+      </select>
+      <label for="reminder-due" id="reminder-due-label">Due (local time)</label>
+      <input id="reminder-due" type="datetime-local" />
+      <p id="reminder-error" class="msg error" role="alert"></p>
+      <div class="actions"><button type="submit" class="primary">Save reminder</button><button type="button" class="ghost" id="btn-cancel-reminder">Cancel</button></div>
     </form>
   </dialog>
   <dialog id="pause-dialog" aria-labelledby="pause-title">

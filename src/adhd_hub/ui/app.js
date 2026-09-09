@@ -38,10 +38,16 @@
   let nowMessage = "";
   let shareFile = null;
   let shareVersion = 0;
+  let focusModeOn = preferences.getItem("adhd_hub_focus_mode") === "true";
+  let focusEndsAt = Number(preferences.getItem("adhd_hub_focus_ends_at") || 0) || 0;
+  let focusTimerId = null;
+  let archivedProjectsCache = [];
   let currentTz =
     preferences.getItem(tzKey) ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
     "UTC";
+  const prefersReducedMotion = () =>
+    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const $ = (id) => document.getElementById(id);
   const repoUrl = $("repo-link").href;
@@ -403,16 +409,31 @@
     event.preventDefault();
     const summary = $("capture-summary").value.trim();
     if (!summary) return;
+    const asThread = $("capture-as-thread").checked;
     const button = $("quick-capture").querySelector('[type="submit"]');
     button.disabled = true;
     $("capture-error").textContent = "";
     try {
-      await api("/threads", { method: "POST", body: JSON.stringify({
-        summary, project_slug: "unclassified", source_tool: "web",
-      }) });
+      if (asThread) {
+        await api("/threads", { method: "POST", body: JSON.stringify({
+          summary, project_slug: "unclassified", source_tool: "web",
+        }) });
+        setMsg("Saved as an open task in your inbox.");
+      } else {
+        await api("/progress", {
+          method: "POST",
+          body: JSON.stringify({
+            project_slug: "unclassified",
+            title: summary.slice(0, 80),
+            content: `## Capture\n- ${summary}`,
+            source_tool: "web",
+            create_thread_if_missing: false,
+          }),
+        });
+        setMsg("Thought saved to inbox notes (no open task).");
+      }
       $("capture-summary").value = "";
       $("capture-dialog").close();
-      setMsg("Saved to your inbox.");
       await loadOverview();
       if (activeScreen === "work") await loadThreads();
     } catch (error) {
@@ -611,11 +632,12 @@
 
   function renderProjects(projects) {
     const list = $("project-list");
-    list.innerHTML = (projects || [])
+    const active = (projects || []).filter((p) => !p.archived);
+    list.innerHTML = active
       .map((p) => {
         const open = (p.counts && p.counts.open) || 0;
-        const active = projectFilter === p.slug ? "active" : "";
-        return `<button type="button" class="proj ${active}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${projectFilter === p.slug}">
+        const isActive = projectFilter === p.slug ? "active" : "";
+        return `<button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${projectFilter === p.slug}">
           <div>${escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug)}</div>
           <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
         </button>`;
@@ -623,6 +645,31 @@
       .join("");
     $("proj-all").classList.toggle("active", !projectFilter);
     $("proj-all").setAttribute("aria-pressed", String(!projectFilter));
+    list.querySelectorAll(".proj").forEach((el) => {
+      el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
+    });
+    renderArchivedProjects();
+  }
+
+  function renderArchivedProjects() {
+    const wrap = $("archived-projects-wrap");
+    const list = $("archived-project-list");
+    const archived = archivedProjectsCache || [];
+    if (!archived.length) {
+      wrap.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    wrap.hidden = false;
+    list.innerHTML = archived
+      .map((p) => {
+        const open = (p.counts && p.counts.open) || 0;
+        return `<button type="button" class="proj archived" data-slug="${escapeHtml(p.slug)}">
+          <div>${escapeHtml(p.title || p.slug)}</div>
+          <div class="meta">${open} open · archived</div>
+        </button>`;
+      })
+      .join("");
     list.querySelectorAll(".proj").forEach((el) => {
       el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
     });
@@ -643,8 +690,11 @@
     $("p_forge_repo").value = p.forge_repo || "";
     $("p_forge_wiki").value = p.forge_wiki_path || "";
     $("p_forge_project_id").value = p.forge_project_id || "";
+    const archived = !!(p.archived || p.archived_at);
     $("btn-rename-project").hidden = !!p.unregistered;
     $("btn-delete-project").hidden = !!p.unregistered;
+    $("btn-archive-project").hidden = !!p.unregistered || archived || p.slug === "unclassified";
+    $("btn-restore-project").hidden = !!p.unregistered || !archived;
   }
 
   function renderProjectHeader(p) {
@@ -676,6 +726,7 @@
     const card = $("next-card");
     const thread = chosenThread;
     $("focus-title").setAttribute("tabindex", "-1");
+    updateFocusModeUi();
     if (!thread) {
       $("focus-eyebrow").textContent = "YOUR CHOICE";
       $("focus-title").textContent = "What would you like to work on?";
@@ -686,22 +737,35 @@
       $("btn-retry-focus")?.addEventListener("click", loadChosenThread);
       return;
     }
-    $("focus-eyebrow").textContent = `${focusState === "working" ? "WORKING ON" : focusState === "paused" ? "SAVED FOR YOUR RETURN" : "YOUR CHOICE"} · ${thread.project_slug === "unclassified" ? "Inbox" : thread.project_slug || ""}`;
+    const returning = focusState === "paused" && !!thread.resume_step;
+    $("focus-eyebrow").textContent = `${
+      focusState === "working"
+        ? "WORKING ON"
+        : returning
+          ? "WHERE YOU LEFT OFF"
+          : focusState === "paused"
+            ? "SAVED FOR YOUR RETURN"
+            : "YOUR CHOICE"
+    } · ${thread.project_slug === "unclassified" ? "Inbox" : thread.project_slug || ""}`;
     $("focus-title").textContent = thread.summary;
     card.className = "next-card has-item";
+    const resumeBlock = thread.resume_step
+      ? `<div class="resume-step${returning ? " resume-step-prominent" : ""}"><p class="eyebrow">${returning ? "PICK UP HERE" : "NEXT TINY STEP"}</p><div class="markdown-body">${thread.resume_step_html}</div>${returning ? '<p class="hint welcome-back">Welcome back. One small step is enough.</p>' : ""}</div>`
+      : '<p class="start-cue">Start with the smallest part. You can leave a next step whenever you stop.</p>';
     card.innerHTML = `
-      ${thread.resume_step ? `<div class="resume-step"><p class="eyebrow">NEXT TINY STEP</p><div class="markdown-body">${thread.resume_step_html}</div></div>` : '<p class="start-cue">Start with the smallest part. You can leave a next step whenever you stop.</p>'}
-      ${focusState === "working" ? '<p class="work-state" role="status">This is your focus. No timer, no rush.</p>' : ""}
+      ${resumeBlock}
+      ${focusState === "working" ? `<p class="work-state" role="status">${focusModeOn ? "Focus mode is on — stay with this project when you can." : "This is your focus. No timer, no rush."}</p>` : ""}
       <div class="next-actions">
-        <button type="button" class="primary" id="btn-start">${focusState === "working" ? "Pause here" : focusState === "paused" ? "Resume" : "Start"}</button>
+        <button type="button" class="primary" id="btn-start">${focusState === "working" ? "Pause here" : returning || focusState === "paused" ? "Resume" : "Start"}</button>
         <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
         <button type="button" class="ghost" data-done="${escapeHtml(thread.id)}">Done</button>
       </div>
-      <details class="progress-details"><summary>Where you left off</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
+      <details class="progress-details"><summary>Project notes</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
     $("btn-start").addEventListener("click", () => {
       if (focusState === "working") { openPause(); return; }
       focusState = "working";
       rememberFocus();
+      if (focusModeOn) startFocusSession();
       renderFocus();
       $("btn-start").focus();
     });
@@ -894,6 +958,254 @@
     );
   }
 
+  function renderReminders(due, all) {
+    const banner = $("reminder-banner");
+    const strip = $("now-reminders");
+    const dueList = due || [];
+    // Only surface due reminders — snoozed/future items stay quiet until due.
+    if (!dueList.length) {
+      banner.hidden = true;
+      banner.innerHTML = "";
+      strip.hidden = true;
+      strip.innerHTML = "";
+      return;
+    }
+    const items = dueList
+      .map((r) => {
+        const dueLabel = r.due_at ? formatWhen(r.due_at) : r.kind;
+        return `<div class="pending-item" data-reminder="${escapeHtml(r.id)}">
+          <div>
+            <div>${escapeHtml(r.message)}</div>
+            <div class="meta">${escapeHtml(String(r.kind))} · ${escapeHtml(dueLabel)}</div>
+          </div>
+          <div class="actions" style="margin:0">
+            <button type="button" class="ghost compact" data-snooze="${escapeHtml(r.id)}">Snooze 1h</button>
+            <button type="button" class="ghost compact" data-dismiss-reminder="${escapeHtml(r.id)}">Dismiss</button>
+          </div>
+        </div>`;
+      })
+      .join("");
+    banner.hidden = false;
+    banner.innerHTML = `<h2>Reminders</h2><p class="hint">Due now — gentle nudges, not alarms.</p>${items}`;
+    banner.querySelectorAll("[data-snooze]").forEach((btn) =>
+      btn.addEventListener("click", () => snoozeReminder(btn.dataset.snooze))
+    );
+    banner.querySelectorAll("[data-dismiss-reminder]").forEach((btn) =>
+      btn.addEventListener("click", () => dismissReminder(btn.dataset.dismissReminder))
+    );
+    if (activeScreen === "now") {
+      strip.hidden = false;
+      strip.innerHTML = `<p class="eyebrow">REMINDERS</p>${dueList
+        .slice(0, 3)
+        .map((r) => `<p>${escapeHtml(r.message)}</p>`)
+        .join("")}`;
+    } else {
+      strip.hidden = true;
+      strip.innerHTML = "";
+    }
+  }
+
+  function renderDriftBanner() {
+    const el = $("drift-banner");
+    if (!focusModeOn || activeScreen !== "work" || !chosenThread) {
+      el.hidden = true;
+      el.innerHTML = "";
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = `
+      <div>
+        <strong>Still focusing on ${escapeHtml(chosenThread.summary)}</strong>
+        <p class="hint">My work is available — return to Now when you’re ready.</p>
+      </div>
+      <button type="button" class="primary compact" id="btn-return-focus">Back to Now</button>`;
+    $("btn-return-focus").addEventListener("click", () => {
+      showScreen("now");
+      renderFocus();
+    });
+  }
+
+  async function snoozeReminder(id) {
+    try {
+      await api(`/reminders/${encodeURIComponent(id)}/snooze`, {
+        method: "POST",
+        body: JSON.stringify({ minutes: 60 }),
+      });
+      setMsg("Reminder snoozed for an hour.");
+      await loadOverview();
+    } catch (e) {
+      setMsg("Could not snooze reminder: " + e.message);
+    }
+  }
+
+  async function dismissReminder(id) {
+    try {
+      await api(`/reminders/${encodeURIComponent(id)}/dismiss`, {
+        method: "POST",
+        body: "{}",
+      });
+      setMsg("Reminder dismissed.");
+      await loadOverview();
+    } catch (e) {
+      setMsg("Could not dismiss reminder: " + e.message);
+    }
+  }
+
+  function openReminderDialog() {
+    $("reminder-error").textContent = "";
+    $("reminder-message").value = "";
+    $("reminder-kind").value = "once";
+    const local = new Date(Date.now() + 60 * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    $("reminder-due").value = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+    toggleReminderDue();
+    $("reminder-dialog").showModal();
+    $("reminder-message").focus();
+  }
+
+  function toggleReminderDue() {
+    const once = $("reminder-kind").value === "once";
+    $("reminder-due").hidden = !once;
+    $("reminder-due-label").hidden = !once;
+    $("reminder-due").required = once;
+  }
+
+  async function saveReminder(event) {
+    event.preventDefault();
+    const message = $("reminder-message").value.trim();
+    if (!message) return;
+    const kind = $("reminder-kind").value;
+    const payload = { message, kind };
+    if (kind === "once") {
+      const raw = $("reminder-due").value;
+      if (!raw) {
+        $("reminder-error").textContent = "Choose a due time.";
+        return;
+      }
+      payload.due_at = new Date(raw).toISOString();
+    }
+    const button = $("reminder-form").querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      await api("/reminders", { method: "POST", body: JSON.stringify(payload) });
+      $("reminder-dialog").close();
+      setMsg("Reminder saved.");
+      await loadOverview();
+    } catch (e) {
+      $("reminder-error").textContent = e.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function startFocusSession() {
+    const minutes = Number($("focus-minutes").value || 25);
+    focusEndsAt = Date.now() + minutes * 60 * 1000;
+    preferences.setItem("adhd_hub_focus_ends_at", String(focusEndsAt));
+    if (focusTimerId) {
+      clearInterval(focusTimerId);
+      focusTimerId = null;
+    }
+    tickFocusSession();
+  }
+
+  function clearFocusSession() {
+    focusEndsAt = 0;
+    preferences.removeItem("adhd_hub_focus_ends_at");
+    if (focusTimerId) {
+      clearInterval(focusTimerId);
+      focusTimerId = null;
+    }
+    const el = $("focus-session");
+    el.hidden = true;
+    el.textContent = "";
+  }
+
+  function tickFocusSession() {
+    const el = $("focus-session");
+    if (!focusModeOn || !focusEndsAt) {
+      if (!focusModeOn) clearFocusSession();
+      return;
+    }
+    const remaining = focusEndsAt - Date.now();
+    if (remaining <= 0) {
+      el.hidden = false;
+      el.textContent = "Session complete. Pause here or keep going gently.";
+      if (focusTimerId) {
+        clearInterval(focusTimerId);
+        focusTimerId = null;
+      }
+      // Clear end marker so the next Start can begin a fresh session.
+      focusEndsAt = 0;
+      preferences.removeItem("adhd_hub_focus_ends_at");
+      return;
+    }
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    el.hidden = false;
+    el.textContent = prefersReducedMotion()
+      ? `About ${mins + (secs > 0 ? 1 : 0)} min left in this focus session.`
+      : `Focus session · ${mins}:${String(secs).padStart(2, "0")} left`;
+    if (!focusTimerId && !prefersReducedMotion()) {
+      focusTimerId = setInterval(tickFocusSession, 1000);
+    } else if (!focusTimerId && prefersReducedMotion()) {
+      focusTimerId = setInterval(tickFocusSession, 15000);
+    }
+  }
+
+  function updateFocusModeUi() {
+    document.body.classList.toggle("focus-mode", focusModeOn);
+    const btn = $("btn-focus-mode");
+    btn.setAttribute("aria-pressed", String(focusModeOn));
+    btn.textContent = focusModeOn ? "Exit focus" : "Focus mode";
+    $("focus-timer-wrap").hidden = !focusModeOn;
+    if (focusModeOn) tickFocusSession();
+    else clearFocusSession();
+    renderDriftBanner();
+  }
+
+  function toggleFocusMode() {
+    focusModeOn = !focusModeOn;
+    preferences.setItem("adhd_hub_focus_mode", String(focusModeOn));
+    if (focusModeOn) {
+      if (focusState === "working") startFocusSession();
+      else clearFocusSession();
+      showScreen("now");
+    } else {
+      clearFocusSession();
+    }
+    updateFocusModeUi();
+    renderFocus();
+  }
+
+  async function archiveProject() {
+    const slug = $("p_slug").value.trim();
+    if (!slug) return;
+    try {
+      await api(`/projects/${encodeURIComponent(slug)}/archive`, { method: "POST", body: "{}" });
+      $("project-dialog").close();
+      setMsg("Project archived. Threads and notes are kept.");
+      if (projectFilter === slug) projectFilter = null;
+      await loadAll();
+    } catch (e) {
+      setMsg("Could not archive: " + e.message);
+    }
+  }
+
+  async function restoreProject() {
+    const slug = $("p_slug").value.trim();
+    if (!slug) return;
+    try {
+      await api(`/projects/${encodeURIComponent(slug)}/restore`, { method: "POST", body: "{}" });
+      $("project-dialog").close();
+      setMsg("Project restored.");
+      await loadAll();
+      await selectProject(slug);
+    } catch (e) {
+      setMsg("Could not restore: " + e.message);
+    }
+  }
+
   async function approvePending(id) {
     try {
       await api(`/pending-actions/${encodeURIComponent(id)}/approve`, {
@@ -1032,9 +1344,16 @@
 
   async function loadOverview() {
     overviewCache = await api("/overview");
+    try {
+      archivedProjectsCache = (await api("/projects?include_archived=true")).filter((p) => p.archived);
+    } catch (_) {
+      archivedProjectsCache = [];
+    }
     renderStats(overviewCache);
     renderProjects(overviewCache.projects || []);
     renderPending(overviewCache.pending_actions || []);
+    renderReminders(overviewCache.due_reminders || [], overviewCache.reminders || []);
+    renderDriftBanner();
   }
 
   async function loadForge() {
@@ -1427,6 +1746,16 @@
   $("btn-edit-project").addEventListener("click", () => openProjectDialog(detailCache));
   $("btn-rename-project").addEventListener("click", () => renameProject());
   $("btn-delete-project").addEventListener("click", () => deleteProject());
+  $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));
+  $("btn-restore-project").addEventListener("click", () => restoreProject().catch((e) => setMsg(String(e))));
+  $("btn-focus-mode").addEventListener("click", toggleFocusMode);
+  $("focus-minutes").addEventListener("change", () => {
+    if (focusModeOn && focusState === "working") startFocusSession();
+  });
+  $("btn-new-reminder").addEventListener("click", openReminderDialog);
+  $("btn-cancel-reminder").addEventListener("click", () => $("reminder-dialog").close());
+  $("reminder-kind").addEventListener("change", toggleReminderDue);
+  $("reminder-form").addEventListener("submit", (e) => saveReminder(e).catch((err) => setMsg(String(err))));
   $("btn-new-project").addEventListener("click", () => {
     const newProject = {
       title: "",
@@ -1474,6 +1803,7 @@
     button.addEventListener("click", async () => {
       setMsg("");
       showScreen(button.dataset.screen);
+      renderDriftBanner();
       try {
         if (activeScreen === "work") await selectProject(projectFilter);
         else if (activeScreen === "now") await loadChosenThread();
@@ -1481,6 +1811,7 @@
       } catch (error) { setMsg(error.message); }
     });
   });
+  updateFocusModeUi();
   $("btn-capture").addEventListener("click", () => {
     $("capture-error").textContent = "";
     $("capture-dialog").showModal();

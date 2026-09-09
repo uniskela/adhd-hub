@@ -126,5 +126,6 @@ Only after Waves 0–2 feel stable:
 
 | Wave | Status |
 |------|--------|
-| 0 Client wire-up | Implemented in this branch |
-| 1–5 | Planned |
+| 0 Client wire-up | Shipped in 0.3.5 |
+| 1 ADHD UX depth | In progress — branch `cursor/wave1-adhd-ux-5570` / issue #16 |
+| 2–5 | Planned |

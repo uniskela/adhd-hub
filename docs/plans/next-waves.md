@@ -21,8 +21,8 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 
 | Priority | Wave | Focus |
 |----------|------|--------|
-| Now | Inbox harden | Author allowlist (this delivery) |
-| Next | Wave 1 | ADHD UX depth in `/ui` |
+| Done | Inbox harden | Author allowlist (0.3.5) |
+| Now | Wave 1 | ADHD UX depth in `/ui` (#16) |
 | Then | Wave 2 | MCP parity + OpenClaw memory |
 | Later | Connect leftovers | Windows smoke, setup-complete cue |
 | Then | Wave 3 | Homelab ops & trust |

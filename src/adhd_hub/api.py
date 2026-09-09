@@ -15,6 +15,7 @@ from adhd_hub.models import (
     ProjectRename,
     ProjectUpsert,
     ReminderCreate,
+    ReminderSnooze,
     ThreadStatus,
     ThreadUpsert,
 )
@@ -90,8 +91,11 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         return service.save_prefs(HubPrefs.model_validate(current)).public_dict()
 
     @router.get("/projects", dependencies=[Depends(auth_dep)])
-    def list_projects(limit: int = Query(200, ge=1, le=500)):
-        return service.list_projects(limit=limit)
+    def list_projects(
+        limit: int = Query(200, ge=1, le=500),
+        include_archived: bool = False,
+    ):
+        return service.list_projects(limit=limit, include_archived=include_archived)
 
     @router.post("/projects", dependencies=[Depends(auth_dep)])
     def upsert_project(payload: ProjectUpsert):
@@ -146,6 +150,22 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
                 delete_progress=delete_progress,
                 delete_remote=delete_remote,
             )
+        except KeyError:
+            raise HTTPException(404, "Project not found") from None
+
+    @router.post("/projects/{slug}/archive", dependencies=[Depends(auth_dep)])
+    def archive_project(slug: str):
+        try:
+            return service.archive_project(slug)
+        except KeyError:
+            raise HTTPException(404, "Project not found") from None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @router.post("/projects/{slug}/restore", dependencies=[Depends(auth_dep)])
+    def restore_project(slug: str):
+        try:
+            return service.restore_project(slug)
         except KeyError:
             raise HTTPException(404, "Project not found") from None
 
@@ -215,8 +235,25 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         return service.set_reminder(payload)
 
     @router.get("/reminders", dependencies=[Depends(auth_dep)])
-    def list_reminders(include_handled: bool = False):
+    def list_reminders(include_handled: bool = False, due_only: bool = False):
+        if due_only:
+            return service.store.due_reminders()
         return service.store.list_reminders(include_handled=include_handled)
+
+    @router.post("/reminders/{reminder_id}/snooze", dependencies=[Depends(auth_dep)])
+    def snooze_reminder(reminder_id: str, payload: ReminderSnooze | None = None):
+        minutes = payload.minutes if payload else 60
+        try:
+            return service.snooze_reminder(reminder_id, minutes=minutes)
+        except KeyError:
+            raise HTTPException(404, "Reminder not found") from None
+
+    @router.post("/reminders/{reminder_id}/dismiss", dependencies=[Depends(auth_dep)])
+    def dismiss_reminder(reminder_id: str):
+        try:
+            return service.dismiss_reminder(reminder_id)
+        except KeyError:
+            raise HTTPException(404, "Reminder not found") from None
 
     @router.post("/indexer/batch", dependencies=[Depends(auth_dep)])
     def indexer_batch(payload: IndexerBatch):

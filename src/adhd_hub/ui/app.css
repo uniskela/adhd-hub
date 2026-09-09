@@ -202,6 +202,26 @@ dialog::backdrop { background: #10111b99; backdrop-filter: blur(4px); }
 body.focus-mode .rail, body.focus-mode .threads-panel, body.focus-mode .project-edit, body.focus-mode .capture-panel, body.focus-mode .rewards-panel, body.focus-mode .activity-details, body.focus-mode .stats { display: none; }
 body.focus-mode .layout { grid-template-columns: minmax(0, 760px); justify-content: center; }
 body.focus-mode #btn-focus-mode { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+body.focus-mode .view-nav [data-screen="progress"],
+body.focus-mode .top-actions #btn-capture { opacity: .55; }
+.focus-toolbar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .35rem; }
+.focus-toolbar .eyebrow { margin: 0; }
+.focus-toolbar-actions { display: flex; align-items: center; gap: .5rem; }
+.focus-session { margin: 0 0 1rem; color: var(--muted); font-size: .92rem; }
+.resume-step-prominent { padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: 14px; background: var(--accent-soft); margin-bottom: 1rem; }
+.resume-step-prominent .welcome-back { margin: .65rem 0 0; }
+.reminder-banner, .drift-banner { margin-bottom: 1rem; }
+.reminder-strip { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.reminder-strip p { margin: .35rem 0; }
+.work-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.archived-projects { margin-top: 1rem; }
+.archived-projects summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+.proj.archived { opacity: .75; }
+.check-row { display: flex; align-items: center; gap: .5rem; margin: .75rem 0; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .resume-step-prominent { transition: none; }
+}
 @media (max-width: 1050px) { .brand-label { display: none; } .layout { gap: 1.5rem; grid-template-columns: 180px minmax(0, 1fr); } .welcome { align-items: flex-start; } .stats { gap: .75rem; } }
 @media (max-width: 800px) {
   .shell { padding: .8rem 1rem 2rem; }
