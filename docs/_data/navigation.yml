@@ -13,6 +13,8 @@
       url: /authentication/
     - title: Dashboard
       url: /dashboard/
+    - title: OpenClaw connection and alerts
+      url: /openclaw/
     - title: Homelab deployment
       url: /deploy-homelab/
     - title: Forge permissions

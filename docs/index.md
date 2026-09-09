@@ -40,6 +40,7 @@ Every guide below is rendered from the reviewed Markdown source in this reposito
 
 <ul class="doc-list">
   <li><a class="card" href="{{ '/authentication/' | relative_url }}"><strong>Authentication</strong>Passwords, tokens, cookies, and recovery.</a></li>
+  <li><a class="card" href="{{ '/openclaw/' | relative_url }}"><strong>OpenClaw connection and alerts</strong>Install the skills and set up private, gentle stale-work reminders.</a></li>
   <li><a class="card" href="{{ '/deploy-homelab/' | relative_url }}"><strong>Homelab deployment</strong>Run the Hub safely in your lab.</a></li>
   <li><a class="card" href="{{ '/forge-permissions/' | relative_url }}"><strong>Forge permissions</strong>Least-privilege GitHub and Gitea setup.</a></li>
   <li><a class="card" href="{{ '/indexer-schedule/' | relative_url }}"><strong>Indexer schedule</strong>Use summaries as a backstop, not raw transcripts.</a></li>

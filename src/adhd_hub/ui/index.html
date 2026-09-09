@@ -183,9 +183,20 @@
       <p class="hint">Add this Streamable HTTP server in Cursor, Codex, or Claude Code. Set the client’s bearer token from <code>ADHD_HUB_AUTH_TOKEN</code>.</p>
       <label>MCP server URL <input id="mcp-url" readonly /></label>
       <button type="button" class="ghost" id="btn-copy-mcp">Copy URL</button>
-      <p class="hint">Install the bundled skills from your local checkout:</p>
-      <pre class="snippet">npx skills add ./skills -g</pre>
+      <p class="hint">Install the ADHD Hub skills for all of your projects:</p>
+      <pre class="snippet">npx skills add uniskela/adhd-hub -g</pre>
+      <p class="hint">Working on an unreleased local checkout? Use <code>npx skills add ./skills -g</code> instead.</p>
       <p class="hint">Restart your assistant and ask it to call <code>session_digest</code> to verify the connection.</p>
+
+        <details class="settings-section"><summary>OpenClaw connection &amp; gentle alerts <span class="hint">· Optional</span></summary>
+      <p class="hint">Install the same skills for OpenClaw:</p>
+      <pre class="snippet">npx skills add uniskela/adhd-hub -g -a openclaw</pre>
+      <p class="hint">On the Hub server, add the following private OpenClaw hook details to <code>.env</code>, then restart the Hub. Do not put either token in an assistant configuration or a repository.</p>
+      <pre class="snippet">ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
+ADHD_HUB_OPENCLAW_TOKEN=&lt;OpenClaw hook bearer token&gt;
+# Optional: ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent</pre>
+      <p class="hint">With hooks enabled on OpenClaw, the Hub sends one short stale-work reminder at its daily schedule. Set <code>ADHD_HUB_STALE_NUDGE_CRON</code> if you prefer another time. Keep both services on your LAN or Tailscale.</p>
+        </details>
 
         <details class="settings-section"><summary>Forge mirror <span class="hint">· Optional</span></summary>
       <p class="hint">Primary memory repos sync at repo root: <code>projects/&lt;slug&gt;/PROGRESS.md</code>. After save/sync, missing remote projects can be imported.</p>

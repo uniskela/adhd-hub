@@ -58,9 +58,10 @@ Install the rule from [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) into 
 **Skills (recommended, all agents):**
 
 ```bash
+# Install from the published repository:
+npx skills add uniskela/adhd-hub -g
+# Or, while developing an unreleased local checkout:
 npx skills add ./skills -g
-# After this repo is public on GitHub:
-# npx skills add uniskela/adhd-hub -g
 ```
 
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/adhd-friendly-writing.md): one visible **Now** action, brief context, and a concrete return cue.
@@ -89,16 +90,22 @@ UI: `http://<host>:8787/ui`
 
 ## Optional OpenClaw
 
-Set in `.env` / config:
+Install the Hub skills for OpenClaw:
+
+```bash
+npx skills add uniskela/adhd-hub -g -a openclaw
+```
+
+Enable private hooks on the OpenClaw gateway, then set these values on the **Hub server** in `.env` / config:
 
 ```env
 ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
-ADHD_HUB_OPENCLAW_TOKEN=shared-secret
+ADHD_HUB_OPENCLAW_TOKEN=<OpenClaw hook bearer token>
 # optional richer path:
 # ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent
 ```
 
-A daily cron inside the hub calls OpenClaw with stale open threads and rebuilds the wiki index.
+Restart the Hub. Its daily stale-work job sends OpenClaw one concise, non-nagging reminder; set `ADHD_HUB_STALE_NUDGE_CRON` to change the time. Keep the hook URL and token out of assistant configs and repositories, and keep both services on your LAN or Tailscale. See [the OpenClaw guide](docs/openclaw.md) for setup and a safe test.
 
 ## Optional transcript indexer
 

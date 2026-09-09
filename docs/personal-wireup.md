@@ -7,15 +7,27 @@
 3. **Skills (global)** so every repo gets the protocol:
 
 ```powershell
+# Install from GitHub (recommended):
+npx skills add uniskela/adhd-hub -g
+# Or, while developing an unreleased local checkout:
 cd Z:\Projects\adhd-hub
 npx skills add ./skills -g
-# After public GitHub: npx skills add uniskela/adhd-hub -g
 ```
 
 4. **Start a coding session** in any project — agent should `resolve_project` → `session_digest` → `check_overlap`.
 5. **Pause unfinished work** — `upsert_progress` with one **Now**, short Done/Next lists, Waiting/blocked, and a **Return cue**. See [ADHD-friendly writing and planning](adhd-friendly-writing.md).
 6. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
 7. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
+
+## Optional OpenClaw check-in
+
+If OpenClaw is part of your setup, install the same skills there:
+
+```bash
+npx skills add uniskela/adhd-hub -g -a openclaw
+```
+
+Then connect the Hub to OpenClaw's private hooks for one gentle daily stale-work reminder. The short setup and safe test are in [OpenClaw connection and alerts](openclaw.md).
 
 ## Local smoke (Windows)
 
