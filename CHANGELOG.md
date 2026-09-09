@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/uniskela/adhd-hub/compare/v0.3.1...v0.3.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* harden public release flow and CORS ([#6](https://github.com/uniskela/adhd-hub/issues/6)) ([e4147f1](https://github.com/uniskela/adhd-hub/commit/e4147f1bf7932cd39f73df9c6f130c4e41300e0c))
+
 ## [0.3.1](https://github.com/uniskela/adhd-hub/compare/v0.3.0...v0.3.1) (2026-09-09)
 
 
