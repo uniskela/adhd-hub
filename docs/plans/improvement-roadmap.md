@@ -37,6 +37,7 @@ irm http://<hub-host>:8787/install.ps1 | iex
 ```bash
 # Equivalent once the package is installed:
 adhd-hub connect /path/to/project --hub http://<hub-host>:8787
+adhd-hub connect /path/to/project --hub http://<hub-host>:8787 --dry-run
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
