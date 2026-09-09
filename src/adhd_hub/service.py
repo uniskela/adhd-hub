@@ -198,6 +198,7 @@ class HubService:
             }
         )
         data["counts"] = counts
+        data["archived"] = bool(proj.archived_at) if proj else False
         data["threads"] = threads
         data["next_up"] = open_threads[0] if open_threads else None
         data["progress"] = self.wiki.read_progress(safe)
@@ -429,13 +430,14 @@ class HubService:
                 issue_links.append((f"#{num} {t.summary[:60]}", url))
         self.wiki.ensure_forge_section(slug, progress_url=progress_url, issue_links=issue_links)
 
-    def list_projects(self, limit: int = 200) -> list[dict]:
+    def list_projects(self, limit: int = 200, *, include_archived: bool = False) -> list[dict]:
         counts = self.store.thread_counts_by_project()
         out = []
-        for p in self.store.list_projects(limit=limit):
+        for p in self.store.list_projects(limit=limit, include_archived=include_archived):
             data = p.model_dump(mode="json")
             c = counts.get(p.slug, {"open": 0, "blocked": 0, "done": 0, "dismissed": 0})
             data["counts"] = c
+            data["archived"] = bool(p.archived_at)
             out.append(data)
         # Include unclassified bucket if threads exist without registry row
         for slug, c in counts.items():
@@ -454,11 +456,27 @@ class HubService:
                         "forge_repo": None,
                         "forge_wiki_path": None,
                         "forge_project_id": None,
+                        "archived_at": None,
+                        "archived": False,
                         "counts": c,
                         "unregistered": True,
                     }
                 )
         return out
+
+    def archive_project(self, slug: str) -> dict:
+        if slugify(slug) == "unclassified":
+            raise ValueError("Inbox cannot be archived")
+        proj = self.store.set_project_archived(slug, archived=True)
+        data = proj.model_dump(mode="json")
+        data["archived"] = True
+        return data
+
+    def restore_project(self, slug: str) -> dict:
+        proj = self.store.set_project_archived(slug, archived=False)
+        data = proj.model_dump(mode="json")
+        data["archived"] = False
+        return data
 
     def _resolve_slug_for_write(
         self,
@@ -540,6 +558,13 @@ class HubService:
             "projects": self.list_projects(),
             "timezone": self.prefs().timezone,
             "pending_actions": self.list_pending_actions(),
+            "due_reminders": [
+                r.model_dump(mode="json") for r in self.store.due_reminders()[:20]
+            ],
+            "reminders": [
+                r.model_dump(mode="json")
+                for r in self.store.list_reminders(include_handled=False)[:30]
+            ],
         }
 
     def _forge_after_thread(self, thread: Thread) -> dict:
@@ -1079,6 +1104,12 @@ class HubService:
 
     def set_reminder(self, payload: ReminderCreate) -> Reminder:
         return self.store.create_reminder(payload)
+
+    def snooze_reminder(self, reminder_id: str, *, minutes: int = 60) -> Reminder:
+        return self.store.snooze_reminder(reminder_id, minutes=minutes)
+
+    def dismiss_reminder(self, reminder_id: str) -> Reminder:
+        return self.store.dismiss_reminder(reminder_id)
 
     def _anti_nag_filter(self, threads: list[Thread]) -> list[Thread]:
         remind_cut = stale_cutoff(self.settings.remind_cooldown_days)

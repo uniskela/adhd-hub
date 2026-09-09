@@ -93,6 +93,7 @@ class Project(BaseModel):
     forge_repo: str | None = None
     forge_wiki_path: str | None = None
     forge_project_id: str | None = None  # Gitea/GitHub project board id override
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -161,6 +162,10 @@ class ReminderCreate(BaseModel):
     message: str
     kind: ReminderKind = ReminderKind.once
     due_at: datetime | None = None
+
+
+class ReminderSnooze(BaseModel):
+    minutes: int = Field(default=60, ge=5, le=60 * 24 * 14)
 
 
 class OverlapHit(BaseModel):
