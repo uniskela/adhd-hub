@@ -10,6 +10,8 @@ The **Where you left off** area renders saved Markdown (headings, lists, emphasi
 
 Search narrows the loaded thread list in My work. **Pick up later** shows older open work without an overdue warning.
 
+Select a project to show its title. The pencil button beside the title opens project editing in a focused dialog. Add an HTTP(S) repository URL to show an **Open repo** button beside the title; repository URLs containing credentials are rejected.
+
 ## Optional small wins
 
 In **Settings**, turn **Enable rewards** on or off and choose a daily goal of one, three, or five finished threads. Rewards start off by default. These preferences are saved per browser.
@@ -37,7 +39,7 @@ Switching projects clears the previous project’s actions while the new one loa
 
 ## Settings and sharing
 
-Settings has a fixed **Close settings** button and four sections: **Preferences**, **Account**, **Connections**, and **Data**. Arrow keys, Home, and End move between tabs; Escape closes the dialog. Appearance and rewards save automatically in this browser; timezone uses **Save**. Password controls are under Account, while assistant and optional forge configuration live under Connections.
+Settings has a fixed **Close settings** button and four sections: **Preferences**, **Account**, **Connections**, and **Data**. Arrow keys, Home, and End move between tabs; Escape closes the dialog. Appearance and rewards save automatically in this browser; timezone uses **Save**. Password controls are under Account. Assistant setup, encrypted OpenClaw connection settings, alert controls, and optional forge configuration live under Connections.
 
 With rewards enabled, Progress shows the hub's current rank, upcoming rank, and six completion badges. Use **Share progress** to preview the exact export, then download a PNG or copy the text. Compatible devices also offer a share sheet. Nothing is posted automatically. The preview excludes task titles, project names, notes, and connection details. Ranks represent this hub's records; there is no public leaderboard yet.
 

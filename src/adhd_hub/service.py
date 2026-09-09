@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+from collections.abc import Callable
 from datetime import UTC
 
 from adhd_hub.config import Settings
@@ -28,6 +29,12 @@ from adhd_hub.models import (
     ThreadUpsert,
 )
 from adhd_hub.openclaw import OpenClawBridge, stale_cutoff
+from adhd_hub.openclaw_config import (
+    OpenClawConfig,
+    load_openclaw_config,
+    openclaw_from_settings,
+    save_openclaw_config,
+)
 from adhd_hub.overlap import check_overlap
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
 from adhd_hub.store import Store, slugify, workspace_basename
@@ -43,7 +50,46 @@ class HubService:
         self.store = Store(settings.db_path)
         self._prefs = load_prefs(settings.data_dir, default_timezone=settings.timezone)
         self.wiki = Wiki(settings.wiki_dir, timezone=self._prefs.timezone)
-        self.openclaw = OpenClawBridge(settings)
+        self._openclaw_config = load_openclaw_config(
+            settings.data_dir,
+            env_defaults=openclaw_from_settings(settings),
+            auth_token=settings.auth_token,
+        )
+        self._stale_schedule_callback: Callable[[str], None] | None = None
+        self._apply_openclaw_config(self._openclaw_config)
+
+    def _apply_openclaw_config(self, config: OpenClawConfig) -> None:
+        self._openclaw_config = config
+        self.settings.stale_nudge_cron = config.stale_nudge_cron
+        self.settings.stale_days = config.stale_days
+        self.settings.remind_cooldown_days = config.remind_cooldown_days
+        self.settings.digest_max_nudge = config.digest_max_nudge
+        self.openclaw = OpenClawBridge(
+            webhook_url=config.webhook_url,
+            agent_url=config.agent_url,
+            token=config.token,
+            alerts_enabled=config.alerts_enabled,
+        )
+
+    def openclaw_config(self) -> OpenClawConfig:
+        return self._openclaw_config
+
+    def save_openclaw_config(self, config: OpenClawConfig) -> OpenClawConfig:
+        save_openclaw_config(
+            self.settings.data_dir,
+            config,
+            auth_token=self.settings.auth_token,
+        )
+        self._apply_openclaw_config(config)
+        if self._stale_schedule_callback:
+            self._stale_schedule_callback(config.stale_nudge_cron)
+        return config
+
+    def set_stale_schedule_callback(self, callback: Callable[[str], None]) -> None:
+        self._stale_schedule_callback = callback
+
+    async def test_openclaw_connection(self) -> dict[str, str | bool]:
+        return await self.openclaw.test_connection()
 
     def prefs(self) -> HubPrefs:
         return self._prefs
@@ -400,6 +446,7 @@ class HubService:
                         "slug": slug,
                         "title": slug.replace("-", " ").title(),
                         "description": None,
+                        "repo_url": None,
                         "workspace_paths": [],
                         "default_energy": "unknown",
                         "forge_owner": None,
@@ -945,14 +992,14 @@ class HubService:
             for t in limited
         ]
         sent = await self.openclaw.notify_stale_threads(lines)
-        self.store.touch_reminded([t.id for t in limited])
         self.rebuild_wiki_index()
         if sent:
+            self.store.touch_reminded([t.id for t in limited])
             await self.openclaw.sync_memory_note(
                 "ADHD Hub open work",
                 "\n".join(lines),
             )
-        return {"nudged": len(lines), "openclaw": sent}
+        return {"nudged": len(lines) if sent else 0, "openclaw": sent}
 
     def health(self) -> dict:
         from adhd_hub import __version__

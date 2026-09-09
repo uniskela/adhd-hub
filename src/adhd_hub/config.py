@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     openclaw_webhook_url: str | None = None
     openclaw_agent_url: str | None = None
     openclaw_token: str | None = None
+    openclaw_alerts_enabled: bool = True
 
     stale_nudge_cron: str = "0 9 * * *"
     wiki_index_cron: str = "30 9 * * *"

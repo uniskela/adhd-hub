@@ -28,6 +28,7 @@ upsert_project(
   slug="my-website",           # optional; derived from title if omitted
   workspace_path="Z:/Projects/my-website",
   description="Marketing site",
+  repo_url="https://github.com/me/my-website",  # optional browser link
   forge_owner="alex",          # optional override
   forge_repo="my-website",     # optional; default = hub memory repo
   forge_wiki_path="",          # blank = repo root (primary memory)
@@ -53,6 +54,7 @@ These **do not apply immediately**. They queue a pending action; you Approve/Rej
 
 - Slugs are lowercase kebab-case (`chrome-ext`, `homelab-dns`).
 - Prefer absolute workspace paths so multi-machine resolve works.
+- Use `repo_url` for the human-facing HTTP(S) repository page; never include credentials.
 - Do not invent forge remotes; only set forge_* when the user asks or config already has them.
 - Issues are linked via label `project:<slug>` and links inside `PROGRESS.md` / issue body.
 - Give a project a durable purpose in its description; put the temporary, verb-led work in a thread title instead.

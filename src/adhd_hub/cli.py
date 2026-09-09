@@ -75,6 +75,31 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_setup(args: argparse.Namespace) -> int:
+    from adhd_hub.project_setup import (
+        install_agent_guidance,
+        install_skills,
+        uninstall_agent_guidance,
+    )
+
+    project = Path(args.path)
+    if args.uninstall:
+        path, action = uninstall_agent_guidance(project)
+        print(f"ADHD Hub project guidance {action}: {path}")
+        return 0
+
+    path, action = install_agent_guidance(project)
+    print(f"ADHD Hub project guidance {action}: {path}")
+    if args.install_skills:
+        code = install_skills(args.skills_source)
+        if code:
+            print("AGENTS.md was configured, but the global skills install failed.", file=sys.stderr)
+            return code
+    else:
+        print("Skills unchanged. Add --install-skills to install them globally with npx.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="adhd-hub", description="ADHD Progress Hub")
     p.add_argument("-c", "--config", help="Path to config.toml")
@@ -111,6 +136,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not delete existing files before copy (default replaces)",
     )
     import_p.set_defaults(func=cmd_import)
+
+    setup = sub.add_parser(
+        "setup",
+        help="Add reversible ADHD Hub continuity guidance to a project's AGENTS.md",
+    )
+    setup.add_argument("path", nargs="?", default=".", help="Project folder (default: .)")
+    setup.add_argument(
+        "--install-skills",
+        action="store_true",
+        help="Also run npx skills add <source> -g",
+    )
+    setup.add_argument(
+        "--skills-source",
+        default="uniskela/adhd-hub",
+        help="skills.sh source or local skills path (default: uniskela/adhd-hub)",
+    )
+    setup.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove only the managed ADHD Hub block from AGENTS.md",
+    )
+    setup.set_defaults(func=cmd_setup)
 
     return p
 

@@ -41,6 +41,8 @@ Published images (only after a manual release-PR merge by `uniskela`):
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
 
+Documentation, chore, test, and CI-only merges do not open a release PR, even if their subject accidentally starts with `feat:`. A feature, fix, performance, revert, or explicit breaking-change subject reaches Release Please only when that commit changes a shipped runtime surface (`src/`, package metadata/lockfile, `Dockerfile`, or `docker-compose.yml`). A generated release PR continues through the tag-and-publish step after `uniskela` manually merges it.
+
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
 docker pull ghcr.io/uniskela/adhd-hub:1.2.3
@@ -56,9 +58,10 @@ Install the rule from [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) into 
 **Skills (recommended, all agents):**
 
 ```bash
+# Install from the published repository:
+npx skills add uniskela/adhd-hub -g
+# Or, while developing an unreleased local checkout:
 npx skills add ./skills -g
-# After this repo is public on GitHub:
-# npx skills add uniskela/adhd-hub -g
 ```
 
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/adhd-friendly-writing.md): one visible **Now** action, brief context, and a concrete return cue.
@@ -87,16 +90,24 @@ UI: `http://<host>:8787/ui`
 
 ## Optional OpenClaw
 
-Set in `.env` / config:
+Install the Hub skills for OpenClaw:
+
+```bash
+npx skills add uniskela/adhd-hub -g -a openclaw
+```
+
+Enable private hooks on the OpenClaw gateway. Then open **Hub Settings → Connections → OpenClaw connection & gentle alerts** to save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save & send test** to verify the route.
+
+The bearer token is encrypted before it is written to the Hub data directory and is never returned to the browser. Environment variables remain available for initial provisioning:
 
 ```env
 ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
-ADHD_HUB_OPENCLAW_TOKEN=shared-secret
+ADHD_HUB_OPENCLAW_TOKEN=<OpenClaw hook bearer token>
 # optional richer path:
 # ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent
 ```
 
-A daily cron inside the hub calls OpenClaw with stale open threads and rebuilds the wiki index.
+Environment changes require a restart; web UI changes apply immediately. The stale-work job sends OpenClaw one concise, non-nagging reminder and stays quiet when there is no stale work. Keep both services on your LAN or Tailscale. See [the OpenClaw guide](docs/openclaw.md) for details.
 
 ## Optional transcript indexer
 
@@ -150,6 +161,16 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 | Codex | [adapters/codex.md](adapters/codex.md) |
 | Claude Code | [adapters/claude-code.md](adapters/claude-code.md) |
 | OpenClaw | [adapters/openclaw.md](adapters/openclaw.md) |
+
+### Add Hub guidance to another project
+
+Install a reversible, project-local `AGENTS.md` section that keeps coding-agent sessions connected to the Hub:
+
+```bash
+adhd-hub setup /path/to/project
+```
+
+Add `--install-skills` to also run `npx skills add uniskela/adhd-hub -g`, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes a global directory. See [project agent setup](docs/project-agent-setup.md).
 
 ## Roadmap
 
