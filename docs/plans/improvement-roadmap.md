@@ -127,8 +127,8 @@ Only after Waves 0–2 feel stable:
 | Wave | Status |
 |------|--------|
 | 0 Client wire-up | Shipped in 0.3.5 |
-| 1 ADHD UX depth | PR #22 / issue #16 |
-| 2 MCP parity | Branch `cursor/wave2-mcp-parity-5570` / issue #17 |
+| 1 ADHD UX depth | Merged (PR #22 / issue #16) |
+| 2 MCP parity | This PR — branch `cursor/wave2-mcp-parity-5570` / issue #17 |
 | 3–5 | Planned |
 
-Waves 1 and 2 are planned for the **same release** after both PRs merge.
+Waves 1 and 2 are intended for the **same release** after Wave 2 merges.

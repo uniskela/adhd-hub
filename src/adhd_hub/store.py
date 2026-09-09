@@ -160,6 +160,8 @@ class Store:
                 conn.execute("ALTER TABLE projects ADD COLUMN forge_project_id TEXT")
             if "repo_url" not in cols:
                 conn.execute("ALTER TABLE projects ADD COLUMN repo_url TEXT")
+            if "archived_at" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN archived_at TEXT")
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
             for column in ("resume_step", "paused_at"):
@@ -416,19 +418,67 @@ class Store:
         now = now or utcnow()
         out: list[Reminder] = []
         for rem in self.list_reminders(include_handled=False):
+            # Snooze gate: future due_at hides the reminder for every kind.
+            if rem.due_at and rem.due_at > now:
+                continue
             if rem.kind == ReminderKind.once:
                 if rem.due_at and rem.due_at <= now:
                     out.append(rem)
             elif rem.kind == ReminderKind.session:
                 out.append(rem)
             elif rem.kind == ReminderKind.daily:
-                # Fire once per calendar day
-                if rem.last_fired_at is None or rem.last_fired_at.date() < now.date():
+                # Once per calendar day, unless a snooze window just ended.
+                if rem.due_at is not None and (
+                    rem.last_fired_at is None or rem.last_fired_at < rem.due_at
+                ):
+                    out.append(rem)
+                elif rem.last_fired_at is None or rem.last_fired_at.date() < now.date():
                     out.append(rem)
             elif rem.kind == ReminderKind.random:
                 # Surfaced by digest with low probability at API layer; still list here
                 out.append(rem)
         return out
+
+    def snooze_reminder(self, reminder_id: str, *, minutes: int = 60) -> Reminder:
+        from datetime import timedelta
+
+        now = utcnow()
+        snooze_until = now + timedelta(minutes=max(5, minutes))
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+            if not row:
+                raise KeyError(reminder_id)
+            rem = self._row_reminder(row)
+            # Never pull a future once-reminder earlier; only push due_at forward.
+            if rem.kind == ReminderKind.once and rem.due_at and rem.due_at > snooze_until:
+                due = rem.due_at
+            else:
+                due = snooze_until
+            conn.execute(
+                """
+                UPDATE reminders
+                SET due_at = ?, handled = 0
+                WHERE id = ?
+                """,
+                (due.isoformat(), reminder_id),
+            )
+            row = conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+        assert row is not None
+        return self._row_reminder(row)
+
+    def dismiss_reminder(self, reminder_id: str) -> Reminder:
+        now = utcnow().isoformat()
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+            if not row:
+                raise KeyError(reminder_id)
+            conn.execute(
+                "UPDATE reminders SET handled = 1, last_fired_at = ? WHERE id = ?",
+                (now, reminder_id),
+            )
+            row = conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+        assert row is not None
+        return self._row_reminder(row)
 
     def mark_reminder_fired(self, reminder_id: str, *, handle_once: bool = True) -> None:
         now = utcnow().isoformat()
@@ -608,6 +658,11 @@ class Store:
             forge_repo=row["forge_repo"],
             forge_wiki_path=row["forge_wiki_path"],
             forge_project_id=dict(row).get("forge_project_id"),
+            archived_at=(
+                datetime.fromisoformat(row["archived_at"])
+                if dict(row).get("archived_at")
+                else None
+            ),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
@@ -693,13 +748,42 @@ class Store:
             row = conn.execute("SELECT * FROM projects WHERE slug = ?", (slugify(slug),)).fetchone()
         return self._row_project(row) if row else None
 
-    def list_projects(self, limit: int = 200) -> list[Project]:
+    def list_projects(
+        self, limit: int = 200, *, include_archived: bool = False
+    ) -> list[Project]:
         with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM projects ORDER BY title COLLATE NOCASE ASC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            if include_archived:
+                rows = conn.execute(
+                    "SELECT * FROM projects ORDER BY title COLLATE NOCASE ASC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM projects
+                    WHERE archived_at IS NULL
+                    ORDER BY title COLLATE NOCASE ASC LIMIT ?
+                    """,
+                    (limit,),
+                ).fetchall()
         return [self._row_project(r) for r in rows]
+
+    def set_project_archived(self, slug: str, *, archived: bool) -> Project:
+        safe = slugify(slug)
+        now = utcnow()
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
+            if not row:
+                raise KeyError(safe)
+            conn.execute(
+                """
+                UPDATE projects SET archived_at = ?, updated_at = ? WHERE slug = ?
+                """,
+                (now.isoformat() if archived else None, now.isoformat(), safe),
+            )
+            row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
+        assert row is not None
+        return self._row_project(row)
 
     def resolve_project_by_workspace(self, workspace_path: str | None) -> Project | None:
         norm = normalize_workspace_path(workspace_path)
