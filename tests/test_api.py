@@ -63,7 +63,7 @@ async def test_public_url_allows_browser_preflight_for_bearer_requests(tmp_path:
             headers={
                 "Origin": origin,
                 "Access-Control-Request-Method": "POST",
-                "Access-Control-Request-Headers": "Authorization",
+                "Access-Control-Request-Headers": "Authorization, X-Hub-Request",
             },
         )
 
@@ -71,6 +71,7 @@ async def test_public_url_allows_browser_preflight_for_bearer_requests(tmp_path:
     assert response.headers["access-control-allow-origin"] == origin
     assert "POST" in response.headers["access-control-allow-methods"]
     assert "authorization" in response.headers["access-control-allow-headers"].lower()
+    assert "x-hub-request" in response.headers["access-control-allow-headers"].lower()
 
 
 def test_thread_resume_and_pause_are_exposed(tmp_path: Path) -> None:

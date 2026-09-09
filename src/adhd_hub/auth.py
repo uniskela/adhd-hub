@@ -61,12 +61,13 @@ class BrowserSessions:
         return self.tokens.get(token or "", 0) > time.monotonic()
 
 
-def require_browser_request(request: Request) -> None:
-    # A cross-origin form cannot set this header; no permissive CORS is installed.
+def require_browser_request(request: Request, settings: Settings) -> None:
+    # A cross-origin form cannot set this header.
     if request.headers.get("x-hub-request") != "1":
         raise HTTPException(403, "Missing browser request header")
     origin = request.headers.get("origin")
-    if origin and origin != str(request.base_url).rstrip("/"):
+    expected_origin = settings.resolve_public_url() or str(request.base_url).rstrip("/")
+    if origin and origin != expected_origin:
         raise HTTPException(403, "Cross-origin request rejected")
 
 
@@ -77,7 +78,7 @@ def auth_dependency(settings: Settings, sessions: BrowserSessions):
     ) -> None:
         if credentials is None and sessions.valid(request.cookies.get(COOKIE_NAME)):
             if request.method not in {"GET", "HEAD", "OPTIONS"}:
-                require_browser_request(request)
+                require_browser_request(request, settings)
             return
         require_auth(settings, credentials)
 
@@ -167,7 +168,7 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
 
     @router.post("/login")
     async def login(payload: LoginRequest, request: Request, response: Response):
-        require_browser_request(request)
+        require_browser_request(request, settings)
         key = client_key(request)
         throttle.check(key)
         async with credential_lock:
@@ -184,7 +185,7 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
 
     @router.put("/password")
     async def save_password(payload: PasswordRequest, request: Request, response: Response):
-        require_browser_request(request)
+        require_browser_request(request, settings)
         key = client_key(request)
         throttle.check(key)
         if settings.auth_token in {"", "change-me"}:
@@ -211,7 +212,7 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
 
     @router.post("/logout", status_code=204)
     async def logout(request: Request, response: Response):
-        require_browser_request(request)
+        require_browser_request(request, settings)
         sessions.tokens.pop(request.cookies.get(COOKIE_NAME, ""), None)
         response.delete_cookie(COOKIE_NAME, path="/api")
         response.headers["Cache-Control"] = "no-store"
