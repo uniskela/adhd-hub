@@ -127,8 +127,10 @@ Only after Waves 0–2 feel stable:
 | Wave | Status |
 |------|--------|
 | 0 Client wire-up | Shipped in 0.3.5 |
-| 1 ADHD UX depth | Merged (PR #22 / issue #16) |
-| 2 MCP parity | This PR — branch `cursor/wave2-mcp-parity-5570` / issue #17 |
-| 3–5 | Planned |
+| 1 ADHD UX depth | Shipped in 0.3.6 (PR #22 / issue #16) |
+| 2 MCP parity | Shipped in 0.3.6 (PR #24 / issue #17) |
+| 3 Homelab ops | Next — issue #18 |
+| 4 Maintainability | After Wave 3 — issue #19 |
+| 5 Optional integrations | Opt-in only after 0–2 feel stable — issue #20 |
 
-Waves 1 and 2 are intended for the **same release** after Wave 2 merges.
+Wave 1 + Wave 2 shipped together in **0.3.6**.
