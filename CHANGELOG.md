@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.5](https://github.com/uniskela/adhd-hub/compare/v0.3.4...v0.3.5) (2026-09-09)
+
+
+### Features
+
+* forge issue inbox for cloud agents without Hub MCP ([#14](https://github.com/uniskela/adhd-hub/issues/14)) ([a97f7e7](https://github.com/uniskela/adhd-hub/commit/a97f7e755631e25a86c5a5bc546fbfa687814fee))
+* Hub connect one-liner + full improvement roadmap ([#13](https://github.com/uniskela/adhd-hub/issues/13)) ([9c71432](https://github.com/uniskela/adhd-hub/commit/9c71432670810730504338f4443576777b594fd8))
+
 ## [0.3.4](https://github.com/uniskela/adhd-hub/compare/v0.3.3...v0.3.4) (2026-09-09)
 
 
