@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/uniskela/adhd-hub/compare/v0.3.0...v0.3.1) (2026-09-09)
+
+
+### Features
+
+* add UI login, forge import, and instance backup ([22643ee](https://github.com/uniskela/adhd-hub/commit/22643ee22094e47023f2f4e8e44197534038973c))
+* release 0.3.0 with focused dashboard, secure login, and rewards ([#4](https://github.com/uniskela/adhd-hub/issues/4)) ([d32e12a](https://github.com/uniskela/adhd-hub/commit/d32e12aa564c1d978a13274d552dbcc4ecaeacc8))
+* UI login, forge import, and instance backup (v0.2.0) ([0ef00a7](https://github.com/uniskela/adhd-hub/commit/0ef00a77d442595dce640f1aca10f9f0e1bc1ba8))
+
 ## 0.3.0 (2026-09-09)
 
 ### Features
