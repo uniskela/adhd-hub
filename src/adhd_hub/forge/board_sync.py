@@ -317,3 +317,121 @@ class BoardForgeSync:
             if resp.status_code < 400:
                 return
         log.warning("Gitea project attach failed for issue %s", number)
+
+    # --- Cloud-agent inbox: forge issues → Hub threads ---
+
+    def _hub_label(self) -> str:
+        labels = self.config.issue_labels or ["adhd-hub"]
+        return labels[0]
+
+    def _synced_label(self) -> str:
+        return (self.config.board_inbox_synced_label or "adhd-hub-synced").strip()
+
+    def _allowed_authors(self) -> set[str]:
+        return {
+            name.casefold()
+            for name in (self.config.board_inbox_authors or [])
+            if isinstance(name, str) and name.strip()
+        }
+
+    @staticmethod
+    def _issue_author_login(raw: dict[str, Any]) -> str | None:
+        user = raw.get("user")
+        if not isinstance(user, dict):
+            return None
+        for key in ("login", "username", "name"):
+            value = user.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    def list_inbox_issues(self, *, state: str = "open", limit: int = 50) -> list[dict[str, Any]]:
+        """List open forge issues that carry the Hub label (cloud mailbox).
+
+        Fail closed: only issues authored by ``board_inbox_authors`` are returned.
+        An empty allowlist yields no candidates (even when inbox is enabled).
+        """
+        if not (self.config.enabled() and self.config.board_enabled):
+            return []
+        allowed = self._allowed_authors()
+        if not allowed:
+            log.info(
+                "forge inbox: skipping list — board_inbox_authors is empty (fail closed)"
+            )
+            return []
+        label = self._hub_label()
+        params: dict[str, Any] = {"state": state, "per_page": min(limit, 100)}
+        if self.config.provider == ForgeProvider.github:
+            params["labels"] = label
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(self._issues_url(), headers=self._headers(), params=params)
+            if resp.status_code >= 400:
+                log.warning("list inbox issues failed: %s %s", resp.status_code, resp.text[:300])
+                resp.raise_for_status()
+            items = resp.json()
+        if not isinstance(items, list):
+            return []
+        out: list[dict[str, Any]] = []
+        synced = self._synced_label()
+        for raw in items:
+            if not isinstance(raw, dict):
+                continue
+            # Skip PRs that GitHub returns from the issues endpoint.
+            if "pull_request" in raw:
+                continue
+            author = self._issue_author_login(raw)
+            if not author or author.casefold() not in allowed:
+                continue
+            names = {
+                (lab.get("name") if isinstance(lab, dict) else str(lab))
+                for lab in (raw.get("labels") or [])
+            }
+            if self.config.provider == ForgeProvider.gitea and label not in names:
+                continue
+            if synced and synced in names:
+                continue
+            out.append(raw)
+            if len(out) >= limit:
+                break
+        return out
+
+    def mark_issue_imported(self, number: int, *, thread_id: str) -> dict[str, Any]:
+        """Close the forge issue and stamp the synced label — never delete."""
+        synced = self._synced_label()
+        with httpx.Client(timeout=30.0) as client:
+            self._ensure_labels(client, [synced] if synced else None)
+            labels = list(self.config.issue_labels or [])
+            if synced and synced not in labels:
+                labels.append(synced)
+            payload: dict[str, Any] = {
+                "state": "closed",
+                "state_reason": "completed",
+            }
+            # Fetch current labels so we preserve project:* etc.
+            get = client.get(self._issue_url(number), headers=self._headers())
+            if get.status_code < 400:
+                current = {
+                    (lab.get("name") if isinstance(lab, dict) else str(lab))
+                    for lab in (get.json().get("labels") or [])
+                }
+                labels = sorted({*current, *labels})
+            if labels:
+                payload["labels"] = labels
+            # Annotate body with hub thread id if missing
+            if get.status_code < 400:
+                body = get.json().get("body") or ""
+                marker = f"**ADHD Hub thread** `{thread_id}`"
+                if marker not in body:
+                    payload["body"] = f"{marker}\n\n_Imported from forge inbox._\n\n{body}".strip()
+            resp = client.patch(self._issue_url(number), headers=self._headers(), json=payload)
+            if resp.status_code >= 400 and "state_reason" in payload:
+                payload.pop("state_reason", None)
+                resp = client.patch(self._issue_url(number), headers=self._headers(), json=payload)
+            if resp.status_code >= 400:
+                log.warning(
+                    "mark issue imported failed: %s %s",
+                    resp.status_code,
+                    resp.text[:300],
+                )
+                resp.raise_for_status()
+        return {"closed": True, "number": number, "thread_id": thread_id, "label": synced}

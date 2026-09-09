@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 from collections.abc import Callable
 from datetime import UTC
 
@@ -37,7 +38,7 @@ from adhd_hub.openclaw_config import (
 )
 from adhd_hub.overlap import check_overlap
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
-from adhd_hub.store import Store, slugify, workspace_basename
+from adhd_hub.store import Store, item_id, slugify, workspace_basename
 from adhd_hub.wiki import Wiki
 
 log = logging.getLogger(__name__)
@@ -614,6 +615,178 @@ class HubService:
             "per_project_wiki": per_project_wiki,
             "config": cfg.public_dict(),
             "import_preview": self.preview_forge_import(),
+        }
+
+    def import_forge_inbox(self, *, limit: int = 50, close_imported: bool = True) -> dict:
+        """Pull cloud-agent forge issues into Hub threads (never deletes remote issues)."""
+        cfg = self.forge_config()
+        if not (cfg.enabled() and cfg.board_enabled and cfg.board_inbox_enabled):
+            return {
+                "skipped": True,
+                "reason": "board_inbox_disabled",
+                "imported": [],
+                "skipped_issues": [],
+            }
+        authors = [
+            name.strip()
+            for name in (cfg.board_inbox_authors or [])
+            if isinstance(name, str) and name.strip()
+        ]
+        if not authors:
+            return {
+                "skipped": True,
+                "reason": "board_inbox_authors_required",
+                "imported": [],
+                "skipped_issues": [],
+                "hint": "Add allowed forge usernames under Settings → Forge → Inbox authors.",
+            }
+        board = BoardForgeSync(
+            cfg,
+            self.store.get_meta,
+            self.store.set_meta,
+            progress_reader=self.wiki.read_progress,
+        )
+        mapped_numbers = {
+            value: key.removeprefix("forge_issue:")
+            for key, value in self.store.list_meta_prefix("forge_issue:").items()
+        }
+        imported: list[dict] = []
+        skipped: list[dict] = []
+        try:
+            issues = board.list_inbox_issues(limit=limit)
+        except Exception as exc:
+            log.exception("forge inbox list failed")
+            return {"error": str(exc), "imported": [], "skipped_issues": []}
+
+        for issue in issues:
+            number = int(issue.get("number") or 0)
+            if not number:
+                continue
+            if str(number) in mapped_numbers:
+                skipped.append(
+                    {
+                        "number": number,
+                        "reason": "already_mapped",
+                        "thread_id": mapped_numbers[str(number)],
+                    }
+                )
+                continue
+            body = issue.get("body") or ""
+            existing = re.search(r"\*\*ADHD Hub thread\*\*\s+`([^`]+)`", body)
+            if existing:
+                thread_id = existing.group(1).strip()
+                self.store.set_meta(f"forge_issue:{thread_id}", str(number))
+                if close_imported:
+                    try:
+                        board.mark_issue_imported(number, thread_id=thread_id)
+                    except Exception as exc:  # noqa: BLE001
+                        skipped.append(
+                            {"number": number, "reason": f"link_close_failed:{exc}"}
+                        )
+                        continue
+                skipped.append(
+                    {"number": number, "reason": "linked_existing_marker", "thread_id": thread_id}
+                )
+                continue
+
+            title = (issue.get("title") or "").strip()
+            summary = re.sub(r"^\[ADHD\]\s*", "", title, flags=re.IGNORECASE).strip() or title
+            if not summary:
+                skipped.append({"number": number, "reason": "empty_title"})
+                continue
+
+            project_slug = None
+            source_tool = "forge-inbox"
+            for lab in issue.get("labels") or []:
+                name = lab.get("name") if isinstance(lab, dict) else str(lab)
+                if not isinstance(name, str):
+                    continue
+                if name.startswith("project:"):
+                    project_slug = name.split(":", 1)[1].strip() or None
+                elif name.startswith("source:"):
+                    raw_source = name.split(":", 1)[1].strip().lower()
+                    allowed = {
+                        "codex",
+                        "chatgpt",
+                        "cursor",
+                        "claude",
+                        "claude-code",
+                        "openclaw",
+                    }
+                    if raw_source in allowed:
+                        source_tool = raw_source
+
+            payload = ThreadUpsert(
+                # Stable per forge issue so same titles do not collide into one thread.
+                id=item_id(
+                    f"forge-issue:{number}",
+                    f"{cfg.owner}/{cfg.repo}",
+                ),
+                summary=summary[:500],
+                project_slug=project_slug,
+                source_tool=source_tool,
+                origin="forge-inbox",
+                chat_ref=f"forge-issue:{number}",
+            )
+            slug = self._resolve_slug_for_write(
+                project_slug=payload.project_slug,
+                workspace_path=payload.workspace_path,
+                summary_or_title=payload.summary,
+            )
+            payload = payload.model_copy(update={"project_slug": slug})
+            self.store.ensure_project_for_slug(
+                slug, title=payload.summary[:80], workspace_path=payload.workspace_path
+            )
+            thread = self.store.upsert_thread(payload)
+            # Map before any outbound board sync so we update issue #N instead of creating another.
+            self.store.set_meta(f"forge_issue:{thread.id}", str(number))
+            self.wiki.upsert_progress(
+                thread.project_slug or slug,
+                content=(
+                    f"Imported from forge issue #{number}: {thread.summary}"
+                ),
+                title=thread.summary,
+                thread=thread,
+            )
+            self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
+
+            note = body.strip()
+            if note:
+                if len(note) > 8000:
+                    note = note[:8000].rstrip() + "\n\n…(truncated from forge issue)"
+                self.wiki.upsert_progress(
+                    thread.project_slug or slug,
+                    content=note,
+                    title=thread.summary,
+                    thread=thread,
+                )
+                self.store.add_progress_note(thread.project_slug or slug, note)
+
+            close_result = None
+            if close_imported:
+                try:
+                    close_result = board.mark_issue_imported(number, thread_id=thread.id)
+                except Exception as exc:  # noqa: BLE001
+                    close_result = {"error": str(exc)}
+            imported.append(
+                {
+                    "number": number,
+                    "thread_id": thread.id,
+                    "project_slug": thread.project_slug,
+                    "title": summary,
+                    "url": issue.get("html_url") or issue.get("url"),
+                    "closed": close_result,
+                }
+            )
+        return {
+            "imported": imported,
+            "skipped_issues": skipped,
+            "count": len(imported),
+            "config": {
+                "board_inbox_enabled": cfg.board_inbox_enabled,
+                "synced_label": cfg.board_inbox_synced_label,
+                "authors": authors,
+            },
         }
 
     @staticmethod

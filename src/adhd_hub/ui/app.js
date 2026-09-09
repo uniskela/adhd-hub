@@ -1051,6 +1051,10 @@
       $("project_id").value = c.project_id || "";
       $("wiki_enabled").checked = !!c.wiki_enabled;
       $("board_enabled").checked = !!c.board_enabled;
+      $("board_inbox_enabled").checked = !!c.board_inbox_enabled;
+      $("board_inbox_authors").value = Array.isArray(c.board_inbox_authors)
+        ? c.board_inbox_authors.join(", ")
+        : c.board_inbox_authors || "";
       $("primary_memory_repo").checked = !!c.primary_memory_repo;
     } catch (_e) {
       /* forge optional */
@@ -1254,6 +1258,11 @@
       project_id: $("project_id").value.trim() || null,
       wiki_enabled: $("wiki_enabled").checked,
       board_enabled: $("board_enabled").checked,
+      board_inbox_enabled: $("board_inbox_enabled").checked,
+      board_inbox_authors: $("board_inbox_authors")
+        .value.split(/[,;]/)
+        .map((s) => s.trim())
+        .filter(Boolean),
       primary_memory_repo: $("primary_memory_repo").checked,
     };
     await api("/forge/config", { method: "PUT", body: JSON.stringify(payload) });
@@ -1268,6 +1277,28 @@
     setMsg(`Forge sync done (${uploaded} wiki files).`);
     if (out.import_preview) renderImportBanner(out.import_preview);
     else await scanForgeImport().catch(() => {});
+  }
+
+  async function importForgeInbox() {
+    setMsg("Importing forge issue inbox…");
+    const out = await api("/forge/inbox/import", { method: "POST", body: "{}" });
+    if (out.skipped) {
+      if (out.reason === "board_inbox_authors_required") {
+        setMsg(
+          "Issue inbox needs an allowlist — add your forge username under Inbox authors, then save."
+        );
+        return;
+      }
+      setMsg("Issue inbox import skipped — enable Board sync + Import cloud-agent issues.");
+      return;
+    }
+    if (out.error) {
+      setMsg("Issue inbox import failed: " + out.error);
+      return;
+    }
+    const n = out.count || 0;
+    setMsg(`Imported ${n} forge issue${n === 1 ? "" : "s"} into Hub threads.`);
+    await loadAll();
   }
 
   async function loadAll() {
@@ -1376,6 +1407,9 @@
   );
   $("btn-scan-forge").addEventListener("click", () =>
     scanForgeImport().catch((e) => setMsg(String(e)))
+  );
+  $("btn-import-inbox").addEventListener("click", () =>
+    importForgeInbox().catch((e) => setMsg(String(e)))
   );
   $("btn-export").addEventListener("click", () =>
     exportBackup().catch((e) => setMsg(String(e)))

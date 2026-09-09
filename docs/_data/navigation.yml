@@ -23,6 +23,8 @@
       url: /deploy-homelab/
     - title: Forge permissions
       url: /forge-permissions/
+    - title: Forge issue inbox
+      url: /forge-issue-inbox/
     - title: Indexer schedule
       url: /indexer-schedule/
     - title: Rewards roadmap

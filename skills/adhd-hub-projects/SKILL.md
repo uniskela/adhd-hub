@@ -8,7 +8,7 @@ description: >-
 
 # ADHD Hub — projects
 
-MCP server: **`adhd-hub`** at `/mcp` (Streamable HTTP, bearer authentication). If unavailable, continue the user’s work and report that project registration could not be saved.
+MCP server: **`adhd-hub`** at `/mcp` (Streamable HTTP, bearer authentication). If unavailable (Cursor Cloud, Codex/ChatGPT cloud, Claude remote, or any host without Hub reachability), open a forge issue titled `[ADHD] …` with labels `adhd-hub`, optional `project:<slug>`, and optional `source:codex` / `source:chatgpt` / `source:cursor` / `source:claude` so the Hub inbox can import it; continue the user’s work and report that Hub MCP was unreachable.
 
 ## Resolve from cwd
 
