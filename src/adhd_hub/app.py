@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from adhd_hub import __version__
@@ -92,6 +93,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(build_ui_router())
     app.add_middleware(BearerGateMiddleware, settings=settings)
     app.add_middleware(MCPPathRewriteMiddleware)
+
+    # Only an explicitly configured public URL may make cross-origin requests.
+    # The browser sends the bearer token in a header, so no credentialed-cookie
+    # CORS mode or wildcard origin is needed.
+    public_url = settings.resolve_public_url()
+    if public_url:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[public_url],
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+            allow_headers=["Authorization", "Content-Type"],
+        )
 
     # Trailing-slash mount is what Starlette expects for the sub-app root.
     app.mount("/mcp/", mcp_asgi)
