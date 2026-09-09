@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 
@@ -90,10 +91,60 @@ class OpenClawBridge:
         if not self.enabled:
             return False
         prompt = (
-            f"Save this to long-term memory under project progress.\n"
-            f"Title: {title}\n\n{content}"
+            "Save this short ADHD Hub digest to long-term memory. "
+            "Keep only the bullets; do not invent tasks; never store secrets or raw chats.\n"
+            f"Title: {title}\n\n{content}\n\n"
+            "Reply with a one-line ack only, e.g. 'Saved N open items.'"
         )
         return await self.agent(prompt)
+
+    def sync_memory_note_sync(self, title: str, content: str) -> bool:
+        """Sync variant of sync_memory_note for MCP / non-async callers."""
+        if not self.enabled:
+            return False
+        url = self.agent_url or self.webhook_url
+        if not url:
+            return False
+        prompt = (
+            "Save this short ADHD Hub digest to long-term memory. "
+            "Keep only the bullets; do not invent tasks; never store secrets or raw chats.\n"
+            f"Title: {title}\n\n{content}\n\n"
+            "Reply with a one-line ack only, e.g. 'Saved N open items.'"
+        )
+        if self.agent_url:
+            payload: dict[str, Any] = {
+                "message": prompt,
+                "name": "ADHD Hub memory digest",
+                "wakeMode": "now",
+            }
+        else:
+            payload = {"text": prompt, "mode": "now"}
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                resp = client.post(url, json=payload, headers=self._headers())
+                resp.raise_for_status()
+            log.info("OpenClaw memory sync sent (%s)", resp.status_code)
+            return True
+        except Exception:
+            log.exception("OpenClaw memory sync failed")
+            return False
+
+    async def push_memory_roundtrip(self, *, title: str, digest: str) -> dict[str, Any]:
+        """Push a short digest and return a simple ack status (no chat transcript)."""
+        sent = await self.sync_memory_note(title, digest)
+        return {
+            "ok": sent,
+            "ack": "saved" if sent else "not_sent",
+            "title": title,
+        }
+
+    def push_memory_roundtrip_sync(self, *, title: str, digest: str) -> dict[str, Any]:
+        sent = self.sync_memory_note_sync(title, digest)
+        return {
+            "ok": sent,
+            "ack": "saved" if sent else "not_sent",
+            "title": title,
+        }
 
     async def test_connection(self) -> dict[str, str | bool]:
         target = "agent" if self.agent_url else "webhook"

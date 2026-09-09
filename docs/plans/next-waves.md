@@ -21,13 +21,15 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 
 | Priority | Wave | Focus |
 |----------|------|--------|
-| Now | Inbox harden | Author allowlist (this delivery) |
-| Next | Wave 1 | ADHD UX depth in `/ui` |
-| Then | Wave 2 | MCP parity + OpenClaw memory |
+| Done | Inbox harden | Author allowlist (0.3.5) |
+| PR | Wave 1 | ADHD UX depth in `/ui` (#16 / PR #22) |
+| PR | Wave 2 | MCP parity + OpenClaw memory (#17) |
 | Later | Connect leftovers | Windows smoke, setup-complete cue |
 | Then | Wave 3 | Homelab ops & trust |
 | Then | Wave 4 | Split `app.js` / facades / a11y |
 | Opt-in | Wave 5 | Slack/Discord, calendar; leaderboard only with identity review |
+
+Wave 1 + Wave 2 are intended to ship in the **same release version** after both PRs merge.
 
 Keep PRs focused: do not pile Wave 1 onto the forge-inbox PR.
 
@@ -42,9 +44,11 @@ Keep PRs focused: do not pile Wave 1 onto the forge-inbox PR.
 ## Wave 2 — Agent / MCP parity
 
 1. MCP: `pause_thread`, `dismiss_thread`, `list_reminders`, `get_overview`.
-2. One-click workspace add from MCP (complements `connect --register`).
-3. Richer OpenClaw memory round-trips (short digest; no raw chats).
+2. One-click workspace add from MCP (`register_workspace`) — complements `connect --register`.
+3. Richer OpenClaw memory round-trips (`push_openclaw_memory` + stale-nudge digest; no raw chats).
 4. Keep skills/AGENTS aligned; skills.sh after publish.
+
+**Status:** implemented on branch `cursor/wave2-mcp-parity-5570` (issue #17).
 
 ## Wave 3 — Homelab ops & trust
 

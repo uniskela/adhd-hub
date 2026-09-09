@@ -28,9 +28,11 @@ def build_mcp(service: HubService) -> MCPServer:
         version=__version__,
         instructions=(
             "Use this hub to avoid losing half-finished work. "
-            "On session start call resolve_project (optional), session_digest, and check_overlap. "
-            "When leaving work incomplete, call upsert_progress and/or upsert_thread with workspace_path. "
-            "When finished, call mark_done with the returned thread_id. "
+            "On session start call resolve_project or register_workspace, then session_digest "
+            "(or get_overview), check_overlap, and list_reminders(due_only=true). "
+            "When pausing mid-task, call pause_thread with a next tiny step. "
+            "When leaving work incomplete, call upsert_progress and/or upsert_thread. "
+            "When finished, call mark_done; use dismiss_thread for soft close without done. "
             "upsert_progress already returns a thread_id; avoid creating a duplicate thread. "
             "Prefer project_slug from resolve_project. Never save secrets or full transcripts."
         ),
@@ -214,6 +216,65 @@ def build_mcp(service: HubService) -> MCPServer:
         return thread.model_dump(mode="json")
 
     @mcp.tool()
+    def pause_thread(
+        thread_id: str,
+        next_step: Annotated[str, Field(min_length=1, max_length=2000)],
+    ) -> dict[str, Any]:
+        """Pause a thread and leave a next tiny step for when you return."""
+        try:
+            thread = service.store.pause_thread(thread_id, next_step)
+        except KeyError:
+            return {"error": "not_found", "id": thread_id}
+        except ValueError as exc:
+            return {"error": str(exc), "id": thread_id}
+        return service.thread_public_dict(thread)
+
+    @mcp.tool()
+    def dismiss_thread(thread_id: str, note: str | None = None) -> dict[str, Any]:
+        """Dismiss a thread without marking it done (soft close)."""
+        thread = service.mark_dismissed(thread_id, note)
+        if not thread:
+            return {"error": "not_found", "id": thread_id}
+        return thread.model_dump(mode="json")
+
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def list_reminders(
+        due_only: bool = False,
+        include_handled: bool = False,
+    ) -> list[dict[str, Any]]:
+        """List reminders. Prefer due_only=true at session start."""
+        if due_only:
+            items = service.store.due_reminders()
+        else:
+            items = service.store.list_reminders(include_handled=include_handled)
+        return [item.model_dump(mode="json") for item in items]
+
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def get_overview() -> dict[str, Any]:
+        """Compact hub overview for agents (counts, next_up, due reminders)."""
+        return service.agent_overview()
+
+    @mcp.tool()
+    def register_workspace(
+        workspace_path: Annotated[str, Field(min_length=1, max_length=4000)],
+        title: str | None = None,
+        create_open_thread: bool = True,
+        summary: str | None = None,
+        source_tool: str | None = "mcp",
+    ) -> dict[str, Any]:
+        """One-click: register a folder as a Hub project (optional default open thread)."""
+        try:
+            return service.register_workspace(
+                workspace_path,
+                title=title,
+                create_open_thread=create_open_thread,
+                summary=summary,
+                source_tool=source_tool,
+            )
+        except ValueError as exc:
+            return {"error": str(exc)}
+
+    @mcp.tool()
     def set_reminder(
         message: str,
         kind: ReminderKind = ReminderKind.once,
@@ -236,5 +297,13 @@ def build_mcp(service: HubService) -> MCPServer:
         e = EnergyLevel(energy) if energy else None
         digest = service.session_digest(workspace_path=workspace_path, query=query, energy=e)
         return digest.model_dump(mode="json")
+
+    @mcp.tool()
+    def push_openclaw_memory(
+        project_slug: str | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        """Push a short Hub digest into OpenClaw memory (no raw chats; best-effort)."""
+        return service.push_openclaw_memory_sync(project_slug=project_slug, note=note)
 
     return mcp

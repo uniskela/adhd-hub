@@ -542,6 +542,128 @@ class HubService:
             "pending_actions": self.list_pending_actions(),
         }
 
+    def agent_overview(self) -> dict:
+        """Compact overview for MCP agents (no rewards chart payload)."""
+        full = self.overview()
+        next_up = full.get("next_up")
+        return {
+            "open": full["open"],
+            "stale": full["stale"],
+            "blocked": full["blocked"],
+            "done_today": full["done_today"],
+            "projects": len(full.get("projects") or []),
+            "pending_actions": len(full.get("pending_actions") or []),
+            "timezone": full.get("timezone"),
+            "next_up": (
+                {
+                    "id": next_up.get("id"),
+                    "summary": next_up.get("summary"),
+                    "project_slug": next_up.get("project_slug"),
+                    "resume_step": next_up.get("resume_step"),
+                    "paused_at": next_up.get("paused_at"),
+                }
+                if isinstance(next_up, dict)
+                else None
+            ),
+            "due_reminders": [
+                r.model_dump(mode="json") for r in self.store.due_reminders()[:10]
+            ],
+        }
+
+    def register_workspace(
+        self,
+        workspace_path: str,
+        *,
+        title: str | None = None,
+        create_open_thread: bool = True,
+        summary: str | None = None,
+        source_tool: str | None = "mcp",
+    ) -> dict:
+        """Register a folder as a project; optionally open a default thread."""
+        from adhd_hub.store import workspace_basename
+
+        path = str(workspace_path or "").strip()
+        if not path:
+            raise ValueError("workspace_path required")
+        base = workspace_basename(path) or "project"
+        display = (title or "").strip() or base.replace("-", " ").replace("_", " ").title()
+        proj = self.resolve_project(
+            workspace_path=path,
+            create_if_missing=True,
+            title=display,
+        )
+        if not proj:
+            raise ValueError("could_not_register")
+        thread = None
+        created_thread = False
+        if create_open_thread:
+            existing = [
+                t
+                for t in self.store.list_threads(
+                    status=ThreadStatus.open, project_slug=proj.slug, limit=5
+                )
+            ]
+            if existing:
+                thread = existing[0]
+            else:
+                thread_summary = (summary or "").strip() or f"Continue {proj.title}"
+                thread = self.upsert_thread(
+                    ThreadUpsert(
+                        summary=thread_summary[:500],
+                        project_slug=proj.slug,
+                        workspace_path=path,
+                        source_tool=source_tool or "mcp",
+                        origin="manual",
+                    )
+                )
+                created_thread = True
+        return {
+            "project": proj.model_dump(mode="json"),
+            "thread": self.thread_public_dict(thread) if thread else None,
+            "created_thread": created_thread,
+        }
+
+    def openclaw_memory_digest(
+        self, *, project_slug: str | None = None, note: str | None = None
+    ) -> tuple[str, str]:
+        """Build a short OpenClaw memory digest (summaries only; no transcripts)."""
+        threads = self.list_open_threads(project_slug=project_slug, limit=8)
+        lines: list[str] = []
+        for t in threads:
+            step = (t.resume_step or "").strip().splitlines()[0] if t.resume_step else ""
+            bit = f"- {t.summary}"
+            if t.project_slug:
+                bit += f" [{t.project_slug}]"
+            if step:
+                bit += f" → {step[:120]}"
+            lines.append(bit)
+        if not lines:
+            lines.append("- No open Hub threads right now.")
+        extra = (note or "").strip()
+        if extra:
+            lines.append(f"- Note: {extra[:240]}")
+        title = (
+            f"ADHD Hub · {project_slug}" if project_slug else "ADHD Hub · open work"
+        )
+        body = "\n".join(lines[:10])
+        return title, body
+
+    def push_openclaw_memory_sync(
+        self, *, project_slug: str | None = None, note: str | None = None
+    ) -> dict:
+        title, body = self.openclaw_memory_digest(project_slug=project_slug, note=note)
+        result = self.openclaw.push_memory_roundtrip_sync(title=title, digest=body)
+        result["digest_lines"] = len(body.splitlines())
+        return result
+
+    async def push_openclaw_memory(
+        self, *, project_slug: str | None = None, note: str | None = None
+    ) -> dict:
+        title, body = self.openclaw_memory_digest(project_slug=project_slug, note=note)
+        result = await self.openclaw.push_memory_roundtrip(title=title, digest=body)
+        result["digest_lines"] = len(body.splitlines())
+        return result
+
     def _forge_after_thread(self, thread: Thread) -> dict:
         cfg = self.forge_config(thread.project_slug)
         out: dict = {}
@@ -1158,7 +1280,7 @@ class HubService:
     async def run_stale_nudge(self) -> dict:
         stale = self.list_stale_threads()
         if not stale:
-            return {"nudged": 0, "openclaw": False}
+            return {"nudged": 0, "openclaw": False, "memory": None}
         limited = stale[: self.settings.digest_max_nudge]
         lines = [
             f"{t.summary} [{t.project_slug or '-'}] (id={t.id}, updated={t.updated_at.date()})"
@@ -1166,13 +1288,15 @@ class HubService:
         ]
         sent = await self.openclaw.notify_stale_threads(lines)
         self.rebuild_wiki_index()
+        memory = None
         if sent:
             self.store.touch_reminded([t.id for t in limited])
-            await self.openclaw.sync_memory_note(
-                "ADHD Hub open work",
-                "\n".join(lines),
-            )
-        return {"nudged": len(lines) if sent else 0, "openclaw": sent}
+            memory = await self.push_openclaw_memory()
+        return {
+            "nudged": len(lines) if sent else 0,
+            "openclaw": sent,
+            "memory": memory,
+        }
 
     def health(self) -> dict:
         from adhd_hub import __version__
