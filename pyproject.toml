@@ -1,6 +1,6 @@
 [project]
 name = "adhd-hub"
-version = "0.3.0"
+version = "0.3.1"
 description = "Self-hosted ADHD progress hub — MCP + REST for unfinished threads, wiki progress, and optional OpenClaw nudges."
 readme = "README.md"
 authors = [
