@@ -1,0 +1,22 @@
+name: ADHD Hub tracker
+description: Unfinished Hub work. The adhd-hub label is required for forge inbox import.
+title: "[ADHD] "
+labels: ["adhd-hub"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Inbox sync is **label-driven**. A `[ADHD]` title alone never imports.
+        Keep the `adhd-hub` label. Optional: `project:<slug>`, `source:cursor` / `source:codex` / `source:chatgpt` / `source:claude`.
+        The creating account must be on the Hub **Inbox authors** allowlist.
+  - type: textarea
+    id: progress
+    attributes:
+      label: Now / Done / Next
+      description: Short progress note. No secrets, tokens, or private URLs.
+      placeholder: |
+        Now: …
+        Done: …
+        Next: …
+    validations:
+      required: true

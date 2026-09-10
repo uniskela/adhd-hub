@@ -1,0 +1,32 @@
+name: Post-0.3.10 issue hygiene
+
+# One-shot: create `adhd-hub`, comment/label #15–#20, close Wave 1 (#16).
+# Runs only when uniskela merges this file to protected main (same trust
+# model as pages.yml / release-please.yml). Safe to delete after it succeeds.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/post-0310-issue-hygiene.yml"
+      - "scripts/post_0310_issue_hygiene.sh"
+
+permissions: {}
+
+jobs:
+  issues:
+    if: github.repository == 'uniskela/adhd-hub' && github.actor == 'uniskela'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out trusted main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Update GitHub issues after v0.3.10
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/post_0310_issue_hygiene.sh
