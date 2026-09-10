@@ -8,11 +8,13 @@ from adhd_hub.forge.config import (
     load_forge_config,
     save_forge_config,
 )
+from adhd_hub.forge.facade import ForgeFacade
 from adhd_hub.forge.wiki_sync import WikiForgeSync
 
 __all__ = [
     "BoardForgeSync",
     "ForgeConfig",
+    "ForgeFacade",
     "ForgeProvider",
     "WikiForgeSync",
     "forge_from_settings",
