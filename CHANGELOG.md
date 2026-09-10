@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/uniskela/adhd-hub/compare/v0.3.11...v0.4.0) (2026-09-10)
+
+
+### Features
+
+* connect agent prefs, install wheel UX, and OpenClaw pairing ([#40](https://github.com/uniskela/adhd-hub/issues/40)) ([0ac8e6e](https://github.com/uniskela/adhd-hub/commit/0ac8e6e063ad0fc0df829a96d7a3b4d6d167c31b))
+
 ## [0.3.11](https://github.com/uniskela/adhd-hub/compare/v0.3.10...v0.3.11) (2026-09-10)
 
 
