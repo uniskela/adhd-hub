@@ -56,7 +56,7 @@ We do **not**:
 - use GitHub Search (`in:title`) — Search is eventually consistent, so a just-opened cloud-agent issue can miss an immediate **Import issue inbox** click
 - use GraphQL — extra permission surface for the same list
 
-Gitea uses the same list-then-filter path (label **or** title prefix). Cost is typically one REST call per poll; a busy repo may use a few more pages. Issues beyond page 10 (1 000 open issues) are not scanned.
+Gitea uses the same list-then-filter path (label **or** title prefix), with `limit=50` and `type=issues` because Gitea's page size max is 50 and it always serializes `pull_request` (null on real issues). Cost is typically one REST call per poll; a busy repo may use a few more pages. Issues beyond the page cap are not scanned.
 
 ## Skills on remote agents
 

@@ -37,6 +37,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'src="/ui/app.js"' not in home.content
         assert b'<script src="/ui/app.js"' not in home.content
         assert b'id="chart-summary"' in home.content
+        assert b'aria-live="polite"' in home.content
         assert b"title starting with" in home.content
         assert b"[ADHD]" in home.content
         assert b'name="mobile-web-app-capable"' in home.content

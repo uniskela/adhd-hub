@@ -17,8 +17,9 @@ _INBOX_TITLE_PREFIX = re.compile(r"^\[adhd\]\s*", re.IGNORECASE)
 
 # List open issues (no ``labels=`` query) then filter locally. Avoids GitHub
 # Search indexing delay and the old label-first query that dropped title-only
-# issues. 10 pages × 100 issues bounds REST usage (~10 req per poll).
+# issues. GitHub: 100/page. Gitea: ``limit`` (API max 50). Cap 10 pages.
 _INBOX_LIST_PER_PAGE = 100
+_INBOX_GITEA_PER_PAGE = 50
 _INBOX_LIST_MAX_PAGES = 10
 
 
@@ -391,10 +392,11 @@ class BoardForgeSync:
           whitespace after ``]``).
 
         Listing strategy: ``GET /repos/{owner}/{repo}/issues?state=open`` with
-        pagination (100/page, max 10 pages). We do **not** pass GitHub's
-        ``labels=`` query (that hid title-only issues) and we do **not** use
-        Search/GraphQL (Search is eventually consistent; GraphQL needs extra
-        scope). The same list-then-filter path is used for Gitea.
+        pagination, then filter locally. GitHub uses ``per_page=100`` (max 10
+        pages). Gitea uses ``limit=50`` and ``type=issues`` (Gitea's page-size
+        max). We do **not** pass GitHub's ``labels=`` query (that hid
+        title-only issues) and we do **not** use Search/GraphQL (Search is
+        eventually consistent; GraphQL needs extra scope).
 
         Fail closed: empty ``board_inbox_authors`` yields no candidates.
         """
@@ -409,11 +411,14 @@ class BoardForgeSync:
         out: list[dict[str, Any]] = []
         with httpx.Client(timeout=30.0) as client:
             for page in range(1, _INBOX_LIST_MAX_PAGES + 1):
-                params: dict[str, Any] = {
-                    "state": state,
-                    "per_page": _INBOX_LIST_PER_PAGE,
-                    "page": page,
-                }
+                params: dict[str, Any] = {"state": state, "page": page}
+                if self.config.provider == ForgeProvider.gitea:
+                    page_size = _INBOX_GITEA_PER_PAGE
+                    params["limit"] = page_size
+                    params["type"] = "issues"
+                else:
+                    page_size = _INBOX_LIST_PER_PAGE
+                    params["per_page"] = page_size
                 resp = client.get(self._issues_url(), headers=self._headers(), params=params)
                 if resp.status_code >= 400:
                     log.warning(
@@ -426,8 +431,8 @@ class BoardForgeSync:
                 for raw in items:
                     if not isinstance(raw, dict):
                         continue
-                    # Skip PRs that GitHub returns from the issues endpoint.
-                    if "pull_request" in raw:
+                    # GitHub PRs include a dict; Gitea issues serialize pull_request: null.
+                    if raw.get("pull_request") is not None:
                         continue
                     author = self._issue_author_login(raw)
                     if not author or author.casefold() not in allowed:
@@ -440,7 +445,7 @@ class BoardForgeSync:
                     out.append(raw)
                     if len(out) >= limit:
                         return out
-                if len(items) < _INBOX_LIST_PER_PAGE:
+                if len(items) < page_size:
                     break
         return out
 

@@ -81,7 +81,7 @@ def test_list_inbox_issues_label_or_title_prefix() -> None:
         _issue(2, "[ADHD] Already synced", labels=["adhd-hub", "adhd-hub-synced"]),
         _issue(3, "PR", labels=["adhd-hub"], pull_request={}),
         _issue(4, "[ADHD] Random stranger", login="random-person", labels=["adhd-hub"]),
-        _issue(5, "[ADHD] Title only without hub label", labels=[]),
+        _issue(5, "[ADHD] Title only without hub label", labels=[], pull_request=None),
         _issue(6, "Unlabeled and no prefix", labels=[]),
         _issue(7, "Label only without title prefix", labels=["adhd-hub"]),
         _issue(8, "[adhd] lowercase title only", labels=[]),
@@ -93,8 +93,7 @@ def test_list_inbox_issues_label_or_title_prefix() -> None:
         issues = board.list_inbox_issues()
     params = client.get.call_args.kwargs["params"]
     assert "labels" not in params
-    assert params["state"] == "open"
-    assert params["page"] == 1
+    assert params["per_page"] == 100
     assert [issue["number"] for issue in issues] == [1, 5, 7, 8]
 
 
@@ -105,20 +104,25 @@ def test_list_inbox_issues_gitea_same_or_logic() -> None:
         lambda _k, _v: None,
     )
     payload = [
-        _issue(1, "[ADHD] Title only", labels=[]),
-        _issue(2, "Noise", labels=[]),
+        _issue(1, "[ADHD] Title only", labels=[], pull_request=None),
+        _issue(2, "Noise", labels=[], pull_request=None),
         {
             "number": 3,
             "title": "Label only",
             "user": {"username": "trusted-user"},
             "labels": [{"name": "adhd-hub"}],
+            "pull_request": None,
         },
+        _issue(4, "[ADHD] Gitea PR", labels=["adhd-hub"], pull_request={"merged": False}),
     ]
     with patch("httpx.Client") as client_cls:
         client = client_cls.return_value.__enter__.return_value
         client.get.return_value = _ok_response(payload)
         issues = board.list_inbox_issues()
-    assert "labels" not in client.get.call_args.kwargs["params"]
+    params = client.get.call_args.kwargs["params"]
+    assert "labels" not in params
+    assert params["limit"] == 50
+    assert params["type"] == "issues"
     assert [issue["number"] for issue in issues] == [1, 3]
 
 
