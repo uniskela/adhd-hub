@@ -42,7 +42,7 @@ If OpenClaw is part of your setup, install the same skills there:
 npx skills add uniskela/adhd-hub -g -a openclaw
 ```
 
-Then connect the Hub to OpenClaw's private hooks for one gentle daily stale-work reminder. The short setup and safe test are in [OpenClaw connection and alerts](openclaw.md).
+Then pair from **Settings → Connections → OpenClaw** (recommended): **Start OpenClaw pairing**, paste the prompt into OpenClaw, and **Approve**. Manual webhook/token (and `.env`) remains available. Full steps: [OpenClaw connection and alerts](openclaw.md).
 
 ## Local smoke (Windows)
 
