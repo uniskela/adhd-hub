@@ -191,7 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_p.add_argument(
         "--passphrase",
         default=None,
-        help="Optional passphrase to encrypt the backup (Fernet envelope)",
+        help="Optional passphrase to encrypt the backup (scrypt + Fernet; v1 files still import)",
     )
     export_p.set_defaults(func=cmd_export)
 

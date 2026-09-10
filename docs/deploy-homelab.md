@@ -108,6 +108,8 @@ docker compose up -d
 
 Schedule backups however you like (cron / Task Scheduler) — weekly export of `data/` is enough for most homelabs. Encrypted exports are safe to park on shared storage.
 
+Encrypted files are a versioned envelope around the zip (magic `ADHDHUB1`), not a password-zip. New exports derive the Fernet key with **scrypt** (random salt, stored in the header). Backups created before this upgrade used a single SHA-256 of a fixed prefix plus the passphrase (v1); those still restore with the same passphrase. The HTTP restore path still rejects archives over 80 MiB.
+
 Keep the same `ADHD_HUB_AUTH_TOKEN` (or update MCP clients). Point `ADHD_HUB_PUBLIC_URL` at the Tailscale IP.
 
 ### Legacy forge wiki paths
