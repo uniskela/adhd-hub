@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 import io
 import json
 import os
@@ -13,6 +12,8 @@ from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+
+from adhd_hub.backup_v1 import fernet_raw_key
 
 # Files/dirs under data/ that make a movable hub instance.
 _INCLUDE_NAMES = {
@@ -46,16 +47,12 @@ def _fernet_from_raw_key(raw: bytes) -> Fernet:
     return Fernet(base64.urlsafe_b64encode(raw))
 
 
-def _legacy_v1_decrypt_cipher(secret: str) -> Fernet:
+def _legacy_v1_decrypt_cipher(keying: str) -> Fernet:
     """Rebuild the Fernet key for historical envelope v1 backups.
 
     Compat-only decrypt path. New encryption always uses scrypt (v2).
     """
-    material = f"adhd-hub-backup-v1:{secret}".encode()
-    # Compat-only for historical envelope v1; never used for new encryption.
-    # codeql[py/weak-sensitive-data-hashing]
-    digest = hashlib.sha256(material).digest()
-    return _fernet_from_raw_key(digest)
+    return _fernet_from_raw_key(fernet_raw_key(keying.encode("utf-8")))
 
 
 def _passphrase_cipher_v2(passphrase: str, *, salt: bytes, n: int, r: int, p: int) -> Fernet:

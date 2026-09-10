@@ -75,6 +75,21 @@ def test_wrong_passphrase_fails_for_new_and_legacy(tmp_path: Path) -> None:
         decrypt_backup(_LEGACY_V1.read_bytes(), "not the passphrase")
 
 
+def test_legacy_v1_digest_matches_historical_sha256() -> None:
+    import hashlib
+    import os
+
+    from adhd_hub.backup_v1 import _sha256, fernet_raw_key
+
+    assert _sha256(b"").hex() == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    assert _sha256(b"abc").hex() == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    sample = b"sample-keying-value"
+    assert fernet_raw_key(sample) == hashlib.sha256(b"adhd-hub-backup-v1:" + sample).digest()
+    for size in (0, 1, 31, 32, 55, 56, 63, 64, 65, 127, 128, 1000):
+        blob = os.urandom(size)
+        assert _sha256(blob) == hashlib.sha256(blob).digest()
+
+
 def test_legacy_sha256_helper_is_not_on_the_write_path() -> None:
     import inspect
 
@@ -82,7 +97,8 @@ def test_legacy_sha256_helper_is_not_on_the_write_path() -> None:
 
     export_src = inspect.getsource(backup.export_data_dir)
     assert "_legacy_v1_decrypt_cipher" not in export_src
-    assert "sha256" not in export_src
+    assert "fernet_raw_key" not in export_src
+    assert "backup_v1" not in export_src
     cipher_src = inspect.getsource(backup._cipher_from_meta)
     assert "_legacy_v1_decrypt_cipher" in cipher_src
 
