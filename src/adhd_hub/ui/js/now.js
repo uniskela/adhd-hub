@@ -1,4 +1,4 @@
-import { preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml, state } from './state.js';
+import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
 import { formatWhen } from './dom.js';
 import { loadAll, loadOverview } from './load.js';

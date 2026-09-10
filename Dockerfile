@@ -18,4 +18,7 @@ VOLUME ["/data"]
 EXPOSE 8787
 
 # Host/port come from ADHD_HUB_* env (compose/.env), not hardcoded flags.
-CMD ["uv", "run", "--no-dev", "adhd-hub", "serve"]
+# Use the synced venv binary so start does not re-resolve against PyPI
+# (uv run would fail under UV_OFFLINE=1 / flaky egress).
+ENV UV_OFFLINE=1
+CMD [".venv/bin/adhd-hub", "serve"]

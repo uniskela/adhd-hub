@@ -428,11 +428,10 @@ class Store:
                 out.append(rem)
             elif rem.kind == ReminderKind.daily:
                 # Once per calendar day, unless a snooze window just ended.
-                if rem.due_at is not None and (
-                    rem.last_fired_at is None or rem.last_fired_at < rem.due_at
-                ):
-                    out.append(rem)
-                elif rem.last_fired_at is None or rem.last_fired_at.date() < now.date():
+                if (
+                    rem.due_at is not None
+                    and (rem.last_fired_at is None or rem.last_fired_at < rem.due_at)
+                ) or rem.last_fired_at is None or rem.last_fired_at.date() < now.date():
                     out.append(rem)
             elif rem.kind == ReminderKind.random:
                 # Surfaced by digest with low probability at API layer; still list here

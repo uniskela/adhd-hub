@@ -1,4 +1,4 @@
-import { preferences, $, setMsg, initRepoLinks, state } from './state.js';
+import { state, preferences, $, setMsg, initRepoLinks } from './state.js';
 import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
 import { fillTimezoneSelect } from './dom.js';

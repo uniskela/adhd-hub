@@ -1,4 +1,4 @@
-import { $, setMsg, state } from './state.js';
+import { state, $, setMsg } from './state.js';
 import { api } from './api.js';
 import { loadAll } from './load.js';
 import { showScreen } from './screens.js';

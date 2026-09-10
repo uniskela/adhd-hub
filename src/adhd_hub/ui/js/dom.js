@@ -1,4 +1,4 @@
-import { $, setMsg, escapeHtml, state } from './state.js';
+import { state, $, setMsg, escapeHtml } from './state.js';
 
 export async function copyReference(id) {
     try {

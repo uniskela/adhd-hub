@@ -144,6 +144,23 @@ def test_config_environment_overrides_toml(tmp_path, monkeypatch):
     assert settings.resolve_public_url() == "https://hub.example"
 
 
+def test_toml_overrides_dotenv_then_env_wins(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ADHD_HUB_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("ADHD_HUB_PUBLIC_URL", raising=False)
+    (tmp_path / ".env").write_text(
+        "ADHD_HUB_AUTH_TOKEN=dotenv-token\nADHD_HUB_PUBLIC_URL=https://dotenv.example\n"
+    )
+    config = tmp_path / "config.toml"
+    config.write_text('auth_token = "toml-token"\npublic_url = "https://toml.example"\n')
+    settings = load_settings(config)
+    assert settings.auth_token == "toml-token"
+    monkeypatch.setenv("ADHD_HUB_AUTH_TOKEN", "env-token")
+    settings = load_settings(config)
+    assert settings.auth_token == "env-token"
+    assert settings.resolve_public_url() == "https://toml.example"
+
+
 def test_public_url_fallback():
     assert Settings(_env_file=None).resolve_public_url() is None
     assert (

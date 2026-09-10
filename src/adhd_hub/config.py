@@ -109,7 +109,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
 
 
 def load_settings(config_path: Path | None = None) -> Settings:
-    """Load .env defaults, optional TOML, then process environment overrides."""
+    """Load settings with precedence: process env > first nonempty TOML > .env."""
     candidates: list[Path] = []
     if config_path:
         candidates.append(config_path)

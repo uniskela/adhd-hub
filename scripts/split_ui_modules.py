@@ -179,7 +179,7 @@ def find_load_all_end(body: str) -> int:
 
 
 def split_functions(region: str) -> tuple[str, dict[str, str]]:
-    pat = re.compile(r"\n  (async )?function (\w+)\(", re.M)
+    pat = re.compile(r"\n  (async )?function (\w+)\(", re.MULTILINE)
     matches = list(pat.finditer(region))
     if not matches:
         raise SystemExit("No functions found")
@@ -200,11 +200,17 @@ def split_functions(region: str) -> tuple[str, dict[str, str]]:
 
 
 def qualify_mutable_refs(src: str) -> str:
-    """Rewrite bare mutable identifiers to state.NAME (string/comment aware)."""
+    """Rewrite bare mutable identifiers to state.NAME (string/comment aware).
+
+    Member-access detection uses the last *code* character, not comment text.
+    A comment ending in ``.`` (``// ... session.\\nfocusEndsAt = 0``) must still
+    qualify the assignment; ``foo.\\nfocusEndsAt`` must not.
+    """
     mutable = set(MUTABLE_STATE)
     out: list[str] = []
     i = 0
     n = len(src)
+    last_code_char = ""
     while i < n:
         ch = src[i]
         if ch in "'\"`":
@@ -268,6 +274,8 @@ def qualify_mutable_refs(src: str) -> str:
                     break
                 j += 1
             out.append(src[i:j])
+            if j > i:
+                last_code_char = src[j - 1]
             i = j
             continue
         if ch == "/" and i + 1 < n and src[i + 1] == "/":
@@ -288,13 +296,15 @@ def qualify_mutable_refs(src: str) -> str:
             while j < n and (src[j].isalnum() or src[j] in "_$"):
                 j += 1
             ident = src[i:j]
-            prev = "".join(out).rstrip()
-            if ident in mutable and not prev.endswith("."):
+            if ident in mutable and last_code_char != ".":
                 out.append("state." + ident)
             else:
                 out.append(ident)
+            last_code_char = ident[-1]
             i = j
             continue
+        if not ch.isspace():
+            last_code_char = ch
         out.append(ch)
         i += 1
     return "".join(out).replace("state.state.", "state.")
@@ -456,7 +466,7 @@ def write_module(
     names: list[str],
     functions: dict[str, str],
     owner: dict[str, str],
-) -> None:
+) -> str:
     state_need: set[str] = set()
     from_mod: dict[str, set[str]] = {}
     chunks: list[str] = []
@@ -497,10 +507,10 @@ def write_module(
         )
     lines.append("\n")
     lines.extend(chunks)
-    (OUT / (mod + ".js")).write_text("".join(lines))
+    return "".join(lines)
 
 
-def write_boot(boot_code: str, functions: dict[str, str], owner: dict[str, str]) -> None:
+def render_boot(boot_code: str, functions: dict[str, str], owner: dict[str, str]) -> str:
     boot_code = qualify_mutable_refs(boot_code)
     state_need = set(used_names(boot_code, HELPER_EXPORT_ORDER))
     if "state." in boot_code or used_names(boot_code, MUTABLE_STATE):
@@ -526,12 +536,15 @@ def write_boot(boot_code: str, functions: dict[str, str], owner: dict[str, str])
         )
     lines.append("\n")
     lines.append("initRepoLinks();\n\n")
-    dedented = re.sub(r"^  ", "", boot_code, flags=re.M)
+    dedented = re.sub(r"^  ", "", boot_code, flags=re.MULTILINE)
     lines.append(dedented.strip("\n") + "\n")
-    (OUT / "boot.js").write_text("".join(lines))
+    return "".join(lines)
 
 
-def main() -> None:
+BARE_FOCUS_ENDS_AT = re.compile(r"(?<![\w.])focusEndsAt\s*=")
+
+
+def render_all() -> dict[str, str]:
     body = strip_iife(APP_PATH.read_text())
     load_end = find_load_all_end(body)
     funcs_region = body[:load_end]
@@ -547,16 +560,53 @@ def main() -> None:
         raise SystemExit(f"Missing in app.js: {sorted(extra)}")
 
     owner = {n: mod for mod, names in MODULE_MAP.items() for n in names}
+    files = {"state.js": build_state_js(preamble)}
+    for mod, names in MODULE_MAP.items():
+        files[f"{mod}.js"] = write_module(mod, names, functions, owner)
+    files["boot.js"] = render_boot(boot_code, functions, owner)
+    return files
+
+
+def assert_no_mutable_regressions(files: dict[str, str]) -> None:
+    now = files.get("now.js", "")
+    if BARE_FOCUS_ENDS_AT.search(now):
+        raise SystemExit(
+            "Refusing to write now.js: bare focusEndsAt assignment would undo module mutability"
+        )
+
+
+def main(argv: list[str] | None = None) -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Fail without writing if generated modules differ or regress mutability.",
+    )
+    args = parser.parse_args(argv)
+
+    files = render_all()
+    assert_no_mutable_regressions(files)
+
+    if args.check:
+        drift: list[str] = []
+        existing = {p.name: p.read_text() for p in OUT.glob("*.js")}
+        names = sorted(set(files) | set(existing))
+        for name in names:
+            if files.get(name) != existing.get(name):
+                drift.append(name)
+        if drift:
+            raise SystemExit("Generated UI modules would change: " + ", ".join(drift))
+        print(f"OK: {len(files)} modules match {OUT}")
+        return
+
     OUT.mkdir(parents=True, exist_ok=True)
     for stale in OUT.glob("*.js"):
         stale.unlink()
-
-    (OUT / "state.js").write_text(build_state_js(preamble))
-    for mod, names in MODULE_MAP.items():
-        write_module(mod, names, functions, owner)
-    write_boot(boot_code, functions, owner)
-    print(f"Wrote {len(list(OUT.glob('*.js')))} modules to {OUT}")
-    print("Functions:", ", ".join(sorted(functions)))
+    for name, text in files.items():
+        (OUT / name).write_text(text)
+    print(f"Wrote {len(files)} modules to {OUT}")
 
 
 if __name__ == "__main__":

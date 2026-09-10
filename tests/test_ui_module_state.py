@@ -83,3 +83,37 @@ def test_modules_do_not_reassign_imported_bindings():
                 continue
             failures.append(f"{path.name} ++: {line}")
     assert not failures, "Bare mutable reassignments:\n" + "\n".join(failures)
+
+
+def _load_splitter():
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "split_ui_modules.py"
+    spec = importlib.util.spec_from_file_location("split_ui_modules", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_qualify_mutable_refs_ignores_comment_periods():
+    splitter = _load_splitter()
+    src = """
+      // Clear end marker so the next Start can begin a fresh session.
+      focusEndsAt = 0;
+      foo.focusEndsAt = 1;
+"""
+    out = splitter.qualify_mutable_refs(src)
+    assert "state.focusEndsAt = 0" in out
+    assert re.search(r"(?<![\w.])focusEndsAt\s*=", out) is None
+    assert "foo.focusEndsAt = 1" in out
+
+
+def test_splitter_check_does_not_dirty_now_js():
+    splitter = _load_splitter()
+    files = splitter.render_all()
+    splitter.assert_no_mutable_regressions(files)
+    committed = (UI_JS / "now.js").read_text()
+    assert files["now.js"] == committed
+    assert re.search(r"(?<![\w.])focusEndsAt\s*=", files["now.js"]) is None
+    splitter.main(["--check"])
