@@ -32,13 +32,31 @@ Match GitHub `user.login` / Gitea username (case-insensitive).
 
 ## Agent protocol (any tool)
 
-1. Create an issue titled `[ADHD] <short summary>` **as an allowlisted user** (token/bot identity must be on the allowlist).
-2. Labels:
-   - required: `adhd-hub`
-   - optional: `project:<slug>`
-   - optional: `source:codex` | `source:chatgpt` | `source:cursor` | `source:claude` | `source:claude-code`
+1. Create an issue titled `[ADHD] <short summary>` **as an allowlisted user** (token/bot identity must be on the allowlist). The prefix is case-insensitive (`[adhd]` / `[ADHD]`); optional whitespace after `]` is fine.
+2. Labels (all optional):
+   - `adhd-hub` — belt-and-suspenders if the agent *can* apply labels
+   - `project:<slug>`
+   - `source:codex` | `source:chatgpt` | `source:cursor` | `source:claude` | `source:claude-code`
 3. Body: short Now / Done / Next / Return cue (no secrets).
 4. After import, Hub **closes** the issue and adds `adhd-hub-synced` (never deletes).
+
+**Title `[ADHD]` is sufficient** for allowlisted authors. The hub label is not required. Cursor Cloud agents often cannot set labels (`Resource not accessible by integration`); they should still open a title-prefixed issue and skip the label.
+
+An issue with the hub label but no title prefix is still imported (label-only path).
+
+## How listing works
+
+Hub lists open issues with the same REST Issues endpoint already used for board sync:
+
+`GET /repos/{owner}/{repo}/issues?state=open` (100 per page, at most 10 pages), then filters **client-side**.
+
+We do **not**:
+
+- pass GitHub `labels=adhd-hub` (that query never returns title-only issues)
+- use GitHub Search (`in:title`) — Search is eventually consistent, so a just-opened cloud-agent issue can miss an immediate **Import issue inbox** click
+- use GraphQL — extra permission surface for the same list
+
+Gitea uses the same list-then-filter path (label **or** title prefix), with `limit=50` and `type=issues` because Gitea's page size max is 50 and it always serializes `pull_request` (null on real issues). Cost is typically one REST call per poll; a busy repo may use a few more pages. Issues beyond the page cap are not scanned.
 
 ## Skills on remote agents
 

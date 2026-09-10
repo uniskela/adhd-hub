@@ -25,60 +25,118 @@ def _cfg(**kwargs) -> ForgeConfig:
     return ForgeConfig(**base)
 
 
+def _issue(
+    number: int,
+    title: str,
+    *,
+    login: str = "trusted-user",
+    labels: list[str] | None = None,
+    **extra,
+) -> dict:
+    payload = {
+        "number": number,
+        "title": title,
+        "user": {"login": login},
+        "labels": [{"name": name} for name in (labels or [])],
+    }
+    payload.update(extra)
+    return payload
+
+
+def _ok_response(payload: list[dict]) -> MagicMock:
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = payload
+    mock_resp.raise_for_status = MagicMock()
+    return mock_resp
+
+
 def test_parse_inbox_authors_from_env_string() -> None:
     assert _parse_inbox_authors("Alice, bob ;Carol") == ["Alice", "bob", "Carol"]
     assert _parse_inbox_authors(["x", " ", "y"]) == ["x", "y"]
     assert _parse_inbox_authors(None) == []
 
 
-def test_list_inbox_issues_filters_synced_prs_and_authors() -> None:
+def test_title_matches_inbox_prefix_case_and_whitespace() -> None:
+    assert BoardForgeSync.title_matches_inbox_prefix("[ADHD] Do the thing")
+    assert BoardForgeSync.title_matches_inbox_prefix("[adhd] lowercase")
+    assert BoardForgeSync.title_matches_inbox_prefix("[AdHd] mixed")
+    assert BoardForgeSync.title_matches_inbox_prefix("[ADHD]no-space")
+    assert BoardForgeSync.title_matches_inbox_prefix("[ADHD]  extra space")
+    assert not BoardForgeSync.title_matches_inbox_prefix("Do the thing")
+    assert not BoardForgeSync.title_matches_inbox_prefix("prefix [ADHD] later")
+    assert not BoardForgeSync.title_matches_inbox_prefix("[ADHD-HUB] different tag")
+    assert not BoardForgeSync.title_matches_inbox_prefix(None)
+
+
+def test_list_inbox_issues_label_or_title_prefix() -> None:
     board = BoardForgeSync(_cfg(), lambda _k: None, lambda _k, _v: None)
     payload = [
-        {
-            "number": 1,
-            "title": "[ADHD] Do the thing",
-            "body": "Now: start",
-            "user": {"login": "trusted-user"},
-            "labels": [{"name": "adhd-hub"}],
-            "html_url": "https://github.com/o/r/issues/1",
-        },
-        {
-            "number": 2,
-            "title": "[ADHD] Already synced",
-            "user": {"login": "trusted-user"},
-            "labels": [{"name": "adhd-hub"}, {"name": "adhd-hub-synced"}],
-        },
-        {
-            "number": 3,
-            "title": "PR",
-            "user": {"login": "trusted-user"},
-            "pull_request": {},
-            "labels": [{"name": "adhd-hub"}],
-        },
-        {
-            "number": 4,
-            "title": "[ADHD] Random stranger",
-            "user": {"login": "random-person"},
-            "labels": [{"name": "adhd-hub"}],
-        },
-        {
-            "number": 5,
-            "title": "[ADHD] Title only without hub label",
-            "user": {"login": "trusted-user"},
-            "labels": [],
-        },
+        _issue(
+            1,
+            "[ADHD] Do the thing",
+            labels=["adhd-hub"],
+            html_url="https://github.com/o/r/issues/1",
+        ),
+        _issue(2, "[ADHD] Already synced", labels=["adhd-hub", "adhd-hub-synced"]),
+        _issue(3, "PR", labels=["adhd-hub"], pull_request={}),
+        _issue(4, "[ADHD] Random stranger", login="random-person", labels=["adhd-hub"]),
+        _issue(5, "[ADHD] Title only without hub label", labels=[], pull_request=None),
+        _issue(6, "Unlabeled and no prefix", labels=[]),
+        _issue(7, "Label only without title prefix", labels=["adhd-hub"]),
+        _issue(8, "[adhd] lowercase title only", labels=[]),
+        _issue(9, "[ADHD] Wrong author title only", login="random-person", labels=[]),
     ]
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = payload
-    mock_resp.raise_for_status = MagicMock()
     with patch("httpx.Client") as client_cls:
         client = client_cls.return_value.__enter__.return_value
-        client.get.return_value = mock_resp
+        client.get.return_value = _ok_response(payload)
         issues = board.list_inbox_issues()
-    assert client.get.call_args.kwargs["params"]["labels"] == "adhd-hub"
-    assert len(issues) == 1
-    assert issues[0]["number"] == 1
+    params = client.get.call_args.kwargs["params"]
+    assert "labels" not in params
+    assert params["per_page"] == 100
+    assert [issue["number"] for issue in issues] == [1, 5, 7, 8]
+
+
+def test_list_inbox_issues_gitea_same_or_logic() -> None:
+    board = BoardForgeSync(
+        _cfg(provider=ForgeProvider.gitea, base_url="https://git.example/api/v1"),
+        lambda _k: None,
+        lambda _k, _v: None,
+    )
+    payload = [
+        _issue(1, "[ADHD] Title only", labels=[], pull_request=None),
+        _issue(2, "Noise", labels=[], pull_request=None),
+        {
+            "number": 3,
+            "title": "Label only",
+            "user": {"username": "trusted-user"},
+            "labels": [{"name": "adhd-hub"}],
+            "pull_request": None,
+        },
+        _issue(4, "[ADHD] Gitea PR", labels=["adhd-hub"], pull_request={"merged": False}),
+    ]
+    with patch("httpx.Client") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.get.return_value = _ok_response(payload)
+        issues = board.list_inbox_issues()
+    params = client.get.call_args.kwargs["params"]
+    assert "labels" not in params
+    assert params["limit"] == 50
+    assert params["type"] == "issues"
+    assert [issue["number"] for issue in issues] == [1, 3]
+
+
+def test_list_inbox_issues_paginates_past_unrelated_open_issues() -> None:
+    board = BoardForgeSync(_cfg(), lambda _k: None, lambda _k, _v: None)
+    page1 = [_issue(i, f"Unrelated {i}") for i in range(1, 101)]
+    page2 = [_issue(101, "[ADHD] Buried title-only", labels=[])]
+    with patch("httpx.Client") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.get.side_effect = [_ok_response(page1), _ok_response(page2)]
+        issues = board.list_inbox_issues()
+    assert client.get.call_count == 2
+    assert client.get.call_args_list[1].kwargs["params"]["page"] == 2
+    assert [issue["number"] for issue in issues] == [101]
 
 
 def test_list_inbox_issues_empty_allowlist_imports_nothing() -> None:
@@ -142,6 +200,45 @@ def test_import_forge_inbox_creates_thread_and_closes(tmp_path) -> None:
     assert thread.summary == "Cloud handoff"
     assert thread.project_slug == "adhd-hub"
     assert thread.source_tool == "codex"
+
+
+def test_import_forge_inbox_title_only_without_hub_label(tmp_path) -> None:
+    service = HubService(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="t",
+            forge_provider="github",
+            forge_token="tok",
+            forge_owner="o",
+            forge_repo="r",
+            forge_board_enabled=True,
+            forge_board_inbox_enabled=True,
+            forge_board_inbox_authors="trusted-user",
+        )
+    )
+    issue = {
+        "number": 88,
+        "title": "[adhd] Cloud agent without labels",
+        "body": "Now: import me",
+        "user": {"login": "trusted-user"},
+        "labels": [],
+        "html_url": "https://github.com/o/r/issues/88",
+    }
+
+    def fake_mark(number, *, thread_id):
+        return {"closed": True, "number": number, "thread_id": thread_id}
+
+    with (
+        patch.object(BoardForgeSync, "list_inbox_issues", return_value=[issue]),
+        patch.object(BoardForgeSync, "mark_issue_imported", side_effect=fake_mark),
+    ):
+        out = service.import_forge_inbox()
+
+    assert out["count"] == 1
+    thread = service.store.get_thread(out["imported"][0]["thread_id"])
+    assert thread is not None
+    assert thread.summary == "Cloud agent without labels"
+    assert service.store.get_meta(f"forge_issue:{thread.id}") == "88"
 
 
 def test_import_forge_inbox_skips_when_disabled(tmp_path) -> None:

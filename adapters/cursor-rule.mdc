@@ -13,6 +13,6 @@ When this workspace (or the user) involves starting, resuming, migrating, or lea
 4. When the user finishes, call `mark_done` on the thread id.
 5. If the user asks to be reminded later, call `set_reminder`.
 
-If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` with labels `adhd-hub`, optional `project:<slug>`, optional `source:cursor`, and a short Now/Done/Next/Return cue. Do not invent hub state.
+If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` (title prefix is enough; optional labels `adhd-hub`, `project:<slug>`, `source:cursor`) and a short Now/Done/Next/Return cue. Skip labels if the token cannot set them. Do not invent hub state.
 
 Do not invent hub state — only report what the tools return. Prefer summaries; never dump full chat transcripts into the hub.
