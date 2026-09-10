@@ -1,0 +1,32 @@
+/* Progress Hub brand accents for Zensical */
+
+:root > * {
+  --md-primary-fg-color: #176b60;
+  --md-primary-fg-color--light: #89d9c3;
+  --md-primary-fg-color--dark: #0f4f47;
+  --md-accent-fg-color: #176b60;
+  --md-accent-fg-color--transparent: rgb(23 107 96 / 0.12);
+  --md-typeset-a-color: #176b60;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 160;
+  --md-primary-fg-color: #89d9c3;
+  --md-primary-fg-color--light: #b7ebe0;
+  --md-primary-fg-color--dark: #176b60;
+  --md-accent-fg-color: #efc978;
+  --md-accent-fg-color--transparent: rgb(239 201 120 / 0.14);
+  --md-typeset-a-color: #89d9c3;
+}
+
+.md-header {
+  background-color: var(--md-primary-fg-color);
+}
+
+.md-typeset a:focus-visible,
+.md-nav__link:focus-visible,
+.md-search__input:focus-visible,
+.md-header__button:focus-visible {
+  outline: 3px solid #efc978;
+  outline-offset: 2px;
+}

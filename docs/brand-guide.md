@@ -6,14 +6,14 @@ Progress Hub gives unfinished work a place to wait. The identity should feel gro
 
 ## Logo and icon
 
-![Progress Hub logo](../src/adhd_hub/ui/brand/logo.svg)
+![Progress Hub logo](assets/logo.svg)
 
 The **Next step** mark combines a soft upward bend with a gold dot. The bend represents picking up a thread; the dot is a thought kept for later. Its open shape leaves room to continue. The symbol is deliberately simple enough for a favicon.
 
-- [App icon / favicon](../src/adhd_hub/ui/brand/icon.svg): square SVG with a teal tile, ivory path, and gold dot.
-- [Light-surface wordmark](../src/adhd_hub/ui/brand/logo.svg).
-- [Dark-surface wordmark](../src/adhd_hub/ui/brand/logo-dark.svg).
-- [Visual brand sheet](brand-guide.html): open locally in a browser, or print to PDF.
+- [App icon / favicon](assets/icon.svg): square SVG with a teal tile, ivory path, and gold dot.
+- [Light-surface wordmark](assets/logo.svg).
+- [Dark-surface wordmark](assets/logo-dark.svg).
+- [Visual brand sheet](assets/brand-sheet.html): open locally in a browser, or print to PDF.
 
 Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wordmark at 180 px or wider. Keep clear space of at least one-quarter of the icon width around standalone marks. Preserve the aspect ratio, colour relationships, and rounded corners. Do not add gradients, bevels, glow, or animation. The SVG wordmarks use live system-font text for editability; glyphs can vary slightly by operating system. For fixed print artwork, outline the type in a vector editor.
 

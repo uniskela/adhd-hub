@@ -65,6 +65,6 @@ curl -sS -X POST -H "Authorization: Bearer $ADHD_HUB_AUTH_TOKEN" \
 
 ## Related adapters
 
-- [Cursor](../adapters/cursor-mcp.json) / [Cursor rule](../adapters/cursor-rule.mdc)
-- [Codex](../adapters/codex.md)
-- [Claude Code](../adapters/claude-code.md)
+- [Cursor](https://github.com/uniskela/adhd-hub/blob/main/adapters/cursor-mcp.json) / [Cursor rule](https://github.com/uniskela/adhd-hub/blob/main/adapters/cursor-rule.mdc)
+- [Codex](https://github.com/uniskela/adhd-hub/blob/main/adapters/codex.md)
+- [Claude Code](https://github.com/uniskela/adhd-hub/blob/main/adapters/claude-code.md)

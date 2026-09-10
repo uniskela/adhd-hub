@@ -64,9 +64,9 @@ npx skills add uniskela/adhd-hub -g
 npx skills add ./skills -g
 ```
 
-For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/adhd-friendly-writing.md): one visible **Now** action, brief context, and a concrete return cue.
+For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 
-**Documentation site:** enable **Settings → Pages → GitHub Actions** to publish [the public docs portal](https://uniskela.github.io/adhd-hub/). Its workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.
+**Documentation site:** enable **Settings → Pages → GitHub Actions** to publish [the public docs portal](https://uniskela.github.io/adhd-hub/) (built with [Zensical](https://zensical.org/)). Preview locally with `uv sync --extra dev && uv run zensical serve`. The workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.
 
 MCP endpoint: `http://<host>:8787/mcp`  
 REST docs: `http://<host>:8787/docs`  
