@@ -21,7 +21,9 @@ def test_install_creates_agents_file_and_is_idempotent(tmp_path: Path) -> None:
     assert first.startswith("# AGENTS.md")
     assert first.count(BEGIN_MARKER) == 1
     assert "resolve_project" in first
-    assert "full chat transcripts" in first
+    assert "Do not call Hub tools for trivial" in first
+    assert "transcripts" in first
+    assert "Never publish Hub URLs" in first
 
     same_path, second_action = install_agent_guidance(tmp_path)
     assert same_path == path
