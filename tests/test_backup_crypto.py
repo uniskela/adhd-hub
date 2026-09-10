@@ -75,6 +75,18 @@ def test_wrong_passphrase_fails_for_new_and_legacy(tmp_path: Path) -> None:
         decrypt_backup(_LEGACY_V1.read_bytes(), "not the passphrase")
 
 
+def test_legacy_sha256_helper_is_not_on_the_write_path() -> None:
+    import inspect
+
+    from adhd_hub import backup
+
+    export_src = inspect.getsource(backup.export_data_dir)
+    assert "_legacy_v1_decrypt_cipher" not in export_src
+    assert "sha256" not in export_src
+    cipher_src = inspect.getsource(backup._cipher_from_meta)
+    assert "_legacy_v1_decrypt_cipher" in cipher_src
+
+
 def test_unknown_envelope_version_rejected() -> None:
     meta = json.dumps({"format": "adhd-hub-backup-encrypted", "version": 99}).encode()
     archive = b"ADHDHUB1" + len(meta).to_bytes(4, "big") + meta + b"not-a-fernet-token"

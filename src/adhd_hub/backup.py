@@ -46,8 +46,15 @@ def _fernet_from_raw_key(raw: bytes) -> Fernet:
     return Fernet(base64.urlsafe_b64encode(raw))
 
 
-def _passphrase_cipher_v1(passphrase: str) -> Fernet:
-    digest = hashlib.sha256(f"adhd-hub-backup-v1:{passphrase}".encode()).digest()
+def _legacy_v1_decrypt_cipher(secret: str) -> Fernet:
+    """Rebuild the Fernet key for historical envelope v1 backups.
+
+    Compat-only decrypt path. New encryption always uses scrypt (v2).
+    """
+    material = f"adhd-hub-backup-v1:{secret}".encode()
+    # Compat-only for historical envelope v1; never used for new encryption.
+    # codeql[py/weak-sensitive-data-hashing]
+    digest = hashlib.sha256(material).digest()
     return _fernet_from_raw_key(digest)
 
 
@@ -108,7 +115,7 @@ def _scrypt_params_from_meta(meta: dict[str, Any]) -> tuple[bytes, int, int, int
 def _cipher_from_meta(passphrase: str, meta: dict[str, Any]) -> Fernet:
     version = meta.get("version")
     if version == _ENC_VERSION_V1:
-        return _passphrase_cipher_v1(passphrase)
+        return _legacy_v1_decrypt_cipher(passphrase)
     if version == _ENC_VERSION_CURRENT:
         salt, n, r, p = _scrypt_params_from_meta(meta)
         return _passphrase_cipher_v2(passphrase, salt=salt, n=n, r=r, p=p)
