@@ -1,4 +1,4 @@
-import { preferences, completing, activeScreen, chosenId, chosenThread, focusState, focusRequest, pauseTarget, nowMessage, focusModeOn, focusEndsAt, focusTimerId, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
+import { preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml, state } from './state.js';
 import { api } from './api.js';
 import { formatWhen } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
@@ -7,25 +7,25 @@ import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
 
 export function rememberFocus() {
-    if (chosenId) preferences.setItem("adhd_hub_chosen_thread", chosenId);
+    if (state.chosenId) preferences.setItem("adhd_hub_chosen_thread", state.chosenId);
     else preferences.removeItem("adhd_hub_chosen_thread");
-    preferences.setItem("adhd_hub_focus_state", focusState);
+    preferences.setItem("adhd_hub_focus_state", state.focusState);
   }
 export async function chooseThread(id) {
-    const request = ++focusRequest;
+    const request = ++state.focusRequest;
     setMsg("Loading your choice…");
     try {
       const thread = await api("/threads/" + encodeURIComponent(id));
-      if (request !== focusRequest) return;
+      if (request !== state.focusRequest) return;
       if (!["open", "blocked"].includes(thread.status)) {
         setMsg("That task is already finished. Choose another when you’re ready.");
-        if (activeScreen === "work") await loadThreads();
+        if (state.activeScreen === "work") await loadThreads();
         return;
       }
-      chosenId = id;
-      chosenThread = thread;
-      focusState = thread.paused_at ? "paused" : "ready";
-      nowMessage = "";
+      state.chosenId = id;
+      state.chosenThread = thread;
+      state.focusState = thread.paused_at ? "paused" : "ready";
+      state.nowMessage = "";
       rememberFocus();
       showScreen("now");
       renderFocus();
@@ -34,26 +34,26 @@ export async function chooseThread(id) {
     } catch (error) { setMsg("Could not choose this task: " + error.message); }
   }
 export async function loadChosenThread() {
-    const request = ++focusRequest;
-    if (!chosenId) { chosenThread = null; renderFocus(); return; }
+    const request = ++state.focusRequest;
+    if (!state.chosenId) { state.chosenThread = null; renderFocus(); return; }
     try {
-      const thread = await api("/threads/" + encodeURIComponent(chosenId));
-      if (request !== focusRequest) return;
+      const thread = await api("/threads/" + encodeURIComponent(state.chosenId));
+      if (request !== state.focusRequest) return;
       if (!["open", "blocked"].includes(thread.status)) {
-        chosenId = null;
-        chosenThread = null;
-        nowMessage = "That task is finished. You can leave it here or choose another.";
+        state.chosenId = null;
+        state.chosenThread = null;
+        state.nowMessage = "That task is finished. You can leave it here or choose another.";
         rememberFocus();
-      } else { chosenThread = thread; }
+      } else { state.chosenThread = thread; }
       renderFocus();
     } catch (error) {
-      if (request !== focusRequest) return;
-      chosenThread = null;
+      if (request !== state.focusRequest) return;
+      state.chosenThread = null;
       if (error.status === 404) {
-        chosenId = null;
+        state.chosenId = null;
         rememberFocus();
-        nowMessage = "That task is no longer available. Choose another when you’re ready.";
-      } else { nowMessage = "Could not load your saved task. Retry when your connection returns."; }
+        state.nowMessage = "That task is no longer available. Choose another when you’re ready.";
+      } else { state.nowMessage = "Could not load your saved task. Retry when your connection returns."; }
       renderFocus();
     }
   }
@@ -62,7 +62,7 @@ export async function suggestThread() {
     button.disabled = true;
     try {
       const threads = await api("/threads?status=open&limit=100");
-      if (activeScreen !== "now") return;
+      if (state.activeScreen !== "now") return;
       const candidate = threads.find((thread) => thread.energy === "low") || threads[0];
       if (!candidate) { $("suggestion").textContent = "No open tasks yet. Save a thought to get started."; return; }
       $("suggestion").innerHTML = `<p class="hint">${candidate.energy === "low" ? "A low-energy option" : "One option to consider"}</p><h3>${escapeHtml(candidate.summary)}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
@@ -71,24 +71,24 @@ export async function suggestThread() {
     finally { button.disabled = false; }
   }
 export function openPause() {
-    pauseTarget = chosenThread?.id;
-    if (!pauseTarget) return;
-    $("pause-step").value = chosenThread.resume_step || "";
-    $("pause-task").textContent = chosenThread.summary;
+    state.pauseTarget = state.chosenThread?.id;
+    if (!state.pauseTarget) return;
+    $("pause-step").value = state.chosenThread.resume_step || "";
+    $("pause-task").textContent = state.chosenThread.summary;
     $("pause-error").textContent = "";
     $("pause-dialog").showModal();
   }
 export async function pauseHere(event) {
     event.preventDefault();
     const step = $("pause-step").value.trim();
-    if (!step || !pauseTarget) return;
+    if (!step || !state.pauseTarget) return;
     const button = $("pause-form").querySelector('[type="submit"]');
     button.disabled = true;
     try {
-      await api("/threads/" + encodeURIComponent(pauseTarget) + "/pause", {
+      await api("/threads/" + encodeURIComponent(state.pauseTarget) + "/pause", {
         method: "POST", body: JSON.stringify({ next_step: step }),
       });
-      focusState = "paused";
+      state.focusState = "paused";
       rememberFocus();
       $("pause-dialog").close();
       await loadChosenThread();
@@ -142,7 +142,7 @@ export async function captureStep(event) {
       $("capture-summary").value = "";
       $("capture-dialog").close();
       await loadOverview();
-      if (activeScreen === "work") await loadThreads();
+      if (state.activeScreen === "work") await loadThreads();
     } catch (error) {
       if ($("capture-dialog").open) $("capture-error").textContent = "Could not save your thought: " + error.message;
       else setMsg("Thought saved; could not refresh your list.");
@@ -150,26 +150,26 @@ export async function captureStep(event) {
   }
 export function renderFocus() {
     const card = $("next-card");
-    const thread = chosenThread;
+    const thread = state.chosenThread;
     $("focus-title").setAttribute("tabindex", "-1");
     updateFocusModeUi();
     if (!thread) {
       $("focus-eyebrow").textContent = "YOUR CHOICE";
       $("focus-title").textContent = "What would you like to work on?";
       card.className = "next-card empty";
-      card.innerHTML = `<p>${escapeHtml(nowMessage || "Choose one task. Everything else can wait.")}</p><div class="next-actions"><button type="button" class="primary" id="btn-choose-work">Choose a task</button><button type="button" class="ghost" id="btn-suggest">Help me choose</button>${chosenId ? '<button type="button" class="ghost" id="btn-retry-focus">Retry saved task</button>' : ""}</div><div id="suggestion" aria-live="polite"></div>`;
+      card.innerHTML = `<p>${escapeHtml(state.nowMessage || "Choose one task. Everything else can wait.")}</p><div class="next-actions"><button type="button" class="primary" id="btn-choose-work">Choose a task</button><button type="button" class="ghost" id="btn-suggest">Help me choose</button>${state.chosenId ? '<button type="button" class="ghost" id="btn-retry-focus">Retry saved task</button>' : ""}</div><div id="suggestion" aria-live="polite"></div>`;
       $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
       $("btn-suggest").addEventListener("click", suggestThread);
       $("btn-retry-focus")?.addEventListener("click", loadChosenThread);
       return;
     }
-    const returning = focusState === "paused" && !!thread.resume_step;
+    const returning = state.focusState === "paused" && !!thread.resume_step;
     $("focus-eyebrow").textContent = `${
-      focusState === "working"
+      state.focusState === "working"
         ? "WORKING ON"
         : returning
           ? "WHERE YOU LEFT OFF"
-          : focusState === "paused"
+          : state.focusState === "paused"
             ? "SAVED FOR YOUR RETURN"
             : "YOUR CHOICE"
     } · ${thread.project_slug === "unclassified" ? "Inbox" : thread.project_slug || ""}`;
@@ -180,18 +180,18 @@ export function renderFocus() {
       : '<p class="start-cue">Start with the smallest part. You can leave a next step whenever you stop.</p>';
     card.innerHTML = `
       ${resumeBlock}
-      ${focusState === "working" ? `<p class="work-state" role="status">${focusModeOn ? "Focus mode is on — stay with this project when you can." : "This is your focus. No timer, no rush."}</p>` : ""}
+      ${state.focusState === "working" ? `<p class="work-state" role="status">${state.focusModeOn ? "Focus mode is on — stay with this project when you can." : "This is your focus. No timer, no rush."}</p>` : ""}
       <div class="next-actions">
-        <button type="button" class="primary" id="btn-start">${focusState === "working" ? "Pause here" : returning || focusState === "paused" ? "Resume" : "Start"}</button>
+        <button type="button" class="primary" id="btn-start">${state.focusState === "working" ? "Pause here" : returning || state.focusState === "paused" ? "Resume" : "Start"}</button>
         <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
         <button type="button" class="ghost" data-done="${escapeHtml(thread.id)}">Done</button>
       </div>
       <details class="progress-details"><summary>Project notes</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
     $("btn-start").addEventListener("click", () => {
-      if (focusState === "working") { openPause(); return; }
-      focusState = "working";
+      if (state.focusState === "working") { openPause(); return; }
+      state.focusState = "working";
       rememberFocus();
-      if (focusModeOn) startFocusSession();
+      if (state.focusModeOn) startFocusSession();
       renderFocus();
       $("btn-start").focus();
     });
@@ -205,11 +205,11 @@ export async function markDone(id) {
       await api("/threads/mark-done", {
         method: "POST", body: JSON.stringify({ id, note: "Marked done from /ui" }),
       });
-      if (chosenId === id) {
-        chosenId = null;
-        chosenThread = null;
-        focusState = "ready";
-        nowMessage = "That’s done. You can stop here, or choose another when you’re ready.";
+      if (state.chosenId === id) {
+        state.chosenId = null;
+        state.chosenThread = null;
+        state.focusState = "ready";
+        state.nowMessage = "That’s done. You can stop here, or choose another when you’re ready.";
         rememberFocus();
         renderFocus();
       }
@@ -253,7 +253,7 @@ export function renderReminders(due, all) {
     banner.querySelectorAll("[data-dismiss-reminder]").forEach((btn) =>
       btn.addEventListener("click", () => dismissReminder(btn.dataset.dismissReminder))
     );
-    if (activeScreen === "now") {
+    if (state.activeScreen === "now") {
       strip.hidden = false;
       strip.innerHTML = `<p class="eyebrow">REMINDERS</p>${dueList
         .slice(0, 3)
@@ -266,7 +266,7 @@ export function renderReminders(due, all) {
   }
 export function renderDriftBanner() {
     const el = $("drift-banner");
-    if (!focusModeOn || activeScreen !== "work" || !chosenThread) {
+    if (!state.focusModeOn || state.activeScreen !== "work" || !state.chosenThread) {
       el.hidden = true;
       el.innerHTML = "";
       return;
@@ -274,7 +274,7 @@ export function renderDriftBanner() {
     el.hidden = false;
     el.innerHTML = `
       <div>
-        <strong>Still focusing on ${escapeHtml(chosenThread.summary)}</strong>
+        <strong>Still focusing on ${escapeHtml(state.chosenThread.summary)}</strong>
         <p class="hint">My work is available — return to Now when you’re ready.</p>
       </div>
       <button type="button" class="primary compact" id="btn-return-focus">Back to Now</button>`;
@@ -353,20 +353,20 @@ export async function saveReminder(event) {
   }
 export function startFocusSession() {
     const minutes = Number($("focus-minutes").value || 25);
-    focusEndsAt = Date.now() + minutes * 60 * 1000;
-    preferences.setItem("adhd_hub_focus_ends_at", String(focusEndsAt));
-    if (focusTimerId) {
-      clearInterval(focusTimerId);
-      focusTimerId = null;
+    state.focusEndsAt = Date.now() + minutes * 60 * 1000;
+    preferences.setItem("adhd_hub_focus_ends_at", String(state.focusEndsAt));
+    if (state.focusTimerId) {
+      clearInterval(state.focusTimerId);
+      state.focusTimerId = null;
     }
     tickFocusSession();
   }
 export function clearFocusSession() {
-    focusEndsAt = 0;
+    state.focusEndsAt = 0;
     preferences.removeItem("adhd_hub_focus_ends_at");
-    if (focusTimerId) {
-      clearInterval(focusTimerId);
-      focusTimerId = null;
+    if (state.focusTimerId) {
+      clearInterval(state.focusTimerId);
+      state.focusTimerId = null;
     }
     const el = $("focus-session");
     el.hidden = true;
@@ -374,20 +374,20 @@ export function clearFocusSession() {
   }
 export function tickFocusSession() {
     const el = $("focus-session");
-    if (!focusModeOn || !focusEndsAt) {
-      if (!focusModeOn) clearFocusSession();
+    if (!state.focusModeOn || !state.focusEndsAt) {
+      if (!state.focusModeOn) clearFocusSession();
       return;
     }
-    const remaining = focusEndsAt - Date.now();
+    const remaining = state.focusEndsAt - Date.now();
     if (remaining <= 0) {
       el.hidden = false;
       el.textContent = "Session complete. Pause here or keep going gently.";
-      if (focusTimerId) {
-        clearInterval(focusTimerId);
-        focusTimerId = null;
+      if (state.focusTimerId) {
+        clearInterval(state.focusTimerId);
+        state.focusTimerId = null;
       }
       // Clear end marker so the next Start can begin a fresh session.
-      focusEndsAt = 0;
+      state.focusEndsAt = 0;
       preferences.removeItem("adhd_hub_focus_ends_at");
       return;
     }
@@ -397,27 +397,27 @@ export function tickFocusSession() {
     el.textContent = prefersReducedMotion()
       ? `About ${mins + (secs > 0 ? 1 : 0)} min left in this focus session.`
       : `Focus session · ${mins}:${String(secs).padStart(2, "0")} left`;
-    if (!focusTimerId && !prefersReducedMotion()) {
-      focusTimerId = setInterval(tickFocusSession, 1000);
-    } else if (!focusTimerId && prefersReducedMotion()) {
-      focusTimerId = setInterval(tickFocusSession, 15000);
+    if (!state.focusTimerId && !prefersReducedMotion()) {
+      state.focusTimerId = setInterval(tickFocusSession, 1000);
+    } else if (!state.focusTimerId && prefersReducedMotion()) {
+      state.focusTimerId = setInterval(tickFocusSession, 15000);
     }
   }
 export function updateFocusModeUi() {
-    document.body.classList.toggle("focus-mode", focusModeOn);
+    document.body.classList.toggle("focus-mode", state.focusModeOn);
     const btn = $("btn-focus-mode");
-    btn.setAttribute("aria-pressed", String(focusModeOn));
-    btn.textContent = focusModeOn ? "Exit focus" : "Focus mode";
-    $("focus-timer-wrap").hidden = !focusModeOn;
-    if (focusModeOn) tickFocusSession();
+    btn.setAttribute("aria-pressed", String(state.focusModeOn));
+    btn.textContent = state.focusModeOn ? "Exit focus" : "Focus mode";
+    $("focus-timer-wrap").hidden = !state.focusModeOn;
+    if (state.focusModeOn) tickFocusSession();
     else clearFocusSession();
     renderDriftBanner();
   }
 export function toggleFocusMode() {
-    focusModeOn = !focusModeOn;
-    preferences.setItem("adhd_hub_focus_mode", String(focusModeOn));
-    if (focusModeOn) {
-      if (focusState === "working") startFocusSession();
+    state.focusModeOn = !state.focusModeOn;
+    preferences.setItem("adhd_hub_focus_mode", String(state.focusModeOn));
+    if (state.focusModeOn) {
+      if (state.focusState === "working") startFocusSession();
       else clearFocusSession();
       showScreen("now");
     } else {

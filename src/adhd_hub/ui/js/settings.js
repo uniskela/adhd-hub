@@ -1,4 +1,4 @@
-import { preferences, tzKey, currentTz, $, setMsg, escapeHtml } from './state.js';
+import { preferences, tzKey, $, setMsg, escapeHtml, state } from './state.js';
 import { api } from './api.js';
 import { logout, showLogin } from './auth.js';
 import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';
@@ -19,27 +19,27 @@ export async function loadPrefs() {
     try {
       const p = await api("/prefs");
       if (p.timezone) {
-        currentTz = p.timezone;
-        preferences.setItem(tzKey, currentTz);
+        state.currentTz = p.timezone;
+        preferences.setItem(tzKey, state.currentTz);
       }
     } catch (_e) {
       /* keep local */
     }
     if (!preferences.getItem(tzKey + "_initialized")) {
       const local = browserTz();
-      if (!currentTz || currentTz === "UTC") currentTz = local;
-      preferences.setItem(tzKey, currentTz);
+      if (!state.currentTz || state.currentTz === "UTC") state.currentTz = local;
+      preferences.setItem(tzKey, state.currentTz);
       preferences.setItem(tzKey + "_initialized", "1");
       try {
         await api("/prefs", {
           method: "PUT",
-          body: JSON.stringify({ timezone: currentTz }),
+          body: JSON.stringify({ timezone: state.currentTz }),
         });
       } catch (_e2) {
         /* optional */
       }
     }
-    fillTimezoneSelect(currentTz);
+    fillTimezoneSelect(state.currentTz);
   }
 export async function loadForge() {
     try {
@@ -224,7 +224,7 @@ export async function importBackup(file) {
 export async function saveSettings() {
     saveRewardPreferences();
     const tz = $("timezone").value || browserTz();
-    currentTz = tz;
+    state.currentTz = tz;
     preferences.setItem(tzKey, tz);
     try {
       await api("/prefs", { method: "PUT", body: JSON.stringify({ timezone: tz }) });

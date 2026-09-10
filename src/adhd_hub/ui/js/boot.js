@@ -1,4 +1,4 @@
-import { preferences, loginMode, threadsCache, currentView, projectFilter, detailCache, activeScreen, focusState, shareFile, shareVersion, focusModeOn, currentTz, $, setMsg, initRepoLinks } from './state.js';
+import { preferences, $, setMsg, initRepoLinks, state } from './state.js';
 import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
 import { fillTimezoneSelect } from './dom.js';
@@ -57,7 +57,7 @@ $("settings-theme").addEventListener("change", () => {
 });
 $("btn-share-progress").addEventListener("click", openSharePreview);
 $("btn-close-share").addEventListener("click", () => $("share-dialog").close());
-$("share-dialog").addEventListener("close", () => { ++shareVersion; shareFile = null; });
+$("share-dialog").addEventListener("close", () => { ++state.shareVersion; state.shareFile = null; });
 $("btn-download-card").addEventListener("click", () => {
   try {
     const link = document.createElement("a");
@@ -71,8 +71,8 @@ $("btn-copy-progress").addEventListener("click", async () => {
   catch (_) { $("share-text").focus(); $("share-text").select(); $("share-msg").textContent = "Select and copy the text above."; }
 });
 $("btn-native-share").addEventListener("click", async () => {
-  if (!shareFile) return;
-  try { await navigator.share({ files: [shareFile], title: "My Progress Hub", text: $("share-text").value }); }
+  if (!state.shareFile) return;
+  try { await navigator.share({ files: [state.shareFile], title: "My Progress Hub", text: $("share-text").value }); }
   catch (error) { if (error.name !== "AbortError") $("share-msg").textContent = "Sharing unavailable. Download the PNG or copy the text instead."; }
 });
 $("btn-copy-mcp").addEventListener("click", async () => {
@@ -128,14 +128,14 @@ $("project-form").addEventListener("submit", (event) => {
   saveProject().catch((e) => setMsg(String(e)));
 });
 $("btn-close-project").addEventListener("click", () => $("project-dialog").close());
-$("btn-edit-project").addEventListener("click", () => openProjectDialog(detailCache));
+$("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
 $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));
 $("btn-restore-project").addEventListener("click", () => restoreProject().catch((e) => setMsg(String(e))));
 $("btn-focus-mode").addEventListener("click", toggleFocusMode);
 $("focus-minutes").addEventListener("change", () => {
-  if (focusModeOn && focusState === "working") startFocusSession();
+  if (state.focusModeOn && state.focusState === "working") startFocusSession();
 });
 $("btn-new-reminder").addEventListener("click", openReminderDialog);
 $("btn-cancel-reminder").addEventListener("click", () => $("reminder-dialog").close());
@@ -156,7 +156,7 @@ $("btn-new-project").addEventListener("click", () => {
   $("p_title").focus();
 });
 
-$("thread-search").addEventListener("input", () => renderThreads(threadsCache));
+$("thread-search").addEventListener("input", () => renderThreads(state.threadsCache));
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((t) => {
@@ -165,7 +165,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     });
     tab.classList.add("active");
     tab.setAttribute("aria-pressed", "true");
-    currentView = tab.dataset.view;
+    state.currentView = tab.dataset.view;
     loadThreads().catch((e) => setMsg(String(e)));
   });
 });
@@ -190,8 +190,8 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
     showScreen(button.dataset.screen);
     renderDriftBanner();
     try {
-      if (activeScreen === "work") await selectProject(projectFilter);
-      else if (activeScreen === "now") await loadChosenThread();
+      if (state.activeScreen === "work") await selectProject(state.projectFilter);
+      else if (state.activeScreen === "now") await loadChosenThread();
       else await loadOverview();
     } catch (error) { setMsg(error.message); }
   });
@@ -206,7 +206,7 @@ $("btn-cancel-capture").addEventListener("click", () => $("capture-dialog").clos
 $("pause-form").addEventListener("submit", pauseHere);
 $("btn-cancel-pause").addEventListener("click", () => $("pause-dialog").close());
 $("btn-login-method").addEventListener("click", () => {
-  setLoginMode(loginMode === "password" ? "token" : "password");
+  setLoginMode(state.loginMode === "password" ? "token" : "password");
   $("login-token").value = "";
   $("login-error").textContent = "";
   $("login-token").focus();
@@ -216,7 +216,7 @@ $("btn-show-password").addEventListener("click", () => {
   $("login-token").type = show ? "text" : "password";
   $("btn-show-password").textContent = show ? "Hide" : "Show";
   $("btn-show-password").setAttribute("aria-pressed", String(show));
-  $("btn-show-password").setAttribute("aria-label", `${show ? "Hide" : "Show"} ${loginMode === "password" ? "password" : "access token"}`);
+  $("btn-show-password").setAttribute("aria-label", `${show ? "Hide" : "Show"} ${state.loginMode === "password" ? "password" : "access token"}`);
 });
 $("btn-setup-password").addEventListener("click", openPasswordDialog);
 $("btn-manage-password").addEventListener("click", openPasswordDialog);
@@ -227,7 +227,7 @@ $("password-dialog").addEventListener("close", () => {
   $("password-error").textContent = "";
 });
 $("quick-capture").addEventListener("submit", captureStep);
-fillTimezoneSelect(currentTz);
+fillTimezoneSelect(state.currentTz);
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/ui/sw.js", { scope: "/ui/" }).catch(() => {});
 }

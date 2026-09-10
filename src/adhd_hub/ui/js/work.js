@@ -1,4 +1,4 @@
-import { threadsCache, threadsRequest, projectRequest, currentView, projectFilter, overviewCache, detailCache, chosenId, archivedProjectsCache, $, setMsg, escapeHtml } from './state.js';
+import { $, setMsg, escapeHtml, state } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink } from './dom.js';
 import { loadAll } from './load.js';
@@ -10,15 +10,15 @@ export function renderProjects(projects) {
     list.innerHTML = active
       .map((p) => {
         const open = (p.counts && p.counts.open) || 0;
-        const isActive = projectFilter === p.slug ? "active" : "";
-        return `<button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${projectFilter === p.slug}">
+        const isActive = state.projectFilter === p.slug ? "active" : "";
+        return `<button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
           <div>${escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug)}</div>
           <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
         </button>`;
       })
       .join("");
-    $("proj-all").classList.toggle("active", !projectFilter);
-    $("proj-all").setAttribute("aria-pressed", String(!projectFilter));
+    $("proj-all").classList.toggle("active", !state.projectFilter);
+    $("proj-all").setAttribute("aria-pressed", String(!state.projectFilter));
     list.querySelectorAll(".proj").forEach((el) => {
       el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
     });
@@ -27,7 +27,7 @@ export function renderProjects(projects) {
 export function renderArchivedProjects() {
     const wrap = $("archived-projects-wrap");
     const list = $("archived-project-list");
-    const archived = archivedProjectsCache || [];
+    const archived = state.archivedProjectsCache || [];
     if (!archived.length) {
       wrap.hidden = true;
       list.innerHTML = "";
@@ -103,15 +103,15 @@ export function renderThreads(threads) {
     const root = $("threads");
     if (!threads.length) {
       const message = query ? "No matches. Try a different search." :
-        currentView === "done" ? "Finished work will appear here when you mark a thread done." :
-        currentView === "stale" ? "Nothing waiting here. Return whenever you’re ready." :
+        state.currentView === "done" ? "Finished work will appear here when you mark a thread done." :
+        state.currentView === "stale" ? "Nothing waiting here. Return whenever you’re ready." :
         "No open threads here. Save progress from your connected assistant to pick it up later.";
       root.innerHTML = `<p class="hint">${message}</p>`;
       return;
     }
     const projectName = (slug) => {
       if (!slug || slug === "unclassified") return "Inbox";
-      const project = (overviewCache?.projects || []).find((item) => item.slug === slug);
+      const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
       return project?.title || slug;
     };
     const sourceName = (source) => ({
@@ -122,8 +122,8 @@ export function renderThreads(threads) {
     }[String(source || "").toLowerCase()] || source || "Saved work");
     root.innerHTML = threads
       .map((t, index) => {
-        const isChosen = t.id === chosenId;
-        const statusLabel = t.status === "done" ? "Finished" : currentView === "stale" ? "Waiting" : "Ready";
+        const isChosen = t.id === state.chosenId;
+        const statusLabel = t.status === "done" ? "Finished" : state.currentView === "stale" ? "Waiting" : "Ready";
         return `<article class="thread${isChosen ? " chosen" : ""}" aria-labelledby="thread-title-${index}">
           <div class="thread-topline">
             <span class="thread-number">${index + 1}</span>
@@ -158,48 +158,48 @@ export function renderThreads(threads) {
     );
   }
 export async function loadThreads() {
-    const request = ++threadsRequest;
+    const request = ++state.threadsRequest;
     const params = new URLSearchParams();
-    if (currentView === "stale") params.set("stale", "true");
-    else params.set("status", currentView === "done" ? "done" : "open");
-    if (projectFilter) params.set("project_slug", projectFilter);
+    if (state.currentView === "stale") params.set("stale", "true");
+    else params.set("status", state.currentView === "done" ? "done" : "open");
+    if (state.projectFilter) params.set("project_slug", state.projectFilter);
     params.set("limit", "100");
     const threads = await api("/threads?" + params.toString());
-    if (request !== threadsRequest) return;
-    threadsCache = threads;
-    renderThreads(threadsCache);
+    if (request !== state.threadsRequest) return;
+    state.threadsCache = threads;
+    renderThreads(state.threadsCache);
   }
 export async function selectProject(slug) {
-    const request = ++projectRequest;
-    ++threadsRequest;
-    projectFilter = slug || null;
-    detailCache = null;
-    threadsCache = [];
+    const request = ++state.projectRequest;
+    ++state.threadsRequest;
+    state.projectFilter = slug || null;
+    state.detailCache = null;
+    state.threadsCache = [];
 
-    renderProjects(overviewCache?.projects || []);
+    renderProjects(state.overviewCache?.projects || []);
     renderProjectHeader(null);
     $("threads").textContent = "Loading your steps…";
     $("thread-count").textContent = "";
     $("focus-links").replaceChildren();
-    if (!projectFilter) {
+    if (!state.projectFilter) {
       $("work-title").textContent = "All projects";
       await loadThreads();
       return;
     }
     $("work-title").textContent = "Loading project…";
     try {
-      const detail = await api("/projects/" + encodeURIComponent(projectFilter));
-      if (request !== projectRequest) return;
-      detailCache = detail;
-      fillProjectForm(detailCache);
-      $("work-title").textContent = detailCache.slug === "unclassified" ? "Inbox" : detailCache.title || detailCache.slug;
-      renderProjectHeader(detailCache);
+      const detail = await api("/projects/" + encodeURIComponent(state.projectFilter));
+      if (request !== state.projectRequest) return;
+      state.detailCache = detail;
+      fillProjectForm(state.detailCache);
+      $("work-title").textContent = state.detailCache.slug === "unclassified" ? "Inbox" : state.detailCache.title || state.detailCache.slug;
+      renderProjectHeader(state.detailCache);
     } catch (e) {
-      if (request !== projectRequest) return;
+      if (request !== state.projectRequest) return;
       $("work-title").textContent = "Project unavailable";
       setMsg("Could not load project: " + e.message);
     }
-    if (request === projectRequest) await loadThreads();
+    if (request === state.projectRequest) await loadThreads();
   }
 export function renderPending(actions) {
     const banner = $("pending-banner");
@@ -282,7 +282,7 @@ export async function archiveProject() {
       await api(`/projects/${encodeURIComponent(slug)}/archive`, { method: "POST", body: "{}" });
       $("project-dialog").close();
       setMsg("Project archived. Threads and notes are kept.");
-      if (projectFilter === slug) projectFilter = null;
+      if (state.projectFilter === slug) state.projectFilter = null;
       await loadAll();
     } catch (e) {
       setMsg("Could not archive: " + e.message);
@@ -325,35 +325,35 @@ export async function saveProject() {
       body: JSON.stringify(payload),
     });
     setMsg("Project saved.");
-    projectFilter = saved.slug;
+    state.projectFilter = saved.slug;
     $("project-dialog").close();
     await loadAll();
   }
 export async function renameProject() {
-    if (!projectFilter) return;
+    if (!state.projectFilter) return;
     const result = await confirmDialog({
       title: "Rename project slug",
       body: "Updates threads, local wiki folder, and forge path when sync is on.",
-      extraHtml: `<label>New slug <input id="rename_slug" value="${escapeHtml(projectFilter)}" /></label>`,
+      extraHtml: `<label>New slug <input id="rename_slug" value="${escapeHtml(state.projectFilter)}" /></label>`,
     });
     if (!result.ok) return;
     const newSlug = (result.data.rename_slug || "").trim();
     if (!newSlug) return;
     try {
       const out = await api(
-        `/projects/${encodeURIComponent(projectFilter)}/rename`,
+        `/projects/${encodeURIComponent(state.projectFilter)}/rename`,
         { method: "POST", body: JSON.stringify({ new_slug: newSlug }) }
       );
-      projectFilter = out.project.slug;
+      state.projectFilter = out.project.slug;
       $("project-dialog").close();
-      setMsg("Renamed to " + projectFilter);
+      setMsg("Renamed to " + state.projectFilter);
       await loadAll();
     } catch (e) {
       setMsg("Rename failed: " + e.message);
     }
   }
 export async function deleteProject() {
-    if (!projectFilter) return;
+    if (!state.projectFilter) return;
     const result = await confirmDialog({
       title: "Delete project",
       body: "Removes the registry entry. Open threads keep their notes but lose the project link. Forge issues are never deleted.",
@@ -371,10 +371,10 @@ export async function deleteProject() {
     });
     try {
       await api(
-        `/projects/${encodeURIComponent(projectFilter)}?${q}`,
+        `/projects/${encodeURIComponent(state.projectFilter)}?${q}`,
         { method: "DELETE" }
       );
-      projectFilter = null;
+      state.projectFilter = null;
       $("project-dialog").close();
       setMsg("Project deleted.");
       await loadAll();

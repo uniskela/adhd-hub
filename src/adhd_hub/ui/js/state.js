@@ -1,4 +1,4 @@
-/** Shared mutable UI state and helpers (ES module live bindings). */
+/** Shared mutable UI state and helpers (plain object so modules can assign). */
 const preferenceCache = new Map();
 export const preferences = {
   getItem(key) {
@@ -16,35 +16,8 @@ export const preferences = {
 };
 preferences.removeItem("adhd_hub_token");
 
-export let authStatus = { password_configured: false, development_mode: false };
-export let loginMode = "token";
-export let celebrationTimeout;
 export const completing = new Set();
-export let threadsCache = [];
-export let threadsRequest = 0;
-export let projectRequest = 0;
 export const tzKey = "adhd_hub_timezone";
-export let currentView = "open";
-export let projectFilter = null;
-export let overviewCache = null;
-export let detailCache = null;
-export let activeScreen = "now";
-export let chosenId = preferences.getItem("adhd_hub_chosen_thread");
-export let chosenThread = null;
-export let focusState = preferences.getItem("adhd_hub_focus_state") || "ready";
-export let focusRequest = 0;
-export let pauseTarget = null;
-export let nowMessage = "";
-export let shareFile = null;
-export let shareVersion = 0;
-export let focusModeOn = preferences.getItem("adhd_hub_focus_mode") === "true";
-export let focusEndsAt = Number(preferences.getItem("adhd_hub_focus_ends_at") || 0) || 0;
-export let focusTimerId = null;
-export let archivedProjectsCache = [];
-export let currentTz =
-    preferences.getItem(tzKey) ||
-    Intl.DateTimeFormat().resolvedOptions().timeZone ||
-    "UTC";
 export const prefersReducedMotion = () =>
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -60,9 +33,39 @@ export const escapeHtml = (s) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
-export let repoUrl = "";
-export let repoDisplayUrl = "";
+export const state = {
+  authStatus: { password_configured: false, development_mode: false },
+  loginMode: "token",
+  celebrationTimeout: undefined,
+  threadsCache: [],
+  threadsRequest: 0,
+  projectRequest: 0,
+  currentView: "open",
+  projectFilter: null,
+  overviewCache: null,
+  detailCache: null,
+  activeScreen: "now",
+  chosenId: preferences.getItem("adhd_hub_chosen_thread"),
+  chosenThread: null,
+  focusState: preferences.getItem("adhd_hub_focus_state") || "ready",
+  focusRequest: 0,
+  pauseTarget: null,
+  nowMessage: "",
+  shareFile: null,
+  shareVersion: 0,
+  focusModeOn: preferences.getItem("adhd_hub_focus_mode") === "true",
+  focusEndsAt: Number(preferences.getItem("adhd_hub_focus_ends_at") || 0) || 0,
+  focusTimerId: null,
+  archivedProjectsCache: [],
+  currentTz:
+    preferences.getItem(tzKey) ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone ||
+    "UTC",
+  repoUrl: "",
+  repoDisplayUrl: "",
+};
+
 export function initRepoLinks() {
-  repoUrl = $("repo-link").href;
-  repoDisplayUrl = repoUrl.replace(/^https:\/\//, "");
+  state.repoUrl = $("repo-link").href;
+  state.repoDisplayUrl = state.repoUrl.replace(/^https:\/\//, "");
 }

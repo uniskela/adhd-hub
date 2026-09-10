@@ -1,4 +1,4 @@
-import { currentTz, $, setMsg, escapeHtml } from './state.js';
+import { $, setMsg, escapeHtml, state } from './state.js';
 
 export async function copyReference(id) {
     try {
@@ -40,7 +40,7 @@ export function fillTimezoneSelect(selected) {
       })
       .join("");
     sel.value = selected || local;
-    currentTz = sel.value;
+    state.currentTz = sel.value;
   }
 export function formatWhen(iso) {
     if (!iso) return "";
@@ -48,7 +48,7 @@ export function formatWhen(iso) {
       const d = new Date(iso);
       if (Number.isNaN(d.getTime())) return String(iso).slice(0, 16);
       return new Intl.DateTimeFormat(undefined, {
-        timeZone: currentTz || "UTC",
+        timeZone: state.currentTz || "UTC",
         year: "numeric",
         month: "short",
         day: "2-digit",
