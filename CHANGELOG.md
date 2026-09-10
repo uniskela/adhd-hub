@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.11](https://github.com/uniskela/adhd-hub/compare/v0.3.10...v0.3.11) (2026-09-10)
+
+
+### Features
+
+* safer CLI connect handshake (no server token in shell env) ([#38](https://github.com/uniskela/adhd-hub/issues/38)) ([e665937](https://github.com/uniskela/adhd-hub/commit/e6659378fa48b929de2f939e426561e3ecaf6a04))
+
+
+### Bug Fixes
+
+* import forge inbox issues with [ADHD] title without hub label ([#37](https://github.com/uniskela/adhd-hub/issues/37)) ([7369c13](https://github.com/uniskela/adhd-hub/commit/7369c1394d437b09520de3faca08a01a0f5f3f57))
+
 ## [0.3.10](https://github.com/uniskela/adhd-hub/compare/v0.3.9...v0.3.10) (2026-09-10)
 
 
