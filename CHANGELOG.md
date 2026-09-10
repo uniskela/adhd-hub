@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.9](https://github.com/uniskela/adhd-hub/compare/v0.3.8...v0.3.9) (2026-09-10)
+
+
+### Bug Fixes
+
+* **ui:** stop assigning to imported module bindings ([#30](https://github.com/uniskela/adhd-hub/issues/30)) ([0dfcfc7](https://github.com/uniskela/adhd-hub/commit/0dfcfc7454ea3dff4145e84b6244c98fc076163e))
+
 ## [0.3.8](https://github.com/uniskela/adhd-hub/compare/v0.3.7...v0.3.8) (2026-09-10)
 
 
