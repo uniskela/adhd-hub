@@ -4,7 +4,7 @@ services:
     # Or use a published image instead of building locally:
     # image: ghcr.io/uniskela/adhd-hub:latest
     # image: uniskela/adhd-hub:latest
-    image: adhd-hub:0.3.9 # x-release-please-version
+    image: adhd-hub:0.3.10 # x-release-please-version
     container_name: adhd-hub
     restart: unless-stopped
     # Runtime CMD is the image venv binary (no PyPI). Host must stay 0.0.0.0 in-container.

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.10](https://github.com/uniskela/adhd-hub/compare/v0.3.9...v0.3.10) (2026-09-10)
+
+
+### Features
+
+* versioned scrypt KDF for encrypted backups ([#35](https://github.com/uniskela/adhd-hub/issues/35)) ([45396c2](https://github.com/uniskela/adhd-hub/commit/45396c28d9be87b56ff48293e178d1083d7fcc1e))
+
+
+### Bug Fixes
+
+* offline-safe Docker start and post-audit runtime follow-ups ([#33](https://github.com/uniskela/adhd-hub/issues/33)) ([a547863](https://github.com/uniskela/adhd-hub/commit/a547863c12868eb1d6003b2867078fe35afd51bb))
+
+
+### Documentation
+
+* migrate public wiki from Jekyll to Zensical ([#32](https://github.com/uniskela/adhd-hub/issues/32)) ([a7d9af1](https://github.com/uniskela/adhd-hub/commit/a7d9af1bb4e9705a3f0e739b65fb38de2fd3b9ba))
+
 ## [0.3.9](https://github.com/uniskela/adhd-hub/compare/v0.3.8...v0.3.9) (2026-09-10)
 
 
