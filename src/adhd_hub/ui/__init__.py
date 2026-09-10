@@ -82,6 +82,14 @@ def build_ui_router() -> APIRouter:
         }
         if name not in allowed:
             raise HTTPException(404, "Asset not found")
-        return FileResponse(UI_DIR / "brand" / name, media_type=allowed[name])
+        brand_dir = (UI_DIR / "brand").resolve()
+        asset_path = (brand_dir / name).resolve()
+        try:
+            asset_path.relative_to(brand_dir)
+        except ValueError:
+            raise HTTPException(404, "Asset not found")
+        if not asset_path.is_file():
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(asset_path, media_type=allowed[name])
 
     return router
