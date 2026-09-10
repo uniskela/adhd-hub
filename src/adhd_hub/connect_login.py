@@ -183,14 +183,11 @@ def _start_callback_server(expected_state: str) -> tuple[ThreadingHTTPServer, _C
             err = (qs.get("error") or [""])[0]
             if err:
                 bag.error = err
-            elif not code:
-                bag.error = "missing_code"
-            elif state != expected_state:
-                bag.error = "state_mismatch"
-            else:
+                bag.event.set()
+            elif code and state == expected_state:
                 bag.code = code
                 bag.state = state
-            bag.event.set()
+                bag.event.set()
             body = (
                 b"<!doctype html><html><body style='font-family:system-ui;padding:2rem'>"
                 b"<p>ADHD Hub CLI is connected. You can close this tab.</p>"
