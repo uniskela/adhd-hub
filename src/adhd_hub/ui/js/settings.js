@@ -291,3 +291,80 @@ export async function importForgeInbox() {
     setMsg(`Imported ${n} forge issue${n === 1 ? "" : "s"} into Hub threads.`);
     await loadAll();
   }
+export function pendingConnectCode() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const fromQuery = params.get("connect");
+      if (fromQuery) {
+        sessionStorage.setItem("adhd_hub_connect_code", fromQuery);
+        params.delete("connect");
+        const qs = params.toString();
+        history.replaceState({}, "", location.pathname + (qs ? `?${qs}` : "") + location.hash);
+      }
+      return sessionStorage.getItem("adhd_hub_connect_code") || "";
+    } catch (_e) {
+      return new URLSearchParams(location.search).get("connect") || "";
+    }
+  }
+export function offerPendingConnect() {
+    const code = pendingConnectCode();
+    if (!code) return;
+    $("cli-connect-code-input").value = code;
+    $("cli-connect-code-label").textContent = code;
+    $("cli-connect-dialog-msg").textContent = "";
+    if (!$("app-shell").hidden) $("cli-connect-dialog").showModal();
+  }
+export async function loadCliSessions() {
+    try {
+      const data = await api("/connect/sessions");
+      const sessions = data.sessions || [];
+      $("cli-sessions-wrap").hidden = sessions.length === 0;
+      $("cli-sessions-list").innerHTML = sessions
+        .map(
+          (s) =>
+            `<li>CLI session <code>${escapeHtml(String(s.id).slice(0, 8))}</code> <button type="button" class="text-button" data-revoke="${escapeHtml(s.id)}">Revoke</button></li>`
+        )
+        .join("");
+      $("cli-sessions-list")
+        .querySelectorAll("[data-revoke]")
+        .forEach((btn) => {
+          btn.addEventListener("click", () =>
+            revokeCliSession(btn.getAttribute("data-revoke")).catch((e) => setMsg(String(e)))
+          );
+        });
+    } catch (_e) {
+      /* optional */
+    }
+  }
+export async function revokeCliSession(sessionId) {
+    await api("/connect/sessions/" + encodeURIComponent(sessionId), { method: "DELETE" });
+    setMsg("CLI session revoked.");
+    await loadCliSessions();
+  }
+export async function approveCliConnect(userCode, messageId) {
+    const msg = $(messageId);
+    const code = (userCode || "").trim();
+    if (!code) {
+      msg.textContent = "Enter the code from the CLI first.";
+      return null;
+    }
+    msg.textContent = "Allowing…";
+    const result = await api("/connect/approve", {
+      method: "POST",
+      body: JSON.stringify({ user_code: code }),
+    });
+    msg.textContent = "Allowed. The CLI can finish on its own.";
+    try {
+      sessionStorage.removeItem("adhd_hub_connect_code");
+    } catch (_e) {
+      /* ignore */
+    }
+    if (result.redirect) {
+      const popup = window.open(result.redirect, "adhd-hub-cli");
+      if (!popup) {
+        fetch(result.redirect, { mode: "no-cors" }).catch(() => {});
+      }
+    }
+    await loadCliSessions();
+    return result;
+  }

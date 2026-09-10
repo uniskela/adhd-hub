@@ -19,7 +19,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v5" in sw.text
+        assert "adhd-hub-shell-v6" in sw.text
         assert "/ui/js/boot.js" in sw.text
         assert '"/ui/app.css"' in sw.text or "/ui/app.css" in sw.text
 

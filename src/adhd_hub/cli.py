@@ -127,12 +127,21 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
 def cmd_connect(args: argparse.Namespace) -> int:
     from adhd_hub.connect import print_report, resolve_hub_url, run_connect
+    from adhd_hub.connect_login import resolve_cli_token, run_login
 
     agents = [part.strip() for part in args.agents.split(",") if part.strip()]
     find_roots = [Path(p) for p in (args.find_roots or [])]
+    hub_url = resolve_hub_url(args.hub)
+    token = resolve_cli_token(args.token, hub_url)
+    if not args.dry_run and not args.no_login and not token:
+        try:
+            token = run_login(hub_url, open_browser=not args.no_browser)
+        except (RuntimeError, ConnectionError, ValueError) as exc:
+            print(f"CLI login skipped: {exc}", file=sys.stderr)
+            token = None
     report = run_connect(
         project=Path(args.path),
-        hub_url=resolve_hub_url(args.hub),
+        hub_url=hub_url,
         agents=agents,
         scope=args.scope,
         install_skills_flag=args.skills,
@@ -141,7 +150,7 @@ def cmd_connect(args: argparse.Namespace) -> int:
         openclaw_skills=args.openclaw_skills,
         register=args.register,
         find_roots=find_roots or None,
-        token=args.token,
+        token=token,
         dry_run=args.dry_run,
     )
     print_report(report)
@@ -150,16 +159,44 @@ def cmd_connect(args: argparse.Namespace) -> int:
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     from adhd_hub.connect import print_report, resolve_hub_url, run_doctor
+    from adhd_hub.connect_login import resolve_cli_token
 
     project_arg = args.project or args.path
     project = Path(project_arg) if project_arg else None
+    hub_url = resolve_hub_url(args.hub)
     report = run_doctor(
-        hub_url=resolve_hub_url(args.hub),
+        hub_url=hub_url,
         project=project,
-        token=args.token,
+        token=resolve_cli_token(args.token, hub_url),
     )
     print_report(report)
     return 0 if report.ok else 1
+
+
+def cmd_login(args: argparse.Namespace) -> int:
+    from adhd_hub.connect import ConnectReport, print_report, resolve_hub_url
+    from adhd_hub.connect_login import run_login
+
+    hub_url = resolve_hub_url(args.hub)
+    report = ConnectReport(hub_url=hub_url)
+    try:
+        run_login(hub_url, open_browser=not args.no_browser, report=report)
+    except (RuntimeError, ConnectionError, ValueError) as exc:
+        report.add("login", "error", str(exc))
+        print_report(report)
+        return 1
+    print_report(report)
+    return 0
+
+
+def cmd_logout(args: argparse.Namespace) -> int:
+    from adhd_hub.connect import resolve_hub_url
+    from adhd_hub.connect_login import resolve_cli_token, run_logout
+
+    hub_url = resolve_hub_url(args.hub)
+    run_logout(hub_url, resolve_cli_token(args.token, hub_url))
+    print(f"Signed the CLI out of {hub_url} (local session file cleared).")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -286,7 +323,7 @@ def build_parser() -> argparse.ArgumentParser:
     connect.add_argument(
         "--register",
         action="store_true",
-        help="Resolve/create the project on the Hub (needs ADHD_HUB_AUTH_TOKEN)",
+        help="Resolve/create the project on the Hub (needs adhd-hub login or ADHD_HUB_AUTH_TOKEN)",
     )
     connect.add_argument(
         "--find-roots",
@@ -297,7 +334,17 @@ def build_parser() -> argparse.ArgumentParser:
     connect.add_argument(
         "--token",
         default=None,
-        help="Hub bearer token (default: ADHD_HUB_AUTH_TOKEN env)",
+        help="Hub bearer token (default: saved CLI session, then ADHD_HUB_AUTH_TOKEN)",
+    )
+    connect.add_argument(
+        "--no-login",
+        action="store_true",
+        help="Do not open the browser connect handshake when no session is saved",
+    )
+    connect.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Print the connect code instead of opening a browser",
     )
     connect.add_argument(
         "--dry-run",
@@ -322,8 +369,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Project folder to inspect (alias for positional path)",
     )
     doctor.add_argument("--hub", default=None, help="Hub base URL")
-    doctor.add_argument("--token", default=None, help="Optional bearer token")
+    doctor.add_argument(
+        "--token",
+        default=None,
+        help="Optional bearer token (default: saved CLI session, then ADHD_HUB_AUTH_TOKEN)",
+    )
     doctor.set_defaults(func=cmd_doctor)
+
+    login = sub.add_parser(
+        "login",
+        help="Connect this CLI to a Hub without putting the server token in your shell",
+    )
+    login.add_argument("--hub", default=None, help="Hub base URL")
+    login.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Print the one-time code instead of opening a browser",
+    )
+    login.set_defaults(func=cmd_login)
+
+    logout = sub.add_parser("logout", help="Forget the saved CLI session for a Hub")
+    logout.add_argument("--hub", default=None, help="Hub base URL")
+    logout.add_argument("--token", default=None, help="Optional bearer to revoke")
+    logout.set_defaults(func=cmd_logout)
 
     return p
 

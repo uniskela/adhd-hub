@@ -176,25 +176,25 @@ Add `--install-skills` to also run `npx skills add uniskela/adhd-hub -g`, or pas
 
 ## Connect (one-liner)
 
-With the Hub running and `ADHD_HUB_PUBLIC_URL` set for remote clients:
+With the Hub running and `ADHD_HUB_PUBLIC_URL` set for remote clients, copy the command from **Settings → Connections** (no server token in the command):
 
 ```bash
 # macOS / Linux / WSL / Git Bash
-export ADHD_HUB_AUTH_TOKEN=...   # never put the token in the script URL
 curl -fsSL http://<hub-host>:8787/install.sh | sh -s -- /path/to/project
 ```
 
 ```powershell
 # Windows PowerShell
-$env:ADHD_HUB_AUTH_TOKEN = "..."
 irm http://<hub-host>:8787/install.ps1 | iex
 ```
+
+The CLI opens your browser (or prints a one-time code). Press **Allow this CLI**. A session is saved on disk; do not `export ADHD_HUB_AUTH_TOKEN` into your profile for this step. Details: [docs/connect.md](docs/connect.md).
 
 ```bash
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
-`adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`. Details: [docs/connect.md](docs/connect.md).
+`adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
 
 ## Roadmap
 

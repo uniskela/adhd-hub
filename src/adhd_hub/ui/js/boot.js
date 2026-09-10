@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { exportBackup, importBackup, importForgeInbox, loadForge, loadOpenClaw, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, syncForge, testOpenClaw } from './settings.js';
+import { approveCliConnect, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, offerPendingConnect, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, syncForge, testOpenClaw } from './settings.js';
 import { applyTheme } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
 
@@ -24,6 +24,7 @@ $("btn-refresh").addEventListener("click", async () => {
 $("btn-settings").addEventListener("click", () => {
   loadForge().catch((error) => setMsg(error.message));
   loadOpenClaw().catch((error) => setMsg(error.message));
+  loadCliSessions().catch(() => {});
   selectSettingsTab("preferences");
   $("settings-theme").value = $("theme-select").value;
   $("mcp-url").value = location.origin + "/mcp";
@@ -87,10 +88,28 @@ $("btn-copy-install-win").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("install-cmd-win").value); setMsg("Windows install command copied."); }
   catch (_) { $("install-cmd-win").focus(); $("install-cmd-win").select(); setMsg("Select and copy the Windows install command above."); }
 });
+$("btn-allow-cli").addEventListener("click", () =>
+  approveCliConnect($("cli-connect-code-input").value, "cli-connect-msg").catch((e) => {
+    $("cli-connect-msg").textContent = e.message;
+  })
+);
+$("cli-connect-dialog").querySelector("form").addEventListener("submit", (event) => {
+  if (event.submitter && event.submitter.value === "cancel") return;
+  event.preventDefault();
+  approveCliConnect($("cli-connect-code-label").textContent, "cli-connect-dialog-msg")
+    .then((result) => {
+      if (result) $("cli-connect-dialog").close();
+    })
+    .catch((e) => {
+      $("cli-connect-dialog-msg").textContent = e.message;
+    });
+});
 $("btn-logout").addEventListener("click", () => logout());
 $("login-form").addEventListener("submit", (e) =>
   handleLogin(e).catch((err) => {
     $("login-error").textContent = String(err.message || err);
+  }).then(() => {
+    if (!$("app-shell").hidden) offerPendingConnect();
   })
 );
 $("btn-save-settings").addEventListener("click", (e) => {
@@ -233,4 +252,5 @@ if ("serviceWorker" in navigator) {
 }
 loadAuthStatus().then(() => tryAuth())
   .then((ok) => (ok ? loadAll() : null))
+  .then(() => offerPendingConnect())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
