@@ -6,7 +6,7 @@ Approved planning snapshot for sequenced delivery after **v0.3.4**. This is the 
 
 Self-hosted FastAPI hub: SQLite + markdown wiki, MCP (`/mcp`), REST (`/api`), calm `/ui` (Now / My work / Progress), forge sync, OpenClaw nudges, rewards, backup/import, `adhd-hub setup` (AGENTS.md only), agent skills, Pages docs.
 
-Largest complexity: [`src/adhd_hub/ui/app.js`](../../src/adhd_hub/ui/app.js), [`service.py`](../../src/adhd_hub/service.py), [`store.py`](../../src/adhd_hub/store.py). MCP is thinner than REST (no pause/dismiss/list reminders/forge). Browser sessions are in-process (single worker). Rewards prefs are browser-local.
+Largest complexity: [`src/adhd_hub/ui/app.js`](https://github.com/uniskela/adhd-hub/blob/main/src/adhd_hub/ui/app.js), [`service.py`](https://github.com/uniskela/adhd-hub/blob/main/src/adhd_hub/service.py), [`store.py`](https://github.com/uniskela/adhd-hub/blob/main/src/adhd_hub/store.py). MCP is thinner than REST (no pause/dismiss/list reminders/forge). Browser sessions are in-process (single worker). Rewards prefs are browser-local.
 
 ## Product principles (do not violate)
 

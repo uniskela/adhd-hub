@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Progress Hub — the next step</title>
+  <rect width="64" height="64" rx="18" fill="#176B60"/>
+  <path d="M18 44h9a13 13 0 0 0 13-13V21" fill="none" stroke="#F7F5EF" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="19" cy="23" r="5" fill="#EFC978"/>
+</svg>

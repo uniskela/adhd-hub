@@ -10,6 +10,9 @@ wheels/
 .pytest_cache/
 .mypy_cache/
 
+# Documentation site build
+site/
+
 # Runtime / secrets
 .env
 .env.*

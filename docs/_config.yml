@@ -1,7 +1,0 @@
-title: ADHD Progress Hub
-description: A calm source of truth for unfinished work.
-url: https://uniskela.github.io
-baseurl: /adhd-hub
-markdown: kramdown
-kramdown:
-  input: GFM
