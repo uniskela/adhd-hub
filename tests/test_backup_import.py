@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import base64
+import io
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from adhd_hub.app import create_app
@@ -50,6 +53,35 @@ def test_encrypted_backup_roundtrip(tmp_path: Path) -> None:
         assert "passphrase" in str(exc).lower()
     result = import_data_dir(dest, archive, passphrase="correct horse")
     assert "prefs.json" in result["restored"]
+
+
+def test_zip_slip_rejected(tmp_path: Path) -> None:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("../evil.txt", "nope")
+        zf.writestr("prefs.json", '{"timezone":"UTC"}')
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    with pytest.raises(ValueError, match="unsafe path"):
+        import_data_dir(dest, buf.getvalue())
+
+
+def test_admin_import_rejects_oversize_archive(tmp_path: Path) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="secret",
+        host="127.0.0.1",
+        port=8787,
+    )
+    app = create_app(settings)
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/admin/import",
+            headers={"Authorization": "Bearer secret"},
+            files={"file": ("huge.zip", b"x" * (80 * 1024 * 1024 + 1), "application/zip")},
+        )
+    assert r.status_code == 400
+    assert "too large" in r.text.lower()
 
 
 def test_title_from_progress() -> None:

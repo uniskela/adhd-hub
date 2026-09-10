@@ -153,7 +153,7 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 - Cookie-authenticated writes require `X-Hub-Request: 1` and a matching Origin when present. CLI and MCP clients continue using bearer auth.
 - Settings precedence is process environment, then the first nonempty TOML file (`--config`, `./config.toml`, or `~/.config/adhd-hub/config.toml`), then `.env`. `ADHD_HUB_PUBLIC_URL` sets the external base URL used in forge links.
 - Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy and strong token
-- Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md))
+- Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md)). Optional passphrase backups use a versioned envelope: new exports are salted scrypt + Fernet (v2); v1 SHA-256 passphrase files still decrypt.
 
 ## Adapters
 
