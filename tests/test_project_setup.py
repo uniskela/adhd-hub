@@ -57,9 +57,63 @@ def test_install_skills_uses_argument_list_without_shell() -> None:
         patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
         patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
     ):
-        assert install_skills("./skills") == 0
+        assert install_skills("./skills", agents=["cursor"]) == 0
 
     run.assert_called_once_with(
-        ["npx", "skills", "add", "./skills", "-g"],
+        [
+            "npx",
+            "skills",
+            "add",
+            "./skills",
+            "-g",
+            "-y",
+            "--skill",
+            "*",
+            "-a",
+            "cursor",
+        ],
         check=False,
     )
+
+
+def test_install_skills_maps_claude_alias_to_claude_code() -> None:
+    completed = Mock(returncode=0)
+    with (
+        patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
+        patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
+    ):
+        assert install_skills("./skills", agents=["claude", "cursor"]) == 0
+
+    run.assert_called_once_with(
+        [
+            "npx",
+            "skills",
+            "add",
+            "./skills",
+            "-g",
+            "-y",
+            "--skill",
+            "*",
+            "-a",
+            "claude-code",
+            "-a",
+            "cursor",
+        ],
+        check=False,
+    )
+
+
+def test_install_skills_requires_agents_when_not_all() -> None:
+    with (
+        patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
+        patch("adhd_hub.project_setup.subprocess.run") as run,
+    ):
+        assert install_skills("./skills", agents=[]) == 2
+    run.assert_not_called()
+
+
+def test_normalize_skills_agents_aliases() -> None:
+    from adhd_hub.project_setup import normalize_skills_agents
+
+    assert normalize_skills_agents(["Claude", "claude-code", "*"]) == ["claude-code"]
+

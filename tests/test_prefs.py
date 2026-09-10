@@ -16,6 +16,14 @@ def test_prefs_roundtrip(tmp_path: Path) -> None:
     assert loaded.timezone == "Australia/Sydney"
 
 
+def test_prefs_connect_agents_roundtrip(tmp_path: Path) -> None:
+    prefs = HubPrefs(timezone="UTC", connect_agents=["cursor", "claude"])
+    save_prefs(tmp_path, prefs)
+    loaded = load_prefs(tmp_path)
+    assert loaded.connect_agents == ["cursor", "claude"]
+    assert loaded.connect_agents_csv() == "cursor,claude"
+
+
 def test_format_timestamp_sydney() -> None:
     stamp = format_timestamp(
         datetime(2026, 1, 15, 12, 0, tzinfo=UTC),

@@ -22,6 +22,7 @@ export async function loadPrefs() {
         state.currentTz = p.timezone;
         preferences.setItem(tzKey, state.currentTz);
       }
+      applyConnectAgents(Array.isArray(p.connect_agents) ? p.connect_agents : []);
     } catch (_e) {
       /* keep local */
     }
@@ -40,6 +41,46 @@ export async function loadPrefs() {
       }
     }
     fillTimezoneSelect(state.currentTz);
+  }
+export function selectedConnectAgents() {
+    const all = $("ca_all")?.checked;
+    if (all) return ["*"];
+    return ["ca_cursor", "ca_codex", "ca_claude"]
+      .map((id) => $(id))
+      .filter((el) => el && el.checked)
+      .map((el) => el.value);
+  }
+export function applyConnectAgents(agents) {
+    const set = new Set((agents || []).map((a) => String(a).trim().toLowerCase()));
+    if ($("ca_all")) $("ca_all").checked = set.has("*");
+    if ($("ca_cursor")) $("ca_cursor").checked = set.has("cursor") || set.has("*");
+    if ($("ca_codex")) $("ca_codex").checked = set.has("codex") || set.has("*");
+    if ($("ca_claude")) $("ca_claude").checked = set.has("claude") || set.has("claude-code") || set.has("*");
+    if (set.has("*")) {
+      if ($("ca_cursor")) $("ca_cursor").checked = true;
+      if ($("ca_codex")) $("ca_codex").checked = true;
+      if ($("ca_claude")) $("ca_claude").checked = true;
+    }
+  }
+export async function saveConnectAgents() {
+    const agents = selectedConnectAgents();
+    const msg = $("connect-agents-msg");
+    try {
+      const saved = await api("/prefs", {
+        method: "PUT",
+        body: JSON.stringify({ connect_agents: agents }),
+      });
+      applyConnectAgents(saved.connect_agents || agents);
+      if (msg) {
+        msg.textContent = agents.length
+          ? `Saved: ${agents.join(", ")}. Re-copy the install command — scripts pick this up.`
+          : "Saved: no agents (install will not assume Cursor).";
+      }
+      setMsg(agents.length ? `Connect agents saved: ${agents.join(", ")}` : "Connect agents cleared.");
+    } catch (e) {
+      if (msg) msg.textContent = "Could not save agents: " + e.message;
+      setMsg("Could not save connect agents: " + e.message);
+    }
   }
 export async function loadForge() {
     try {
@@ -64,6 +105,66 @@ export async function loadForge() {
       /* forge optional */
     }
   }
+export function openClawSetupPrompt(hubOrigin = location.origin, userCode = "") {
+    const hub = String(hubOrigin || "").replace(/\/$/, "") || "http://127.0.0.1:8787";
+    const code = String(userCode || "").trim();
+    const codeLine = code
+      ? `Pairing code from the Hub UI: ${code}`
+      : "Pairing code: (missing — operator must click Start OpenClaw pairing in Hub Settings → Connections, then copy this prompt again)";
+    const codeJson = code || "<PAIRING_CODE_FROM_HUB>";
+    return [
+      "Set up ADHD Progress Hub ↔ OpenClaw on my private LAN or Tailscale.",
+      "",
+      codeLine,
+      "",
+      "Do this end-to-end:",
+      "1. Install Hub skills for OpenClaw (non-interactive):",
+      "   npx skills add uniskela/adhd-hub -g -y -a openclaw",
+      "2. Ensure the OpenClaw gateway exposes /hooks/wake and optional /hooks/agent",
+      "   on a LAN/Tailscale URL (not the public internet).",
+      "3. Create or reveal a bearer token those hooks accept.",
+      "4. Submit the pair to the Hub (no Hub auth token — pairing code only):",
+      `   POST ${hub}/api/openclaw/pair/submit`,
+      "   JSON body:",
+      "   {",
+      `     "user_code": "${codeJson}",`,
+      '     "webhook_url": "http(s)://<openclaw-host>:18789/hooks/wake",',
+      '     "agent_url": "http(s)://<openclaw-host>:18789/hooks/agent",',
+      '     "token": "<openclaw-hook-bearer-token>",',
+      '     "alerts_enabled": true',
+      "   }",
+      "5. Recommended Hub alert defaults unless I say otherwise:",
+      '   cron "0 9 * * *", stale after 3 days, cooldown 3 days, digest limit 2.',
+      "6. Tell me when submit succeeds so I can Approve in Hub Settings → Connections,",
+      "   then help interpret Save & send test if needed.",
+      "",
+      `Hub UI: ${hub}/ui`,
+      "Never put ADHD_HUB_AUTH_TOKEN into OpenClaw config, skills, or chat logs.",
+      "Summaries only — no raw transcripts.",
+    ].join("\n");
+  }
+export function renderOpenClawPair(pair) {
+    const status = $("oc-pair-status");
+    const approve = $("btn-oc-pair-approve");
+    const cancel = $("btn-oc-pair-cancel");
+    const promptEl = $("oc-setup-prompt");
+    if (!status) return;
+    const state = pair || { status: "none" };
+    if (approve) approve.hidden = state.status !== "submitted";
+    if (cancel) cancel.hidden = state.status !== "waiting" && state.status !== "submitted";
+    if (state.status === "waiting") {
+      status.textContent = `Pairing code ${state.user_code} (expires in ~${state.expires_in || 0}s). Copy the prompt into OpenClaw.`;
+      if (promptEl) promptEl.value = pair.prompt || openClawSetupPrompt(location.origin, state.user_code);
+    } else if (state.status === "submitted") {
+      status.textContent = `OpenClaw submitted ${state.webhook_url || "endpoints"}. Review and Approve.`;
+      if (promptEl && !promptEl.value.trim()) {
+        promptEl.value = openClawSetupPrompt(location.origin, state.user_code);
+      }
+    } else {
+      status.textContent = "No active pairing. Start pairing, or configure manually below.";
+      if (promptEl) promptEl.value = openClawSetupPrompt(location.origin);
+    }
+  }
 export async function loadOpenClaw() {
     const config = await api("/openclaw/config");
     $("oc_enabled").checked = !!config.alerts_enabled;
@@ -78,6 +179,73 @@ export async function loadOpenClaw() {
     $("oc_token_status").textContent = config.token_configured
       ? "A bearer token is saved. Enter a new one only to replace it."
       : "No saved bearer token.";
+    try {
+      const pair = await api("/openclaw/pair");
+      renderOpenClawPair(pair);
+    } catch (_e) {
+      renderOpenClawPair({ status: "none" });
+    }
+  }
+export async function startOpenClawPair() {
+    try {
+      const pair = await api("/openclaw/pair/start", { method: "POST", body: "{}" });
+      renderOpenClawPair(pair);
+      $("openclaw-msg").textContent = `Pairing started: ${pair.user_code}`;
+      setMsg(`OpenClaw pairing code ${pair.user_code}`);
+      return pair;
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (msg.includes("pair_submitted_pending_approval") || e.status === 409) {
+        $("openclaw-msg").textContent =
+          "A submitted pair is waiting — Approve or Cancel it before starting again.";
+        const pair = await api("/openclaw/pair").catch(() => null);
+        if (pair) renderOpenClawPair(pair);
+        return pair;
+      }
+      throw e;
+    }
+  }
+export async function approveOpenClawPair() {
+    const { ok } = await confirmDialog({
+      title: "Approve OpenClaw pair?",
+      body: "Save the webhook/agent URLs and hook token OpenClaw submitted?",
+    });
+    if (!ok) return;
+    const config = await api("/openclaw/pair/approve", { method: "POST", body: "{}" });
+    $("openclaw-msg").textContent = "OpenClaw pair approved and saved.";
+    setMsg("OpenClaw pair approved.");
+    await loadOpenClaw();
+    if (config.webhook_url) $("oc_webhook_url").value = config.webhook_url;
+    if (config.agent_url) $("oc_agent_url").value = config.agent_url || "";
+  }
+export async function cancelOpenClawPair() {
+    await api("/openclaw/pair/cancel", { method: "POST", body: "{}" });
+    $("openclaw-msg").textContent = "OpenClaw pairing cancelled.";
+    renderOpenClawPair({ status: "none" });
+  }
+export async function copyOpenClawPrompt() {
+    const promptEl = $("oc-setup-prompt");
+    // If no pairing code yet, start one so the copied prompt is complete.
+    const current = (promptEl && promptEl.value) || "";
+    if (!/Pairing code from the Hub UI: [A-Z0-9]{4}-[A-Z0-9]{4}/.test(current)) {
+      try {
+        await startOpenClawPair();
+      } catch (_e) {
+        /* fall through with whatever prompt we have */
+      }
+    }
+    const text = (promptEl && promptEl.value) || openClawSetupPrompt(location.origin);
+    try {
+      await navigator.clipboard.writeText(text);
+      $("openclaw-msg").textContent = "OpenClaw setup prompt copied.";
+      setMsg("OpenClaw setup prompt copied.");
+    } catch (_) {
+      if (promptEl) {
+        promptEl.focus();
+        promptEl.select();
+      }
+      $("openclaw-msg").textContent = "Select and copy the OpenClaw prompt above.";
+    }
   }
 export function openClawPayload() {
     return {
@@ -337,6 +505,12 @@ export async function loadCliSessions() {
     }
   }
 export async function revokeCliSession(sessionId) {
+    const shortId = String(sessionId || "").slice(0, 8);
+    const { ok } = await confirmDialog({
+      title: "Revoke CLI session?",
+      body: `Revoke session ${shortId}? That computer will need to connect again.`,
+    });
+    if (!ok) return;
     await api("/connect/sessions/" + encodeURIComponent(sessionId), { method: "DELETE" });
     setMsg("CLI session revoked.");
     await loadCliSessions();

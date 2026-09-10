@@ -192,7 +192,28 @@ dialog::backdrop { background: #10111b99; backdrop-filter: blur(4px); }
 .password-input { display: flex; gap: .4rem; }
 .password-input input { min-width: 0; }
 .password-input button { padding: .5rem .7rem; font-size: .75rem; }
-.text-button { background: transparent; color: var(--accent); width: 100%; margin-top: .25rem; font-weight: 500; }
+.text-button {
+  background: transparent;
+  color: var(--accent);
+  width: auto;
+  display: inline-block;
+  margin-top: .25rem;
+  padding: 0;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.login-card .text-button { width: 100%; text-align: center; }
+#cli-sessions-list { list-style: disc; padding-left: 1.1rem; }
+#cli-sessions-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem .65rem;
+  margin: .35rem 0;
+}
+#cli-sessions-list .text-button { margin-top: 0; width: auto; }
 .login-help summary { color: var(--muted); font-size: .8rem; font-weight: 500; }
 .session-note { font-size: .72rem; color: var(--muted); text-align: center; margin: 1rem 0 0; padding-top: 1rem; border-top: 1px solid var(--line); }
 .celebration { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); max-width: calc(100% - 2rem); padding: 1rem 1.5rem; background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); box-shadow: var(--shadow); border-radius: 14px; z-index: 10; font-weight: 600; animation: reward-in .25s ease-out; }

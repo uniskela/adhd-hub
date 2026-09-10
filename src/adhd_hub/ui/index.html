@@ -202,6 +202,22 @@
       <section id="settings-connections" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
         <h3>Connect this computer</h3>
         <p class="hint">One next step. Do <strong>not</strong> export your server access token into the shell.</p>
+        <div class="preference-row">
+          <div>
+            <strong>Agents to wire up</strong>
+            <p class="hint">Choose which assistants get MCP config and Hub skills. Saved on this Hub and baked into the install scripts below. Claude uses skills.sh id <code>claude-code</code>.</p>
+          </div>
+        </div>
+        <div class="checks" id="connect-agents-checks">
+          <label><input type="checkbox" id="ca_cursor" value="cursor" /> Cursor</label>
+          <label><input type="checkbox" id="ca_codex" value="codex" /> Codex</label>
+          <label><input type="checkbox" id="ca_claude" value="claude" /> Claude Code</label>
+          <label><input type="checkbox" id="ca_all" value="*" /> All skills.sh agents (*)</label>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary compact" id="btn-save-connect-agents">Save agents</button>
+        </div>
+        <p id="connect-agents-msg" class="msg" role="status"></p>
         <label>In the project folder, run <input id="install-cmd" readonly /></label>
         <button type="button" class="primary" id="btn-copy-install">Copy command</button>
         <p class="hint">Your browser opens (or the CLI prints a short code). Come back here and press <strong>Allow</strong>. The CLI saves a session on this computer — nothing lands in shell history as <code>export TOKEN=…</code>.</p>
@@ -231,9 +247,20 @@
         </details>
 
         <details class="settings-section"><summary>OpenClaw connection &amp; gentle alerts <span class="hint">· Optional</span></summary>
-      <p class="hint">Install the same skills for OpenClaw:</p>
+      <p class="hint">Pair like the CLI: start a code here, paste the prompt into OpenClaw, then approve what it submits. No Hub access token goes into OpenClaw. Keep OpenClaw on LAN or Tailscale.</p>
+      <div class="actions">
+        <button type="button" class="primary compact" id="btn-oc-pair-start">Start OpenClaw pairing</button>
+        <button type="button" class="ghost compact" id="btn-oc-pair-approve" hidden>Approve submitted pair</button>
+        <button type="button" class="ghost compact" id="btn-oc-pair-cancel" hidden>Cancel pairing</button>
+      </div>
+      <p id="oc-pair-status" class="hint" role="status"></p>
+      <label class="span2">OpenClaw setup prompt
+        <textarea id="oc-setup-prompt" readonly rows="12" spellcheck="false"></textarea>
+      </label>
+      <button type="button" class="primary compact" id="btn-copy-oc-prompt">Copy OpenClaw prompt</button>
+      <p class="hint">Or configure manually:</p>
       <pre class="snippet">npx skills add uniskela/adhd-hub -g -a openclaw</pre>
-      <p class="hint">Keep OpenClaw on your LAN or Tailscale. The saved bearer token is encrypted with this Hub's access token and is never returned to the browser.</p>
+      <p class="hint">The saved bearer token is encrypted with this Hub's access token and is never returned to the browser.</p>
       <div class="preference-row"><div><strong>Gentle stale-work alerts</strong><p class="hint">Stay quiet when nothing needs attention.</p></div><label class="switch"><input type="checkbox" id="oc_enabled" /> <span>Enable alerts</span></label></div>
       <div class="form-grid">
         <label class="span2">Webhook URL <input id="oc_webhook_url" type="url" placeholder="http://openclaw:18789/hooks/wake" /></label>

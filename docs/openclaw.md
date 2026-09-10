@@ -14,7 +14,9 @@ This installs the skills in OpenClaw's global skills directory. If you are devel
 
 ## 2. Connect the Hub to OpenClaw
 
-Enable hooks on the OpenClaw gateway and create a bearer token there. In ADHD Hub, open **Settings → Connections → OpenClaw connection & gentle alerts**.
+**Pairing (recommended):** In ADHD Hub, open **Settings → Connections → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
+
+**Manual path:** Enable hooks on the OpenClaw gateway and create a bearer token there. In the same Connections panel:
 
 1. Add the private webhook URL, or the optional agent URL for a richer message.
 2. Enter the OpenClaw hook bearer token.

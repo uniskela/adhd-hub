@@ -52,6 +52,21 @@ class HubService:
     def save_openclaw_config(self, config: OpenClawConfig) -> OpenClawConfig:
         return self._openclaw_ops.save_openclaw_config(config)
 
+    def openclaw_pair_status(self) -> dict:
+        return self._openclaw_ops.openclaw_pair_status()
+
+    def start_openclaw_pair(self, *, hub_origin: str) -> dict:
+        return self._openclaw_ops.start_openclaw_pair(hub_origin=hub_origin)
+
+    def submit_openclaw_pair(self, payload: dict) -> dict:
+        return self._openclaw_ops.submit_openclaw_pair(payload)
+
+    def approve_openclaw_pair(self) -> dict:
+        return self._openclaw_ops.approve_openclaw_pair()
+
+    def cancel_openclaw_pair(self) -> dict:
+        return self._openclaw_ops.cancel_openclaw_pair()
+
     def set_stale_schedule_callback(self, callback: Callable[[str], None]) -> None:
         self._openclaw_ops.set_stale_schedule_callback(callback)
 

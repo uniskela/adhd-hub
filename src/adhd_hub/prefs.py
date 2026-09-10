@@ -12,9 +12,15 @@ from pydantic import BaseModel
 class HubPrefs(BaseModel):
     # IANA name, e.g. Australia/Sydney. Empty/"UTC" = Coordinated Universal Time.
     timezone: str = "UTC"
+    # Agents for install/connect defaults: cursor, codex, claude, and/or "*".
+    # Empty = not configured (install scripts do not assume Cursor).
+    connect_agents: list[str] = []
 
     def public_dict(self) -> dict[str, Any]:
         return self.model_dump()
+
+    def connect_agents_csv(self) -> str:
+        return ",".join(a.strip() for a in self.connect_agents if a and str(a).strip())
 
 
 def prefs_path(data_dir: Path) -> Path:

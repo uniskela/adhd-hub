@@ -12,7 +12,10 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock README.md LICENSE ATTRIBUTION.md ./
 COPY src ./src
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev \
+ && uv build --wheel -o /app/dist
+
+ENV ADHD_HUB_WHEEL_DIR=/app/dist
 
 VOLUME ["/data"]
 EXPOSE 8787

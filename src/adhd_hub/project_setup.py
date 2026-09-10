@@ -9,6 +9,31 @@ from pathlib import Path
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"
 
+# Hub logical ids → skills.sh agent ids (skills rejects some aliases, e.g. "claude").
+SKILLS_AGENT_ALIASES = {
+    "claude": "claude-code",
+    "claude-code": "claude-code",
+    "cursor": "cursor",
+    "codex": "codex",
+}
+
+CONNECT_AGENT_CHOICES = ("cursor", "codex", "claude", "*")
+
+
+def normalize_skills_agents(agents: list[str] | None) -> list[str]:
+    """Map Hub agent aliases to skills.sh ids; drop empties and ``*``."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in agents or []:
+        key = raw.strip().lower()
+        if not key or key == "*":
+            continue
+        mapped = SKILLS_AGENT_ALIASES.get(key, key)
+        if mapped not in seen:
+            seen.add(mapped)
+            out.append(mapped)
+    return out
+
 
 def agent_block() -> str:
     return f"""{BEGIN_MARKER}
@@ -93,11 +118,30 @@ def uninstall_agent_guidance(project_dir: Path) -> tuple[Path, str]:
     return path, "removed"
 
 
-def install_skills(source: str) -> int:
+def install_skills(
+    source: str,
+    *,
+    agents: list[str] | None = None,
+    all_agents: bool = False,
+) -> int:
+    """Install Hub skills via ``npx skills`` (non-interactive)."""
     npx = shutil.which("npx") or shutil.which("npx.cmd")
     if not npx:
         print("npx not found on PATH", file=__import__("sys").stderr)
         return 127
-    command = [npx, "skills", "add", source, "-g"]
+    command = [npx, "skills", "add", source, "-g", "-y", "--skill", "*"]
+    if all_agents:
+        command.extend(["--agent", "*"])
+    else:
+        targets = normalize_skills_agents(agents)
+        if not targets:
+            print(
+                "No skills agents selected (map Hub aliases like claude → claude-code). "
+                "Set --agents or Settings → Connections.",
+                file=__import__("sys").stderr,
+            )
+            return 2
+        for agent in targets:
+            command.extend(["-a", agent])
     print("Running:", " ".join(command))
     return subprocess.run(command, check=False).returncode
