@@ -260,7 +260,7 @@
         <label><input type="checkbox" id="primary_memory_repo" /> Primary memory repo</label>
       </div>
       <label>Inbox authors (allowlist) <input id="board_inbox_authors" placeholder="your-login, bot-account" autocomplete="username" /></label>
-      <p class="hint">Inbox only imports open issues labeled <code>adhd-hub</code> that were <strong>created by an allowlisted forge username</strong> (fail closed: empty list imports nothing). After import, Hub closes the issue with <code>adhd-hub-synced</code> (never deletes). Optional <code>source:codex</code> / <code>source:chatgpt</code> / <code>source:cursor</code> / <code>source:claude</code>.</p>
+      <p class="hint">Inbox imports open issues from <strong>allowlisted forge usernames</strong> that have the hub label (<code>adhd-hub</code>) <strong>or</strong> a title starting with <code>[ADHD]</code> (fail closed: empty list imports nothing). Title prefix is enough when agents cannot set labels. After import, Hub closes the issue with <code>adhd-hub-synced</code> (never deletes). Optional <code>source:codex</code> / <code>source:chatgpt</code> / <code>source:cursor</code> / <code>source:claude</code>.</p>
       <div class="actions">
         <button type="button" class="primary" id="btn-save-forge">Save forge</button>
         <button type="button" class="ghost" id="btn-sync-forge">Sync now</button>

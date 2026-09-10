@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -9,6 +10,16 @@ from adhd_hub.forge.config import ForgeConfig, ForgeProvider
 from adhd_hub.models import Thread, ThreadStatus
 
 log = logging.getLogger(__name__)
+
+# Cloud mailbox: title prefix is enough when agents cannot apply labels.
+# Optional whitespace after ``]`` so ``[ADHD] foo`` and ``[ADHD]foo`` both match.
+_INBOX_TITLE_PREFIX = re.compile(r"^\[adhd\]\s*", re.IGNORECASE)
+
+# List open issues (no ``labels=`` query) then filter locally. Avoids GitHub
+# Search indexing delay and the old label-first query that dropped title-only
+# issues. 10 pages × 100 issues bounds REST usage (~10 req per poll).
+_INBOX_LIST_PER_PAGE = 100
+_INBOX_LIST_MAX_PAGES = 10
 
 
 class BoardForgeSync:
@@ -345,54 +356,92 @@ class BoardForgeSync:
                 return value.strip()
         return None
 
-    def list_inbox_issues(self, *, state: str = "open", limit: int = 50) -> list[dict[str, Any]]:
-        """List open forge issues that carry the Hub label (cloud mailbox).
+    @staticmethod
+    def title_matches_inbox_prefix(title: str | None) -> bool:
+        """True when the issue title starts with ``[ADHD]`` (case-insensitive)."""
+        if not isinstance(title, str):
+            return False
+        return bool(_INBOX_TITLE_PREFIX.match(title))
 
-        Fail closed: only issues authored by ``board_inbox_authors`` are returned.
-        An empty allowlist yields no candidates (even when inbox is enabled).
+    @staticmethod
+    def _issue_label_names(raw: dict[str, Any]) -> set[str]:
+        names: set[str] = set()
+        for lab in raw.get("labels") or []:
+            name = lab.get("name") if isinstance(lab, dict) else str(lab)
+            if isinstance(name, str) and name:
+                names.add(name)
+        return names
+
+    def _matches_inbox_selector(
+        self, raw: dict[str, Any], *, hub_label: str, names: set[str]
+    ) -> bool:
+        """Hub label OR ``[ADHD]`` title prefix (label is optional)."""
+        if hub_label and hub_label in names:
+            return True
+        title = raw.get("title")
+        return self.title_matches_inbox_prefix(title if isinstance(title, str) else None)
+
+    def list_inbox_issues(self, *, state: str = "open", limit: int = 50) -> list[dict[str, Any]]:
+        """List open forge issues for the cloud mailbox.
+
+        An issue matches when the author is allowlisted **and** either:
+
+        - it has the configured hub label (``adhd-hub`` by default), or
+        - its title starts with ``[ADHD]`` (case-insensitive; optional
+          whitespace after ``]``).
+
+        Listing strategy: ``GET /repos/{owner}/{repo}/issues?state=open`` with
+        pagination (100/page, max 10 pages). We do **not** pass GitHub's
+        ``labels=`` query (that hid title-only issues) and we do **not** use
+        Search/GraphQL (Search is eventually consistent; GraphQL needs extra
+        scope). The same list-then-filter path is used for Gitea.
+
+        Fail closed: empty ``board_inbox_authors`` yields no candidates.
         """
         if not (self.config.enabled() and self.config.board_enabled):
             return []
         allowed = self._allowed_authors()
         if not allowed:
-            log.info(
-                "forge inbox: skipping list — board_inbox_authors is empty (fail closed)"
-            )
+            log.info("forge inbox: skipping list — board_inbox_authors is empty (fail closed)")
             return []
-        label = self._hub_label()
-        params: dict[str, Any] = {"state": state, "per_page": min(limit, 100)}
-        if self.config.provider == ForgeProvider.github:
-            params["labels"] = label
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.get(self._issues_url(), headers=self._headers(), params=params)
-            if resp.status_code >= 400:
-                log.warning("list inbox issues failed: %s %s", resp.status_code, resp.text[:300])
-                resp.raise_for_status()
-            items = resp.json()
-        if not isinstance(items, list):
-            return []
-        out: list[dict[str, Any]] = []
+        hub_label = self._hub_label()
         synced = self._synced_label()
-        for raw in items:
-            if not isinstance(raw, dict):
-                continue
-            # Skip PRs that GitHub returns from the issues endpoint.
-            if "pull_request" in raw:
-                continue
-            author = self._issue_author_login(raw)
-            if not author or author.casefold() not in allowed:
-                continue
-            names = {
-                (lab.get("name") if isinstance(lab, dict) else str(lab))
-                for lab in (raw.get("labels") or [])
-            }
-            if label not in names:
-                continue
-            if synced and synced in names:
-                continue
-            out.append(raw)
-            if len(out) >= limit:
-                break
+        out: list[dict[str, Any]] = []
+        with httpx.Client(timeout=30.0) as client:
+            for page in range(1, _INBOX_LIST_MAX_PAGES + 1):
+                params: dict[str, Any] = {
+                    "state": state,
+                    "per_page": _INBOX_LIST_PER_PAGE,
+                    "page": page,
+                }
+                resp = client.get(self._issues_url(), headers=self._headers(), params=params)
+                if resp.status_code >= 400:
+                    log.warning(
+                        "list inbox issues failed: %s %s", resp.status_code, resp.text[:300]
+                    )
+                    resp.raise_for_status()
+                items = resp.json()
+                if not isinstance(items, list) or not items:
+                    break
+                for raw in items:
+                    if not isinstance(raw, dict):
+                        continue
+                    # Skip PRs that GitHub returns from the issues endpoint.
+                    if "pull_request" in raw:
+                        continue
+                    author = self._issue_author_login(raw)
+                    if not author or author.casefold() not in allowed:
+                        continue
+                    names = self._issue_label_names(raw)
+                    if synced and synced in names:
+                        continue
+                    if not self._matches_inbox_selector(raw, hub_label=hub_label, names=names):
+                        continue
+                    out.append(raw)
+                    if len(out) >= limit:
+                        return out
+                if len(items) < _INBOX_LIST_PER_PAGE:
+                    break
         return out
 
     def mark_issue_imported(self, number: int, *, thread_id: str) -> dict[str, Any]:

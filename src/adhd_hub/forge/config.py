@@ -35,7 +35,7 @@ class ForgeConfig(BaseModel):
     hub_public_url: str = ""
 
     board_enabled: bool = False
-    # Poll forge issues labeled for Hub and import them as threads (cloud-agent mailbox).
+    # Poll forge issues (hub label OR [ADHD] title) and import as threads (cloud mailbox).
     board_inbox_enabled: bool = False
     # After import: close the issue and add this label (never delete).
     board_inbox_synced_label: str = "adhd-hub-synced"

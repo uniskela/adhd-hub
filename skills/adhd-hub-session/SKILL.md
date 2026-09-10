@@ -19,11 +19,10 @@ If tools are unavailable, say so briefly, continue the authorized work, and prov
 
 When this session cannot reach the operator's private Hub MCP — Cursor Cloud, Codex/ChatGPT cloud, Claude remote, or any sandboxed agent without Tailscale/LAN — use the **forge issue mailbox** instead of claiming Hub updates:
 
-1. Open or update a GitHub/Gitea issue titled `[ADHD] <short summary>` using an identity on the operator's **Inbox authors** allowlist (otherwise the Hub will ignore it).
-2. Apply labels `adhd-hub` and, when known, `project:<slug>`.
-3. Optional label `source:codex`, `source:chatgpt`, `source:cursor`, `source:claude`, or `source:claude-code` so the Hub records which tool wrote it.
-4. Put a short Now / Done / Next / Return cue in the issue body (summaries only; no secrets).
-5. Tell the operator the Hub will import the issue on its next inbox poll (or when they click **Import issue inbox**), then close it with label `adhd-hub-synced` — it is not deleted.
+1. Open or update a GitHub/Gitea issue titled `[ADHD] <short summary>` using an identity on the operator's **Inbox authors** allowlist (otherwise the Hub will ignore it). Title prefix is enough; do not treat label application as required.
+2. Optional labels when the forge token can set them: `adhd-hub`, `project:<slug>` when known, and `source:codex` / `source:chatgpt` / `source:cursor` / `source:claude` / `source:claude-code`. Cursor Cloud often cannot set labels (`Resource not accessible by integration`) — skip them and keep the `[ADHD]` title.
+3. Put a short Now / Done / Next / Return cue in the issue body (summaries only; no secrets).
+4. Tell the operator the Hub will import the issue on its next inbox poll (or when they click **Import issue inbox**), then close it with label `adhd-hub-synced` — it is not deleted.
 
 Prefer Hub MCP whenever it is available. Do not invent Hub thread ids after a forge-only write.
 

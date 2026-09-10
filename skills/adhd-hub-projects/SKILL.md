@@ -8,7 +8,7 @@ description: >-
 
 # ADHD Hub — projects
 
-MCP server: **`adhd-hub`** at `/mcp` (Streamable HTTP, bearer authentication). If unavailable (Cursor Cloud, Codex/ChatGPT cloud, Claude remote, or any host without Hub reachability), open a forge issue titled `[ADHD] …` with labels `adhd-hub`, optional `project:<slug>`, and optional `source:codex` / `source:chatgpt` / `source:cursor` / `source:claude` so the Hub inbox can import it; continue the user’s work and report that Hub MCP was unreachable.
+MCP server: **`adhd-hub`** at `/mcp` (Streamable HTTP, bearer authentication). If unavailable (Cursor Cloud, Codex/ChatGPT cloud, Claude remote, or any host without Hub reachability), open a forge issue titled `[ADHD] …` (title prefix is enough for allowlisted authors; optional labels `adhd-hub`, `project:<slug>`, `source:codex` / `source:chatgpt` / `source:cursor` / `source:claude`) so the Hub inbox can import it; continue the user’s work and report that Hub MCP was unreachable. Skip labels if the forge token cannot set them.
 
 ## Resolve from cwd
 
