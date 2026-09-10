@@ -200,19 +200,35 @@
         <div class="settings-divider"><h3>This session</h3><p class="hint">Sign out on a shared device when you’re finished.</p><button type="button" class="ghost" id="btn-logout">Log out</button></div>
       </section>
       <section id="settings-connections" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
-        <h3>Connect your assistant</h3>
-      <p class="hint">Add this Streamable HTTP server in Cursor, Codex, or Claude Code. Set the client’s bearer token from <code>ADHD_HUB_AUTH_TOKEN</code>.</p>
-      <label>MCP server URL <input id="mcp-url" readonly /></label>
-      <button type="button" class="ghost" id="btn-copy-mcp">Copy URL</button>
-      <p class="hint">Or wire MCP, AGENTS.md, Cursor rule, and optional skills in one step (token stays in your environment):</p>
-      <label>macOS / Linux / WSL <input id="install-cmd" readonly /></label>
-      <button type="button" class="ghost" id="btn-copy-install">Copy Unix install</button>
+        <h3>Connect this computer</h3>
+        <p class="hint">One next step. Do <strong>not</strong> export your server access token into the shell.</p>
+        <label>In the project folder, run <input id="install-cmd" readonly /></label>
+        <button type="button" class="primary" id="btn-copy-install">Copy command</button>
+        <p class="hint">Your browser opens (or the CLI prints a short code). Come back here and press <strong>Allow</strong>. The CLI saves a session on this computer — nothing lands in shell history as <code>export TOKEN=…</code>.</p>
+        <div id="cli-connect-panel" class="setup-banner">
+          <div>
+            <strong>Allow a waiting CLI</strong>
+            <p class="hint">Type the code from the terminal if the browser did not open.</p>
+            <label>Connect code <input id="cli-connect-code-input" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /></label>
+            <p id="cli-connect-msg" class="msg" role="status"></p>
+          </div>
+          <button type="button" class="primary compact" id="btn-allow-cli">Allow this CLI</button>
+        </div>
+        <details class="settings-section"><summary>Windows / MCP / skills <span class="hint">· Optional</span></summary>
       <label>Windows PowerShell <input id="install-cmd-win" readonly /></label>
       <button type="button" class="ghost" id="btn-copy-install-win">Copy Windows install</button>
+      <p class="hint">MCP URL for assistants that still use a bearer header. Project MCP files stay token-free so they are safe to commit. The saved CLI session is a different token from your server access token.</p>
+      <label>MCP server URL <input id="mcp-url" readonly /></label>
+      <button type="button" class="ghost" id="btn-copy-mcp">Copy URL</button>
       <p class="hint">Install the ADHD Hub skills for all of your projects:</p>
       <pre class="snippet">npx skills add uniskela/adhd-hub -g</pre>
       <p class="hint">Working on an unreleased local checkout? Use <code>npx skills add ./skills -g</code> instead.</p>
-      <p class="hint">Restart your assistant and ask it to call <code>session_digest</code> to verify the connection.</p>
+      <p class="hint">Restart your assistant and ask it to call <code>session_digest</code> to verify MCP. Existing server-token setups keep working.</p>
+      <div id="cli-sessions-wrap" hidden>
+        <p class="hint"><strong>CLI sessions on this Hub</strong></p>
+        <ul id="cli-sessions-list" class="hint"></ul>
+      </div>
+        </details>
 
         <details class="settings-section"><summary>OpenClaw connection &amp; gentle alerts <span class="hint">· Optional</span></summary>
       <p class="hint">Install the same skills for OpenClaw:</p>
@@ -398,6 +414,19 @@
       <textarea id="pause-step" placeholder="Open the draft and write the first sentence…" maxlength="2000" required></textarea>
       <p id="pause-error" class="msg error" role="alert"></p>
       <div class="actions"><button type="submit" class="primary">Save &amp; pause</button><button type="button" class="ghost" id="btn-cancel-pause">Keep working</button></div>
+    </form>
+  </dialog>
+  <dialog id="cli-connect-dialog" aria-labelledby="cli-connect-title">
+    <form method="dialog" class="dialog-card">
+      <p class="eyebrow">CLI CONNECT</p>
+      <h2 id="cli-connect-title">Allow this CLI?</h2>
+      <p class="hint">A Hub command on this computer wants a session. Your server access token stays on the Hub.</p>
+      <p>Code: <strong id="cli-connect-code-label"></strong></p>
+      <p id="cli-connect-dialog-msg" class="msg" role="status"></p>
+      <div class="actions">
+        <button type="submit" class="primary" value="allow" id="btn-dialog-allow-cli">Allow</button>
+        <button type="submit" class="ghost" value="cancel">Not now</button>
+      </div>
     </form>
   </dialog>
   <div id="celebration" class="celebration" role="status" hidden></div>

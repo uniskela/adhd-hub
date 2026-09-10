@@ -1,19 +1,15 @@
 # Connect a machine or project in one step
 
-Point coding agents at a running ADHD Progress Hub without hand-editing every config file.
+Point coding agents at a running ADHD Progress Hub without hand-editing every config file, and without putting the **server** access token in your shell.
 
-## One-liner (piggybacks on the Hub)
+## Safer CLI connect (recommended)
 
-On the Hub host, set `ADHD_HUB_PUBLIC_URL` to the URL clients should use (for example a Tailscale address). The Hub serves two public, token-free bootstraps:
+Stay signed in to the Hub UI. In **Settings → Connections** copy the command (no token in it):
 
 ### macOS / Linux / WSL / Git Bash
 
 ```bash
-export ADHD_HUB_AUTH_TOKEN=...   # keep this in your environment; the script never embeds it
 curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project
-# optional flags:
-curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project --register --dry-run
-curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project --agents cursor,codex --openclaw-skills
 ```
 
 ### Windows PowerShell
@@ -21,23 +17,46 @@ curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project --agent
 Prefer download-then-run (more reliable when `iex` is blocked by policy):
 
 ```powershell
-$env:ADHD_HUB_AUTH_TOKEN = "..."
 iwr "$env:ADHD_HUB_PUBLIC_URL/install.ps1" -OutFile $env:TEMP\adhd-hub-install.ps1
-powershell -ExecutionPolicy Bypass -File $env:TEMP\adhd-hub-install.ps1 -Project 'C:\path\to\project' -Register
+powershell -ExecutionPolicy Bypass -File $env:TEMP\adhd-hub-install.ps1 -Project 'C:\path\to\project'
 ```
 
 One-liner (when `iex` is allowed):
 
 ```powershell
-$env:ADHD_HUB_AUTH_TOKEN = "..."
-iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project' -Register -DryRun"
+iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project'"
 ```
 
-Both scripts look for `adhd-hub` or `uvx` on `PATH`, then run `adhd-hub connect` with the Hub URL baked in. Prefer `uv tool install adhd-hub` once per machine.
+What happens next:
+
+1. The CLI opens your browser to this Hub (or prints a short code like `ABCD-WXYZ`).
+2. Press **Allow this CLI** (or type the code under Settings → Connections).
+3. The CLI saves a **CLI session** under `~/.config/adhd-hub/credentials.json` (mode `0600`). That file is local to this computer.
+
+You can run the handshake alone:
+
+```bash
+adhd-hub login --hub "$ADHD_HUB_PUBLIC_URL"
+adhd-hub logout --hub "$ADHD_HUB_PUBLIC_URL"   # forget this machine's session
+```
+
+### Threat model (short)
+
+| Secret | Where it lives | Where it must not go |
+| --- | --- | --- |
+| Server `ADHD_HUB_AUTH_TOKEN` | Hub process environment / `.env` | Shell profile, install URL, `mcp.json`, chat logs |
+| One-time connect code | Hub SQLite for ~10 minutes, single-use | Reuse / replay; it expires |
+| CLI session (`ahcli_…`) | `~/.config/adhd-hub/credentials.json` on the client | Shell `export`, git, progress notes |
+
+The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it in Settings → Connections (Windows / MCP / skills) or with `adhd-hub logout`. Dashboard password login is unchanged.
+
+Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
+
+## CLI wire-up flags
+
+Both install scripts look for `adhd-hub` or `uvx` on `PATH`, then run `adhd-hub connect` with the Hub URL baked in. Prefer `uv tool install adhd-hub` once per machine. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
 
 Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
-
-## CLI
 
 ```bash
 adhd-hub connect /path/to/project \
@@ -58,13 +77,13 @@ adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 
 ### What connect configures
 
-- **Cursor MCP** — project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (`--scope user`), using `${env:ADHD_HUB_AUTH_TOKEN}`
+- **Cursor MCP** — project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (`--scope user`), using `${env:ADHD_HUB_AUTH_TOKEN}` so the file stays token-free
 - **Codex / Claude** — optional MCP blocks when listed in `--agents`
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
 - **AGENTS.md** — same reversible managed block as `adhd-hub setup`
 - **Skills** — opt-in global `npx skills add` (`--skills`)
 - **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → Connections**
-- **Register** — `GET /api/projects/resolve?create=true` when a bearer token is available
+- **Register** — `GET /api/projects/resolve?create=true` when a CLI session or bearer token is available
 - **Find** — scan `--find-roots` for `.git` / `AGENTS.md` / `.cursor` folders and list them
 
 `adhd-hub setup` remains available for AGENTS-only installs.
@@ -75,5 +94,7 @@ adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 - Refuses to overwrite symlinks
 - Merges only the `adhd-hub` MCP server key; other MCP servers stay untouched
 - OpenClaw gateway secrets are not written by the one-liner; use the Hub UI or Hub-server env
+- Connect grants are hashed in `data/connect.sqlite3`, expire in 10 minutes, and cannot be reused
+- Backups still omit browser sessions, passwords, and CLI connect grants
 
 See the [improvement roadmap](plans/improvement-roadmap.md) Wave 0 for status and follow-ons.

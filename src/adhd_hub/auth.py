@@ -81,7 +81,7 @@ def require_browser_request(request: Request, settings: Settings) -> None:
         raise HTTPException(403, "Cross-origin request rejected")
 
 
-def auth_dependency(settings: Settings, sessions: BrowserSessions):
+def auth_dependency(settings: Settings, sessions: BrowserSessions, connect_store=None):
     async def _dep(
         request: Request,
         credentials: HTTPAuthorizationCredentials | None = Security(_bearer),  # noqa: B008
@@ -90,6 +90,11 @@ def auth_dependency(settings: Settings, sessions: BrowserSessions):
             if request.method not in {"GET", "HEAD", "OPTIONS"}:
                 require_browser_request(request, settings)
             return
+        if credentials is not None:
+            if token_matches(settings, credentials.credentials):
+                return
+            if connect_store is not None and connect_store.valid_session(credentials.credentials):
+                return
         require_auth(settings, credentials)
 
     return _dep

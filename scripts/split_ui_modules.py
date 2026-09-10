@@ -105,6 +105,11 @@ MODULE_MAP: dict[str, list[str]] = {
         "saveForge",
         "syncForge",
         "importForgeInbox",
+        "pendingConnectCode",
+        "offerPendingConnect",
+        "loadCliSessions",
+        "revokeCliSession",
+        "approveCliConnect",
     ],
     "load": ["loadOverview", "loadAll"],
 }
