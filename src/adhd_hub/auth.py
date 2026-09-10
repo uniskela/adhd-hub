@@ -13,10 +13,23 @@ from starlette.concurrency import run_in_threadpool
 
 from adhd_hub.config import Settings
 from adhd_hub.passwords import PasswordStore
+from adhd_hub.sessions import SESSION_SECONDS, BrowserSessions
 
 _bearer = HTTPBearer(auto_error=False)
 COOKIE_NAME = "adhd_hub_session"
-SESSION_SECONDS = 12 * 60 * 60
+
+# Re-export for callers/tests that imported from auth.
+__all__ = [
+    "BrowserSessions",
+    "COOKIE_NAME",
+    "SESSION_SECONDS",
+    "auth_dependency",
+    "build_auth_router",
+    "cookie_should_be_secure",
+    "require_auth",
+    "require_browser_request",
+    "token_matches",
+]
 
 
 def token_matches(settings: Settings, value: str) -> bool:
@@ -42,23 +55,20 @@ def require_auth(
         )
 
 
-@dataclass
-class BrowserSessions:
-    """Short-lived opaque sessions; restart and logout invalidate browser access."""
-
-    tokens: dict[str, float] = field(default_factory=dict)
-
-    def create(self) -> str:
-        now = time.monotonic()
-        self.tokens = {key: expiry for key, expiry in self.tokens.items() if expiry > now}
-        if len(self.tokens) >= 1024:
-            del self.tokens[next(iter(self.tokens))]
-        token = secrets.token_urlsafe(32)
-        self.tokens[token] = now + SESSION_SECONDS
-        return token
-
-    def valid(self, token: str | None) -> bool:
-        return self.tokens.get(token or "", 0) > time.monotonic()
+def cookie_should_be_secure(request: Request, settings: Settings) -> bool:
+    """Honour explicit setting, request scheme, or trusted X-Forwarded-Proto."""
+    explicit = getattr(settings, "cookie_secure", None)
+    if explicit is True:
+        return True
+    if explicit is False:
+        return False
+    if request.url.scheme == "https":
+        return True
+    if getattr(settings, "trust_proxy_headers", False):
+        forwarded = request.headers.get("x-forwarded-proto", "")
+        proto = forwarded.split(",")[0].strip().lower()
+        return proto == "https"
+    return False
 
 
 def require_browser_request(request: Request, settings: Settings) -> None:
@@ -138,13 +148,13 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
         return request.client.host if request.client else "unknown"
 
     def set_session(request: Request, response: Response) -> None:
-        sessions.tokens.pop(request.cookies.get(COOKIE_NAME, ""), None)
+        sessions.revoke(request.cookies.get(COOKIE_NAME, ""))
         response.set_cookie(
             COOKIE_NAME,
             sessions.create(),
             httponly=True,
             samesite="strict",
-            secure=request.url.scheme == "https",
+            secure=cookie_should_be_secure(request, settings),
             max_age=SESSION_SECONDS,
             path="/api",
         )
@@ -206,14 +216,14 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
                 )
             await run_in_threadpool(passwords.save, payload.password)
             throttle.attempts.pop(key, None)
-            sessions.tokens.clear()
+            sessions.clear()
             set_session(request, response)
         return {"password_configured": True, "other_sessions_revoked": True}
 
     @router.post("/logout", status_code=204)
     async def logout(request: Request, response: Response):
         require_browser_request(request, settings)
-        sessions.tokens.pop(request.cookies.get(COOKIE_NAME, ""), None)
+        sessions.revoke(request.cookies.get(COOKIE_NAME, ""))
         response.delete_cookie(COOKIE_NAME, path="/api")
         response.headers["Cache-Control"] = "no-store"
 

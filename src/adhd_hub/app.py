@@ -14,12 +14,13 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from adhd_hub import __version__
 from adhd_hub.api import build_router
-from adhd_hub.auth import BrowserSessions, auth_dependency, build_auth_router, token_matches
+from adhd_hub.auth import auth_dependency, build_auth_router, token_matches
 from adhd_hub.config import Settings, load_settings
 from adhd_hub.connect import render_install_ps1, render_install_sh
 from adhd_hub.mcp_app import build_mcp
 from adhd_hub.scheduler import start_scheduler
 from adhd_hub.service import HubService
+from adhd_hub.sessions import BrowserSessions
 from adhd_hub.ui import build_ui_router
 
 log = logging.getLogger(__name__)
@@ -130,7 +131,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.service = service
     app.state.mcp = mcp
 
-    sessions = BrowserSessions()
+    sessions = BrowserSessions(settings.data_dir / "browser_sessions.sqlite3")
+    app.state.sessions = sessions
     app.include_router(build_auth_router(settings, sessions))
     auth_dep = auth_dependency(settings, sessions)
     app.include_router(build_router(service, auth_dep), prefix="/api")
@@ -148,7 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_origins=[public_url],
             allow_credentials=False,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "X-Hub-Request"],
+            allow_headers=["Authorization", "Content-Type", "X-Hub-Request", "X-Backup-Passphrase"],
         )
 
     # Trailing-slash mount is what Starlette expects for the sub-app root.

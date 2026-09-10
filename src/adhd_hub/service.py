@@ -1090,19 +1090,56 @@ class HubService:
             "index_written": index_written,
         }
 
-    def export_backup(self) -> bytes:
+    def export_backup(self, *, passphrase: str | None = None) -> bytes:
         from adhd_hub.backup import export_data_dir
 
-        return export_data_dir(self.settings.data_dir)
+        return export_data_dir(self.settings.data_dir, passphrase=passphrase)
 
-    def import_backup(self, archive: bytes, *, replace: bool = True) -> dict:
+    def import_backup(
+        self, archive: bytes, *, replace: bool = True, passphrase: str | None = None
+    ) -> dict:
         from adhd_hub.backup import import_data_dir
 
-        result = import_data_dir(self.settings.data_dir, archive, replace=replace)
+        result = import_data_dir(
+            self.settings.data_dir, archive, replace=replace, passphrase=passphrase
+        )
         # Re-open store against restored sqlite
         self.store = Store(self.settings.db_path)
         self.wiki = Wiki(self.settings.wiki_dir, timezone=self.prefs().timezone)
+        # Sessions are outside the backup zip — revoke so cookies cannot outlive a restore.
+        try:
+            from adhd_hub.sessions import BrowserSessions
+
+            BrowserSessions(self.settings.data_dir / "browser_sessions.sqlite3").clear()
+        except OSError:
+            pass
         return result
+
+    def record_indexer_run(self, *, upserted: int, candidates: int) -> None:
+        from datetime import UTC, datetime
+
+        self.store.set_meta(
+            "indexer_last_run",
+            {
+                "at": datetime.now(UTC).isoformat(),
+                "upserted": upserted,
+                "candidates": candidates,
+            },
+        )
+
+    def indexer_last_run(self) -> dict | None:
+        raw = self.store.get_meta("indexer_last_run")
+        if not raw:
+            return None
+        if isinstance(raw, dict):
+            return raw
+        try:
+            import json
+
+            data = json.loads(raw)
+            return data if isinstance(data, dict) else {"raw": raw}
+        except (TypeError, json.JSONDecodeError):
+            return {"raw": str(raw)}
 
     def upsert_thread(self, payload: ThreadUpsert) -> Thread:
         slug = self._resolve_slug_for_write(
@@ -1367,4 +1404,5 @@ class HubService:
             "done_threads": overview["done"],
             "projects": len(overview["projects"]),
             "wiki_projects": len(self.wiki.list_project_slugs()),
+            "indexer_last_run": self.indexer_last_run(),
         }

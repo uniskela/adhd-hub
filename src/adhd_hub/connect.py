@@ -664,7 +664,98 @@ def run_connect(
         more = f" (+{len(candidates) - 20} more)" if len(candidates) > 20 else ""
         report.add("find", "ok", f"{len(candidates)} candidates: {listing}{more}")
 
+    if report.ok and not dry_run:
+        report.add(
+            "setup complete",
+            "ok",
+            f"Open {hub_url}/ui · run: adhd-hub doctor --hub {hub_url} --project {project}",
+        )
+    elif report.ok and dry_run:
+        report.add("setup complete", "ok", "dry-run finished — re-run without --dry-run to apply")
+
     return report
+
+
+def _doctor_remote_checks(report: ConnectReport, hub_url: str, token: str | None) -> None:
+    """Optional authenticated checks against forge / OpenClaw / indexer metadata."""
+    auth = token or os.environ.get("ADHD_HUB_AUTH_TOKEN")
+    if not auth or auth == "change-me":
+        report.add(
+            "remote checks",
+            "warn",
+            "set ADHD_HUB_AUTH_TOKEN to probe forge / OpenClaw / indexer",
+        )
+        return
+
+    base = normalize_hub_url(hub_url)
+    try:
+        health = _http_json(f"{base}/api/health", token=auth)
+        last = health.get("indexer_last_run")
+        if last:
+            when = last.get("at") if isinstance(last, dict) else last
+            report.add("indexer last run", "ok", str(when))
+        else:
+            report.add("indexer last run", "warn", "no indexer batch recorded yet")
+    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        report.add("indexer last run", "warn", f"health probe failed ({exc})")
+
+    try:
+        forge = _http_json(f"{base}/api/forge/config", token=auth)
+        provider = (forge.get("provider") or "none") if isinstance(forge, dict) else "none"
+        if provider in {"", "none"}:
+            report.add("forge", "warn", "not configured")
+        else:
+            owner = forge.get("owner") or "?"
+            repo = forge.get("repo") or "?"
+            report.add("forge", "ok", f"{provider} {owner}/{repo}")
+    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        report.add("forge", "warn", f"unreachable ({exc})")
+
+    try:
+        oc = _http_json(f"{base}/api/openclaw/config", token=auth)
+        if not isinstance(oc, dict) or not oc.get("configured"):
+            report.add("openclaw", "warn", "not configured")
+        else:
+            report.add(
+                "openclaw",
+                "ok",
+                "configured"
+                + (" · alerts on" if oc.get("alerts_enabled") else " · alerts off"),
+            )
+            # Soft probe: POST test only when alerts enabled (avoid surprise wake).
+            if oc.get("alerts_enabled"):
+                try:
+                    headers = {
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {auth}",
+                        "Content-Type": "application/json",
+                    }
+                    req = Request(
+                        f"{base}/api/openclaw/test",
+                        data=b"{}",
+                        headers=headers,
+                        method="POST",
+                    )
+                    with urlopen(req, timeout=10) as resp:
+                        body = resp.read().decode("utf-8")
+                    data = json.loads(body) if body else {}
+                    ok = bool(data.get("ok") or data.get("sent") or data.get("status") == "ok")
+                    report.add(
+                        "openclaw test",
+                        "ok" if ok else "warn",
+                        str(data.get("detail") or data.get("message") or data)[:160],
+                    )
+                except (
+                    HTTPError,
+                    URLError,
+                    TimeoutError,
+                    ValueError,
+                    TypeError,
+                    json.JSONDecodeError,
+                ) as exc:
+                    report.add("openclaw test", "warn", str(exc)[:160])
+    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        report.add("openclaw", "warn", f"unreachable ({exc})")
 
 
 def run_doctor(*, hub_url: str, project: Path | None, token: str | None) -> ConnectReport:
@@ -733,6 +824,8 @@ def run_doctor(*, hub_url: str, project: Path | None, token: str | None) -> Conn
         "ok" if _npx_bin() else "warn",
         "npx available" if _npx_bin() else "npx not found",
     )
+    if ok:
+        _doctor_remote_checks(report, hub_url, token)
     return report
 
 
@@ -743,3 +836,5 @@ def print_report(report: ConnectReport) -> None:
             step.status, step.status
         )
         print(f"  [{mark}] {step.name}: {step.detail}")
+    if report.ok and any(s.name == "setup complete" for s in report.steps):
+        print("\nYou're set. Open the Hub UI when you're ready to pick something up.")

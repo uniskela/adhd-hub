@@ -1301,9 +1301,10 @@
   }
 
   async function exportBackup() {
-    const res = await fetch("/api/admin/export", {
-      headers: { "X-Hub-Request": "1" },
-    });
+    const passphrase = ($("backup-passphrase")?.value || "").trim();
+    const headers = { "X-Hub-Request": "1" };
+    if (passphrase) headers["X-Backup-Passphrase"] = passphrase;
+    const res = await fetch("/api/admin/export", { headers });
     if (res.status === 401) {
       logout();
       return;
@@ -1313,10 +1314,10 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "adhd-hub-backup.zip";
+    a.download = passphrase ? "adhd-hub-backup.zip.enc" : "adhd-hub-backup.zip";
     a.click();
     URL.revokeObjectURL(url);
-    setMsg("Backup downloaded.");
+    setMsg(passphrase ? "Encrypted backup downloaded." : "Backup downloaded.");
   }
 
   async function importBackup(file) {
@@ -1325,11 +1326,14 @@
       body: "This replaces SQLite, wiki, and forge/prefs on this instance. Prefer stopping the container for large restores. Continue?",
     });
     if (!result.ok) return;
+    const passphrase = ($("import-passphrase")?.value || "").trim();
+    const headers = { "X-Hub-Request": "1" };
+    if (passphrase) headers["X-Backup-Passphrase"] = passphrase;
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/admin/import?replace=true", {
       method: "POST",
-      headers: { "X-Hub-Request": "1" },
+      headers,
       body: fd,
     });
     if (res.status === 401) {
@@ -1843,6 +1847,9 @@
   });
   $("quick-capture").addEventListener("submit", captureStep);
   fillTimezoneSelect(currentTz);
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/ui/sw.js", { scope: "/ui/" }).catch(() => {});
+  }
   loadAuthStatus().then(() => tryAuth())
     .then((ok) => (ok ? loadAll() : null))
     .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));

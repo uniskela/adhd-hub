@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ADHD Progress Hub</title>
   <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#176B60" />
+  <meta name="application-name" content="Progress Hub" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Progress Hub" />
+  <link rel="manifest" href="/ui/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/ui/brand/icon-192.png" />
   <script>
     let theme = "system";
     try { theme = localStorage.getItem("adhd_hub_theme") || "system"; } catch (_) {}
@@ -262,8 +269,19 @@
         </details>
       </section>
       <section id="settings-data" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden>
-        <h3>Keep your work with you.</h3><p class="hint">Download a backup of your hub’s records, notes, and settings.</p><button type="button" class="primary" id="btn-export">Download backup</button>
-        <details class="settings-section"><summary>Restore a backup</summary><p class="hint">Restoring replaces the hub’s current data. Download a backup first if you want to keep it.</p><label class="ghost file-btn">Choose backup file<input type="file" id="import-file" accept=".zip,application/zip" hidden /></label></details>
+        <h3>Keep your work with you.</h3>
+        <p class="hint">Download a backup of your hub’s records, notes, and settings. Optional passphrase encrypts the file (Fernet).</p>
+        <label>Backup passphrase <span class="hint">· Optional</span>
+          <input id="backup-passphrase" type="password" autocomplete="new-password" placeholder="Leave blank for a plain zip" />
+        </label>
+        <button type="button" class="primary" id="btn-export">Download backup</button>
+        <details class="settings-section"><summary>Restore a backup</summary>
+          <p class="hint">Restoring replaces the hub’s current data. Download a backup first if you want to keep it. Use the same passphrase if the file is encrypted.</p>
+          <label>Restore passphrase <span class="hint">· If encrypted</span>
+            <input id="import-passphrase" type="password" autocomplete="current-password" />
+          </label>
+          <label class="ghost file-btn">Choose backup file<input type="file" id="import-file" accept=".zip,.enc,application/zip,application/octet-stream" hidden /></label>
+        </details>
         <div class="settings-divider"><h3>Refresh your hub</h3><p class="hint">Load the latest changes from your assistants.</p><button type="button" class="ghost" id="btn-refresh">Refresh</button></div>
       </section>
     </div>

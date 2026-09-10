@@ -35,6 +35,17 @@ curl -s http://127.0.0.1:8787/api/health
 
 Ensure the container port `8787` is reachable on the Tailscale interface (publish `8787:8787` is enough if the LXC’s Tailscale IP is used by clients).
 
+### Reverse proxy / HTTPS cookies
+
+If you terminate TLS in front of the Hub (Caddy, nginx, Tailscale Serve):
+
+1. Set `ADHD_HUB_PUBLIC_URL` to the **https** URL browsers use.
+2. Set `ADHD_HUB_TRUST_PROXY_HEADERS=true` so login cookies get the `Secure` flag from `X-Forwarded-Proto: https`.
+3. Optionally force cookies with `ADHD_HUB_COOKIE_SECURE=true`.
+4. Only trust those headers from your proxy — do not expose the Hub directly to the public internet with proxy trust enabled.
+
+Installable PWA: open `/ui` over HTTPS (or localhost), then “Install app” / Add to Home Screen. The service worker caches the UI shell only — never `/api` or MCP.
+
 **Note:** First Tailscale SSH from a new machine may require opening an auth URL in the browser (`login.tailscale.com/...`).
 
 ## 3. OpenClaw
@@ -81,19 +92,34 @@ Two complementary paths:
 On the old machine (UI or CLI):
 
 1. `/ui` → Settings → **Download backup**, or `uv run adhd-hub export -o adhd-hub-backup.zip`
+   - Optional encryption: `uv run adhd-hub export -o adhd-hub-backup.zip.enc --passphrase '…'`
 2. Copy the zip to the LXC (scp / Tailscale)
 3. On the LXC: **stop** the container, restore into the data volume, start again:
 
 ```bash
 # Example: compose volume at ./data
 docker compose stop
-uv run adhd-hub import /path/to/adhd-hub-backup.zip   # or Settings → Restore backup on the new UI
+uv run adhd-hub import /path/to/adhd-hub-backup.zip
+# Encrypted:
+# uv run adhd-hub import /path/to/adhd-hub-backup.zip.enc --passphrase '…'
 # Prefer CLI import while the server is stopped so SQLite is not open.
-# Or extract zip contents into the mounted /data directory, then:
 docker compose up -d
 ```
 
+Schedule backups however you like (cron / Task Scheduler) — weekly export of `data/` is enough for most homelabs. Encrypted exports are safe to park on shared storage.
+
 Keep the same `ADHD_HUB_AUTH_TOKEN` (or update MCP clients). Point `ADHD_HUB_PUBLIC_URL` at the Tailscale IP.
+
+### Legacy forge wiki paths
+
+If an older Hub used `wiki_path = "adhd-hub/wiki"`, migrate local config to repo-root `projects/`:
+
+```bash
+uv run adhd-hub forge-wiki-paths          # dry-run
+uv run adhd-hub forge-wiki-paths --apply  # write forge.json / project overrides
+```
+
+Move remote files under the forge repo separately (`adhd-hub/wiki/projects/` → `projects/`).
 
 ### B. Forge-first (wiki already on Gitea/GitHub)
 

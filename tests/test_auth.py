@@ -5,8 +5,9 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from adhd_hub.app import create_app
-from adhd_hub.auth import COOKIE_NAME, BrowserSessions
+from adhd_hub.auth import COOKIE_NAME
 from adhd_hub.config import Settings, load_settings
+from adhd_hub.sessions import BrowserSessions
 
 
 @pytest.fixture
@@ -59,6 +60,29 @@ def test_configured_public_url_is_accepted_behind_tls_proxy(tmp_path):
     assert response.status_code == 200
 
 
+def test_trusted_proxy_sets_secure_cookie(tmp_path: Path):
+    app = create_app(
+        Settings(
+            data_dir=tmp_path,
+            auth_token="secret",
+            trust_proxy_headers=True,
+            public_url="https://adhd.example",
+        )
+    )
+    with TestClient(app, base_url="http://adhd-hub.internal:8787") as client:
+        response = client.post(
+            "/api/auth/login",
+            headers={
+                "X-Hub-Request": "1",
+                "Origin": "https://adhd.example",
+                "X-Forwarded-Proto": "https",
+            },
+            json={"token": "secret"},
+        )
+    assert response.status_code == 200
+    assert "Secure" in response.headers["set-cookie"]
+
+
 def test_secure_cookie_and_bearer_compatibility(tmp_path):
     with TestClient(
         create_app(Settings(data_dir=tmp_path, auth_token="secret")), base_url="https://testserver"
@@ -84,17 +108,25 @@ def test_secure_cookie_and_bearer_compatibility(tmp_path):
         assert client.post("/mcp", json={}).headers["www-authenticate"] == "Bearer"
 
 
-def test_session_expiry_and_capacity():
-    sessions = BrowserSessions()
+def test_session_expiry_and_capacity(tmp_path: Path):
+    sessions = BrowserSessions(tmp_path / "sessions.sqlite3")
     token = sessions.create()
     assert sessions.valid(token)
-    sessions.tokens[token] = 0
+    sessions.expire_now(token)
     assert not sessions.valid(token)
     assert not sessions.valid("invented")
     for _ in range(1030):
         sessions.create()
-    assert len(sessions.tokens) == 1024
-    assert token not in sessions.tokens
+    assert sessions.count() == 1024
+    assert token not in sessions
+
+
+def test_sessions_survive_reopen(tmp_path: Path):
+    path = tmp_path / "sessions.sqlite3"
+    first = BrowserSessions(path)
+    token = first.create()
+    second = BrowserSessions(path)
+    assert second.valid(token)
 
 
 def test_network_bind_requires_token(tmp_path):

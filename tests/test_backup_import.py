@@ -33,6 +33,25 @@ def test_backup_roundtrip(tmp_path: Path) -> None:
     ).startswith("# Demo")
 
 
+def test_encrypted_backup_roundtrip(tmp_path: Path) -> None:
+    from adhd_hub.backup import is_encrypted_backup
+
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "prefs.json").write_text('{"timezone":"UTC"}', encoding="utf-8")
+    (data / "hub.sqlite3").write_bytes(b"sqlite-placeholder")
+    archive = export_data_dir(data, passphrase="correct horse")
+    assert is_encrypted_backup(archive)
+    dest = tmp_path / "restored"
+    try:
+        import_data_dir(dest, archive)
+        raise AssertionError("expected passphrase error")
+    except ValueError as exc:
+        assert "passphrase" in str(exc).lower()
+    result = import_data_dir(dest, archive, passphrase="correct horse")
+    assert "prefs.json" in result["restored"]
+
+
 def test_title_from_progress() -> None:
     assert HubService._title_from_progress("# Cool Project\n\nbody", "x") == "Cool Project"
     assert HubService._title_from_progress(None, "my-app") == "My App"

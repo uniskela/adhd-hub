@@ -91,6 +91,7 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 3. Forge legacy path cleanup helper (`adhd-hub/wiki/**` → root `projects/`).
 4. Backup schedule docs + optional encrypted backup passphrase.
 5. `doctor` remote checks: forge reachability, OpenClaw test hook, indexer last run.
+6. Installable PWA for `/ui` (manifest + shell-only service worker).
 
 ## Wave 4 — Design system & maintainability
 
@@ -129,7 +130,7 @@ Only after Waves 0–2 feel stable:
 | 0 Client wire-up | Shipped in 0.3.5 |
 | 1 ADHD UX depth | Shipped in 0.3.6 (PR #22 / issue #16) |
 | 2 MCP parity | Shipped in 0.3.6 (PR #24 / issue #17) |
-| 3 Homelab ops | Next — issue #18 |
+| 3 Homelab ops + PWA | This PR — issue #18 |
 | 4 Maintainability | After Wave 3 — issue #19 |
 | 5 Optional integrations | Opt-in only after 0–2 feel stable — issue #20 |
 

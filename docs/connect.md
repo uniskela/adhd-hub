@@ -18,14 +18,19 @@ curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project --agent
 
 ### Windows PowerShell
 
+Prefer download-then-run (more reliable when `iex` is blocked by policy):
+
 ```powershell
 $env:ADHD_HUB_AUTH_TOKEN = "..."
-irm "$env:ADHD_HUB_PUBLIC_URL/install.ps1" | iex
-# explicit project + flags:
-iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project' -Register -DryRun"
-# safer download-then-run (when iex is blocked):
 iwr "$env:ADHD_HUB_PUBLIC_URL/install.ps1" -OutFile $env:TEMP\adhd-hub-install.ps1
-powershell -ExecutionPolicy Bypass -File $env:TEMP\adhd-hub-install.ps1 -Project . -Register
+powershell -ExecutionPolicy Bypass -File $env:TEMP\adhd-hub-install.ps1 -Project 'C:\path\to\project' -Register
+```
+
+One-liner (when `iex` is allowed):
+
+```powershell
+$env:ADHD_HUB_AUTH_TOKEN = "..."
+iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project' -Register -DryRun"
 ```
 
 Both scripts look for `adhd-hub` or `uvx` on `PATH`, then run `adhd-hub connect` with the Hub URL baked in. Prefer `uv tool install adhd-hub` once per machine.

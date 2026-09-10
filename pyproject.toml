@@ -49,6 +49,8 @@ include = [
 "src/adhd_hub/ui/index.html" = "adhd_hub/ui/index.html"
 "src/adhd_hub/ui/app.css" = "adhd_hub/ui/app.css"
 "src/adhd_hub/ui/app.js" = "adhd_hub/ui/app.js"
+"src/adhd_hub/ui/manifest.webmanifest" = "adhd_hub/ui/manifest.webmanifest"
+"src/adhd_hub/ui/sw.js" = "adhd_hub/ui/sw.js"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
