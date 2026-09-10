@@ -1,4 +1,4 @@
-import { preferences, prefersReducedMotion, $, setMsg, escapeHtml, state } from './state.js';
+import { state, preferences, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 
 export function renderRewards() {
     const enabled = $("rewards-enabled").checked;

@@ -20,9 +20,9 @@ COOKIE_NAME = "adhd_hub_session"
 
 # Re-export for callers/tests that imported from auth.
 __all__ = [
-    "BrowserSessions",
     "COOKIE_NAME",
     "SESSION_SECONDS",
+    "BrowserSessions",
     "auth_dependency",
     "build_auth_router",
     "cookie_should_be_secure",

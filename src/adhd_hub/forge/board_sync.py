@@ -386,7 +386,7 @@ class BoardForgeSync:
                 (lab.get("name") if isinstance(lab, dict) else str(lab))
                 for lab in (raw.get("labels") or [])
             }
-            if self.config.provider == ForgeProvider.gitea and label not in names:
+            if label not in names:
                 continue
             if synced and synced in names:
                 continue

@@ -18,9 +18,14 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
 
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
-        assert "Service-Worker-Allowed" in sw.headers
-        assert "adhd-hub-shell-v4" in sw.text
+        assert sw.headers.get("service-worker-allowed") == "/ui/"
+        assert "adhd-hub-shell-v5" in sw.text
         assert "/ui/js/boot.js" in sw.text
+        assert '"/ui/app.css"' in sw.text or "/ui/app.css" in sw.text
+
+        slashless = client.get("/ui", follow_redirects=False)
+        assert slashless.status_code == 301
+        assert slashless.headers["location"].endswith("/ui/")
 
         icon = client.get("/ui/brand/icon-192.png")
         assert icon.status_code == 200
@@ -29,14 +34,20 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         home = client.get("/ui/")
         assert home.status_code == 200
         assert b'type="module" src="/ui/js/boot.js"' in home.content
+        assert b'src="/ui/app.js"' not in home.content
+        assert b'<script src="/ui/app.js"' not in home.content
         assert b'id="chart-summary"' in home.content
         assert b'aria-live="polite"' in home.content
         assert b'name="mobile-web-app-capable"' in home.content
         assert b'name="apple-mobile-web-app-capable"' in home.content
 
+        root = client.get("/")
+        assert root.json()["ui"] == "/ui/"
+
         boot = client.get("/ui/js/boot.js")
         assert boot.status_code == 200
         assert "export async function loadAll" in boot.text or "loadAll" in boot.text
+        assert 'register("/ui/sw.js", { scope: "/ui/" })' in boot.text
 
         for name in (
             "state.js",

@@ -1,4 +1,4 @@
-import { $, state } from './state.js';
+import { state, $ } from './state.js';
 import { selectProject } from './work.js';
 
 export function showScreen(screen) {

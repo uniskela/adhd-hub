@@ -143,13 +143,13 @@ class Wiki:
         lines.append("")
         block = "\n".join(lines)
         text = path.read_text(encoding="utf-8")
-        if re.search(r"^## Forge\s*$", text, re.M):
+        if re.search(r"^## Forge\s*$", text, re.MULTILINE):
             text = re.sub(
                 r"^## Forge\s*\n(?:.*?\n)*?(?=^## |\Z)",
                 block,
                 text,
                 count=1,
-                flags=re.M,
+                flags=re.MULTILINE,
             )
         else:
             if "## Progress log" in text:

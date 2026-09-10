@@ -70,7 +70,7 @@ For calm, resumable project notes and plans, use the [ADHD-friendly writing guid
 
 MCP endpoint: `http://<host>:8787/mcp`  
 REST docs: `http://<host>:8787/docs`  
-UI: `http://<host>:8787/ui`
+UI: `http://<host>:8787/ui/`
 
 ## MCP tools
 
@@ -130,7 +130,7 @@ See [docs/deploy-homelab.md](docs/deploy-homelab.md). Typical pattern: Docker on
 
 ## Optional forge sync (GitHub / Gitea)
 
-Open **http://127.0.0.1:8787/ui** after `serve` / compose. Project-first dashboard: pick a project, do **Next up**, Settings (token / timezone / forge) stays out of the way. Timezone defaults to your browser local zone on first visit (`ADHD_HUB_TIMEZONE` / `data/prefs.json`).
+Open **http://127.0.0.1:8787/ui/** after `serve` / compose. Project-first dashboard: pick a project, do **Next up**, Settings (token / timezone / forge) stays out of the way. Timezone defaults to your browser local zone on first visit (`ADHD_HUB_TIMEZONE` / `data/prefs.json`).
 
 - **Wiki sync** — pushes `INDEX.md` + `projects/<slug>/PROGRESS.md` (primary memory: **repo root**; otherwise under Wiki path)
 - **Board sync** — mirrors threads as Issues with labels `adhd-hub` + `project:<slug>`; optionally attaches to a Gitea/GitHub project board id
@@ -148,10 +148,10 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 ## Privacy
 
 - Default store: SQLite + markdown wiki under `data/`  
-- Auth: REST and MCP accept bearer tokens. `/ui` supports a separate dashboard password, with `ADHD_HUB_AUTH_TOKEN` for initial setup and recovery. Both issue a 12-hour HttpOnly, SameSite=Strict session cookie; credentials are never stored in localStorage. See [password setup and recovery](docs/authentication.md). Log out revokes the session. Sessions are held in process memory, so restarting the server signs browsers out; run one worker. HTTPS sets the Secure cookie flag (configure trusted proxy headers when terminating TLS upstream).
+- Auth: REST and MCP accept bearer tokens. `/ui/` supports a separate dashboard password, with `ADHD_HUB_AUTH_TOKEN` for initial setup and recovery. Both issue a 12-hour HttpOnly, SameSite=Strict session cookie; credentials are never stored in localStorage. See [password setup and recovery](docs/authentication.md). Log out revokes the session. Browser sessions are stored in SQLite (`data/browser_sessions.sqlite3`) and survive a restart; login throttles stay in process memory. HTTPS sets the Secure cookie flag (configure trusted proxy headers when terminating TLS upstream).
 - Default-token development mode is allowed only with a loopback bind. Set a long random token before binding to `0.0.0.0`; generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Use HTTPS for remote access.
 - Cookie-authenticated writes require `X-Hub-Request: 1` and a matching Origin when present. CLI and MCP clients continue using bearer auth.
-- Environment variables override `.env`, which overrides TOML configuration. `ADHD_HUB_PUBLIC_URL` sets the external base URL used in forge links.
+- Settings precedence is process environment, then the first nonempty TOML file (`--config`, `./config.toml`, or `~/.config/adhd-hub/config.toml`), then `.env`. `ADHD_HUB_PUBLIC_URL` sets the external base URL used in forge links.
 - Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy and strong token
 - Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md))
 

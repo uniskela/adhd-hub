@@ -1,4 +1,4 @@
-import { $, setMsg, escapeHtml, state } from './state.js';
+import { state, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink } from './dom.js';
 import { loadAll } from './load.js';

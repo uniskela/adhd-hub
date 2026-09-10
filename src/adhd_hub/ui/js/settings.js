@@ -1,4 +1,4 @@
-import { preferences, tzKey, $, setMsg, escapeHtml, state } from './state.js';
+import { state, preferences, tzKey, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
 import { logout, showLogin } from './auth.js';
 import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';

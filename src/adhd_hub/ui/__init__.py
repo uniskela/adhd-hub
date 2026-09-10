@@ -28,7 +28,11 @@ UI_JS_MODULES = {
 def build_ui_router() -> APIRouter:
     router = APIRouter()
 
-    @router.get("/ui", response_class=HTMLResponse)
+    @router.get("/ui")
+    def ui_root():
+        # Trailing slash so the PWA service worker scope `/ui/` covers the document.
+        return RedirectResponse(url="/ui/", status_code=301)
+
     @router.get("/ui/", response_class=HTMLResponse)
     def ui_home():
         return FileResponse(UI_DIR / "index.html")

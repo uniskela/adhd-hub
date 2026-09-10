@@ -61,6 +61,12 @@ def test_list_inbox_issues_filters_synced_prs_and_authors() -> None:
             "user": {"login": "random-person"},
             "labels": [{"name": "adhd-hub"}],
         },
+        {
+            "number": 5,
+            "title": "[ADHD] Title only without hub label",
+            "user": {"login": "trusted-user"},
+            "labels": [],
+        },
     ]
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -70,6 +76,7 @@ def test_list_inbox_issues_filters_synced_prs_and_authors() -> None:
         client = client_cls.return_value.__enter__.return_value
         client.get.return_value = mock_resp
         issues = board.list_inbox_issues()
+    assert client.get.call_args.kwargs["params"]["labels"] == "adhd-hub"
     assert len(issues) == 1
     assert issues[0]["number"] == 1
 

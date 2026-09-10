@@ -161,14 +161,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {
             "name": "adhd-hub",
             "docs": "/docs",
-            "ui": "/ui",
+            "ui": "/ui/",
             "health": "/api/health",
             "mcp": "/mcp",
             "install": "/install.sh",
             "install_sh": "/install.sh",
             "install_ps1": "/install.ps1",
             "hint": (
-                "Open /ui for the dashboard. MCP at /mcp with Authorization Bearer token. "
+                "Open /ui/ for the dashboard. MCP at /mcp with Authorization Bearer token. "
                 "macOS/Linux: curl -fsSL <hub>/install.sh | sh -s -- . "
                 "Windows: irm <hub>/install.ps1 | iex"
             ),

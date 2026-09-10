@@ -5,7 +5,7 @@ The hub has two independent credentials: a dashboard password for everyday brows
 ## First-time setup
 
 1. Set `ADHD_HUB_AUTH_TOKEN` to a private random value on the server and restart the hub. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Keep it in your environment or untracked `.env`.
-2. Open `/ui` and sign in with that access token.
+2. Open `/ui/` and sign in with that access token.
 3. Choose **Create password**, or **Settings → Sign-in & security → Create or change password**. Verify with your access token, then enter and confirm a password of at least 12 characters. It must differ from your access token.
 4. Future visits default to password sign-in. The page supports password managers and a show/hide control.
 
@@ -21,7 +21,7 @@ If you forget your password, choose **Use recovery access token** on the sign-in
 
 - Passwords are salted and hashed with scrypt (`N=32768`, `r=8`, `p=3`, 32-byte output), atomically stored in `data/dashboard-password.hash` with mode `0600`. The password itself is never saved.
 - Browser sessions expire after 12 hours. Cookies are HttpOnly and SameSite=Strict; HTTPS enables Secure. Credentials are never written to localStorage.
-- Sessions and login throttles are held in process memory. Run a single worker. Restarting signs browsers out, but preserves the password hash.
+- Sessions are stored in SQLite (`data/browser_sessions.sqlite3`) and survive process restart and multiple workers. Login throttles stay in process memory, so a restart clears those counters.
 - Password setup, password sign-in, and token sign-in share a limit of five attempts per client IP per minute. A successful attempt clears that client's counter. Configure trusted proxy headers correctly so a reverse proxy supplies the real client IP and HTTPS scheme.
 - Cookie-authenticated writes require `X-Hub-Request: 1`; an Origin, when present, must match the server origin. Use HTTPS for remote access.
 - Backup export deliberately excludes the password hash and browser sessions. Restoring project data does not overwrite credentials. On a new machine, set its server token and create a password again, or separately migrate the private hash file while retaining its permissions.
