@@ -24,8 +24,8 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 | Done | Inbox harden | Author allowlist (0.3.5) |
 | Done | Wave 1 | ADHD UX depth in `/ui` (#16 / PR #22) — shipped in 0.3.6 |
 | Done | Wave 2 | MCP parity + OpenClaw memory (#17 / PR #24) — shipped in 0.3.6 |
-| Now | Wave 3 | Homelab ops, trust, PWA (#18) |
-| Then | Wave 4 | Split `app.js` / facades / a11y (#19) |
+| Done | Wave 3 | Homelab ops, trust, PWA (#18) — shipped toward 0.3.7 |
+| Now | Wave 4 | Split `app.js` / facades / a11y (#19) |
 | Opt-in | Wave 5 | Slack/Discord, calendar; leaderboard only with identity review (#20) |
 
 Wave 1 + Wave 2 shipped together in **0.3.6**. Do not start Wave 5 early (see issue #20).
@@ -56,7 +56,7 @@ Wave 1 + Wave 2 shipped together in **0.3.6**. Do not start Wave 5 early (see is
 5. `doctor` remote checks (forge, OpenClaw, indexer).
 6. Installable PWA for `/ui` (manifest + shell service worker).
 
-**Status:** this PR / issue #18.
+**Status:** shipped with Wave 3 ops / PWA (issue #18 / PR #26 → 0.3.7 path).
 
 ## Wave 4 — Design system & maintainability
 
@@ -64,6 +64,8 @@ Wave 1 + Wave 2 shipped together in **0.3.6**. Do not start Wave 5 early (see is
 2. Facades for forge/openclaw out of `HubService`.
 3. A11y pass (focus order, live regions, chart alternatives).
 4. Calm motion only; no streak guilt.
+
+**Status:** this PR / issue #19.
 
 ## Wave 5 — Optional integrations
 

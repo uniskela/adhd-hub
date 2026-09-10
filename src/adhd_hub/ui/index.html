@@ -72,7 +72,7 @@
       </div>
     </header>
     <main id="main-content" tabindex="-1">
-      <p id="msg" class="msg" role="status"></p>
+      <p id="msg" class="msg" role="status" aria-live="polite"></p>
       <section id="now-view" class="view now-view" aria-label="Now">
         <div class="view-heading"><p class="eyebrow">NOW</p><h1>One thing at a time.</h1></div>
         <section class="focus" id="focus-panel" aria-labelledby="focus-title">
@@ -149,6 +149,7 @@
         <div class="view-heading"><h1>Progress, at your pace.</h1><p>Your finished work stays here when you take a break.</p></div>
         <details class="progress-numbers"><summary>Show my activity</summary><div class="stats" id="stats"></div>
           <details class="activity-details"><summary>Your last 14 days</summary><div class="chart-wrap" id="chart-wrap" hidden>
+            <p id="chart-summary" class="chart-summary hint"></p>
             <p class="eyebrow">Last 14 days · gold: added · teal: finished</p>
             <div class="chart" id="chart" role="img" aria-label="Activity over the last 14 days"></div>
           </div></details>        </details>
@@ -181,7 +182,7 @@
       <button type="button" role="tab" id="tab-connections" aria-controls="settings-connections" aria-selected="false" tabindex="-1" data-settings-tab="connections">Connections</button>
       <button type="button" role="tab" id="tab-data" aria-controls="settings-data" aria-selected="false" tabindex="-1" data-settings-tab="data">Data</button>
     </div>
-    <p id="settings-msg" class="msg" role="status"></p>
+    <p id="settings-msg" class="msg" role="status" aria-live="polite"></p>
     <div class="settings-content">
       <section id="settings-preferences" role="tabpanel" aria-labelledby="tab-preferences" tabindex="0">
         <h3>Your space, your pace.</h3><p class="hint">Appearance and rewards save automatically in this browser.</p>
@@ -399,6 +400,6 @@
     </form>
   </dialog>
   <div id="celebration" class="celebration" role="status" hidden></div>
-  <script src="/ui/app.js"></script>
+  <script type="module" src="/ui/js/boot.js"></script>
 </body>
 </html>

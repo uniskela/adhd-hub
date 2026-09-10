@@ -1,11 +1,23 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
-const CACHE = "adhd-hub-shell-v2";
+const CACHE = "adhd-hub-shell-v3";
 const PRECACHE = [
   "/ui/",
   "/ui/manifest.webmanifest",
   "/ui/brand/icon.svg",
   "/ui/brand/icon-192.png",
   "/ui/brand/icon-512.png",
+  "/ui/js/boot.js",
+  "/ui/js/state.js",
+  "/ui/js/api.js",
+  "/ui/js/auth.js",
+  "/ui/js/dom.js",
+  "/ui/js/screens.js",
+  "/ui/js/theme.js",
+  "/ui/js/load.js",
+  "/ui/js/now.js",
+  "/ui/js/work.js",
+  "/ui/js/progress.js",
+  "/ui/js/settings.js",
 ];
 
 self.addEventListener("install", (event) => {

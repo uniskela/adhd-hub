@@ -138,7 +138,8 @@ class OpenClawFacade:
         if sent:
             self._hub.store.touch_reminded([t.id for t in limited])
             # Digest the nudged (often older) threads — not only recently updated opens.
-            memory = await self.push_openclaw_memory(
+            # Call through HubService so tests/callers can mock the public method.
+            memory = await self._hub.push_openclaw_memory(
                 threads=limited,
                 note="After stale nudge",
             )

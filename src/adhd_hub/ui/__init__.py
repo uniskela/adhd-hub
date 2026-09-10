@@ -3,9 +3,26 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 
 UI_DIR = Path(__file__).resolve().parent
+JS_DIR = UI_DIR / "js"
+
+# Allowlisted ES modules under /ui/js/
+UI_JS_MODULES = {
+    "state.js",
+    "dom.js",
+    "api.js",
+    "auth.js",
+    "theme.js",
+    "screens.js",
+    "now.js",
+    "work.js",
+    "progress.js",
+    "settings.js",
+    "load.js",
+    "boot.js",
+}
 
 
 def build_ui_router() -> APIRouter:
@@ -21,8 +38,18 @@ def build_ui_router() -> APIRouter:
         return FileResponse(UI_DIR / "app.css", media_type="text/css")
 
     @router.get("/ui/app.js")
-    def ui_js():
-        return FileResponse(UI_DIR / "app.js", media_type="application/javascript")
+    def ui_js_legacy():
+        # Monolith replaced by ES modules; keep old URL working.
+        return RedirectResponse(url="/ui/js/boot.js", status_code=307)
+
+    @router.get("/ui/js/{name}")
+    def ui_js_module(name: str):
+        if name not in UI_JS_MODULES:
+            raise HTTPException(404, "Asset not found")
+        path = JS_DIR / name
+        if not path.is_file():
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(path, media_type="text/javascript")
 
     @router.get("/ui/manifest.webmanifest")
     def ui_manifest():
