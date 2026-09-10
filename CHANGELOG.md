@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8](https://github.com/uniskela/adhd-hub/compare/v0.3.7...v0.3.8) (2026-09-10)
+
+
+### Features
+
+* Wave 4 — maintainability, UI modules, and a11y ([#19](https://github.com/uniskela/adhd-hub/issues/19)) ([#28](https://github.com/uniskela/adhd-hub/issues/28)) ([500a1fe](https://github.com/uniskela/adhd-hub/commit/500a1fe54fbb0a91c52afed3e65f082bd4d2e373))
+
 ## [0.3.7](https://github.com/uniskela/adhd-hub/compare/v0.3.6...v0.3.7) (2026-09-10)
 
 
