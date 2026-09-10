@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Split src/adhd_hub/ui/app.js IIFE into ES modules under ui/js/."""
+"""Split src/adhd_hub/ui/app.js IIFE into ES modules under ui/js.
+
+Mutable app state must live on a plain `state` object. Imported `let`
+bindings are read-only in other modules (Assignment to constant variable).
+"""
 from __future__ import annotations
 
 import re
@@ -105,16 +109,14 @@ MODULE_MAP: dict[str, list[str]] = {
     "load": ["loadOverview", "loadAll"],
 }
 
-STATE_EXPORT_ORDER = [
-    "preferences",
+# Fields that modules reassign — must be properties of `state`, not exported lets.
+MUTABLE_STATE = [
     "authStatus",
     "loginMode",
     "celebrationTimeout",
-    "completing",
     "threadsCache",
     "threadsRequest",
     "projectRequest",
-    "tzKey",
     "currentView",
     "projectFilter",
     "overviewCache",
@@ -133,14 +135,22 @@ STATE_EXPORT_ORDER = [
     "focusTimerId",
     "archivedProjectsCache",
     "currentTz",
+    "repoUrl",
+    "repoDisplayUrl",
+]
+
+HELPER_EXPORT_ORDER = [
+    "preferences",
+    "completing",
+    "tzKey",
     "prefersReducedMotion",
     "$",
     "setMsg",
     "escapeHtml",
-    "repoUrl",
-    "repoDisplayUrl",
     "initRepoLinks",
 ]
+
+STATE_EXPORT_ORDER = ["state", *HELPER_EXPORT_ORDER]
 
 
 def strip_iife(text: str) -> str:
@@ -189,31 +199,111 @@ def split_functions(region: str) -> tuple[str, dict[str, str]]:
     return preamble, functions
 
 
-def build_state_js(preamble: str) -> str:
-    pre = re.sub(
-        r"^[\s\S]*?preferences\.removeItem\([^\n]+\);\n",
-        "",
-        preamble,
-        count=1,
-    )
-    pre = re.sub(r"^  let ", "export let ", pre, flags=re.M)
-    pre = re.sub(r"^  const completing =", "export const completing =", pre, flags=re.M)
-    pre = re.sub(r"^  const tzKey =", "export const tzKey =", pre, flags=re.M)
-    pre = re.sub(
-        r"^  const (prefersReducedMotion|\$|setMsg|escapeHtml) =",
-        r"export const \1 =",
-        pre,
-        flags=re.M,
-    )
-    pre = re.sub(
-        r"^  const repoUrl = \$\(\"repo-link\"\)\.href;\n"
-        r"  const repoDisplayUrl = repoUrl\.replace\(/\^https:\/\//, \"\"\);\n",
-        "",
-        pre,
-        flags=re.M,
-    )
+def qualify_mutable_refs(src: str) -> str:
+    """Rewrite bare mutable identifiers to state.NAME (string/comment aware)."""
+    mutable = set(MUTABLE_STATE)
+    out: list[str] = []
+    i = 0
+    n = len(src)
+    while i < n:
+        ch = src[i]
+        if ch in "'\"`":
+            quote = ch
+            j = i + 1
+            while j < n:
+                if src[j] == "\\":
+                    j += 2
+                    continue
+                if quote == "`" and src[j] == "$" and j + 1 < n and src[j + 1] == "{":
+                    # Emit prefix through `${`, then qualify expression, then continue.
+                    out.append(src[i:j + 2])
+                    j += 2
+                    depth = 1
+                    expr_start = j
+                    while j < n and depth:
+                        if src[j] in "'\"":
+                            q = src[j]
+                            j += 1
+                            while j < n:
+                                if src[j] == "\\":
+                                    j += 2
+                                    continue
+                                if src[j] == q:
+                                    j += 1
+                                    break
+                                j += 1
+                            continue
+                        if src[j] == "`":
+                            # nested template — recurse via qualify on substring later
+                            k = j + 1
+                            while k < n:
+                                if src[k] == "\\":
+                                    k += 2
+                                    continue
+                                if src[k] == "`":
+                                    k += 1
+                                    break
+                                if src[k] == "$" and k + 1 < n and src[k + 1] == "{":
+                                    # let outer loop handle nested via full qualify of expr
+                                    pass
+                                k += 1
+                            j = k
+                            continue
+                        if src[j] == "{":
+                            depth += 1
+                        elif src[j] == "}":
+                            depth -= 1
+                        j += 1
+                    expr = src[expr_start : j - 1]
+                    out.append(qualify_mutable_refs(expr))
+                    out.append("}")
+                    i = j
+                    # continue scanning the rest of the template after }
+                    # Reset quote scan from current i looking for closing `
+                    # Actually we're still inside the template — keep scanning as template
+                    quote = "`"
+                    continue
+                if src[j] == quote:
+                    j += 1
+                    break
+                j += 1
+            out.append(src[i:j])
+            i = j
+            continue
+        if ch == "/" and i + 1 < n and src[i + 1] == "/":
+            j = src.find("\n", i)
+            if j < 0:
+                j = n
+            out.append(src[i:j])
+            i = j
+            continue
+        if ch == "/" and i + 1 < n and src[i + 1] == "*":
+            j = src.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append(src[i:j])
+            i = j
+            continue
+        if ch.isalpha() or ch in "_$":
+            j = i + 1
+            while j < n and (src[j].isalnum() or src[j] in "_$"):
+                j += 1
+            ident = src[i:j]
+            prev = "".join(out).rstrip()
+            if ident in mutable and not prev.endswith("."):
+                out.append("state." + ident)
+            else:
+                out.append(ident)
+            i = j
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out).replace("state.state.", "state.")
+
+
+def build_state_js(_preamble: str) -> str:
+    """Emit helpers + mutable state bag (ignores IIFE preamble shape beyond validation)."""
     return (
-        "/** Shared mutable UI state and helpers (ES module live bindings). */\n"
+        "/** Shared mutable UI state and helpers (plain object so modules can assign). */\n"
         "const preferenceCache = new Map();\n"
         "export const preferences = {\n"
         "  getItem(key) {\n"
@@ -230,13 +320,55 @@ def build_state_js(preamble: str) -> str:
         "  },\n"
         "};\n"
         'preferences.removeItem("adhd_hub_token");\n\n'
-        + pre.strip("\n")
-        + "\n\n"
-        'export let repoUrl = "";\n'
-        'export let repoDisplayUrl = "";\n'
+        "export const completing = new Set();\n"
+        'export const tzKey = "adhd_hub_timezone";\n'
+        "export const prefersReducedMotion = () =>\n"
+        '    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;\n\n'
+        "export const $ = (id) => document.getElementById(id);\n"
+        "export const setMsg = (t) => {\n"
+        '  $("msg").textContent = t || "";\n'
+        '  $("settings-msg").textContent = t || "";\n'
+        "};\n"
+        "export const escapeHtml = (s) =>\n"
+        "  String(s ?? \"\")\n"
+        '    .replaceAll("&", "&amp;")\n'
+        '    .replaceAll("<", "&lt;")\n'
+        '    .replaceAll(">", "&gt;")\n'
+        "    .replaceAll('\"', \"&quot;\");\n\n"
+        "export const state = {\n"
+        "  authStatus: { password_configured: false, development_mode: false },\n"
+        '  loginMode: "token",\n'
+        "  celebrationTimeout: undefined,\n"
+        "  threadsCache: [],\n"
+        "  threadsRequest: 0,\n"
+        "  projectRequest: 0,\n"
+        '  currentView: "open",\n'
+        "  projectFilter: null,\n"
+        "  overviewCache: null,\n"
+        "  detailCache: null,\n"
+        '  activeScreen: "now",\n'
+        '  chosenId: preferences.getItem("adhd_hub_chosen_thread"),\n'
+        "  chosenThread: null,\n"
+        '  focusState: preferences.getItem("adhd_hub_focus_state") || "ready",\n'
+        "  focusRequest: 0,\n"
+        "  pauseTarget: null,\n"
+        '  nowMessage: "",\n'
+        "  shareFile: null,\n"
+        "  shareVersion: 0,\n"
+        '  focusModeOn: preferences.getItem("adhd_hub_focus_mode") === "true",\n'
+        '  focusEndsAt: Number(preferences.getItem("adhd_hub_focus_ends_at") || 0) || 0,\n'
+        "  focusTimerId: null,\n"
+        "  archivedProjectsCache: [],\n"
+        "  currentTz:\n"
+        "    preferences.getItem(tzKey) ||\n"
+        "    Intl.DateTimeFormat().resolvedOptions().timeZone ||\n"
+        '    "UTC",\n'
+        '  repoUrl: "",\n'
+        '  repoDisplayUrl: "",\n'
+        "};\n\n"
         "export function initRepoLinks() {\n"
-        '  repoUrl = $("repo-link").href;\n'
-        '  repoDisplayUrl = repoUrl.replace(/^https:\\/\\//, "");\n'
+        '  state.repoUrl = $("repo-link").href;\n'
+        '  state.repoDisplayUrl = state.repoUrl.replace(/^https:\\/\\//, "");\n'
         "}\n"
     )
 
@@ -246,6 +378,9 @@ def used_names(chunk: str, names: list[str]) -> list[str]:
     for n in names:
         if n == "$":
             if re.search(r"(?<![\w$])\$(?![\w$])", chunk):
+                found.append(n)
+        elif n == "state":
+            if re.search(r"(?<![\w.$])state(?![\w$])", chunk):
                 found.append(n)
         elif re.search(rf"\b{re.escape(n)}\b", chunk):
             found.append(n)
@@ -325,7 +460,7 @@ def write_module(
     state_need: set[str] = set()
     from_mod: dict[str, set[str]] = {}
     chunks: list[str] = []
-    state_names = [s for s in STATE_EXPORT_ORDER if s != "initRepoLinks"]
+    helper_names = list(HELPER_EXPORT_ORDER)
     for n in names:
         chunk = functions[n]
         if n == "celebrate":
@@ -334,9 +469,11 @@ def write_module(
             chunk = patch_show_screen(chunk)
         elif n == "renderStats":
             chunk = patch_render_stats(chunk)
+        chunk = qualify_mutable_refs(chunk)
         chunks.append(chunk)
-        # Recompute after patches so injected symbols (e.g. $) are imported.
-        state_need.update(used_names(chunk, state_names))
+        if used_names(chunk, MUTABLE_STATE) or "state." in chunk:
+            state_need.add("state")
+        state_need.update(used_names(chunk, helper_names))
         for f in functions:
             if f == n:
                 continue
@@ -344,6 +481,8 @@ def write_module(
                 om = owner[f]
                 if om != mod:
                     from_mod.setdefault(om, set()).add(f)
+    # Drop false positives: mutable names already qualified still match used_names
+    # via state.focusEndsAt containing focusEndsAt — filter helpers only above.
     lines: list[str] = []
     if state_need:
         ordered = [s for s in STATE_EXPORT_ORDER if s in state_need]
@@ -362,8 +501,10 @@ def write_module(
 
 
 def write_boot(boot_code: str, functions: dict[str, str], owner: dict[str, str]) -> None:
-    state_names = [s for s in STATE_EXPORT_ORDER if s != "initRepoLinks"]
-    state_need = set(used_names(boot_code, state_names))
+    boot_code = qualify_mutable_refs(boot_code)
+    state_need = set(used_names(boot_code, HELPER_EXPORT_ORDER))
+    if "state." in boot_code or used_names(boot_code, MUTABLE_STATE):
+        state_need.add("state")
     state_need.update({"initRepoLinks", "$", "setMsg", "preferences"})
     from_mod: dict[str, set[str]] = {}
     for f in functions:

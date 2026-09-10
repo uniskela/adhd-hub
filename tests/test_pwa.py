@@ -19,7 +19,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert "Service-Worker-Allowed" in sw.headers
-        assert "adhd-hub-shell-v3" in sw.text
+        assert "adhd-hub-shell-v4" in sw.text
         assert "/ui/js/boot.js" in sw.text
 
         icon = client.get("/ui/brand/icon-192.png")
@@ -31,6 +31,8 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'type="module" src="/ui/js/boot.js"' in home.content
         assert b'id="chart-summary"' in home.content
         assert b'aria-live="polite"' in home.content
+        assert b'name="mobile-web-app-capable"' in home.content
+        assert b'name="apple-mobile-web-app-capable"' in home.content
 
         boot = client.get("/ui/js/boot.js")
         assert boot.status_code == 200

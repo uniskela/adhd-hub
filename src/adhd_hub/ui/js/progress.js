@@ -1,20 +1,20 @@
-import { preferences, celebrationTimeout, overviewCache, shareFile, shareVersion, prefersReducedMotion, $, setMsg, escapeHtml, repoUrl, repoDisplayUrl } from './state.js';
+import { preferences, prefersReducedMotion, $, setMsg, escapeHtml, state } from './state.js';
 
 export function renderRewards() {
     const enabled = $("rewards-enabled").checked;
     $("rewards-panel").hidden = !enabled;
     $("rewards-off").hidden = enabled;
     $("daily-goal").disabled = !enabled;
-    if (!enabled || !overviewCache) return;
-    const total = overviewCache.done || 0;
-    const today = overviewCache.done_today || 0;
+    if (!enabled || !state.overviewCache) return;
+    const total = state.overviewCache.done || 0;
+    const today = state.overviewCache.done_today || 0;
     const goal = Number($("daily-goal").value);
     $("goal-count").textContent = `${today} / ${goal}`;
     $("daily-progress").max = goal;
     $("daily-progress").value = Math.min(today, goal);
     $("rewards-title").textContent = today >= goal ? "A little win, well earned." : "Small steps add up.";
     $("rewards-caption").textContent = today >= goal ? "You’ve met your goal. It’s okay to leave it here." : "Your progress stays with you. Breaks don’t reset it.";
-    const rewards = overviewCache.rewards;
+    const rewards = state.overviewCache.rewards;
     if (!rewards) return;
     $("reward-level").textContent = `Level ${rewards.level} · ${rewards.xp} XP · ${total} finished`;
     $("rank-name").textContent = rewards.rank.name;
@@ -45,14 +45,14 @@ export function badgeIcon(index) {
     return `<svg class="badge-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[index % paths.length]}</svg>`;
   }
 export function openSharePreview() {
-    const rewards = overviewCache?.rewards;
+    const rewards = state.overviewCache?.rewards;
     if (!rewards || !$("rewards-enabled").checked) return;
-    const version = ++shareVersion;
-    shareFile = null;
+    const version = ++state.shareVersion;
+    state.shareFile = null;
     $("btn-native-share").hidden = true;
     $("share-msg").textContent = "";
     const earned = rewards.badges.filter((badge) => badge.earned);
-    const text = `My Progress Hub: ${rewards.rank.name} · Level ${rewards.level} · ${rewards.xp} XP · ${rewards.completed} finished steps.\n${earned.length ? "Milestones: " + earned.map((badge) => badge.name).join(", ") + "." : "A fresh start. One step at a time."}\nSmall steps. Your pace.\n${repoUrl}`;
+    const text = `My Progress Hub: ${rewards.rank.name} · Level ${rewards.level} · ${rewards.xp} XP · ${rewards.completed} finished steps.\n${earned.length ? "Milestones: " + earned.map((badge) => badge.name).join(", ") + "." : "A fresh start. One step at a time."}\nSmall steps. Your pace.\n${state.repoUrl}`;
     $("share-text").value = text;
     const canvas = $("share-card");
     canvas.setAttribute("aria-label", text);
@@ -79,22 +79,22 @@ export function openSharePreview() {
     });
     ctx.fillStyle = "#5B6F66"; ctx.font = "22px system-ui, sans-serif"; ctx.fillText("Small steps. Your pace.", 64, 658);
     ctx.textAlign = "right"; ctx.font = "21px system-ui, sans-serif";
-    ctx.fillText(repoDisplayUrl, 1136, 658); ctx.textAlign = "left";
+    ctx.fillText(state.repoDisplayUrl, 1136, 658); ctx.textAlign = "left";
     $("share-dialog").showModal();
     canvas.toBlob((blob) => {
-      if (!blob || version !== shareVersion || !$("share-dialog").open) return;
-      shareFile = new File([blob], "progress-hub.png", { type: "image/png" });
-      try { $("btn-native-share").hidden = !(navigator.share && navigator.canShare?.({ files: [shareFile] })); }
+      if (!blob || version !== state.shareVersion || !$("share-dialog").open) return;
+      state.shareFile = new File([blob], "progress-hub.png", { type: "image/png" });
+      try { $("btn-native-share").hidden = !(navigator.share && navigator.canShare?.({ files: [state.shareFile] })); }
       catch (_) { $("btn-native-share").hidden = true; }
     }, "image/png");
   }
 export function celebrate() {
     if (!$("rewards-enabled").checked) return;
     if (prefersReducedMotion()) return;
-    clearTimeout(celebrationTimeout);
+    clearTimeout(state.celebrationTimeout);
     $("celebration").textContent = "One step finished. Take a breath.";
     $("celebration").hidden = false;
-    celebrationTimeout = setTimeout(() => { $("celebration").hidden = true; }, 4500);
+    state.celebrationTimeout = setTimeout(() => { $("celebration").hidden = true; }, 4500);
   }
 export function saveRewardPreferences() {
     preferences.setItem("adhd_hub_rewards", String($("rewards-enabled").checked));

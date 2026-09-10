@@ -1,14 +1,14 @@
-import { threadsRequest, projectRequest, projectFilter, activeScreen, $ } from './state.js';
+import { $, state } from './state.js';
 import { selectProject } from './work.js';
 
 export function showScreen(screen) {
-    activeScreen = screen;
+    state.activeScreen = screen;
     ["now", "work", "progress"].forEach((name) => { $(name + "-view").hidden = name !== screen; });
     document.querySelectorAll("[data-screen]").forEach((button) => {
       if (button.dataset.screen === screen) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
-    if (screen !== "work") { ++projectRequest; ++threadsRequest; }
+    if (screen !== "work") { ++state.projectRequest; ++state.threadsRequest; }
     const heading = $(screen + "-view")?.querySelector("h1");
     if (heading) {
       if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
@@ -17,5 +17,5 @@ export function showScreen(screen) {
   }
 export async function openWork() {
     showScreen("work");
-    await selectProject(projectFilter);
+    await selectProject(state.projectFilter);
   }
