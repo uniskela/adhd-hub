@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.7](https://github.com/uniskela/adhd-hub/compare/v0.3.6...v0.3.7) (2026-09-10)
+
+
+### Features
+
+* Wave 3 ops — durable sessions, PWA, encrypted backups ([#26](https://github.com/uniskela/adhd-hub/issues/26)) ([679018b](https://github.com/uniskela/adhd-hub/commit/679018beaccf758e6d483b48133b471f5f16cfb9))
+
+
+### Documentation
+
+* mark Waves 1–2 shipped in 0.3.6; next is Wave 3 ([#25](https://github.com/uniskela/adhd-hub/issues/25)) ([92495b5](https://github.com/uniskela/adhd-hub/commit/92495b5f028c9b425fb2493d92a7295e8c334f87))
+
 ## [0.3.6](https://github.com/uniskela/adhd-hub/compare/v0.3.5...v0.3.6) (2026-09-09)
 
 
