@@ -27,6 +27,14 @@ One-liner (when `iex` is allowed):
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project'"
 ```
 
+If `adhd-hub` is not on `PATH`, the install scripts use:
+
+```text
+uvx --from git+https://github.com/uniskela/adhd-hub.git adhd-hub …
+```
+
+(`adhd-hub` is not on PyPI yet.)
+
 What happens next:
 
 1. The CLI opens your browser to this Hub (or prints a short code like `ABCD-WXYZ`).
@@ -54,7 +62,17 @@ Project MCP snippets still interpolate an environment variable so they stay safe
 
 ## CLI wire-up flags
 
-Both install scripts look for `adhd-hub` or `uvx` on `PATH`, then run `adhd-hub connect` with the Hub URL baked in. Prefer `uv tool install adhd-hub` once per machine. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
+Both install scripts look for `uvx` first and install the CLI from **this Hub's** `/install/cli-wheel.url` (PEP 427 wheel matching the server), falling back to `git+https://github.com/uniskela/adhd-hub.git` if the wheel is missing. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
+
+`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Connections**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
+
+```powershell
+iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents 'cursor,codex,claude'"
+# or all agents:
+iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents '*'"
+```
+
+`--skill *` in the skills CLI means “both Hub skills” (projects + session), not “every coding agent.”
 
 Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
 

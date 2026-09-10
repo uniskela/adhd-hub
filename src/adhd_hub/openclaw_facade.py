@@ -15,6 +15,7 @@ from adhd_hub.openclaw_config import (
 from adhd_hub.openclaw_config import (
     save_openclaw_config as persist_openclaw_config,
 )
+from adhd_hub.openclaw_pair import OpenClawPairStore, openclaw_pair_prompt
 
 if TYPE_CHECKING:
     from adhd_hub.service import HubService
@@ -24,6 +25,7 @@ class OpenClawFacade:
     def __init__(self, hub: HubService) -> None:
         self._hub = hub
         self._stale_schedule_callback: Callable[[str], None] | None = None
+        self._pair_store = OpenClawPairStore(hub.settings.data_dir)
         config = load_openclaw_config(
             hub.settings.data_dir,
             env_defaults=openclaw_from_settings(hub.settings),
@@ -57,6 +59,41 @@ class OpenClawFacade:
         if self._stale_schedule_callback:
             self._stale_schedule_callback(config.stale_nudge_cron)
         return config
+
+    def openclaw_pair_status(self) -> dict:
+        return self._pair_store.status().public_dict()
+
+    def start_openclaw_pair(self, *, hub_origin: str) -> dict:
+        state = self._pair_store.start()
+        out = state.public_dict()
+        out["prompt"] = openclaw_pair_prompt(
+            hub_origin=hub_origin,
+            user_code=state.user_code,
+        )
+        return out
+
+    def submit_openclaw_pair(self, payload: dict) -> dict:
+        state = self._pair_store.submit(
+            user_code=str(payload.get("user_code") or ""),
+            webhook_url=str(payload.get("webhook_url") or ""),
+            agent_url=str(payload.get("agent_url") or ""),
+            token=str(payload.get("token") or ""),
+            alerts_enabled=bool(payload.get("alerts_enabled", True)),
+            stale_nudge_cron=payload.get("stale_nudge_cron"),
+            stale_days=payload.get("stale_days"),
+            remind_cooldown_days=payload.get("remind_cooldown_days"),
+            digest_max_nudge=payload.get("digest_max_nudge"),
+        )
+        return state.public_dict()
+
+    def approve_openclaw_pair(self) -> dict:
+        config = self._pair_store.approve_config(current=self.openclaw_config())
+        saved = self.save_openclaw_config(config)
+        return saved.public_dict()
+
+    def cancel_openclaw_pair(self) -> dict:
+        self._pair_store.cancel()
+        return self._pair_store.status().public_dict()
 
     def set_stale_schedule_callback(self, callback: Callable[[str], None]) -> None:
         self._stale_schedule_callback = callback

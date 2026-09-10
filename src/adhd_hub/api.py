@@ -80,6 +80,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     @router.put("/prefs", dependencies=[Depends(auth_dep)])
     def put_prefs(payload: dict):
         from adhd_hub.prefs import HubPrefs
+        from adhd_hub.project_setup import CONNECT_AGENT_CHOICES
         from adhd_hub.timeutil import validate_timezone
 
         current = service.prefs().model_dump()
@@ -88,6 +89,28 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             current["timezone"] = validate_timezone(str(current.get("timezone") or "UTC"))
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+        if "connect_agents" in payload:
+            raw = payload.get("connect_agents")
+            if raw is None:
+                current["connect_agents"] = []
+            elif not isinstance(raw, list):
+                raise HTTPException(400, "connect_agents must be a list of agent ids")
+            else:
+                allowed = set(CONNECT_AGENT_CHOICES)
+                cleaned: list[str] = []
+                for item in raw:
+                    key = str(item).strip().lower()
+                    if not key:
+                        continue
+                    if key not in allowed:
+                        raise HTTPException(
+                            400,
+                            f"Unknown connect agent {key!r}; "
+                            f"allowed: {', '.join(CONNECT_AGENT_CHOICES)}",
+                        )
+                    if key not in cleaned:
+                        cleaned.append(key)
+                current["connect_agents"] = cleaned
         return service.save_prefs(HubPrefs.model_validate(current)).public_dict()
 
     @router.get("/projects", dependencies=[Depends(auth_dep)])
@@ -321,6 +344,46 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         if not result["ok"]:
             raise HTTPException(502, str(result["message"]))
         return result
+
+    @router.get("/openclaw/pair", dependencies=[Depends(auth_dep)])
+    def get_openclaw_pair():
+        return service.openclaw_pair_status()
+
+    @router.post("/openclaw/pair/start", dependencies=[Depends(auth_dep)])
+    def start_openclaw_pair(request: Request):
+        try:
+            base = (
+                service.settings.resolve_public_url()
+                or str(request.base_url).rstrip("/")
+            )
+            return service.start_openclaw_pair(hub_origin=base)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.post("/openclaw/pair/submit")
+    def submit_openclaw_pair(payload: dict):
+        """Public one-time submit — uses pairing code, not Hub auth token."""
+        try:
+            return service.submit_openclaw_pair(payload)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except ValidationError as exc:
+            detail = "; ".join(
+                str(error.get("msg", "Invalid OpenClaw setting")).removeprefix("Value error, ")
+                for error in exc.errors(include_input=False)
+            )
+            raise HTTPException(400, detail) from exc
+
+    @router.post("/openclaw/pair/approve", dependencies=[Depends(auth_dep)])
+    def approve_openclaw_pair():
+        try:
+            return service.approve_openclaw_pair()
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @router.post("/openclaw/pair/cancel", dependencies=[Depends(auth_dep)])
+    def cancel_openclaw_pair():
+        return service.cancel_openclaw_pair()
 
     @router.get("/wiki/{slug}/progress", dependencies=[Depends(auth_dep)])
     def read_progress(slug: str):

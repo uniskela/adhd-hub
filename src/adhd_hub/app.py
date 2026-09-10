@@ -4,10 +4,10 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -19,6 +19,7 @@ from adhd_hub.config import Settings, load_settings
 from adhd_hub.connect import render_install_ps1, render_install_sh
 from adhd_hub.connect_auth import ConnectStore, bearer_authorized, build_connect_router
 from adhd_hub.mcp_app import build_mcp
+from adhd_hub.package_dist import find_cli_wheel
 from adhd_hub.scheduler import start_scheduler
 from adhd_hub.service import HubService
 from adhd_hub.sessions import BrowserSessions
@@ -176,6 +177,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "install": "/install.sh",
             "install_sh": "/install.sh",
             "install_ps1": "/install.ps1",
+            "install_wheel": "/install/adhd-hub.whl",
+            "install_wheel_url": "/install/cli-wheel.url",
             "hint": (
                 "Open /ui/ for the dashboard. MCP at /mcp with Authorization Bearer token. "
                 "Connect a CLI without exporting the server token: "
@@ -190,16 +193,72 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return configured
         return str(request.base_url).rstrip("/")
 
+    def _wheel_or_404():
+        wheel = find_cli_wheel()
+        if wheel is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "CLI wheel not packaged with this Hub. "
+                    "Rebuild the Docker image, or: uv tool install "
+                    "git+https://github.com/uniskela/adhd-hub.git"
+                ),
+            )
+        return wheel
+
     @app.get("/install.sh", response_class=PlainTextResponse)
     def install_sh(request: Request):
         """Public POSIX bootstrap — never embeds auth tokens."""
-        script = render_install_sh(_install_hub_base(request))
+        script = render_install_sh(
+            _install_hub_base(request),
+            default_agents=service.prefs().connect_agents_csv(),
+        )
         return PlainTextResponse(script, media_type="text/x-shellscript")
 
     @app.get("/install.ps1", response_class=PlainTextResponse)
     def install_ps1(request: Request):
         """Public Windows PowerShell bootstrap — never embeds auth tokens."""
-        script = render_install_ps1(_install_hub_base(request))
+        script = render_install_ps1(
+            _install_hub_base(request),
+            default_agents=service.prefs().connect_agents_csv(),
+        )
         return PlainTextResponse(script, media_type="text/plain")
+
+    @app.get("/install/cli-wheel.url", response_class=PlainTextResponse)
+    def install_cli_wheel_url(request: Request):
+        """Plain-text absolute URL to a PEP 427-named wheel (for uvx --from)."""
+        wheel = _wheel_or_404()
+        base = _install_hub_base(request)
+        return PlainTextResponse(f"{base}/install/wheels/{wheel.name}\n")
+
+    @app.api_route("/install/adhd-hub.whl", methods=["GET", "HEAD"])
+    def install_wheel_alias(request: Request):
+        """Stable alias → redirect to a PEP 427-valid wheel filename for uvx."""
+        wheel = _wheel_or_404()
+        return RedirectResponse(
+            url=f"/install/wheels/{wheel.name}",
+            status_code=302,
+        )
+
+    @app.api_route("/install/wheels/{name}", methods=["GET", "HEAD"])
+    def install_wheel_named(name: str, request: Request):
+        """Serve the Hub CLI wheel under its real PEP 427 filename."""
+        wheel = _wheel_or_404()
+        if name != wheel.name:
+            raise HTTPException(status_code=404, detail="Unknown wheel name")
+        if request.method == "HEAD":
+            return Response(
+                status_code=200,
+                media_type="application/zip",
+                headers={
+                    "content-length": str(wheel.stat().st_size),
+                    "content-disposition": f'attachment; filename="{wheel.name}"',
+                },
+            )
+        return FileResponse(
+            wheel,
+            media_type="application/zip",
+            filename=wheel.name,
+        )
 
     return app

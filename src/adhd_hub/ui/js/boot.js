@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, offerPendingConnect, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, syncForge, testOpenClaw } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
 import { applyTheme } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
 
@@ -25,6 +25,7 @@ $("btn-settings").addEventListener("click", () => {
   loadForge().catch((error) => setMsg(error.message));
   loadOpenClaw().catch((error) => setMsg(error.message));
   loadCliSessions().catch(() => {});
+  loadPrefs().catch(() => {});
   selectSettingsTab("preferences");
   $("settings-theme").value = $("theme-select").value;
   $("mcp-url").value = location.origin + "/mcp";
@@ -33,10 +34,22 @@ $("btn-settings").addEventListener("click", () => {
   $("install-cmd-win").value =
     'irm "' + location.origin + '/install.ps1" | iex';
   $("settings-msg").textContent = "";
+  const agentsMsg = $("connect-agents-msg");
+  if (agentsMsg) agentsMsg.textContent = "";
   $("settings-dialog").showModal();
   api("/health").then((health) => {
     $("app-version").textContent = health.version ? `v${health.version}` : "Version unavailable";
   }).catch(() => { $("app-version").textContent = "Version unavailable"; });
+});
+$("btn-save-connect-agents")?.addEventListener("click", () =>
+  saveConnectAgents().catch((e) => setMsg(e.message))
+);
+$("ca_all")?.addEventListener("change", () => {
+  if ($("ca_all").checked) {
+    if ($("ca_cursor")) $("ca_cursor").checked = true;
+    if ($("ca_codex")) $("ca_codex").checked = true;
+    if ($("ca_claude")) $("ca_claude").checked = true;
+  }
 });
 $("btn-close-settings").addEventListener("click", () => $("settings-dialog").close());
 document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
@@ -124,6 +137,18 @@ $("btn-save-openclaw").addEventListener("click", () =>
 );
 $("btn-test-openclaw").addEventListener("click", () =>
   testOpenClaw().catch((e) => { $("openclaw-msg").textContent = e.message; })
+);
+$("btn-copy-oc-prompt")?.addEventListener("click", () =>
+  copyOpenClawPrompt().catch((e) => { $("openclaw-msg").textContent = e.message; })
+);
+$("btn-oc-pair-start")?.addEventListener("click", () =>
+  startOpenClawPair().catch((e) => { $("openclaw-msg").textContent = e.message; })
+);
+$("btn-oc-pair-approve")?.addEventListener("click", () =>
+  approveOpenClawPair().catch((e) => { $("openclaw-msg").textContent = e.message; })
+);
+$("btn-oc-pair-cancel")?.addEventListener("click", () =>
+  cancelOpenClawPair().catch((e) => { $("openclaw-msg").textContent = e.message; })
 );
 $("btn-sync-forge").addEventListener("click", () =>
   syncForge().catch((e) => setMsg(String(e)))

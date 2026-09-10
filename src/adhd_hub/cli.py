@@ -291,8 +291,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     connect.add_argument(
         "--agents",
-        default="cursor",
-        help="Comma list: cursor,codex,claude (default: cursor)",
+        default="",
+        help=(
+            "Comma list of coding agents for MCP wire-up and skills install "
+            "(cursor,codex,claude). Use * for skills on every agent. "
+            "Empty = no agent MCP/skills targets (set in Hub Settings → Connections "
+            "or pass explicitly). Claude maps to skills.sh id claude-code."
+        ),
     )
     connect.add_argument(
         "--scope",

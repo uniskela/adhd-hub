@@ -179,6 +179,171 @@ def test_render_install_ps1_supports_flags() -> None:
     assert "[switch]$DryRun" in script
     assert "ADHD_HUB_CONNECT_OPENCLAW_SKILLS" in script
     assert "iwr $HubUrl/install.ps1 -OutFile" in script
+    # Empty ValidateSet default breaks `irm | iex` on Windows.
+    assert '[ValidateSet("project", "user")][string]$Scope = "project"' in script
+    assert '[ValidateSet("project", "user")][string]$Scope = ""' not in script
+    assert "git+https://github.com/uniskela/adhd-hub.git" in script
+    assert "uvx --from adhd-hub " not in script
+    assert "install/cli-wheel.url" in script
+    assert "uvx --refresh --from $pkgFrom" in script
+    # irm|iex must not call bare `exit` (closes the interactive host).
+    assert "Complete-AdhdInstall" in script
+    assert "if ($PSCommandPath) { exit $Code }" in script
+    assert "exit $LASTEXITCODE" not in script
+    assert 'else { $Agents = "cursor" }' not in script
+    assert "Doctor (uvx" in script
+    assert "adhd-hub is not on PATH yet" in script
+
+
+def test_render_install_sh_mentions_uvx_doctor_when_cli_missing() -> None:
+    script = render_install_sh("http://example:8787")
+    assert "_adhd_after_connect" in script
+    assert "Doctor (uvx" in script
+    assert "exec uvx" not in script
+
+
+def test_render_install_bakes_default_agents() -> None:
+    sh = render_install_sh("http://example:8787", default_agents="codex")
+    assert 'AGENTS="${ADHD_HUB_CONNECT_AGENTS:-codex}"' in sh
+    assert 'AGENTS="${ADHD_HUB_CONNECT_AGENTS:-cursor}"' not in sh
+    ps1 = render_install_ps1("http://example:8787", default_agents="cursor,claude")
+    assert '$DefaultAgents = "cursor,claude"' in ps1
+
+
+def test_print_report_shows_complete_banner(capsys) -> None:
+    from adhd_hub.connect import ConnectReport, print_report
+
+    report = ConnectReport(hub_url="http://127.0.0.1:8787")
+    report.add("hub probe", "ok", "reachable")
+    report.add(
+        "setup complete",
+        "ok",
+        "Open http://127.0.0.1:8787/ui · run: uvx --refresh --from "
+        '"http://127.0.0.1:8787/install/wheels/x.whl" adhd-hub doctor --hub '
+        "http://127.0.0.1:8787 --project C:\\Users\\alexp",
+    )
+    print_report(report)
+    out = capsys.readouterr().out
+    assert "Complete! ADHD Hub is connected." in out
+    assert "Summary of what ran:" in out
+    assert "Next steps:" in out
+    assert "http://127.0.0.1:8787/ui" in out
+    assert "Verify anytime:" in out
+    assert "uvx --refresh --from" in out
+
+
+def test_format_hub_cli_command_uses_uvx_when_missing(monkeypatch) -> None:
+    from adhd_hub import connect as connect_mod
+
+    monkeypatch.setattr(
+        connect_mod.shutil,
+        "which",
+        lambda name: "uvx" if name in {"uvx", "uvx.exe"} else None,
+    )
+    monkeypatch.setattr(
+        connect_mod,
+        "resolve_uv_package_from",
+        lambda hub: "http://127.0.0.1:8787/install/wheels/demo.whl",
+    )
+    cmd = connect_mod.format_hub_cli_command(
+        "http://127.0.0.1:8787",
+        "doctor",
+        "--hub",
+        "http://127.0.0.1:8787",
+        "--project",
+        r"C:\Users\alexp",
+    )
+    assert cmd.startswith('uvx --refresh --from "http://127.0.0.1:8787/install/wheels/demo.whl"')
+    assert "adhd-hub doctor" in cmd
+    assert "adhd-hub doctor --hub http://127.0.0.1:8787" in cmd
+
+
+def test_format_hub_cli_command_uses_uvx_for_ephemeral_cache_binary(monkeypatch) -> None:
+    from adhd_hub import connect as connect_mod
+
+    ephemeral = r"C:\Users\alexp\AppData\Local\uv\cache\archive-v0\abc\Scripts\adhd-hub.exe"
+
+    def which(name: str):
+        if name in {"adhd-hub", "adhd-hub.exe"}:
+            return ephemeral
+        if name in {"uvx", "uvx.exe"}:
+            return r"C:\uvx.exe"
+        return None
+
+    monkeypatch.setattr(connect_mod.shutil, "which", which)
+    monkeypatch.setattr(
+        connect_mod,
+        "resolve_uv_package_from",
+        lambda hub: "http://127.0.0.1:8787/install/wheels/demo.whl",
+    )
+    assert connect_mod.cli_on_path() is False
+    cmd = connect_mod.format_hub_cli_command("http://127.0.0.1:8787", "doctor")
+    assert cmd.startswith("uvx --refresh --from")
+
+
+def test_format_hub_cli_command_prefers_path_binary(monkeypatch) -> None:
+    from adhd_hub import connect as connect_mod
+
+    monkeypatch.setattr(
+        connect_mod.shutil,
+        "which",
+        lambda name: r"C:\Tools\adhd-hub.exe" if name in {"adhd-hub", "adhd-hub.exe"} else None,
+    )
+    cmd = connect_mod.format_hub_cli_command("http://127.0.0.1:8787", "doctor", "--hub", "http://x")
+    assert cmd.startswith("adhd-hub doctor")
+    assert "uvx" not in cmd
+
+
+def test_render_install_sh_uses_hub_wheel_with_git_fallback() -> None:
+    script = render_install_sh("http://example:8787")
+    assert "install/cli-wheel.url" in script
+    assert "git+https://github.com/uniskela/adhd-hub.git" in script
+    assert "uvx --refresh --from" in script
+    assert "uvx --from adhd-hub " not in script
+    assert "uv tool install git+https://github.com/uniskela/adhd-hub.git" in script
+
+
+def test_install_wheel_endpoint(tmp_path: Path, monkeypatch) -> None:
+    wheel_dir = tmp_path / "dist"
+    wheel_dir.mkdir()
+    wheel = wheel_dir / "adhd_hub-0.3.11-py3-none-any.whl"
+    wheel.write_bytes(b"PK\x03\x04fake-wheel")
+    monkeypatch.setenv("ADHD_HUB_WHEEL_DIR", str(wheel_dir))
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="super-secret-token-value",
+        host="127.0.0.1",
+        public_url="http://hub.test:8787",
+    )
+    client = TestClient(create_app(settings))
+    meta = client.get("/install/cli-wheel.url")
+    assert meta.status_code == 200
+    assert meta.text.strip() == (
+        "http://hub.test:8787/install/wheels/adhd_hub-0.3.11-py3-none-any.whl"
+    )
+    alias = client.get("/install/adhd-hub.whl", follow_redirects=False)
+    assert alias.status_code == 302
+    assert alias.headers["location"].endswith(
+        "/install/wheels/adhd_hub-0.3.11-py3-none-any.whl"
+    )
+    resp = client.get("/install/wheels/adhd_hub-0.3.11-py3-none-any.whl")
+    assert resp.status_code == 200
+    assert resp.content.startswith(b"PK")
+    head = client.head("/install/wheels/adhd_hub-0.3.11-py3-none-any.whl")
+    assert head.status_code == 200
+    assert client.get("/").json()["install_wheel_url"] == "/install/cli-wheel.url"
+
+
+def test_install_wheel_endpoint_missing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("ADHD_HUB_WHEEL_DIR", str(tmp_path / "empty-dist"))
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="token",
+        host="127.0.0.1",
+    )
+    client = TestClient(create_app(settings))
+    resp = client.get("/install/adhd-hub.whl")
+    assert resp.status_code == 404
 
 
 def test_merge_codex_mcp_preserves_other_servers_with_brackets(tmp_path: Path) -> None:

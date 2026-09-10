@@ -1,7 +1,7 @@
 import { state, $, setMsg } from './state.js';
 import { api } from './api.js';
 import { loadAll } from './load.js';
-import { showScreen } from './screens.js';
+import { savedScreen, showScreen } from './screens.js';
 
 export function showLogin(message) {
     ++state.projectRequest;
@@ -21,7 +21,8 @@ export function showApp() {
     $("login-gate").hidden = true;
     $("app-shell").hidden = false;
     $("password-banner").hidden = state.authStatus.password_configured || state.authStatus.development_mode;
-    showScreen("now");
+    // Restore last tab without focusing the page heading (avoids green outline on refresh).
+    showScreen(savedScreen(), { focusHeading: false });
   }
 export async function tryAuth() {
     try {
