@@ -1,17 +1,19 @@
 # Environment variables
 
-ADHD Progress Hub server configuration uses the `ADHD_HUB_` prefix. This page documents every environment-backed field in the server `Settings` model, including settings that are not shown in the shorter `.env.example`.
+ADHD Progress Hub server configuration uses the `ADHD_HUB_` prefix. This page documents every environment-backed field in the server `Settings` model, plus the additional runtime/client variables read directly outside that model. Developer-only smoke/probe variables are separated at the end so they are not mistaken for normal container configuration.
 
 For a container install, put normal server settings in the `.env` file referenced by Compose. Do **not** put secrets in `compose.yml`, source control, `AGENTS.md`, issues, or progress notes.
 
 ## Configuration precedence
 
-The server resolves configuration in this order, highest priority first:
+The server resolves `Settings` configuration in this order, highest priority first:
 
 1. process environment variables (`ADHD_HUB_*`);
 2. the first non-empty TOML config found from an explicit `--config`, `./config.toml`, then `~/.config/adhd-hub/config.toml`;
 3. `./.env`;
 4. built-in defaults.
+
+Variables documented below as direct runtime/client overrides are read by their owning component and do not necessarily participate in that `Settings` precedence chain.
 
 Docker Compose adds one more practical rule: values under a service's explicit `environment:` section override the same names loaded through `env_file`. The repository Compose file intentionally pins `ADHD_HUB_HOST=0.0.0.0`, `ADHD_HUB_PORT=8787`, and `ADHD_HUB_DATA_DIR=/data` inside the container.
 
@@ -117,13 +119,14 @@ These paths are primarily for the CLI/indexer running on the machine that owns t
 
 The related `ADHD_HUB_MAX_SESSIONS` limit is documented under Hub behaviour above. See [Indexer schedule](indexer-schedule.md).
 
-## Docker image internals
+## Docker image / package-serving internals
 
 The image sets a few implementation variables itself. They are not normal Hub configuration and usually should not be overridden:
 
 | Variable | Image value | Purpose |
 | --- | --- | --- |
-| `ADHD_HUB_WHEEL_DIR` | `/app/dist` | Location of the wheel served to the Hub-backed client installer. |
+| `ADHD_HUB_WHEEL_DIR` | `/app/dist` | Directory searched for the wheel served by the Hub-backed client installer. |
+| `ADHD_HUB_WHEEL_PATH` | unset | Optional direct override to a specific wheel file. Primarily useful for packaging/development; normally leave unset in Docker. |
 | `UV_OFFLINE` | `1` | Prevents the running container from re-resolving Python dependencies. |
 | `UV_COMPILE_BYTECODE` | `1` | Build-time/runtime uv optimisation. |
 | `UV_LINK_MODE` | `copy` | Keeps the image's uv environment independent of a uv cache link strategy. |
@@ -132,9 +135,11 @@ The image also defaults `ADHD_HUB_HOST=0.0.0.0`, `ADHD_HUB_PORT=8787`, and `ADHD
 
 ## Client/connect-only environment variables
 
-The following variables affect the **client bootstrap/connect command**, not the long-running Docker server. Do not add them to the server container unless you intentionally run client tooling there.
+The following variables affect the **client bootstrap/connect command or CLI**, not the long-running Docker server. Do not add them to the server container unless you intentionally run client tooling there.
 
 - `ADHD_HUB_URL` — extra CLI Hub-URL fallback; `ADHD_HUB_PUBLIC_URL` and `ADHD_HUB_HUB_URL` are preferred where applicable.
+- `ADHD_HUB_CREDENTIALS` — override the local CLI credentials/session JSON path.
+- `ADHD_HUB_NO_COLOR` — disable Hub CLI status colouring when non-empty. Standard `NO_COLOR` is also respected.
 - `ADHD_HUB_CONNECT_AGENTS` — default comma-separated agent targets for generated install scripts.
 - `ADHD_HUB_CONNECT_SCOPE` — `project` or `user` Cursor MCP scope.
 - `ADHD_HUB_CONNECT_REGISTER` — opt into project registration.
@@ -145,6 +150,14 @@ The following variables affect the **client bootstrap/connect command**, not the
 - `ADHD_HUB_CONNECT_WITH_I_HAVE_ADHD`, `ADHD_HUB_CONNECT_WITH_GRAPHIFY`, `ADHD_HUB_CONNECT_WITH_RTK`, `ADHD_HUB_CONNECT_WITH_SUPERPOWERS`, `ADHD_HUB_CONNECT_WITH_CONTEXT7`, `ADHD_HUB_CONNECT_WITH_AGENT_BROWSER`, `ADHD_HUB_CONNECT_WITH_SERENA` — opt-in companion defaults.
 
 See [Connect a machine or project](connect.md) for the supported CLI/bootstrap workflow.
+
+## Developer and smoke-test-only variables
+
+These are read by repository utility scripts rather than the running Hub service and normally do **not** belong in a Docker `.env`:
+
+- `ADHD_HUB_MCP_URL` — MCP endpoint override for `scripts/probe_mcp.py` (default `http://127.0.0.1:8787/mcp`).
+- `ADHD_HUB_SCREENSHOT_DIR` — output directory used by `scripts/browser_smoke.py`.
+- `ADHD_HUB_BROWSER_EXECUTABLE` — optional browser executable override for `scripts/browser_smoke.py`.
 
 ## When changes take effect
 
