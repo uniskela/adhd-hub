@@ -113,7 +113,7 @@ $("btn-copy-mcp").addEventListener("click", async () => {
 });
 $("btn-copy-install").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("install-cmd").value); setMsg("Install command copied."); }
-  catch (_) { $("install-cmd").focus(); $("install-cmd").select(); setMsg("Select and copy the MCP URL above."); }
+  catch (_) { $("install-cmd").focus(); $("install-cmd").select(); setMsg("Select and copy the install command above."); }
 });
 $("btn-copy-install-win").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("install-cmd-win").value); setMsg("Windows install command copied."); }
