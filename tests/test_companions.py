@@ -344,3 +344,44 @@ def test_install_dry_run_agent_browser_and_serena() -> None:
     assert "serena-agent" in details or "serena" in details
     assert all(s.status != "error" for s in steps)
 
+def test_merge_stdio_preserves_existing_context7(tmp_path: Path) -> None:
+    from adhd_hub.companions import merge_stdio_mcp_json
+
+    path = tmp_path / "mcp.json"
+    path.write_text(
+        '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp"],"env":{"CONTEXT7_API_KEY":"x"}}}}\n',
+        encoding="utf-8",
+    )
+    action = merge_stdio_mcp_json(
+        path,
+        "context7",
+        {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
+        dry_run=False,
+    )
+    assert action == "unchanged"
+    raw = path.read_text(encoding="utf-8")
+    assert "CONTEXT7_API_KEY" in raw
+
+
+def test_merge_codex_stdio_escapes_windows_path(tmp_path: Path) -> None:
+    from adhd_hub.companions import merge_codex_stdio_mcp
+
+    path = tmp_path / "config.toml"
+    action = merge_codex_stdio_mcp(
+        path,
+        "serena",
+        r"C:\Users\me\serena.exe",
+        ["start-mcp-server"],
+        dry_run=False,
+    )
+    assert action == "created"
+    text = path.read_text(encoding="utf-8")
+    assert 'command = "C:\\Users\\me\\serena.exe"' in text
+
+
+def test_context7_codex_only_skips_false_warn() -> None:
+    steps = install_companions(["codex"], with_context7=True, dry_run=True)
+    details = " | ".join(s.detail for s in steps)
+    assert "no Cursor/Claude" not in details
+    assert any(s.name == "install context7" and "codex" in s.detail for s in steps)
+

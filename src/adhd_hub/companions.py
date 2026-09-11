@@ -364,6 +364,9 @@ def merge_stdio_mcp_json(
     if not isinstance(servers, dict):
         raise TypeError(f"{path}: {key} must be an object")
     previous = servers.get(server_key)
+    # Preserve an existing entry that already configures this server (env, headers, etc.).
+    if isinstance(previous, dict) and previous:
+        return "unchanged"
     if previous == snippet and path.exists():
         return "unchanged"
     if dry_run:
@@ -382,9 +385,10 @@ def merge_codex_stdio_mcp(
     dry_run: bool,
 ) -> str:
     args_toml = ", ".join(json.dumps(a) for a in args)
+    command_toml = json.dumps(command)
     block = (
         f"[mcp_servers.{server_key}]\n"
-        f'command = "{command}"\n'
+        f"command = {command_toml}\n"
         f"args = [{args_toml}]\n"
     )
     if path.exists() and path.is_symlink():
@@ -933,6 +937,7 @@ def install_companions(
 
     if with_superpowers:
         gemini_agents = [a for a in resolved if a == "gemini"]
+        other_agents = [a for a in resolved if a != "gemini"]
         if gemini_agents and _which("gemini", "gemini.exe"):
             cmd = [
                 _which("gemini", "gemini.exe") or "gemini",
@@ -942,13 +947,14 @@ def install_companions(
             ]
             status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
             steps.append(CompanionStep("install superpowers", status, detail))
-        else:
+        hint_agents = other_agents if gemini_agents and _which("gemini", "gemini.exe") else resolved
+        if hint_agents or not gemini_agents:
             steps.append(
                 CompanionStep(
                     "install superpowers",
                     "warn",
                     "Hub cannot fully auto-install Superpowers for most harnesses — "
-                    + superpowers_manual_hint(resolved),
+                    + superpowers_manual_hint(hint_agents or resolved),
                 )
             )
 
@@ -959,12 +965,12 @@ def install_companions(
             targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
         if "claude" in resolved or all_star:
             targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
-        if not targets and resolved:
+        if not targets and resolved and "codex" not in resolved and not all_star:
             steps.append(
                 CompanionStep(
                     "install context7",
                     "warn",
-                    "no Cursor/Claude MCP path for selected agents — "
+                    "no Cursor/Claude/Codex MCP path for selected agents — "
                     f"configure Context7 manually · {CONTEXT7_REPO}",
                 )
             )
@@ -1044,6 +1050,16 @@ def install_companions(
             cmd = [ab or "agent-browser", "install"]
             status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
             steps.append(CompanionStep("install agent-browser chromium", status, detail))
+        elif not dry_run:
+            steps.append(
+                CompanionStep(
+                    "install agent-browser chromium",
+                    "warn",
+                    "agent-browser installed but not found on PATH — "
+                    "open a new terminal, then run: agent-browser install · "
+                    f"{AGENT_BROWSER_REPO}",
+                )
+            )
         if all_star:
             cmd = [
                 "npx",
