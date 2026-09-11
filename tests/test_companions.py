@@ -376,7 +376,7 @@ def test_merge_codex_stdio_escapes_windows_path(tmp_path: Path) -> None:
     )
     assert action == "created"
     text = path.read_text(encoding="utf-8")
-    assert 'command = "C:\\Users\\me\\serena.exe"' in text
+    assert 'command = "C:\\\\Users\\\\me\\\\serena.exe"' in text
 
 
 def test_context7_codex_only_skips_false_warn() -> None:
