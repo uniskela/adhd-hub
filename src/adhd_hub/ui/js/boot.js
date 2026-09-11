@@ -99,7 +99,7 @@ $("btn-download-card").addEventListener("click", () => {
   } catch (_) { $("share-msg").textContent = "Could not download the card. You can copy the text below."; }
 });
 $("btn-copy-progress").addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText($("share-text").value); $("share-msg").textContent = "Progress text copied.";
+  try { await navigator.clipboard.writeText($("share-text").value); $("share-msg").textContent = "Progress text copied."; }
   catch (_) { $("share-text").focus(); $("share-text").select(); $("share-msg").textContent = "Select and copy the text above."; }
 });
 $("btn-native-share").addEventListener("click", async () => {
@@ -113,7 +113,7 @@ $("btn-copy-mcp").addEventListener("click", async () => {
 });
 $("btn-copy-install").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("install-cmd").value); setMsg("Install command copied."); }
-  catch (_) { $("install-cmd").focus(); $("install-cmd").select(); setMsg("Select and copy the install command above."); }
+  catch (_) { $("install-cmd").focus(); $("install-cmd").select(); setMsg("Select and copy the MCP URL above."); }
 });
 $("btn-copy-install-win").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("install-cmd-win").value); setMsg("Windows install command copied."); }
