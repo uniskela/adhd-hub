@@ -267,6 +267,9 @@ def test_credentials_file_mode_and_lookup(tmp_path: Path, monkeypatch) -> None:
     assert (path.stat().st_mode & 0o777) == 0o600
     assert load_saved_token("http://hub.example:8787") == "ahcli_test"
     assert credentials_path() == path
+    from adhd_hub.connect_login import load_saved_default_hub
+
+    assert load_saved_default_hub() == "http://hub.example:8787"
 
 
 def test_ui_connections_copy_has_no_export(tmp_path: Path) -> None:

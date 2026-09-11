@@ -32,16 +32,56 @@ def credentials_path() -> Path:
     return base / "adhd-hub" / "credentials.json"
 
 
-def load_saved_token(hub_url: str) -> str | None:
+def _read_credentials() -> dict[str, Any]:
     path = credentials_path()
     if not path.is_file():
-        return None
+        return {"sessions": {}}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return None
+        return {"sessions": {}}
     if not isinstance(data, dict):
+        return {"sessions": {}}
+    if not isinstance(data.get("sessions"), dict):
+        data = {**data, "sessions": {}}
+    return data
+
+
+def _write_credentials(data: dict[str, Any]) -> Path:
+    path = credentials_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    try:
+        path.chmod(_CREDENTIALS_MODE)
+    except OSError:
+        pass
+    return path
+
+
+def load_saved_default_hub() -> str | None:
+    """Return the preferred Hub URL from the local credentials file, if any."""
+    data = _read_credentials()
+    raw = data.get("default_hub")
+    if not isinstance(raw, str) or not raw.strip():
         return None
+    try:
+        return normalize_hub_url(raw)
+    except ValueError:
+        return None
+
+
+def set_default_hub(hub_url: str) -> Path:
+    """Persist preferred Hub URL for future CLI defaults (without requiring login)."""
+    hub = normalize_hub_url(hub_url)
+    data = _read_credentials()
+    data["default_hub"] = hub
+    if not isinstance(data.get("sessions"), dict):
+        data["sessions"] = {}
+    return _write_credentials(data)
+
+
+def load_saved_token(hub_url: str) -> str | None:
+    data = _read_credentials()
     sessions = data.get("sessions")
     if not isinstance(sessions, dict):
         return None
@@ -58,16 +98,7 @@ def load_saved_token(hub_url: str) -> str | None:
 
 
 def save_credentials(hub_url: str, token: str, *, expires_in: int | None = None) -> Path:
-    path = credentials_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    data: dict[str, Any] = {"sessions": {}}
-    if path.is_file():
-        try:
-            existing = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(existing, dict) and isinstance(existing.get("sessions"), dict):
-                data = existing
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            data = {"sessions": {}}
+    data = _read_credentials()
     hub = normalize_hub_url(hub_url)
     data["default_hub"] = hub
     sessions = data.setdefault("sessions", {})
@@ -78,33 +109,22 @@ def save_credentials(hub_url: str, token: str, *, expires_in: int | None = None)
     if expires_in:
         entry["expires_at"] = time.time() + int(expires_in)
     sessions[hub] = entry
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    try:
-        path.chmod(_CREDENTIALS_MODE)
-    except OSError:
-        pass
-    return path
+    return _write_credentials(data)
 
 
 def clear_saved_token(hub_url: str) -> bool:
     path = credentials_path()
     if not path.is_file():
         return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return False
-    if not isinstance(data, dict) or not isinstance(data.get("sessions"), dict):
+    data = _read_credentials()
+    sessions = data.get("sessions")
+    if not isinstance(sessions, dict):
         return False
     hub = normalize_hub_url(hub_url)
-    removed = data["sessions"].pop(hub, None) is not None
+    removed = sessions.pop(hub, None) is not None
     if data.get("default_hub") == hub:
-        data["default_hub"] = next(iter(data["sessions"]), None)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    try:
-        path.chmod(_CREDENTIALS_MODE)
-    except OSError:
-        pass
+        data["default_hub"] = next(iter(sessions), None)
+    _write_credentials(data)
     return removed
 
 
