@@ -23,6 +23,7 @@ UI_JS_MODULES = {
     "load.js",
     "boot.js",
 }
+UI_JS_ASSETS = {module: (JS_DIR / module).resolve() for module in UI_JS_MODULES}
 
 
 def build_ui_router() -> APIRouter:
@@ -48,9 +49,9 @@ def build_ui_router() -> APIRouter:
 
     @router.get("/ui/js/{name}")
     def ui_js_module(name: str):
-        if name not in UI_JS_MODULES:
+        path = UI_JS_ASSETS.get(name)
+        if path is None:
             raise HTTPException(404, "Asset not found")
-        path = JS_DIR / name
         if not path.is_file():
             raise HTTPException(404, "Asset not found")
         return FileResponse(path, media_type="text/javascript")
