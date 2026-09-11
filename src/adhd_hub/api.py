@@ -279,6 +279,20 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             workspace_path=workspace_path, query=q, energy=energy
         )
 
+    @router.post("/guidance/verify", dependencies=[Depends(auth_dep)])
+    def guidance_verify(payload: dict):
+        try:
+            return service.record_guidance_verification(
+                project_slug=payload.get("project_slug"),
+                workspace_path=payload.get("workspace_path"),
+                agent_guidance_version=payload.get("agent_guidance_version"),
+                session_skill_version=payload.get("session_skill_version"),
+                cursor_rule_version=payload.get("cursor_rule_version"),
+                source=str(payload.get("source") or "api"),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
     @router.post("/reminders", dependencies=[Depends(auth_dep)])
     def create_reminder(payload: ReminderCreate):
         return service.set_reminder(payload)

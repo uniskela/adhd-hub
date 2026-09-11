@@ -23,6 +23,7 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "/mcp" in text
     assert "invent Hub state" in text
     assert "leave a concise local handoff instead of claiming" not in text
+    assert "adhd-hub:guidance-version:" in text
 
 
 def test_session_skill_requires_loud_mcp_down() -> None:

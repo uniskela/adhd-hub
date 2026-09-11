@@ -48,6 +48,7 @@ If `graphify-out/wiki/index.md` exists, prefer it for navigation. Use `graphify-
 See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphify/SKILL.md) and rule [`.cursor/rules/graphify.mdc`](.cursor/rules/graphify.mdc).
 
 <!-- adhd-hub:project-agent:start -->
+<!-- adhd-hub:guidance-version:2 -->
 ## ADHD Hub continuity
 
 For substantial work in this project:
@@ -72,5 +73,8 @@ For substantial work in this project:
   matches. Different goal → separate thread (`force_new_thread` if needed).
 - Pause with one concrete resume action; `mark_done` only the known completed
   thread — never close unrelated overlap results.
+- If Hub guidance looks stale (session_digest guidance status, or doctor),
+  mention it once, keep using the current MCP contract, and recommend
+  `adhd-hub setup . --refresh` — do not nag repeatedly or hand-edit AGENTS.md.
 - Summaries only; never secrets, credentials, env files, or transcripts.
 <!-- adhd-hub:project-agent:end -->

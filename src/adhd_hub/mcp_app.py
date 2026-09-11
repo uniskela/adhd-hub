@@ -307,6 +307,32 @@ def build_mcp(service: HubService) -> MCPServer:
             return {"error": str(exc)}
 
     @mcp.tool()
+    def report_guidance_health(
+        project_slug: str | None = None,
+        workspace_path: str | None = None,
+        agent_guidance_version: int | None = None,
+        session_skill_version: int | None = None,
+        cursor_rule_version: int | None = None,
+        source: str = "agent",
+    ) -> dict[str, Any]:
+        """Record that a client with local filesystem access verified Hub guidance versions.
+
+        The Hub does not read the client's checkout. Only call this after a local
+        inspect (doctor/setup --check or reading managed markers).
+        """
+        try:
+            return service.record_guidance_verification(
+                project_slug=project_slug,
+                workspace_path=workspace_path,
+                agent_guidance_version=agent_guidance_version,
+                session_skill_version=session_skill_version,
+                cursor_rule_version=cursor_rule_version,
+                source=source,
+            )
+        except ValueError as exc:
+            return {"error": str(exc)}
+
+    @mcp.tool()
     def set_reminder(
         message: str,
         kind: ReminderKind = ReminderKind.once,

@@ -110,6 +110,7 @@ class StepResult:
 class ConnectReport:
     hub_url: str
     steps: list[StepResult] = field(default_factory=list)
+    continuity_text: str | None = None
 
     def add(self, name: str, status: str, detail: str) -> None:
         self.steps.append(StepResult(name, status, detail))
@@ -352,13 +353,15 @@ def cursor_project_mcp_path(project: Path) -> Path:
     return project / ".cursor" / "mcp.json"
 
 
-def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
+def expected_cursor_rule_text() -> str:
     source = _ADAPTERS / "cursor-rule.mdc"
-    if not source.is_file():
-        # Packaged wheel may omit adapters; embed a minimal rule.
-        content = _FALLBACK_CURSOR_RULE
-    else:
-        content = source.read_text(encoding="utf-8")
+    if source.is_file():
+        return source.read_text(encoding="utf-8")
+    return _FALLBACK_CURSOR_RULE
+
+
+def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
+    content = expected_cursor_rule_text()
     dest_dir = project / ".cursor" / "rules"
     dest = dest_dir / RULE_FILENAME
     if dest.exists() and dest.is_symlink():
@@ -376,6 +379,7 @@ def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
 _FALLBACK_CURSOR_RULE = """---
 description: ADHD Progress Hub — check overlap and save progress on unfinished work
 alwaysApply: true
+hub_guidance_version: 2
 ---
 
 # ADHD Progress Hub
@@ -388,7 +392,11 @@ When this workspace involves starting, resuming, or leaving half-finished work:
 2. One thread = one independently finishable outcome. Known thread → `upsert_progress(thread_id=...)` with goal/focus/next/resume. Different goal → separate thread.
 3. When finished, `mark_done` on the known thread id only.
 
-Never send secrets or full transcripts.
+If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` — do not nag or hand-edit AGENTS.md.
+
+If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` (title prefix is enough; optional labels `adhd-hub`, `project:<slug>`, `source:cursor`) and a short Goal/Focus/Next/Resume cue. Skip labels if the token cannot set them.
+
+Never send secrets or full transcripts. Prefer summaries; never dump full chat transcripts into the hub.
 """
 
 
@@ -1255,18 +1263,50 @@ def run_doctor(
                 report.add("cursor project MCP", "error", str(exc))
         else:
             report.add("cursor project MCP", "warn", f"missing {proj_mcp}")
-        agents_md = project / "AGENTS.md"
-        try:
-            if agents_md.is_file() and "adhd-hub:project-agent:start" in agents_md.read_text(
-                encoding="utf-8"
-            ):
-                report.add("AGENTS.md", "ok", "managed block present")
-            else:
-                report.add("AGENTS.md", "warn", "managed block missing")
-        except OSError as exc:
-            report.add("AGENTS.md", "error", str(exc))
-        rule = project / ".cursor" / "rules" / RULE_FILENAME
-        report.add("cursor rule", "ok" if rule.is_file() else "warn", str(rule))
+
+        from adhd_hub.guidance_health import (
+            GuidanceStatus,
+            format_continuity_report,
+            inspect_project_continuity,
+        )
+        from adhd_hub.project_setup import agent_block
+
+        continuity = inspect_project_continuity(
+            project,
+            expected_agents_block=agent_block(),
+            expected_cursor_rule=expected_cursor_rule_text(),
+            check_skills=True,
+        )
+        status_map = {
+            GuidanceStatus.current: "ok",
+            GuidanceStatus.outdated: "warn",
+            GuidanceStatus.missing: "warn",
+            GuidanceStatus.malformed: "error",
+            GuidanceStatus.locally_modified: "warn",
+            GuidanceStatus.not_applicable: "skipped",
+        }
+        for item in continuity:
+            report.add(item.name, status_map.get(item.status, "warn"), item.detail)
+        # Project registration (local path known; Hub reachability separate).
+        if ok and token_set:
+            report.add(
+                "Project registration",
+                "ok",
+                "Hub reachable — resolve_project / register_workspace when connecting",
+            )
+        elif ok:
+            report.add(
+                "Project registration",
+                "warn",
+                "Hub reachable but no credentials for registry checks",
+            )
+        else:
+            report.add(
+                "Project registration",
+                "warn",
+                "Hub unreachable — cannot confirm registration",
+            )
+        report.continuity_text = format_continuity_report(continuity)
 
     report.add(
         "skills CLI",
@@ -1288,11 +1328,16 @@ _AGENT_NAMES = frozenset({
     "cursor MCP (project)",
     "cursor MCP (global)",
     "cursor rule",
+    "Cursor rule",
     "codex MCP",
     "AGENTS.md",
+    "AGENTS.md guidance",
     "skills",
     "skills CLI",
     "openclaw skills",
+    "Project registration",
+    "adhd-hub-session skill",
+    "adhd-hub-projects skill",
 })
 _COMPANION_PREFIXES = (
     "companion ",
@@ -1423,6 +1468,11 @@ def run_use_hub(
 
 def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
     """Print a connect/doctor report with a clear completion banner."""
+    if report.continuity_text:
+        print()
+        print(report.continuity_text)
+        print()
+
     print()
     if report.ok:
         print(style("Complete! ADHD Hub is connected.", fg="green", bold=True))

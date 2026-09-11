@@ -1,5 +1,6 @@
 ---
 name: adhd-hub-projects
+hub_skill_version: 2
 description: >-
   ADHD Progress Hub project registry — resolve or upsert projects by workspace
   path (website, chrome extension, homelab, etc.), list projects, and optional

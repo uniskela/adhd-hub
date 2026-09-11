@@ -1198,13 +1198,59 @@ class HubService:
         if not self.wiki.index_snippet():
             self.wiki.rebuild_index(open_threads)
 
+        last_verified = None
+        if project_slug:
+            raw = self.store.get_meta(f"guidance_verified:{project_slug}")
+            if raw:
+                try:
+                    import json
+
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, dict):
+                        last_verified = parsed
+                except (TypeError, json.JSONDecodeError):
+                    last_verified = None
+
+        from adhd_hub.guidance_health import guidance_digest_payload
+
         return SessionDigest(
             open_count=len(open_threads),
             stale_count=len(stale),
             items=nudged or ranked[: self.settings.digest_limit],
             due_reminders=filtered[:10],
             wiki_index_snippet=self.wiki.index_snippet(),
+            guidance=guidance_digest_payload(last_verified=last_verified),
         )
+
+    def record_guidance_verification(
+        self,
+        *,
+        project_slug: str | None = None,
+        workspace_path: str | None = None,
+        agent_guidance_version: int | None = None,
+        session_skill_version: int | None = None,
+        cursor_rule_version: int | None = None,
+        source: str = "doctor",
+    ) -> dict:
+        """Record that a client with local FS access verified Hub guidance versions.
+
+        Does not read the client's files — only stores what the client reports.
+        """
+        from adhd_hub.guidance_health import dump_verification_record
+
+        slug = self._resolve_slug_for_write(
+            project_slug=project_slug,
+            workspace_path=workspace_path,
+            summary_or_title=None,
+        )
+        payload = dump_verification_record(
+            agent_guidance_version=agent_guidance_version,
+            session_skill_version=session_skill_version,
+            cursor_rule_version=cursor_rule_version,
+            source=source,
+        )
+        self.store.set_meta(f"guidance_verified:{slug}", payload)
+        return {"project_slug": slug, "recorded": True, "guidance": payload}
 
     def rebuild_wiki_index(self) -> str:
         path = self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))

@@ -1,6 +1,7 @@
 ---
 description: ADHD Progress Hub — check overlap and save progress on unfinished work
 alwaysApply: true
+hub_guidance_version: 2
 ---
 
 # ADHD Progress Hub
@@ -12,6 +13,8 @@ When this workspace involves starting, resuming, or leaving half-finished work:
 1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query.
 2. One thread = one independently finishable outcome. Known thread → `upsert_progress(thread_id=...)` with goal/focus/next/resume. Different goal → separate thread.
 3. When finished, `mark_done` on the known thread id only.
+
+If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` — do not nag or hand-edit AGENTS.md.
 
 If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` (title prefix is enough; optional labels `adhd-hub`, `project:<slug>`, `source:cursor`) and a short Goal/Focus/Next/Resume cue. Skip labels if the token cannot set them.
 

@@ -38,7 +38,11 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 
 Prefer **Wave 6 → 7 → 8** (clarity and findability) before Wave 5 integrations or Wave 9 shared surfaces. Do not start Wave 5 early unless a specific integration is urgently needed (see issue #20).
 
-**Foundation (thread identity):** one thread = one independently finishable outcome; `upsert_progress(thread_id=...)`; structured goal/focus/next; Active/History `PROGRESS.md`. That work is a prerequisite for Waves 6–8, not a substitute for AI summaries (#52), merge/dedupe UI (#54), or reversible wiki compaction (#55).
+## Foundation (thread identity + guidance drift)
+
+One thread = one independently finishable outcome; `upsert_progress(thread_id=...)`; structured goal/focus/next; Active/History `PROGRESS.md`.
+
+Hub-owned project guidance / skills carry an independent schema version (`AGENT_GUIDANCE_VERSION`, `hub_skill_version`). `adhd-hub doctor --project` and `adhd-hub setup --check` detect drift; repair only via explicit setup/connect (never silent per-session rewrites). That work is a prerequisite for Waves 6–8, not a substitute for AI summaries (#52), merge/dedupe UI (#54), or reversible wiki compaction (#55).
 
 ## Wave 6 — AI clarity & project organisation
 

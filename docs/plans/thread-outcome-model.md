@@ -1,4 +1,4 @@
-# Thread outcome model (foundation for Waves 6–8)
+# Thread outcome model + guidance drift (foundation for Waves 6–8)
 
 One thread = one independently finishable outcome.
 
@@ -10,6 +10,8 @@ One thread = one independently finishable outcome.
 - `PROGRESS.md`: Active threads → Recent milestones → History (legacy log migrated)
 - Overlap scoring includes goal/focus/next/resume
 - Compact agent guidance (AGENTS block + session skill)
+- Independent Hub guidance schema versions (`AGENT_GUIDANCE_VERSION`, skill `hub_skill_version`)
+- `adhd-hub doctor --project` / `setup --check` drift detection; repair only via explicit setup/connect
 
 ## Deliberately left for later waves
 

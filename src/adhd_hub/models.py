@@ -254,6 +254,7 @@ class SessionDigest(BaseModel):
     items: list[Thread]
     due_reminders: list[Reminder]
     wiki_index_snippet: str | None = None
+    guidance: dict[str, Any] | None = None
 
 
 class MarkDoneRequest(BaseModel):

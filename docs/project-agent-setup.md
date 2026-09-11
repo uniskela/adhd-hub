@@ -13,6 +13,7 @@ adhd-hub setup /path/to/my-project
 - Known thread → `upsert_progress(thread_id=...)` with compact structured state (goal / focus / ≤3 next / blocked if any / resume).
 - `check_overlap` only before potentially new work; never close unrelated overlap results.
 - On genuine completion: `mark_done` only for that known thread.
+- Drift: `adhd-hub doctor --project .` reports outdated Hub-managed AGENTS.md / Cursor rule / Hub skills; repair with `adhd-hub setup . --refresh` (and `--install-skills` when opting into global Hub skill updates). Setup `--check` is dry-run only.
 
 The block also reminds the agent to send summaries only (no secrets, credentials, env files, or transcripts) and not to publish Hub URLs, tokens, internal hosts, or machine paths.
 
