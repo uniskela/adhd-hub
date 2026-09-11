@@ -266,9 +266,9 @@ def test_access_token_valid_wrong_expired_and_hashed(tmp_path: Path) -> None:
         redirect_uris=["http://127.0.0.1:9999/callback"],
     )
     token = store.issue_access_token(client_id=client["client_id"], resource=MCP_RESOURCE)
-    assert token.startswith("ahoauth_")
+    assert token.startswith("ahmcp_")
     assert store.valid_access_token(token)
-    assert not store.valid_access_token("ahoauth_not-real")
+    assert not store.valid_access_token("ahmcp_not-real")
     assert not store.valid_access_token("ahcli_not-oauth")
 
     raw_blob = db.read_bytes()
@@ -599,7 +599,7 @@ def test_full_oauth_flow_mcp_only_and_deny_replay(tmp_path: Path) -> None:
         access = token_body["access_token"]
         assert token_body["token_type"] == "Bearer"
         assert token_body["expires_in"] > 0
-        assert access.startswith("ahoauth_")
+        assert access.startswith("ahmcp_")
 
         mcp = client.post(
             "/mcp",
