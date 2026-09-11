@@ -235,6 +235,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with_i_have_adhd=prefs.companion_enabled("i-have-adhd"),
             with_graphify=prefs.companion_enabled("graphify"),
             with_rtk=prefs.companion_enabled("rtk"),
+            with_superpowers=prefs.companion_enabled("superpowers"),
+            with_context7=prefs.companion_enabled("context7"),
+            with_agent_browser=prefs.companion_enabled("agent-browser"),
+            with_serena=prefs.companion_enabled("serena"),
         )
         return PlainTextResponse(script, media_type="text/x-shellscript")
 
@@ -248,6 +252,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with_i_have_adhd=prefs.companion_enabled("i-have-adhd"),
             with_graphify=prefs.companion_enabled("graphify"),
             with_rtk=prefs.companion_enabled("rtk"),
+            with_superpowers=prefs.companion_enabled("superpowers"),
+            with_context7=prefs.companion_enabled("context7"),
+            with_agent_browser=prefs.companion_enabled("agent-browser"),
+            with_serena=prefs.companion_enabled("serena"),
         )
         return PlainTextResponse(script, media_type="text/plain")
 

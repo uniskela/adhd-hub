@@ -1,23 +1,32 @@
 """Optional coding companions: detect, recommend, and opt-in install.
 
-Companions (i-have-adhd, Graphify, RTK) are independent of ADHD Hub.
-Install recipes follow the agents selected for connect.
+Companions (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser,
+Serena) are independent of ADHD Hub. Install recipes follow the agents selected
+for connect.
 """
 
 from __future__ import annotations
 
+import json
+import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from adhd_hub.cli_style import print_running
 from adhd_hub.project_setup import normalize_skills_agents
 
 COMPANIONS_DOC = "https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md"
 I_HAVE_ADHD_SOURCE = "ayghri/i-have-adhd"
+AGENT_BROWSER_SKILLS_SOURCE = "vercel-labs/agent-browser"
+SUPERPOWERS_REPO = "https://github.com/obra/superpowers"
+CONTEXT7_REPO = "https://github.com/upstash/context7"
+AGENT_BROWSER_REPO = "https://github.com/vercel-labs/agent-browser"
+SERENA_REPO = "https://github.com/oraios/serena"
+CONTEXT7_MCP_PACKAGE = "@upstash/context7-mcp"
 
 # Agents we emit concrete recipes for when the user passes ``*``.
 STAR_COMPANION_AGENTS = ("cursor", "codex", "claude", "gemini")
@@ -255,6 +264,262 @@ def rtk_binary_hint() -> str:
     return "brew install rtk   # or upstream install.sh — see coding-companions.md"
 
 
+
+def resolve_agent_browser_bin() -> str | None:
+    found = _which("agent-browser", "agent-browser.cmd", "agent-browser.exe")
+    if found:
+        return found
+    names = (
+        ("agent-browser.exe", "agent-browser.cmd", "agent-browser")
+        if sys.platform == "win32"
+        else ("agent-browser",)
+    )
+    for name in names:
+        path = Path.home() / ".local" / "bin" / name
+        if path.is_file():
+            return str(path.resolve())
+    return None
+
+
+def detect_agent_browser() -> bool:
+    return resolve_agent_browser_bin() is not None
+
+
+def detect_agent_browser_skill() -> bool | None:
+    home = Path.home()
+    candidates = [
+        home / ".cursor" / "skills" / "agent-browser",
+        home / ".agents" / "skills" / "agent-browser",
+        home / ".claude" / "skills" / "agent-browser",
+        home / ".codex" / "skills" / "agent-browser",
+    ]
+    found_root = False
+    for path in candidates:
+        if path.parent.is_dir():
+            found_root = True
+        if path.is_dir() and (path / "SKILL.md").is_file():
+            return True
+    if found_root:
+        return False
+    return None
+
+
+def resolve_serena_bin() -> str | None:
+    found = _which("serena", "serena.exe")
+    if found:
+        return found
+    names = ("serena.exe", "serena") if sys.platform == "win32" else ("serena",)
+    candidates: list[Path] = []
+    local_bin = Path.home() / ".local" / "bin"
+    for name in names:
+        candidates.append(local_bin / name)
+    tool_bin = _uv_tool_bin_dir()
+    if tool_bin:
+        for name in names:
+            candidates.append(tool_bin / name)
+    for path in candidates:
+        if path.is_file():
+            return str(path.resolve())
+    return None
+
+
+def detect_serena() -> bool:
+    return resolve_serena_bin() is not None
+
+
+def _read_json_obj(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise TypeError(f"{path} must contain a JSON object")
+    return data
+
+
+def _write_json_obj(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and path.is_symlink():
+        raise ValueError(f"refusing to modify symlink: {path}")
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def _mcp_servers_key(data: dict[str, Any]) -> str:
+    if "mcpServers" in data:
+        return "mcpServers"
+    if "servers" in data:
+        return "servers"
+    return "mcpServers"
+
+
+def merge_stdio_mcp_json(
+    path: Path,
+    server_key: str,
+    snippet: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> str:
+    data = _read_json_obj(path) if path.exists() else {}
+    key = _mcp_servers_key(data)
+    servers = data.setdefault(key, {})
+    if not isinstance(servers, dict):
+        raise TypeError(f"{path}: {key} must be an object")
+    previous = servers.get(server_key)
+    # Preserve an existing entry that already configures this server (env, headers, etc.).
+    if isinstance(previous, dict) and previous:
+        return "unchanged"
+    if previous == snippet and path.exists():
+        return "unchanged"
+    if dry_run:
+        return "would update" if previous else "would create"
+    servers[server_key] = snippet
+    _write_json_obj(path, data)
+    return "updated" if previous else "created"
+
+
+def merge_codex_stdio_mcp(
+    path: Path,
+    server_key: str,
+    command: str,
+    args: list[str],
+    *,
+    dry_run: bool,
+) -> str:
+    args_toml = ", ".join(json.dumps(a) for a in args)
+    command_toml = json.dumps(command)
+    block = (
+        f"[mcp_servers.{server_key}]\n"
+        f"command = {command_toml}\n"
+        f"args = [{args_toml}]\n"
+    )
+    if path.exists() and path.is_symlink():
+        raise ValueError(f"refusing to modify symlink: {path}")
+    original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    pattern = re.compile(
+        rf"^\[mcp_servers\.{re.escape(server_key)}\]\n(?:(?!^\[).*(?:\n|$))*",
+        re.MULTILINE,
+    )
+    if pattern.search(original):
+        updated = pattern.sub(block, original)
+        action = "unchanged" if updated == original else "updated"
+    else:
+        prefix = original.rstrip()
+        updated = (prefix + "\n\n" + block) if prefix else block
+        action = "created" if not original else "updated"
+    if updated == original:
+        return "unchanged"
+    if dry_run:
+        return "would update" if original else "would create"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(updated if updated.endswith("\n") else updated + "\n", encoding="utf-8")
+    return action
+
+
+def context7_mcp_snippet() -> dict[str, Any]:
+    return {
+        "command": "npx",
+        "args": ["-y", CONTEXT7_MCP_PACKAGE],
+    }
+
+
+def serena_mcp_snippet(serena_bin: str | None = None) -> dict[str, Any]:
+    exe = serena_bin or resolve_serena_bin() or "serena"
+    return {
+        "command": exe,
+        "args": ["start-mcp-server", "--context", "ide", "--project-from-cwd"],
+    }
+
+
+def detect_context7_mcp() -> bool | None:
+    """True if a context7 MCP entry exists in a known client config."""
+    checked = False
+    cursor = Path.home() / ".cursor" / "mcp.json"
+    claude = Path.home() / ".claude" / "mcp.json"
+    for path in (cursor, claude):
+        if not path.is_file():
+            continue
+        checked = True
+        try:
+            data = _read_json_obj(path)
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+        servers = data.get("mcpServers") or data.get("servers") or {}
+        if isinstance(servers, dict) and "context7" in servers:
+            return True
+    codex = Path.home() / ".codex" / "config.toml"
+    if codex.is_file():
+        checked = True
+        text = codex.read_text(encoding="utf-8")
+        if re.search(r"^\[mcp_servers\.context7\]", text, re.MULTILINE):
+            return True
+    if checked:
+        return False
+    return None
+
+
+def detect_serena_mcp() -> bool | None:
+    checked = False
+    for path in (Path.home() / ".cursor" / "mcp.json", Path.home() / ".claude" / "mcp.json"):
+        if not path.is_file():
+            continue
+        checked = True
+        try:
+            data = _read_json_obj(path)
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+        servers = data.get("mcpServers") or data.get("servers") or {}
+        if isinstance(servers, dict) and "serena" in servers:
+            return True
+    codex = Path.home() / ".codex" / "config.toml"
+    if codex.is_file():
+        checked = True
+        text = codex.read_text(encoding="utf-8")
+        if re.search(r"^\[mcp_servers\.serena\]", text, re.MULTILINE):
+            return True
+    if checked:
+        return False
+    return None
+
+
+def detect_superpowers() -> bool | None:
+    home = Path.home()
+    plugin_hints = [
+        home / ".claude" / "plugins" / "superpowers",
+        home / ".cursor" / "plugins" / "superpowers",
+        home / ".gemini" / "extensions" / "superpowers",
+    ]
+    found_root = False
+    for path in plugin_hints:
+        parent = path.parent
+        if parent.is_dir():
+            found_root = True
+        if path.exists():
+            return True
+    if found_root:
+        return False
+    return None
+
+
+def superpowers_manual_hint(agents: list[str]) -> str:
+    tips: list[str] = []
+    for agent in agents:
+        if agent == "cursor":
+            tips.append("Cursor: /add-plugin superpowers")
+        elif agent == "claude":
+            tips.append(
+                "Claude Code: /plugin install superpowers@claude-plugins-official"
+            )
+        elif agent == "codex":
+            tips.append(
+                "Codex: follow "
+                "https://raw.githubusercontent.com/obra/superpowers/main/.codex/INSTALL.md"
+            )
+        elif agent == "gemini":
+            tips.append(f"Gemini: gemini extensions install {SUPERPOWERS_REPO}")
+    if not tips:
+        tips.append(f"see upstream {SUPERPOWERS_REPO}")
+    return "; ".join(tips) + f" · {COMPANIONS_DOC}"
+
+
 def recommend_companions(agents: list[str] | None) -> list[CompanionStep]:
     """Soft-detect companions and emit install / docs guidance."""
     all_star, resolved = resolve_companion_agents(agents)
@@ -355,6 +620,116 @@ def recommend_companions(agents: list[str] | None) -> list[CompanionStep]:
         parts = [rtk_binary_hint(), *init_cmds, "telemetry opt-in only"]
         steps.append(CompanionStep("companion rtk", "missing", "; ".join(parts)))
 
+    # --- Superpowers (plugin; mostly manual with best-effort Gemini CLI) ---
+    sp_detected = detect_superpowers()
+    if sp_detected is True:
+        steps.append(CompanionStep("companion superpowers", "ok", "plugin/extension present"))
+    elif not resolved and not all_star:
+        steps.append(
+            CompanionStep(
+                "companion superpowers",
+                "manual",
+                f"pick --agents, then install per harness · {SUPERPOWERS_REPO} · {COMPANIONS_DOC}",
+            )
+        )
+    else:
+        status_sp: Status = "missing" if sp_detected is False else "manual"
+        steps.append(
+            CompanionStep(
+                "companion superpowers",
+                status_sp,
+                superpowers_manual_hint(resolved),
+            )
+        )
+
+    # --- Context7 (MCP docs) ---
+    c7 = detect_context7_mcp()
+    if c7 is True:
+        steps.append(
+            CompanionStep(
+                "companion context7",
+                "ok",
+                "MCP entry present · optional API key for higher limits",
+            )
+        )
+    elif not resolved and not all_star:
+        steps.append(
+            CompanionStep(
+                "companion context7",
+                "manual",
+                f"pick --agents, then Hub merges MCP (npx -y {CONTEXT7_MCP_PACKAGE}) · {CONTEXT7_REPO}",
+            )
+        )
+    else:
+        status_c7: Status = "missing" if c7 is False else "manual"
+        steps.append(
+            CompanionStep(
+                "companion context7",
+                status_c7,
+                f"merge MCP via npx -y {CONTEXT7_MCP_PACKAGE} · optional API key · {COMPANIONS_DOC}",
+            )
+        )
+
+    # --- agent-browser ---
+    ab_bin = detect_agent_browser()
+    ab_skill = detect_agent_browser_skill()
+    if ab_bin and ab_skill is not False:
+        steps.append(
+            CompanionStep(
+                "companion agent-browser",
+                "ok",
+                f"on PATH ({resolve_agent_browser_bin()})",
+            )
+        )
+    elif not resolved and not all_star:
+        steps.append(
+            CompanionStep(
+                "companion agent-browser",
+                "manual",
+                f"npm i -g agent-browser && agent-browser install · skills add · {AGENT_BROWSER_REPO}",
+            )
+        )
+    else:
+        status_ab: Status = "missing" if not ab_bin else "manual"
+        steps.append(
+            CompanionStep(
+                "companion agent-browser",
+                status_ab,
+                f"npm i -g agent-browser; agent-browser install; "
+                f"npx skills add {AGENT_BROWSER_SKILLS_SOURCE} -g -y … · {COMPANIONS_DOC}",
+            )
+        )
+
+    # --- Serena ---
+    serena_bin = detect_serena()
+    serena_mcp = detect_serena_mcp()
+    if serena_bin and serena_mcp is not False:
+        steps.append(
+            CompanionStep(
+                "companion serena",
+                "ok",
+                f"on PATH ({resolve_serena_bin()})",
+            )
+        )
+    elif not resolved and not all_star:
+        steps.append(
+            CompanionStep(
+                "companion serena",
+                "manual",
+                f"uv tool install -p 3.13 serena-agent · serena init · MCP merge · {SERENA_REPO}",
+            )
+        )
+    else:
+        status_se: Status = "missing" if not serena_bin else "manual"
+        steps.append(
+            CompanionStep(
+                "companion serena",
+                status_se,
+                f"uv tool install -p 3.13 serena-agent; serena init; merge MCP · {COMPANIONS_DOC}",
+            )
+        )
+
+
     return steps
 
 
@@ -401,10 +776,22 @@ def install_companions(
     with_i_have_adhd: bool = False,
     with_graphify: bool = False,
     with_rtk: bool = False,
+    with_superpowers: bool = False,
+    with_context7: bool = False,
+    with_agent_browser: bool = False,
+    with_serena: bool = False,
     dry_run: bool = False,
 ) -> list[CompanionStep]:
     """Opt-in companion installs keyed by selected agents."""
-    if not (with_i_have_adhd or with_graphify or with_rtk):
+    if not (
+        with_i_have_adhd
+        or with_graphify
+        or with_rtk
+        or with_superpowers
+        or with_context7
+        or with_agent_browser
+        or with_serena
+    ):
         return []
 
     all_star, resolved = resolve_companion_agents(agents)
@@ -547,9 +934,247 @@ def install_companions(
             )
             steps.append(CompanionStep("install rtk init", status, detail))
 
+
+    if with_superpowers:
+        gemini_agents = [a for a in resolved if a == "gemini"]
+        other_agents = [a for a in resolved if a != "gemini"]
+        if gemini_agents and _which("gemini", "gemini.exe"):
+            cmd = [
+                _which("gemini", "gemini.exe") or "gemini",
+                "extensions",
+                "install",
+                SUPERPOWERS_REPO,
+            ]
+            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+            steps.append(CompanionStep("install superpowers", status, detail))
+        hint_agents = other_agents if gemini_agents and _which("gemini", "gemini.exe") else resolved
+        if hint_agents or not gemini_agents:
+            steps.append(
+                CompanionStep(
+                    "install superpowers",
+                    "warn",
+                    "Hub cannot fully auto-install Superpowers for most harnesses — "
+                    + superpowers_manual_hint(hint_agents or resolved),
+                )
+            )
+
+    if with_context7:
+        snippet = context7_mcp_snippet()
+        targets: list[tuple[str, Path]] = []
+        if "cursor" in resolved or all_star:
+            targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
+        if "claude" in resolved or all_star:
+            targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
+        if not targets and resolved and "codex" not in resolved and not all_star:
+            steps.append(
+                CompanionStep(
+                    "install context7",
+                    "warn",
+                    "no Cursor/Claude/Codex MCP path for selected agents — "
+                    f"configure Context7 manually · {CONTEXT7_REPO}",
+                )
+            )
+        for label, mcp_path in targets:
+            try:
+                action = merge_stdio_mcp_json(
+                    mcp_path, "context7", snippet, dry_run=dry_run
+                )
+                steps.append(
+                    CompanionStep(
+                        "install context7",
+                        "ok",
+                        f"{label} MCP {action}: {mcp_path} · optional API key for higher limits",
+                    )
+                )
+            except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                steps.append(
+                    CompanionStep(
+                        "install context7",
+                        "warn",
+                        f"{label} MCP merge failed: {exc} · {CONTEXT7_REPO}",
+                    )
+                )
+        if "codex" in resolved or all_star:
+            codex_path = Path.home() / ".codex" / "config.toml"
+            try:
+                action = merge_codex_stdio_mcp(
+                    codex_path,
+                    "context7",
+                    "npx",
+                    ["-y", CONTEXT7_MCP_PACKAGE],
+                    dry_run=dry_run,
+                )
+                steps.append(
+                    CompanionStep(
+                        "install context7",
+                        "ok",
+                        f"codex MCP {action}: {codex_path}",
+                    )
+                )
+            except (OSError, ValueError) as exc:
+                steps.append(
+                    CompanionStep(
+                        "install context7",
+                        "warn",
+                        f"codex MCP merge failed: {exc} · {CONTEXT7_REPO}",
+                    )
+                )
+
+    if with_agent_browser:
+        if not detect_agent_browser():
+            npm = _which("npm", "npm.cmd")
+            if not npm and not dry_run:
+                steps.append(
+                    CompanionStep(
+                        "install agent-browser binary",
+                        "warn",
+                        "agent-browser not found and npm not on PATH — "
+                        f"run: npm i -g agent-browser · {AGENT_BROWSER_REPO}. "
+                        "Hub connect still succeeded",
+                    )
+                )
+            else:
+                cmd = [npm or "npm", "install", "-g", "agent-browser"]
+                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+                steps.append(CompanionStep("install agent-browser binary", status, detail))
+        else:
+            steps.append(
+                CompanionStep(
+                    "install agent-browser binary",
+                    "ok",
+                    f"found: {resolve_agent_browser_bin()}",
+                )
+            )
+        ab = resolve_agent_browser_bin()
+        if ab or dry_run:
+            cmd = [ab or "agent-browser", "install"]
+            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+            steps.append(CompanionStep("install agent-browser chromium", status, detail))
+        elif not dry_run:
+            steps.append(
+                CompanionStep(
+                    "install agent-browser chromium",
+                    "warn",
+                    "agent-browser installed but not found on PATH — "
+                    "open a new terminal, then run: agent-browser install · "
+                    f"{AGENT_BROWSER_REPO}",
+                )
+            )
+        if all_star:
+            cmd = [
+                "npx",
+                "skills",
+                "add",
+                AGENT_BROWSER_SKILLS_SOURCE,
+                "-g",
+                "-y",
+                "--agent",
+                "*",
+            ]
+            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+            steps.append(CompanionStep("install agent-browser skill", status, detail))
+        else:
+            targets = normalize_skills_agents(resolved)
+            if not targets:
+                steps.append(
+                    CompanionStep(
+                        "install agent-browser skill",
+                        "warn",
+                        "no skills.sh-mapped agents — install skill manually · "
+                        + COMPANIONS_DOC,
+                    )
+                )
+            else:
+                cmd = ["npx", "skills", "add", AGENT_BROWSER_SKILLS_SOURCE, "-g", "-y"]
+                for t in targets:
+                    cmd.extend(["-a", t])
+                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+                steps.append(CompanionStep("install agent-browser skill", status, detail))
+
+    if with_serena:
+        if not detect_serena():
+            uv = _which("uv", "uv.exe")
+            if not uv and not dry_run:
+                steps.append(
+                    CompanionStep(
+                        "install serena",
+                        "warn",
+                        "serena not found and uv not on PATH — "
+                        f"run: uv tool install -p 3.13 serena-agent · {SERENA_REPO}. "
+                        "Hub connect still succeeded",
+                    )
+                )
+            else:
+                cmd = [uv or "uv", "tool", "install", "-p", "3.13", "serena-agent"]
+                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+                steps.append(CompanionStep("install serena binary", status, detail))
+        else:
+            steps.append(
+                CompanionStep(
+                    "install serena binary",
+                    "ok",
+                    f"found: {resolve_serena_bin()}",
+                )
+            )
+        sbin = resolve_serena_bin()
+        if sbin or dry_run:
+            cmd = [sbin or "serena", "init"]
+            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+            steps.append(CompanionStep("install serena init", status, detail))
+        snippet = serena_mcp_snippet(sbin)
+        mcp_targets: list[tuple[str, Path]] = []
+        if "cursor" in resolved or all_star:
+            mcp_targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
+        if "claude" in resolved or all_star:
+            mcp_targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
+        for label, mcp_path in mcp_targets:
+            try:
+                action = merge_stdio_mcp_json(
+                    mcp_path, "serena", snippet, dry_run=dry_run
+                )
+                steps.append(
+                    CompanionStep(
+                        "install serena mcp",
+                        "ok",
+                        f"{label} MCP {action}: {mcp_path}",
+                    )
+                )
+            except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                steps.append(
+                    CompanionStep(
+                        "install serena mcp",
+                        "warn",
+                        f"{label} MCP merge failed: {exc} · {SERENA_REPO}",
+                    )
+                )
+        if "codex" in resolved or all_star:
+            codex_path = Path.home() / ".codex" / "config.toml"
+            try:
+                action = merge_codex_stdio_mcp(
+                    codex_path,
+                    "serena",
+                    snippet["command"],
+                    list(snippet["args"]),
+                    dry_run=dry_run,
+                )
+                steps.append(
+                    CompanionStep(
+                        "install serena mcp",
+                        "ok",
+                        f"codex MCP {action}: {codex_path}",
+                    )
+                )
+            except (OSError, ValueError) as exc:
+                steps.append(
+                    CompanionStep(
+                        "install serena mcp",
+                        "warn",
+                        f"codex MCP merge failed: {exc} · {SERENA_REPO}",
+                    )
+                )
+
+
     return steps
-
-
 def append_companion_steps(
     report_add,
     agents: list[str] | None,
@@ -557,6 +1182,10 @@ def append_companion_steps(
     with_i_have_adhd: bool = False,
     with_graphify: bool = False,
     with_rtk: bool = False,
+    with_superpowers: bool = False,
+    with_context7: bool = False,
+    with_agent_browser: bool = False,
+    with_serena: bool = False,
     dry_run: bool = False,
 ) -> None:
     """Add recommend (+ optional install) steps via ``report.add(name, status, detail)``."""
@@ -564,6 +1193,10 @@ def append_companion_steps(
         "companion i-have-adhd": with_i_have_adhd,
         "companion graphify": with_graphify,
         "companion rtk": with_rtk,
+        "companion superpowers": with_superpowers,
+        "companion context7": with_context7,
+        "companion agent-browser": with_agent_browser,
+        "companion serena": with_serena,
     }
     for step in recommend_companions(agents):
         # Avoid stale "missing" lines when this run is about to install that tool.
@@ -584,6 +1217,10 @@ def append_companion_steps(
         with_i_have_adhd=with_i_have_adhd,
         with_graphify=with_graphify,
         with_rtk=with_rtk,
+        with_superpowers=with_superpowers,
+        with_context7=with_context7,
+        with_agent_browser=with_agent_browser,
+        with_serena=with_serena,
         dry_run=dry_run,
     ):
         report_add(step.name, step.status, step.detail)

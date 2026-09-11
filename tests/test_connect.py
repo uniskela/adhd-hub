@@ -398,6 +398,10 @@ def test_render_install_sh_supports_flags() -> None:
     assert "--with-i-have-adhd)" in script
     assert "--with-graphify)" in script
     assert "--with-rtk)" in script
+    assert "--with-superpowers)" in script
+    assert "--with-context7)" in script
+    assert "--with-agent-browser)" in script
+    assert "--with-serena)" in script
     assert "ADHD_HUB_CONNECT_WITH_GRAPHIFY" in script
 
 
@@ -449,13 +453,28 @@ def test_render_install_bakes_companion_defaults() -> None:
         with_i_have_adhd=True,
         with_graphify=True,
         with_rtk=False,
+        with_context7=True,
+        with_serena=True,
     )
     assert "WITH_I_HAVE_ADHD=1" in sh
     assert "WITH_GRAPHIFY=1" in sh
     assert "WITH_RTK=0" in sh
-    ps1 = render_install_ps1("http://example:8787", with_rtk=True, with_graphify=False)
+    assert "WITH_CONTEXT7=1" in sh
+    assert "WITH_SERENA=1" in sh
+    assert "WITH_SUPERPOWERS=0" in sh
+    assert "--with-context7" in sh
+    ps1 = render_install_ps1(
+        "http://example:8787",
+        with_rtk=True,
+        with_graphify=False,
+        with_agent_browser=True,
+        with_superpowers=True,
+    )
     assert "if (-not $WithRtk -and $true)" in ps1
     assert "if (-not $WithGraphify -and $false)" in ps1
+    assert "if (-not $WithAgentBrowser -and $true)" in ps1
+    assert "if (-not $WithSuperpowers -and $true)" in ps1
+    assert "--with-agent-browser" in ps1
 
 
 def test_print_report_shows_complete_banner(capsys, monkeypatch) -> None:
