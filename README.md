@@ -200,6 +200,8 @@ Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matc
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
+`connect` and `doctor` print a scannable report: outcome banner and Hub URL, then **Do next** (success) or **Fix these** (failure). Color is on for a TTY unless `NO_COLOR` or `ADHD_HUB_NO_COLOR` is set. Layout: [docs/connect.md](docs/connect.md#connect-and-doctor-report).
+
 `adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
 
 ## Roadmap
@@ -211,6 +213,7 @@ Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improveme
 - **Wave 3 (shipped in 0.3.7):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
 - **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
 - **0.4.0 (shipped):** Connect agent prefs, Hub-served CLI wheel, and OpenClaw pairing
+- **0.4.1 (shipped):** Coding companions and ADHD-friendly connect/doctor reports
 - Wave 5 (opt-in Slack/Discord/calendar) is still upcoming
 - skills.sh listing after publish
 

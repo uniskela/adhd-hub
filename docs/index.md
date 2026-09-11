@@ -10,7 +10,7 @@ ADHD Progress Hub keeps unfinished work findable. Start with one small action, s
 
 - [Writing and planning](writing.md) — one visible Now action, short next steps, blockers, and a return cue
 - [Personal wire-up](setup.md) — a repeatable start, pause, and review loop
-- [Connect (one-liner)](connect.md) — MCP, AGENTS.md, skills, and optional OpenClaw from a running Hub
+- [Connect (one-liner)](connect.md) — MCP, AGENTS.md, skills, and optional OpenClaw from a running Hub; `connect` / `doctor` print a scannable report
 - [Project agent setup](project-agent-setup.md) — reversible AGENTS.md continuity guidance
 - [Recommended coding companions](coding-companions.md) — optional i-have-adhd, Graphify, RTK
 
