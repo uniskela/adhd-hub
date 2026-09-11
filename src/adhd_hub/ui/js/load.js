@@ -22,5 +22,7 @@ export async function loadAll() {
     await loadPrefs();
     await loadOverview();
     await loadChosenThread();
-    if (state.activeScreen === "work") await selectProject(state.projectFilter);
+    const wantWork =
+      state.activeScreen === "work" || state.settingsReturnScreen === "work";
+    if (wantWork) await selectProject(state.projectFilter);
   }
