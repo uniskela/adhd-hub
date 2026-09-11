@@ -11,6 +11,10 @@ from adhd_hub.models import Thread, ThreadStatus
 
 log = logging.getLogger(__name__)
 
+# Hub-owned status block inside forge issue bodies (GitHub + Gitea markdown).
+STATUS_START = "<!-- adhd-hub:status:start -->"
+STATUS_END = "<!-- adhd-hub:status:end -->"
+
 # Cloud mailbox: title prefix is enough when agents cannot apply labels.
 # Optional whitespace after ``]`` so ``[ADHD] foo`` and ``[ADHD]foo`` both match.
 _INBOX_TITLE_PREFIX = re.compile(r"^\[adhd\]\s*", re.IGNORECASE)
@@ -37,7 +41,8 @@ class BoardForgeSync:
         self.config = config
         self._meta_get = meta_get
         self._meta_set = meta_set
-        # Optional: callable(project_slug) -> progress markdown | None
+        # Optional legacy hook (slug → markdown). No longer embedded into issues;
+        # thread state is mirrored instead. Kept for call-site compatibility.
         self._progress_reader = progress_reader
 
     def _headers(self) -> dict[str, str]:
@@ -154,14 +159,21 @@ class BoardForgeSync:
     ) -> dict[str, Any]:
         labels = self._labels_for_thread(thread)
         self._ensure_labels(client, labels)
+        current_body = ""
+        get = client.get(self._issue_url(number), headers=self._headers())
+        if get.status_code < 400:
+            current_body = get.json().get("body") or ""
+        hub_owns = self.is_wholly_hub_owned_body(current_body)
         payload: dict[str, Any] = {
-            "title": f"[ADHD] {thread.summary[:200]}",
-            "body": self._issue_body(thread),
+            "body": self.merge_issue_body(current_body, thread),
             "state": "closed"
             if thread.status in (ThreadStatus.done, ThreadStatus.dismissed)
             else "open",
             "labels": labels,
         }
+        # Only Hub-owned mirrors may rewrite the issue title.
+        if hub_owns or not current_body.strip():
+            payload["title"] = f"[ADHD] {thread.summary[:200]}"
         resp = client.patch(self._issue_url(number), headers=self._headers(), json=payload)
         if resp.status_code >= 400:
             # Retry without labels if forge rejects
@@ -177,6 +189,7 @@ class BoardForgeSync:
             "updated": True,
             "number": number,
             "url": data.get("html_url") or data.get("url"),
+            "hub_owned_body": hub_owns or not current_body.strip(),
         }
 
     def _set_issue_state(self, client: httpx.Client, number: int, *, closed: bool) -> None:
@@ -188,64 +201,88 @@ class BoardForgeSync:
         if resp.status_code >= 400:
             log.warning("set issue state failed: %s", resp.text[:200])
 
-    def _issue_body(self, thread: Thread) -> str:
-        parts = [
-            f"**ADHD Hub thread** `{thread.id}`",
+    @staticmethod
+    def is_wholly_hub_owned_body(body: str | None) -> bool:
+        """True when the issue body is entirely Hub-generated (safe to replace)."""
+        text = (body or "").strip()
+        if not text:
+            return True
+        if STATUS_START in text and STATUS_END in text:
+            before, rest = text.split(STATUS_START, 1)
+            _mid, after = rest.split(STATUS_END, 1)
+            return not before.strip() and not after.strip()
+        # Legacy Hub-created bodies (pre-status markers).
+        return text.startswith(("**ADHD Hub thread**", "### ADHD Hub"))
+
+    @classmethod
+    def upsert_status_block(cls, existing: str | None, block: str) -> str:
+        """Replace or insert the Hub-managed status block; preserve other content."""
+        text = existing or ""
+        block = block.strip()
+        if STATUS_START in text and STATUS_END in text:
+            before, remainder = text.split(STATUS_START, 1)
+            _old, after = remainder.split(STATUS_END, 1)
+            return f"{before}{block}{after}"
+        if cls.is_wholly_hub_owned_body(text):
+            return block + "\n"
+        # External / inbox-authored: keep user text; Hub status at the top.
+        user = text.strip()
+        if not user:
+            return block + "\n"
+        return f"{block}\n\n{user}\n"
+
+    def render_status_block(self, thread: Thread) -> str:
+        """Thread-scoped Hub status (not project-wide PROGRESS.md)."""
+        lines = [
+            STATUS_START,
+            "### ADHD Hub",
             "",
-            f"- status: `{thread.status.value}`",
-            f"- project: `{thread.project_slug or '-'}`",
-            f"- source: `{thread.source_tool or thread.origin}`",
-            f"- workspace: `{thread.workspace_path or '-'}`",
+            f"**Title:** {thread.summary.strip() or '(untitled)'}",
             "",
         ]
+        if thread.goal:
+            lines.extend(["**Goal**", "", thread.goal.strip(), ""])
+        if thread.focus:
+            lines.extend(["**Focus**", "", thread.focus.strip(), ""])
+        next_steps = list(thread.next_steps or [])[:3]
+        if next_steps:
+            lines.append("**Next**")
+            lines.append("")
+            for i, step in enumerate(next_steps, start=1):
+                lines.append(f"{i}. {step}")
+            lines.append("")
+        if thread.blocked_reason and thread.blocked_reason.strip():
+            lines.extend(["**Blocked**", "", thread.blocked_reason.strip(), ""])
+        if thread.resume_step and thread.resume_step.strip():
+            lines.extend(["**Resume**", "", thread.resume_step.strip(), ""])
+        lines.extend(
+            [
+                f"- status: `{thread.status.value}`",
+                f"- Hub thread: `{thread.id}`",
+                f"- Project: `{thread.project_slug or '-'}`",
+                f"- Updated: `{thread.updated_at.isoformat()}`",
+            ]
+        )
+        if thread.source_tool or thread.origin:
+            lines.append(f"- source: `{thread.source_tool or thread.origin}`")
         if thread.project_slug:
             prog_url = self.config.file_web_url(
                 f"projects/{thread.project_slug}/PROGRESS.md"
             )
             if prog_url:
-                parts.extend(
-                    [
-                        f"- progress: [{prog_url}]({prog_url})",
-                        "",
-                    ]
-                )
-        parts.extend(
-            [
-                "### Summary",
-                "",
-                thread.summary.strip() or "(no summary)",
-                "",
-            ]
-        )
-        progress = None
-        if self._progress_reader and thread.project_slug:
-            try:
-                progress = self._progress_reader(thread.project_slug)
-            except Exception:
-                log.exception("progress read failed for %s", thread.project_slug)
-        if progress and progress.strip():
-            # Keep issue bodies bounded for forge APIs
-            text = progress.strip()
-            if len(text) > 12000:
-                text = text[:12000].rstrip() + "\n\n…(truncated; see hub wiki PROGRESS.md)"
-            parts.extend(
-                [
-                    "### Progress log",
-                    "",
-                    text,
-                    "",
-                ]
-            )
-        else:
-            parts.extend(
-                [
-                    "### Progress log",
-                    "",
-                    "_No PROGRESS.md yet — call `upsert_progress` from an agent or edit in hub `/ui`._",
-                    "",
-                ]
-            )
-        return "\n".join(parts)
+                lines.append(f"- Project progress (optional): [{prog_url}]({prog_url})")
+        lines.extend(["", STATUS_END])
+        return "\n".join(lines)
+
+    def _issue_body(self, thread: Thread) -> str:
+        """Full body for Hub-created issues (wholly Hub-owned)."""
+        return self.render_status_block(thread).rstrip() + "\n"
+
+    def merge_issue_body(self, existing: str | None, thread: Thread) -> str:
+        block = self.render_status_block(thread)
+        if self.is_wholly_hub_owned_body(existing):
+            return block.rstrip() + "\n"
+        return self.upsert_status_block(existing, block)
 
     def _maybe_add_to_project(self, client: httpx.Client, issue: dict[str, Any]) -> None:
         try:
@@ -449,7 +486,13 @@ class BoardForgeSync:
                     break
         return out
 
-    def mark_issue_imported(self, number: int, *, thread_id: str) -> dict[str, Any]:
+    def mark_issue_imported(
+        self,
+        number: int,
+        *,
+        thread_id: str,
+        thread: Thread | None = None,
+    ) -> dict[str, Any]:
         """Close the forge issue and stamp the synced label — never delete."""
         synced = self._synced_label()
         with httpx.Client(timeout=30.0) as client:
@@ -471,12 +514,25 @@ class BoardForgeSync:
                 labels = sorted({*current, *labels})
             if labels:
                 payload["labels"] = labels
-            # Annotate body with hub thread id if missing
+            # Upsert Hub status block; preserve user-authored content outside markers.
             if get.status_code < 400:
                 body = get.json().get("body") or ""
-                marker = f"**ADHD Hub thread** `{thread_id}`"
-                if marker not in body:
-                    payload["body"] = f"{marker}\n\n_Imported from forge inbox._\n\n{body}".strip()
+                if thread is not None:
+                    payload["body"] = self.merge_issue_body(body, thread)
+                else:
+                    from datetime import UTC, datetime
+
+                    from adhd_hub.models import EnergyLevel
+
+                    stub = Thread(
+                        id=thread_id,
+                        summary=f"Hub thread `{thread_id}`",
+                        status=ThreadStatus.done,
+                        energy=EnergyLevel.unknown,
+                        created_at=datetime.now(UTC),
+                        updated_at=datetime.now(UTC),
+                    )
+                    payload["body"] = self.merge_issue_body(body, stub)
             resp = client.patch(self._issue_url(number), headers=self._headers(), json=payload)
             if resp.status_code >= 400 and "state_reason" in payload:
                 payload.pop("state_reason", None)

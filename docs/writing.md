@@ -6,56 +6,55 @@ This is a lightweight, optional convention for project notes, plans, handoffs, i
 
 Keep the top of every active note short enough to scan before you start work. It should answer these questions in order:
 
-1. **Outcome** — what will be true when this is finished?
-2. **Now** — what is the single, physical next action?
-3. **Done** — what changed since the last update?
-4. **Next** — what follows after the current action?
-5. **Waiting / blocked** — who or what needs to move first?
-6. **Return cue** — what should I do when I come back after a break?
+1. **Goal / Outcome** — what will be true when this is finished?
+2. **Focus / Now** — what is the single, physical next action?
+3. **Next** — at most three actions after the current one?
+4. **Blocked** — who or what needs to move first? (omit when nothing is blocked)
+5. **Resume / Return cue** — what should I do when I come back after a break?
+
+Hub threads store these as structured fields (`goal`, `focus`, `next_steps`, `blocked_reason`, `resume_step`) plus a short title. Prefer updating those fields via `upsert_progress(thread_id=...)` instead of pasting a full diary every checkpoint.
 
 Use a verb, a concrete object, and a location where useful: `Run uv run pytest`, `Open docs/authentication.md`, or `Ask Sam to confirm the DNS record`. Avoid labels such as “work on auth” that still require deciding how to begin.
 
 ## Active-work update
 
-Use this for `PROGRESS.md`, Hub updates, issues, and handoffs. Keep completed history below this active section in dated entries.
+Hub rewrites `PROGRESS.md` with **Active threads** (current structured state), **Recent milestones** (meaningful changes only), and **History** (recoverable older detail). Do not duplicate unchanged state into history. Omit empty Blocked sections rather than writing `None`.
+
+When writing freeform notes (issues, handoffs), keep completed history below the active section:
 
 ```markdown
-## Now
-- Run `uv run pytest tests/test_auth.py` and record the first failure, if any.
+## Goal
+- Ship OAuth discovery + token endpoint for MCP clients.
 
-## Done since last time
-- Added the trusted-origin setting.
-- Updated the deployment example.
+## Focus
+- Run `uv run pytest tests/test_oauth.py` and record the first failure, if any.
 
 ## Next
-1. Fix the first failing auth test.
+1. Fix the first failing OAuth test.
 2. Run the full test suite.
 3. Open a pull request with the deployment note.
 
-## Waiting / blocked
-- None.
-
-## Return cue
-- When I reopen this work, start by running `uv run pytest tests/test_auth.py`.
+## Resume
+- When I reopen this work, start by running `uv run pytest tests/test_oauth.py`.
 ```
 
 Guidelines:
 
-- Make **Now** exactly one action that can be started without another planning pass.
-- Keep **Done since last time** to three to five bullets; link to details instead of retelling them.
+- Make **Focus** exactly one action that can be started without another planning pass.
 - Limit **Next** to three ordered actions. Move later ideas to a backlog or issue.
-- Name the owner or unblock condition in **Waiting / blocked**. Write `None` when nothing is waiting.
-- Write the **Return cue** as “When _cue_, I will _action_.” It should work even after several days away.
+- Name the owner or unblock condition in **Blocked** only when something is waiting.
+- Write the **Resume** cue as a concrete pickup instruction that works after several days away.
+- One thread = one independently finishable outcome; do not append unrelated work to the same thread.
 
 ### 30-second minimum
 
 When time or energy is low, write only this and resume the fuller format later:
 
 ```markdown
-## Now
+## Focus
 - …
 
-## Return cue
+## Resume
 - When I return, I will …
 ```
 

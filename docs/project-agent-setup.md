@@ -8,10 +8,12 @@ adhd-hub setup /path/to/my-project
 
 `adhd-hub connect` writes the same managed block. The heading is **ADHD Hub continuity**. Agents should skip Hub tools for trivial or read-only questions, tiny edits, and other work that does not need continuity tracking. For substantial work:
 
-- Once per session or checkout: `resolve_project` (current absolute project root), then `session_digest` with that path and a brief task query. Reuse resolved context when you can.
-- Before starting work that might duplicate an existing thread: `check_overlap`.
-- At checkpoints or before pausing: `upsert_progress` for the resolved project and known thread (`Now / Done / Next / Waiting / Return cue`).
-- On genuine completion: `mark_done` only for that known thread — never close unrelated overlap results.
+- Once per meaningful session: `resolve_project` (current absolute project root), then `session_digest` with that path and a brief task query. Reuse resolved context when you can.
+- **One thread = one independently finishable outcome.** Compare new work to the thread Goal before updating; different goal → separate thread.
+- Known thread → `upsert_progress(thread_id=...)` with compact structured state (goal / focus / ≤3 next / blocked if any / resume).
+- `check_overlap` only before potentially new work; never close unrelated overlap results.
+- On genuine completion: `mark_done` only for that known thread.
+- Drift: `adhd-hub doctor --project .` reports outdated Hub-managed AGENTS.md / Cursor rule / Hub skills; repair with `adhd-hub setup . --refresh` (and `--install-skills` when opting into global Hub skill updates). Setup `--check` is dry-run only.
 
 The block also reminds the agent to send summaries only (no secrets, credentials, env files, or transcripts) and not to publish Hub URLs, tokens, internal hosts, or machine paths.
 

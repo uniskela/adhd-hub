@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _validated_repo_url(value: str | None) -> str | None:
@@ -57,6 +57,10 @@ class Thread(BaseModel):
     resume_step: str | None = None
     paused_at: datetime | None = None
     last_reminded_at: datetime | None = None
+    goal: str | None = None
+    focus: str | None = None
+    next_steps: list[str] = Field(default_factory=list)
+    blocked_reason: str | None = None
 
 
 class ThreadUpsert(BaseModel):
@@ -70,15 +74,80 @@ class ThreadUpsert(BaseModel):
     chat_ref: str | None = None
     transcript_ref: str | None = None
     origin: str = "manual"
+    goal: str | None = None
+    focus: str | None = None
+    next_steps: list[str] | None = None
+    blocked_reason: str | None = None
+    resume_step: str | None = None
+
+    @field_validator("next_steps")
+    @classmethod
+    def _limit_next_steps(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        from adhd_hub.thread_state import normalize_next_steps
+
+        return normalize_next_steps(value)
+
+    @field_validator("focus")
+    @classmethod
+    def _one_focus(cls, value: str | None) -> str | None:
+        from adhd_hub.thread_state import normalize_focus
+
+        return normalize_focus(value)
 
 
 class ProgressUpsert(BaseModel):
     project_slug: str | None = None
-    content: str
+    content: str | None = None
     title: str | None = None
     workspace_path: str | None = None
     source_tool: str | None = None
     create_thread_if_missing: bool = True
+    thread_id: str | None = None
+    force_new_thread: bool = False
+    goal: str | None = None
+    focus: str | None = None
+    next_steps: list[str] | None = None
+    blocked_reason: str | None = None
+    resume_step: str | None = None
+
+    @field_validator("next_steps")
+    @classmethod
+    def _limit_next_steps(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        from adhd_hub.thread_state import normalize_next_steps
+
+        return normalize_next_steps(value)
+
+    @field_validator("focus")
+    @classmethod
+    def _one_focus(cls, value: str | None) -> str | None:
+        from adhd_hub.thread_state import normalize_focus
+
+        return normalize_focus(value)
+
+    @model_validator(mode="after")
+    def _require_signal(self) -> ProgressUpsert:
+        has_structured = any(
+            [
+                self.goal,
+                self.focus,
+                self.next_steps,
+                self.blocked_reason,
+                self.resume_step,
+                self.title,
+                self.thread_id,
+                self.force_new_thread,
+            ]
+        )
+        if not (self.content and self.content.strip()) and not has_structured:
+            raise ValueError(
+                "progress requires content or structured fields "
+                "(title/goal/focus/next_steps/blocked_reason/resume_step/thread_id)"
+            )
+        return self
 
 
 class Project(BaseModel):
@@ -185,6 +254,7 @@ class SessionDigest(BaseModel):
     items: list[Thread]
     due_reminders: list[Reminder]
     wiki_index_snippet: str | None = None
+    guidance: dict[str, Any] | None = None
 
 
 class MarkDoneRequest(BaseModel):
