@@ -11,10 +11,10 @@ from pathlib import Path
 
 # Independent from package release version (pyproject). Bump only when Hub-owned
 # generated guidance or Hub-owned skill contracts change meaningfully.
-AGENT_GUIDANCE_VERSION = 2  # thread-outcome model + structured upsert_progress
+AGENT_GUIDANCE_VERSION = 3  # outage policy + explicit pause/public-artifact safety
 SESSION_SKILL_VERSION = 2
 PROJECTS_SKILL_VERSION = 2
-CURSOR_RULE_VERSION = 2
+CURSOR_RULE_VERSION = 3  # conditional overlap + pause/outage policy
 
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"

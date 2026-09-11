@@ -2,7 +2,7 @@
 
 ## Day in the life
 
-1. **Hub running** — Docker or `uv run adhd-hub serve` on `:8787`.
+1. **Hub running** — use the [installation guide](installation.md) for Docker Compose (recommended), `docker run`, or source/`uv` setup.
 2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Connections**; do not export the server token into your shell. For MCP clients with an **Auth** / **Authenticate** button, set Hub `ADHD_HUB_PUBLIC_URL` and leave Hub OAuth enabled (default); Approve = Hub UI sign-in + **Allow**. Static `ADHD_HUB_AUTH_TOKEN` Bearer and CLI connect still work; set Hub `ADHD_HUB_OAUTH_ENABLED=false` to disable discovery/OAuth routes. Details: [Connect — MCP Auth / Authenticate](connect.md#mcp-auth--authenticate-oauth).
 
 ```bash
@@ -30,8 +30,8 @@ npx skills add ./skills -g
 ```
 
 4. **Optional coding companions** (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) — toggle under **Settings → Connections**, or see [Recommended coding companions](coding-companions.md).
-5. **Start a coding session** in any project — skip Hub tools for trivial/read-only questions and tiny edits. For substantial work: once per session `resolve_project` → `session_digest`, then `check_overlap` before duplicating a thread. See [project agent setup](project-agent-setup.md).
-6. **Pause unfinished work** — `upsert_progress(thread_id=...)` with compact structured state: **goal**, **focus** (one action), ≤3 **next_steps**, **blocked_reason** only if blocked, and **resume_step**. See [ADHD-friendly writing and planning](writing.md).
+5. **Start a coding session** in any project — skip Hub tools for trivial/read-only questions and tiny edits. For substantial work: once per meaningful session `resolve_project` → `session_digest`. If resuming a known thread, reuse its `thread_id`; otherwise use `check_overlap` before potentially new/duplicate work and reuse only when the Goal matches. See [project agent setup](project-agent-setup.md).
+6. **Pause unfinished work** — checkpoint with `upsert_progress(thread_id=...)` using **goal**, **focus** (one action), ≤3 **next_steps**, **blocked_reason** only if blocked, and **resume_step**. When actually leaving mid-task, follow it with `pause_thread(thread_id, next_step=...)` so the Hub records a concrete paused/resume state. See [ADHD-friendly writing and planning](writing.md).
 7. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
 8. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
 
@@ -72,4 +72,4 @@ See [adapters/cursor-hooks.md](https://github.com/uniskela/adhd-hub/blob/main/ad
 .\scripts\sync-and-deploy.ps1 -HostName root@100.115.187.7 -RemoteDir /opt/adhd-hub
 ```
 
-Then set MCP URL to `http://<tailscale-ip>:8787/mcp` and `ADHD_HUB_PUBLIC_URL` to that base for README → `/ui` links.
+Then set MCP URL to `http://<tailscale-ip>:8787/mcp` and `ADHD_HUB_PUBLIC_URL` to that base for README → `/ui` links. See [Homelab deployment](deploy-homelab.md) for the full Proxmox/Tailscale flow.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from argparse import Namespace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -22,8 +23,11 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "ADHD_HUB_AUTH_TOKEN" in text
     assert "/mcp" in text
     assert "invent Hub state" in text
-    assert "leave a concise local handoff instead of claiming" not in text
-    assert "adhd-hub:guidance-version:" in text
+    assert "only if Hub status changes" in text
+    assert "later substantial Hub-worthy turns while still down" not in text
+    assert "pause_thread" in text
+    assert "absolute machine paths" in text
+    assert "adhd-hub:guidance-version:3" in text
 
 
 def test_session_skill_requires_loud_mcp_down() -> None:
@@ -40,7 +44,26 @@ def test_session_skill_requires_loud_mcp_down() -> None:
     assert "safe for the repository's visibility" in text
     assert "absolute local workspace paths" in text
     assert "thread_id" in text
+    assert "pause_thread" in text
     assert "../../docs/writing.md" not in text
+
+
+def test_continuity_surfaces_share_core_policy() -> None:
+    from adhd_hub.connect import _FALLBACK_CURSOR_RULE
+
+    repo_root = Path(__file__).resolve().parents[1]
+    session = (repo_root / "skills/adhd-hub-session/SKILL.md").read_text(encoding="utf-8")
+    cursor = (repo_root / "adapters/cursor-rule.mdc").read_text(encoding="utf-8")
+    surfaces = [agent_block(), session, cursor, _FALLBACK_CURSOR_RULE]
+
+    for text in surfaces:
+        lowered = text.lower()
+        assert "trivial" in lowered
+        assert "check_overlap" in text
+        assert "pause_thread" in text
+        assert "thread_id" in text
+        assert "hub status changes" in lowered
+        assert "later substantial hub-worthy turns while still down" not in lowered
 
 
 def test_install_creates_agents_file_and_is_idempotent(tmp_path: Path) -> None:
@@ -87,7 +110,10 @@ def test_install_rejects_incomplete_managed_block(tmp_path: Path) -> None:
 def test_install_skills_uses_argument_list_without_shell() -> None:
     completed = Mock(returncode=0)
     with (
-        patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
+        patch(
+            "adhd_hub.project_setup.shutil.which",
+            side_effect=lambda name: "npx" if name == "npx" else None,
+        ),
         patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
     ):
         assert install_skills("./skills", agents=["cursor"]) == 0
@@ -109,10 +135,79 @@ def test_install_skills_uses_argument_list_without_shell() -> None:
     )
 
 
+def test_install_skills_without_agents_installs_for_all_agents() -> None:
+    completed = Mock(returncode=0)
+    with (
+        patch(
+            "adhd_hub.project_setup.shutil.which",
+            side_effect=lambda name: "npx" if name == "npx" else None,
+        ),
+        patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
+    ):
+        assert install_skills("./skills") == 0
+
+    run.assert_called_once_with(
+        [
+            "npx",
+            "skills",
+            "add",
+            "./skills",
+            "-g",
+            "-y",
+            "--skill",
+            "*",
+            "--agent",
+            "*",
+        ],
+        check=False,
+    )
+
+
+def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
+    from adhd_hub.cli import cmd_setup
+
+    completed = Mock(returncode=0)
+    args = Namespace(
+        path=str(tmp_path),
+        uninstall=False,
+        check=False,
+        refresh=False,
+        install_skills=True,
+        skills_source="./skills",
+    )
+    with (
+        patch(
+            "adhd_hub.project_setup.shutil.which",
+            side_effect=lambda name: "npx" if name == "npx" else None,
+        ),
+        patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
+    ):
+        assert cmd_setup(args) == 0
+
+    run.assert_called_once_with(
+        [
+            "npx",
+            "skills",
+            "add",
+            "./skills",
+            "-g",
+            "-y",
+            "--skill",
+            "*",
+            "--agent",
+            "*",
+        ],
+        check=False,
+    )
+
+
 def test_install_skills_maps_claude_alias_to_claude_code() -> None:
     completed = Mock(returncode=0)
     with (
-        patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
+        patch(
+            "adhd_hub.project_setup.shutil.which",
+            side_effect=lambda name: "npx" if name == "npx" else None,
+        ),
         patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
     ):
         assert install_skills("./skills", agents=["claude", "cursor"]) == 0
@@ -136,9 +231,12 @@ def test_install_skills_maps_claude_alias_to_claude_code() -> None:
     )
 
 
-def test_install_skills_requires_agents_when_not_all() -> None:
+def test_install_skills_requires_agents_when_explicitly_empty() -> None:
     with (
-        patch("adhd_hub.project_setup.shutil.which", side_effect=lambda name: "npx" if name == "npx" else None),
+        patch(
+            "adhd_hub.project_setup.shutil.which",
+            side_effect=lambda name: "npx" if name == "npx" else None,
+        ),
         patch("adhd_hub.project_setup.subprocess.run") as run,
     ):
         assert install_skills("./skills", agents=[]) == 2

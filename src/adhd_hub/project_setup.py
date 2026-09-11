@@ -67,12 +67,13 @@ def agent_block() -> str:
 For substantial work in this project:
 
 - If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise
-  unavailable: the **first line** of your reply on that turn (and on later
-  substantial Hub-worthy turns while still down) MUST state that Hub MCP is
-  not available, plus a short fix hint (MCP URL → this Hub's `/mcp`,
-  `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs
-  until Hub OAuth is enabled). Then continue the authorized work. Never
-  invent Hub state or claim a Hub write succeeded.
+  unavailable: on the first substantial Hub-worthy turn after detecting the
+  outage, the **first line** MUST state that Hub MCP is not available, plus a
+  short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart
+  the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Repeat
+  only if Hub status changes, a persistence attempt fails again, or the reply
+  could otherwise imply continuity was saved. Then continue the authorized
+  work. Never invent Hub state or claim a Hub write succeeded.
 - Skip Hub for trivial/read-only/tiny work.
 - Once per meaningful session: `resolve_project`, then `session_digest` with
   the task query. Reuse resolved context where possible.
@@ -84,12 +85,14 @@ For substantial work in this project:
   to an unrelated open thread.
 - `check_overlap` only before potentially new work; reuse only when the Goal
   matches. Different goal → separate thread (`force_new_thread` if needed).
-- Pause with one concrete resume action; `mark_done` only the known completed
-  thread — never close unrelated overlap results.
+- When leaving mid-task, checkpoint then `pause_thread(thread_id, next_step=...)`
+  with one concrete resume action. `mark_done` only the known completed thread
+  — never close unrelated overlap results.
 - If Hub guidance looks stale (session_digest guidance status, or doctor),
   mention it once, keep using the current MCP contract, and recommend
   `adhd-hub setup . --refresh` — do not nag repeatedly or hand-edit AGENTS.md.
-- Summaries only; never secrets, credentials, env files, or transcripts.
+- Summaries only; never secrets, credentials, env files, transcripts, private
+  Hub URLs, internal hosts/IPs, or absolute machine paths in public artifacts.
 {END_MARKER}"""
 
 
@@ -176,13 +179,18 @@ def install_skills(
     agents: list[str] | None = None,
     all_agents: bool = False,
 ) -> int:
-    """Install Hub skills via ``npx skills`` (non-interactive)."""
+    """Install Hub skills via ``npx skills`` (non-interactive).
+
+    A missing ``agents`` argument is the setup-command shorthand for every
+    skills.sh agent. An explicit empty list still fails closed so connect never
+    guesses targets when the user supplied no agents.
+    """
     npx = shutil.which("npx") or shutil.which("npx.cmd")
     if not npx:
         print("npx not found on PATH", file=__import__("sys").stderr)
         return 127
     command = [npx, "skills", "add", source, "-g", "-y", "--skill", "*"]
-    if all_agents:
+    if all_agents or agents is None:
         command.extend(["--agent", "*"])
     else:
         targets = normalize_skills_agents(agents)

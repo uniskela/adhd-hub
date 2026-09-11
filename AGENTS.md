@@ -48,18 +48,19 @@ If `graphify-out/wiki/index.md` exists, prefer it for navigation. Use `graphify-
 See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphify/SKILL.md) and rule [`.cursor/rules/graphify.mdc`](.cursor/rules/graphify.mdc).
 
 <!-- adhd-hub:project-agent:start -->
-<!-- adhd-hub:guidance-version:2 -->
+<!-- adhd-hub:guidance-version:3 -->
 ## ADHD Hub continuity
 
 For substantial work in this project:
 
 - If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise
-  unavailable: the **first line** of your reply on that turn (and on later
-  substantial Hub-worthy turns while still down) MUST state that Hub MCP is
-  not available, plus a short fix hint (MCP URL → this Hub's `/mcp`,
-  `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs
-  until Hub OAuth is enabled). Then continue the authorized work. Never
-  invent Hub state or claim a Hub write succeeded.
+  unavailable: on the first substantial Hub-worthy turn after detecting the
+  outage, the **first line** MUST state that Hub MCP is not available, plus a
+  short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart
+  the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Repeat
+  only if Hub status changes, a persistence attempt fails again, or the reply
+  could otherwise imply continuity was saved. Then continue the authorized
+  work. Never invent Hub state or claim a Hub write succeeded.
 - Skip Hub for trivial/read-only/tiny work.
 - Once per meaningful session: `resolve_project`, then `session_digest` with
   the task query. Reuse resolved context where possible.
@@ -71,10 +72,12 @@ For substantial work in this project:
   to an unrelated open thread.
 - `check_overlap` only before potentially new work; reuse only when the Goal
   matches. Different goal → separate thread (`force_new_thread` if needed).
-- Pause with one concrete resume action; `mark_done` only the known completed
-  thread — never close unrelated overlap results.
+- When leaving mid-task, checkpoint then `pause_thread(thread_id, next_step=...)`
+  with one concrete resume action. `mark_done` only the known completed thread
+  — never close unrelated overlap results.
 - If Hub guidance looks stale (session_digest guidance status, or doctor),
   mention it once, keep using the current MCP contract, and recommend
   `adhd-hub setup . --refresh` — do not nag repeatedly or hand-edit AGENTS.md.
-- Summaries only; never secrets, credentials, env files, or transcripts.
+- Summaries only; never secrets, credentials, env files, transcripts, private
+  Hub URLs, internal hosts/IPs, or absolute machine paths in public artifacts.
 <!-- adhd-hub:project-agent:end -->
