@@ -96,7 +96,9 @@ Install the Hub skills for OpenClaw:
 npx skills add uniskela/adhd-hub -g -a openclaw
 ```
 
-Enable private hooks on the OpenClaw gateway. Then open **Hub Settings → Connections → OpenClaw connection & gentle alerts** to save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save & send test** to verify the route.
+**Pairing (recommended):** In **Settings → Connections → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. Full steps: [OpenClaw connection and alerts](docs/openclaw.md).
+
+**Manual path:** Enable private hooks on the OpenClaw gateway. Then in the same Connections panel, save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save & send test** to verify the route.
 
 The bearer token is encrypted before it is written to the Hub data directory and is never returned to the browser. Environment variables remain available for initial provisioning:
 
@@ -188,7 +190,9 @@ curl -fsSL http://<hub-host>:8787/install.sh | sh -s -- /path/to/project
 irm http://<hub-host>:8787/install.ps1 | iex
 ```
 
-The CLI opens your browser (or prints a one-time code). Press **Allow this CLI**. A session is saved on disk; do not `export ADHD_HUB_AUTH_TOKEN` into your profile for this step. Details: [docs/connect.md](docs/connect.md).
+The CLI opens your browser (or prints a one-time code). Press **Allow this CLI**. A session is saved on disk; do not `export ADHD_HUB_AUTH_TOKEN` into your profile for this step.
+
+Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matching the server), falling back to `git+https`. Choose agents in **Settings → Connections** (baked into `/install.sh` and `/install.ps1`), or pass `--agents` / `ADHD_HUB_CONNECT_AGENTS`. Hub alias `claude` maps to skills.sh `claude-code`; there is no Cursor-only default. Details: [docs/connect.md](docs/connect.md).
 
 ```bash
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
@@ -202,8 +206,10 @@ Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improveme
 
 - **Wave 0 (shipped in 0.3.5):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
 - **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
-- **Wave 3 (PR):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
-- Wave 4 (split `app.js` / a11y) and Wave 5 (opt-in Slack/Discord/calendar) come after Wave 3
+- **Wave 3 (shipped in 0.3.7):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
+- **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
+- **0.4.0 (shipped):** Connect agent prefs, Hub-served CLI wheel, and OpenClaw pairing
+- Wave 5 (opt-in Slack/Discord/calendar) is still upcoming
 - skills.sh listing after publish
 
 ### Dashboard comfort
