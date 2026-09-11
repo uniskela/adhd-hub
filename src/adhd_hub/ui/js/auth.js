@@ -28,7 +28,7 @@ function safeOAuthReturnPath(value) {
     if (!value || typeof value !== "string" || value.length > 2048) return "";
     if (value.startsWith("//") || value.includes("\\")) return "";
     const lower = value.toLowerCase();
-    if (lower.startsWith("http:") || lower.startsWith("https:") || lower.startsWith("javascript:") || lower.startsWith("data:")) {
+    if (lower.startsWith("http:") || lower.startsWith("https:") || lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
       return "";
     }
     const pathOnly = value.split("?", 1)[0];
