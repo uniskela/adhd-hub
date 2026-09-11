@@ -66,16 +66,16 @@ def test_run_use_hub_retargets_mcp_and_saves_default(tmp_path: Path, monkeypatch
 
     with patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok")):
         report = run_use_hub(
-            hub_url="https://adhd-hub.pike.homes/",
+            hub_url="https://adhd-hub.example.com/",
             project=project,
             agents=["cursor"],
             scope="project",
         )
 
     assert report.ok
-    assert load_saved_default_hub() == "https://adhd-hub.pike.homes"
+    assert load_saved_default_hub() == "https://adhd-hub.example.com"
     mcp = json.loads((project / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
-    assert mcp["mcpServers"]["adhd-hub"]["url"] == "https://adhd-hub.pike.homes/mcp"
+    assert mcp["mcpServers"]["adhd-hub"]["url"] == "https://adhd-hub.example.com/mcp"
     assert any(s.name == "default hub" and s.status == "ok" for s in report.steps)
 
 
