@@ -5,7 +5,7 @@ import { fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
-import { showScreen, closeSettings } from './screens.js';
+import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
@@ -48,27 +48,6 @@ $("ca_all")?.addEventListener("change", () => {
     if ($("ca_cursor")) $("ca_cursor").checked = true;
     if ($("ca_codex")) $("ca_codex").checked = true;
     if ($("ca_claude")) $("ca_claude").checked = true;
-  }
-});
-$("btn-close-settings").addEventListener("click", async () => {
-  closeSettings();
-  try {
-    if (state.activeScreen === "work") {
-      await selectProject(state.projectFilter);
-      renderDriftBanner();
-    } else if (state.activeScreen === "now") {
-      await loadChosenThread();
-      if (state.overviewCache) {
-        renderReminders(
-          state.overviewCache.due_reminders || [],
-          state.overviewCache.reminders || []
-        );
-      }
-    } else if (state.activeScreen === "progress") {
-      await loadOverview();
-    }
-  } catch (error) {
-    setMsg(error.message);
   }
 });
 document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
@@ -186,7 +165,6 @@ $("project-form").addEventListener("submit", (event) => {
   event.preventDefault();
   saveProject().catch((e) => setMsg(String(e)));
 });
-$("btn-close-project").addEventListener("click", () => $("project-dialog").close());
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
