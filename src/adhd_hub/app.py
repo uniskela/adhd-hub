@@ -19,7 +19,7 @@ from adhd_hub.config import Settings, load_settings
 from adhd_hub.connect import render_install_ps1, render_install_sh
 from adhd_hub.connect_auth import ConnectStore, bearer_authorized, build_connect_router
 from adhd_hub.mcp_app import build_mcp
-from adhd_hub.oauth import build_oauth_router, www_authenticate_challenge
+from adhd_hub.oauth import OAuthStore, build_oauth_router, www_authenticate_challenge
 from adhd_hub.package_dist import find_cli_wheel
 from adhd_hub.scheduler import start_scheduler
 from adhd_hub.service import HubService
@@ -47,10 +47,17 @@ class MCPPathRewriteMiddleware:
 class BearerGateMiddleware(BaseHTTPMiddleware):
     """Require bearer token for /mcp when auth_token is not the default."""
 
-    def __init__(self, app: ASGIApp, settings: Settings, connect_store: ConnectStore) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        settings: Settings,
+        connect_store: ConnectStore,
+        oauth_store: OAuthStore | None = None,
+    ) -> None:
         super().__init__(app)
         self.settings = settings
         self.connect_store = connect_store
+        self.oauth_store = oauth_store
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -60,7 +67,7 @@ class BearerGateMiddleware(BaseHTTPMiddleware):
                 auth = request.headers.get("authorization", "")
                 scheme, _, value = auth.partition(" ")
                 if scheme.lower() != "bearer" or not bearer_authorized(
-                    self.settings, self.connect_store, value
+                    self.settings, self.connect_store, value, self.oauth_store
                 ):
                     return JSONResponse(
                         {"detail": "Unauthorized"},
@@ -142,9 +149,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.mcp = mcp
 
     sessions = BrowserSessions(settings.data_dir / "browser_sessions.sqlite3")
-    connect_store = ConnectStore(settings.data_dir / "connect.sqlite3")
+    connect_db = settings.data_dir / "connect.sqlite3"
+    connect_store = ConnectStore(connect_db)
+    oauth_store = OAuthStore(connect_db)
     app.state.sessions = sessions
     app.state.connect_store = connect_store
+    app.state.oauth_store = oauth_store
     app.include_router(build_auth_router(settings, sessions))
     app.include_router(build_connect_router(settings, sessions, connect_store))
     app.include_router(build_oauth_router(settings))
@@ -152,7 +162,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(build_router(service, auth_dep), prefix="/api")
     app.include_router(build_ui_router())
     app.add_middleware(
-        BearerGateMiddleware, settings=settings, connect_store=connect_store
+        BearerGateMiddleware,
+        settings=settings,
+        connect_store=connect_store,
+        oauth_store=oauth_store,
     )
     app.add_middleware(MCPPathRewriteMiddleware)
 
