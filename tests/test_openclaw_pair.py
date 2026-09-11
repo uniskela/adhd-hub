@@ -99,5 +99,5 @@ def test_openclaw_pair_prompt_requires_protected_token_provisioning() -> None:
     assert "hooks_token_secretref_unsupported" in prompt
     assert "protected" in lowered
     assert "never print" in lowered
+    assert "do not fall back" in lowered
     assert "create or reveal a bearer token" not in lowered
-    assert "paste the token" not in lowered
