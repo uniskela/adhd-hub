@@ -68,3 +68,19 @@ def test_openclaw_config_via_facade(tmp_path: Path) -> None:
     assert service.settings.digest_max_nudge == 3
     assert service.openclaw.alerts_enabled is True
     assert service._openclaw_ops.openclaw_config().token == "hook-secret"
+
+
+def test_openclaw_pair_failure_via_facade(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    started = service.start_openclaw_pair(hub_origin="http://hub.test")
+
+    failed = service.submit_openclaw_pair(
+        {
+            "user_code": started["user_code"],
+            "error_code": "hooks_token_secretref_unsupported",
+        }
+    )
+
+    assert failed["status"] == "failed"
+    assert failed["error_code"] == "hooks_token_secretref_unsupported"
+    assert failed["token_present"] is False
