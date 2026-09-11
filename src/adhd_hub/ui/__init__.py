@@ -73,15 +73,20 @@ def build_ui_router() -> APIRouter:
 
     @router.get("/ui/brand/{name}")
     def brand_asset(name: str):
+        brand_dir = (UI_DIR / "brand").resolve()
         allowed = {
-            "icon.svg": "image/svg+xml",
-            "logo.svg": "image/svg+xml",
-            "logo-dark.svg": "image/svg+xml",
-            "icon-192.png": "image/png",
-            "icon-512.png": "image/png",
+            "icon.svg": (brand_dir / "icon.svg", "image/svg+xml"),
+            "logo.svg": (brand_dir / "logo.svg", "image/svg+xml"),
+            "logo-dark.svg": (brand_dir / "logo-dark.svg", "image/svg+xml"),
+            "icon-192.png": (brand_dir / "icon-192.png", "image/png"),
+            "icon-512.png": (brand_dir / "icon-512.png", "image/png"),
         }
-        if name not in allowed:
+        asset = allowed.get(name)
+        if asset is None:
             raise HTTPException(404, "Asset not found")
-        return FileResponse(UI_DIR / "brand" / name, media_type=allowed[name])
+        asset_path, media_type = asset
+        if not asset_path.is_file():
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(asset_path, media_type=media_type)
 
     return router
