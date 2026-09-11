@@ -3,11 +3,11 @@ import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
 import { fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
-import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
+import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
-import { showScreen } from './screens.js';
+import { showScreen, closeSettings } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
-import { applyTheme } from './theme.js';
+import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
 
 initRepoLinks();
@@ -27,7 +27,6 @@ $("btn-settings").addEventListener("click", () => {
   loadCliSessions().catch(() => {});
   loadPrefs().catch(() => {});
   selectSettingsTab("preferences");
-  $("settings-theme").value = $("theme-select").value;
   $("mcp-url").value = location.origin + "/mcp";
   $("install-cmd").value =
     'curl -fsSL "' + location.origin + '/install.sh" | sh -s -- .';
@@ -36,7 +35,7 @@ $("btn-settings").addEventListener("click", () => {
   $("settings-msg").textContent = "";
   const agentsMsg = $("connect-agents-msg");
   if (agentsMsg) agentsMsg.textContent = "";
-  $("settings-dialog").showModal();
+  showScreen("settings");
   api("/health").then((health) => {
     $("app-version").textContent = health.version ? `v${health.version}` : "Version unavailable";
   }).catch(() => { $("app-version").textContent = "Version unavailable"; });
@@ -51,23 +50,39 @@ $("ca_all")?.addEventListener("change", () => {
     if ($("ca_claude")) $("ca_claude").checked = true;
   }
 });
-$("btn-close-settings").addEventListener("click", () => $("settings-dialog").close());
+$("btn-close-settings").addEventListener("click", async () => {
+  closeSettings();
+  try {
+    if (state.activeScreen === "work") {
+      await selectProject(state.projectFilter);
+      renderDriftBanner();
+    } else if (state.activeScreen === "now") {
+      await loadChosenThread();
+      if (state.overviewCache) {
+        renderReminders(
+          state.overviewCache.due_reminders || [],
+          state.overviewCache.reminders || []
+        );
+      }
+    } else if (state.activeScreen === "progress") {
+      await loadOverview();
+    }
+  } catch (error) {
+    setMsg(error.message);
+  }
+});
 document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
   tab.addEventListener("click", () => selectSettingsTab(tab.dataset.settingsTab));
   tab.addEventListener("keydown", (event) => {
     const tabs = [...document.querySelectorAll("[data-settings-tab]")];
     let index = tabs.indexOf(tab);
-    if (event.key === "ArrowRight") index = (index + 1) % tabs.length;
-    else if (event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") index = (index + 1) % tabs.length;
+    else if (event.key === "ArrowUp" || event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
     else if (event.key === "Home") index = 0;
     else if (event.key === "End") index = tabs.length - 1;
     else return;
     event.preventDefault(); selectSettingsTab(tabs[index].dataset.settingsTab, true);
   });
-});
-$("settings-theme").addEventListener("change", () => {
-  $("theme-select").value = $("settings-theme").value;
-  $("theme-select").dispatchEvent(new Event("change"));
 });
 $("btn-share-progress").addEventListener("click", openSharePreview);
 $("btn-close-share").addEventListener("click", () => $("share-dialog").close());
@@ -214,15 +229,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
-$("theme-select").value = preferences.getItem("adhd_hub_theme") || "system";
-if (!$("theme-select").value) $("theme-select").value = "system";
-applyTheme();
-$("theme-select").addEventListener("change", () => {
-  preferences.setItem("adhd_hub_theme", $("theme-select").value);
-  $("settings-theme").value = $("theme-select").value;
-  applyTheme();
-});
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+bindThemeControls();
 $("rewards-enabled").checked = preferences.getItem("adhd_hub_rewards") === "true";
 const savedGoal = preferences.getItem("adhd_hub_daily_goal") || "1";
 $("daily-goal").value = ["1", "3", "5"].includes(savedGoal) ? savedGoal : "1";
@@ -236,7 +243,7 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
     try {
       if (state.activeScreen === "work") await selectProject(state.projectFilter);
       else if (state.activeScreen === "now") await loadChosenThread();
-      else await loadOverview();
+      else if (state.activeScreen === "progress") await loadOverview();
     } catch (error) { setMsg(error.message); }
   });
 });
