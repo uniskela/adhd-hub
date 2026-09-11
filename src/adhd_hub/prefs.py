@@ -8,7 +8,15 @@ from typing import Any
 
 from pydantic import BaseModel, field_validator
 
-CONNECT_COMPANION_CHOICES = ("i-have-adhd", "graphify", "rtk")
+CONNECT_COMPANION_CHOICES = (
+    "i-have-adhd",
+    "graphify",
+    "rtk",
+    "superpowers",
+    "context7",
+    "agent-browser",
+    "serena",
+)
 
 
 class HubPrefs(BaseModel):
@@ -18,7 +26,7 @@ class HubPrefs(BaseModel):
     # Empty = not configured in install scripts.
     connect_agents: list[str] = []
     # Optional companions included in install scripts when enabled.
-    # Allowed: i-have-adhd, graphify, rtk.
+    # Allowed: i-have-adhd, graphify, rtk, superpowers, context7, agent-browser, serena.
     connect_companions: list[str] = []
 
     def public_dict(self) -> dict[str, Any]:

@@ -37,6 +37,19 @@ def test_prefs_connect_companions_roundtrip(tmp_path: Path) -> None:
     assert not loaded.companion_enabled("rtk")
 
 
+def test_prefs_accepts_new_opt_in_companions(tmp_path: Path) -> None:
+    prefs = HubPrefs(
+        timezone="UTC",
+        connect_companions=["superpowers", "context7", "agent-browser", "serena"],
+    )
+    save_prefs(tmp_path, prefs)
+    loaded = load_prefs(tmp_path)
+    assert loaded.companion_enabled("superpowers")
+    assert loaded.companion_enabled("context7")
+    assert loaded.companion_enabled("agent-browser")
+    assert loaded.companion_enabled("serena")
+
+
 def test_prefs_rejects_unknown_companion() -> None:
     import pytest
 

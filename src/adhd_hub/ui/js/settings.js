@@ -66,7 +66,15 @@ export function applyConnectAgents(agents) {
     }
   }
 export function selectedConnectCompanions() {
-    return ["cc_i_have_adhd", "cc_graphify", "cc_rtk"]
+    return [
+      "cc_i_have_adhd",
+      "cc_graphify",
+      "cc_rtk",
+      "cc_superpowers",
+      "cc_context7",
+      "cc_agent_browser",
+      "cc_serena",
+    ]
       .map((id) => $(id))
       .filter((el) => el && el.checked)
       .map((el) => el.value);
@@ -76,6 +84,10 @@ export function applyConnectCompanions(companions) {
     if ($("cc_i_have_adhd")) $("cc_i_have_adhd").checked = set.has("i-have-adhd");
     if ($("cc_graphify")) $("cc_graphify").checked = set.has("graphify");
     if ($("cc_rtk")) $("cc_rtk").checked = set.has("rtk");
+    if ($("cc_superpowers")) $("cc_superpowers").checked = set.has("superpowers");
+    if ($("cc_context7")) $("cc_context7").checked = set.has("context7");
+    if ($("cc_agent_browser")) $("cc_agent_browser").checked = set.has("agent-browser");
+    if ($("cc_serena")) $("cc_serena").checked = set.has("serena");
   }
 export async function saveConnectAgents() {
     const agents = selectedConnectAgents();

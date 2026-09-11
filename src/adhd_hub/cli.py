@@ -155,6 +155,10 @@ def cmd_connect(args: argparse.Namespace) -> int:
         with_i_have_adhd=args.with_i_have_adhd,
         with_graphify=args.with_graphify,
         with_rtk=args.with_rtk,
+        with_superpowers=args.with_superpowers,
+        with_context7=args.with_context7,
+        with_agent_browser=args.with_agent_browser,
+        with_serena=args.with_serena,
     )
     print_report(report, verbose=args.verbose)
     return 0 if report.ok else 1
@@ -400,6 +404,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--with-rtk",
         action="store_true",
         help="Opt-in: run rtk init for selected --agents (binary must already be on PATH)",
+    )
+    connect.add_argument(
+        "--with-superpowers",
+        action="store_true",
+        help="Opt-in: best-effort Superpowers setup for selected --agents (mostly manual hints)",
+    )
+    connect.add_argument(
+        "--with-context7",
+        action="store_true",
+        help="Opt-in: merge Context7 MCP into selected agent configs",
+    )
+    connect.add_argument(
+        "--with-agent-browser",
+        action="store_true",
+        help="Opt-in: install agent-browser + skill for selected --agents",
+    )
+    connect.add_argument(
+        "--with-serena",
+        action="store_true",
+        help="Opt-in: install Serena and merge MCP for selected --agents",
     )
     connect.set_defaults(func=cmd_connect)
 

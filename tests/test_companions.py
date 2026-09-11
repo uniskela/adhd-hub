@@ -78,7 +78,7 @@ def test_rtk_init_cursor_explicit() -> None:
     assert cmds == ["rtk init -g --agent cursor"]
 
 
-def test_recommend_includes_workflow_pack() -> None:
+def test_recommend_includes_opt_in_companions() -> None:
     from adhd_hub.companions import recommend_companions
 
     steps = recommend_companions(["cursor"])
@@ -86,12 +86,11 @@ def test_recommend_includes_workflow_pack() -> None:
     note = next(s for s in steps if s.name == "companions note")
     assert note.status == "ok"
     assert "coding-companions" in note.detail
-    # Soft workflow tips live in Do next / docs, not Needs attention.
-    assert not any(
-        s.status in {"warn", "error", "missing", "manual"}
-        and "Superpowers" in s.detail
-        for s in steps
-    )
+    names = {s.name for s in steps}
+    assert "companion superpowers" in names
+    assert "companion context7" in names
+    assert "companion agent-browser" in names
+    assert "companion serena" in names
 
 
 def test_recommend_empty_agents_is_manual_not_cursor() -> None:
@@ -99,12 +98,22 @@ def test_recommend_empty_agents_is_manual_not_cursor() -> None:
         patch("adhd_hub.companions.detect_i_have_adhd", return_value=None),
         patch("adhd_hub.companions.detect_graphify", return_value=False),
         patch("adhd_hub.companions.detect_rtk", return_value=False),
+        patch("adhd_hub.companions.detect_superpowers", return_value=False),
+        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
+        patch("adhd_hub.companions.detect_serena", return_value=False),
+        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
     ):
         steps = recommend_companions([])
     names = {s.name: s for s in steps}
     assert names["companion i-have-adhd"].status == "manual"
     assert names["companion graphify"].status == "manual"
     assert names["companion rtk"].status == "manual"
+    assert names["companion superpowers"].status == "manual"
+    assert names["companion context7"].status == "manual"
+    assert names["companion agent-browser"].status == "manual"
+    assert names["companion serena"].status == "manual"
     for step in steps:
         if step.name.startswith("companion "):
             assert "graphify cursor install" not in step.detail or "per agent" in step.detail
@@ -115,6 +124,12 @@ def test_recommend_codex_claude_recipes_exclude_cursor() -> None:
         patch("adhd_hub.companions.detect_i_have_adhd", return_value=False),
         patch("adhd_hub.companions.detect_graphify", return_value=False),
         patch("adhd_hub.companions.detect_rtk", return_value=False),
+        patch("adhd_hub.companions.detect_superpowers", return_value=False),
+        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
+        patch("adhd_hub.companions.detect_serena", return_value=False),
+        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
     ):
         steps = recommend_companions(["codex", "claude"])
     details = " | ".join(s.detail for s in steps)
@@ -175,6 +190,12 @@ def test_unknown_agent_does_not_guess_hooks() -> None:
         patch("adhd_hub.companions.detect_i_have_adhd", return_value=False),
         patch("adhd_hub.companions.detect_graphify", return_value=False),
         patch("adhd_hub.companions.detect_rtk", return_value=False),
+        patch("adhd_hub.companions.detect_superpowers", return_value=False),
+        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
+        patch("adhd_hub.companions.detect_serena", return_value=False),
+        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
     ):
         steps = recommend_companions(["windsurf"])
     details = " | ".join(s.detail for s in steps)
@@ -195,6 +216,12 @@ def test_append_skips_missing_when_installing(monkeypatch) -> None:
         patch("adhd_hub.companions.detect_i_have_adhd", return_value=False),
         patch("adhd_hub.companions.detect_graphify", return_value=False),
         patch("adhd_hub.companions.detect_rtk", return_value=False),
+        patch("adhd_hub.companions.detect_superpowers", return_value=False),
+        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
+        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
+        patch("adhd_hub.companions.detect_serena", return_value=False),
+        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
     ):
         append_companion_steps(
             add,
@@ -285,3 +312,35 @@ def test_graphify_register_uses_resolved_bin(tmp_path: Path) -> None:
     assert calls
     assert calls[-1][0] == str(shim)
     assert "codex" in calls[-1]
+
+def test_install_dry_run_context7_and_superpowers() -> None:
+    steps = install_companions(
+        ["cursor"],
+        with_context7=True,
+        with_superpowers=True,
+        dry_run=True,
+    )
+    names = [s.name for s in steps]
+    assert any(n.startswith("install context7") for n in names)
+    assert any(n.startswith("install superpowers") for n in names)
+    assert all(s.status in {"ok", "warn", "skipped"} for s in steps)
+
+
+def test_install_dry_run_agent_browser_and_serena() -> None:
+    with (
+        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
+        patch("adhd_hub.companions.detect_serena", return_value=False),
+        patch("adhd_hub.companions.resolve_agent_browser_bin", return_value=None),
+        patch("adhd_hub.companions.resolve_serena_bin", return_value=None),
+    ):
+        steps = install_companions(
+            ["cursor", "codex"],
+            with_agent_browser=True,
+            with_serena=True,
+            dry_run=True,
+        )
+    details = " | ".join(s.detail for s in steps)
+    assert "agent-browser" in details
+    assert "serena-agent" in details or "serena" in details
+    assert all(s.status != "error" for s in steps)
+

@@ -195,12 +195,12 @@ Color is on when stdout is a TTY. It is off when output is piped (including typi
 
 ## Optional coding companions
 
-In **Settings → Connections**, under **Coding companions**, toggle i-have-adhd / Graphify / RTK and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
+In **Settings → Connections**, under **Coding companions**, toggle opt-in companions (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
 
 `connect` / `doctor` also list them when missing. You can pass flags manually:
 
 ```bash
-adhd-hub connect /path/to/project --agents codex,claude --with-i-have-adhd --with-graphify
+adhd-hub connect /path/to/project --agents codex,claude --with-i-have-adhd --with-graphify --with-context7
 ```
 
 Full install tables, licenses, and privacy notes: [Recommended coding companions](coding-companions.md).

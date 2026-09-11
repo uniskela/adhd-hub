@@ -29,7 +29,7 @@ cd Z:\Projects\adhd-hub
 npx skills add ./skills -g
 ```
 
-4. **Optional coding companions** (i-have-adhd, Graphify, RTK) — toggle under **Settings → Connections**, or see [Recommended coding companions](coding-companions.md).
+4. **Optional coding companions** (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) — toggle under **Settings → Connections**, or see [Recommended coding companions](coding-companions.md).
 5. **Start a coding session** in any project — skip Hub tools for trivial/read-only questions and tiny edits. For substantial work: once per session `resolve_project` → `session_digest`, then `check_overlap` before duplicating a thread. See [project agent setup](project-agent-setup.md).
 6. **Pause unfinished work** — `upsert_progress` with one **Now**, short Done/Next lists, Waiting/blocked, and a **Return cue**. See [ADHD-friendly writing and planning](writing.md).
 7. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
