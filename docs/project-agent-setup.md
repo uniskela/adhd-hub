@@ -6,9 +6,16 @@ Use the CLI once in a project folder to add a small, reversible ADHD Hub section
 adhd-hub setup /path/to/my-project
 ```
 
-The managed section tells a coding agent to resolve the project, check the existing digest and overlap before work, save short progress when pausing, and close only its own thread when finished. It also reminds the agent not to send secrets or full transcripts.
+`adhd-hub connect` writes the same managed block. The heading is **ADHD Hub continuity**. Agents should skip Hub tools for trivial or read-only questions, tiny edits, and other work that does not need continuity tracking. For substantial work:
 
-The command is safe to repeat. It updates only the section between these markers and preserves the rest of `AGENTS.md`:
+- Once per session or checkout: `resolve_project` (current absolute project root), then `session_digest` with that path and a brief task query. Reuse resolved context when you can.
+- Before starting work that might duplicate an existing thread: `check_overlap`.
+- At checkpoints or before pausing: `upsert_progress` for the resolved project and known thread (`Now / Done / Next / Waiting / Return cue`).
+- On genuine completion: `mark_done` only for that known thread — never close unrelated overlap results.
+
+The block also reminds the agent to send summaries only (no secrets, credentials, env files, or transcripts) and not to publish Hub URLs, tokens, internal hosts, or machine paths.
+
+The command is safe to repeat. Re-running `adhd-hub setup` or `adhd-hub connect` refreshes only the section between these markers and preserves the rest of `AGENTS.md`:
 
 ```text
 <!-- adhd-hub:project-agent:start -->

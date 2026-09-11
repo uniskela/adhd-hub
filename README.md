@@ -202,6 +202,8 @@ Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matc
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
+`connect` and `doctor` print a scannable report: outcome banner and Hub URL, then **Do next** (success) or **Fix these** (failure). Color is on for a TTY unless `NO_COLOR` or `ADHD_HUB_NO_COLOR` is set. Layout: [docs/connect.md](docs/connect.md#connect-and-doctor-report).
+
 `adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
 
 To point an already-connected machine at a different Hub (for example localhost → HTTPS):
@@ -212,15 +214,18 @@ adhd-hub use-hub https://adhd-hub.example.com --project /path/to/project --agent
 
 ## Roadmap
 
-Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). Near-term highlights:
+Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md) (tracking: [next-waves.md](docs/plans/next-waves.md)). Near-term highlights:
 
 - **Wave 0 (shipped in 0.3.5):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
 - **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
 - **Wave 3 (shipped in 0.3.7):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
 - **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
-- **0.4.0 (shipped):** Connect agent prefs, Hub-served CLI wheel, and OpenClaw pairing
-- Wave 5 (opt-in Slack/Discord/calendar) is still upcoming
-- skills.sh listing after publish
+- **0.4.0–0.4.1 (shipped):** Connect agent prefs, Hub-served CLI wheel, OpenClaw pairing, coding companions
+- **Wave 6 (next):** AI task/thread summaries + cleaner project list (tags/categories) + optional AI organiser — [#52](https://github.com/uniskela/adhd-hub/issues/52)
+- **Wave 7:** Stale triage, cross-project Next-up, merge/dedupe cues, return-cue nudges — [#54](https://github.com/uniskela/adhd-hub/issues/54)
+- **Wave 8:** Wiki compaction, global search, mobile capture, energy/context modes — [#55](https://github.com/uniskela/adhd-hub/issues/55)
+- **Wave 9:** Related-work map, household multi-profile, skills.sh listing — [#56](https://github.com/uniskela/adhd-hub/issues/56)
+- Wave 5 (opt-in Slack/Discord/calendar) remains upcoming after clarity/findability work
 
 ### Dashboard comfort
 
