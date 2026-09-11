@@ -30,6 +30,7 @@ ADHD Progress Hub keeps unfinished work findable. Start with one small action, s
 ## Plans
 
 - [Improvement roadmap](plans/improvement-roadmap.md)
+- [Next waves](plans/next-waves.md)
 - [ADHD Hub foundation](plans/adhd-hub-foundation.md)
 - [Projects CRUD revamp](plans/projects-crud-ui-revamp.md)
 

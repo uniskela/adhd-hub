@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     cookie_secure: bool | None = None
     # When true, honour X-Forwarded-Proto / Host from a trusted reverse proxy (Tailscale, Caddy).
     trust_proxy_headers: bool = False
+    # MCP OAuth discovery + challenge; disable to roll back Auth-button discovery.
+    oauth_enabled: bool = True
 
     # Optional forge (GitHub / Gitea) — UI can override via data/forge.json
     forge_provider: str = "none"  # none | github | gitea

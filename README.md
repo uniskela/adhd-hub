@@ -41,6 +41,8 @@ Published images (only after a manual release-PR merge by `uniskela`):
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
 
+Pre-1.0 bumps (see `release-please-config.json`): `fix:` → patch, `feat:` → minor, `feat!:` / breaking → minor (not 1.0.0 yet).
+
 Documentation, chore, test, and CI-only merges do not open a release PR, even if their subject accidentally starts with `feat:`. A feature, fix, performance, revert, or explicit breaking-change subject reaches Release Please only when that commit changes a shipped runtime surface (`src/`, package metadata/lockfile, `Dockerfile`, or `docker-compose.yml`). A generated release PR continues through the tag-and-publish step after `uniskela` manually merges it.
 
 ```bash
@@ -204,18 +206,26 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 
 `adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
 
+To point an already-connected machine at a different Hub (for example localhost → HTTPS):
+
+```bash
+adhd-hub use-hub https://adhd-hub.example.com --project /path/to/project --agents cursor,codex,claude
+```
+
 ## Roadmap
 
-Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). Near-term highlights:
+Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md) (tracking: [next-waves.md](docs/plans/next-waves.md)). Near-term highlights:
 
 - **Wave 0 (shipped in 0.3.5):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
 - **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
 - **Wave 3 (shipped in 0.3.7):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
 - **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
-- **0.4.0 (shipped):** Connect agent prefs, Hub-served CLI wheel, and OpenClaw pairing
-- **0.4.1 (shipped):** Coding companions and ADHD-friendly connect/doctor reports
-- Wave 5 (opt-in Slack/Discord/calendar) is still upcoming
-- skills.sh listing after publish
+- **0.4.0–0.4.1 (shipped):** Connect agent prefs, Hub-served CLI wheel, OpenClaw pairing, coding companions
+- **Wave 6 (next):** AI task/thread summaries + cleaner project list (tags/categories) + optional AI organiser — [#52](https://github.com/uniskela/adhd-hub/issues/52)
+- **Wave 7:** Stale triage, cross-project Next-up, merge/dedupe cues, return-cue nudges — [#54](https://github.com/uniskela/adhd-hub/issues/54)
+- **Wave 8:** Wiki compaction, global search, mobile capture, energy/context modes — [#55](https://github.com/uniskela/adhd-hub/issues/55)
+- **Wave 9:** Related-work map, household multi-profile, skills.sh listing — [#56](https://github.com/uniskela/adhd-hub/issues/56)
+- Wave 5 (opt-in Slack/Discord/calendar) remains upcoming after clarity/findability work
 
 ### Dashboard comfort
 

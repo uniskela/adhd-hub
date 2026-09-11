@@ -129,11 +129,20 @@ def normalize_hub_url(url: str) -> str:
 
 
 def resolve_hub_url(explicit: str | None = None) -> str:
+    saved_default: str | None = None
+    try:
+        # Lazy import: connect_login imports normalize helpers from this module.
+        from adhd_hub.connect_login import load_saved_default_hub
+
+        saved_default = load_saved_default_hub()
+    except (OSError, ValueError, TypeError, ImportError):
+        saved_default = None
     for candidate in (
         explicit,
         os.environ.get("ADHD_HUB_PUBLIC_URL"),
         os.environ.get("ADHD_HUB_HUB_URL"),
         os.environ.get("ADHD_HUB_URL"),
+        saved_default,
     ):
         if candidate and candidate.strip():
             return normalize_hub_url(candidate)
@@ -172,6 +181,135 @@ def probe_hub(hub_url: str, *, token: str | None = None) -> tuple[bool, str]:
         return False, f"unreachable ({exc})"
     version = health.get("version") or health.get("status") or "ok"
     return True, f"health ok ({version})"
+
+
+def _env_flag(name: str, *, default: bool = True) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def evaluate_oauth_prm_payload(
+    *,
+    http_status: int | None = None,
+    payload: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> tuple[str, str]:
+    """Classify OAuth protected-resource metadata for doctor (status, detail).
+
+    Never raises; unreachable / non-200 / malformed → ``warn`` (not ``error``).
+    """
+    if error:
+        return "warn", f"unreachable ({error})"[:200]
+    if http_status is None:
+        return "warn", "no HTTP status from well-known probe"
+    if http_status != 200:
+        return "warn", f"HTTP {http_status} from oauth-protected-resource"
+    if not isinstance(payload, dict):
+        return "warn", "malformed PRM (expected JSON object)"
+    resource = payload.get("resource")
+    servers = payload.get("authorization_servers")
+    if not isinstance(resource, str) or not resource.strip():
+        return "warn", "malformed PRM (missing resource)"
+    if not isinstance(servers, list) or not servers:
+        return "warn", "malformed PRM (missing authorization_servers)"
+    return "ok", f"PRM ok ({resource.strip()})"
+
+
+def probe_oauth_discovery(base_url: str, *, timeout: float = 5.0) -> tuple[str, str]:
+    """GET well-known OAuth PRM (and soft-check AS metadata). Returns (status, detail)."""
+    base = normalize_hub_url(base_url)
+    prm_url = f"{base}/.well-known/oauth-protected-resource"
+    try:
+        payload = _http_json(prm_url, timeout=timeout)
+        status, detail = evaluate_oauth_prm_payload(http_status=200, payload=payload)
+    except HTTPError as exc:
+        status, detail = evaluate_oauth_prm_payload(http_status=int(exc.code))
+    except (
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        OSError,
+    ) as exc:
+        status, detail = evaluate_oauth_prm_payload(error=str(exc))
+
+    if status != "ok":
+        return status, detail
+
+    as_url = f"{base}/.well-known/oauth-authorization-server"
+    try:
+        as_payload = _http_json(as_url, timeout=timeout)
+        if not isinstance(as_payload, dict) or not as_payload.get("issuer"):
+            return "warn", f"{detail}; AS metadata incomplete"
+        if not as_payload.get("authorization_endpoint"):
+            return "warn", f"{detail}; AS metadata missing authorization_endpoint"
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        OSError,
+    ) as exc:
+        return "warn", f"{detail}; AS metadata unreachable ({exc})"[:220]
+    return status, detail
+
+
+def _is_loopback_hub_url(url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def _doctor_oauth_checks(report: ConnectReport, hub_url: str) -> None:
+    """Probe OAuth well-known on the Hub under diagnosis (Auth-button discovery).
+
+    Always probe the Hub URL when appropriate — ``ADHD_HUB_OAUTH_ENABLED`` is a
+    Hub *server* setting; the local CLI env must not skip remote discovery.
+    """
+    try:
+        base = normalize_hub_url(hub_url)
+    except ValueError as exc:
+        report.add("hub oauth discovery", "warn", f"invalid hub URL ({exc})")
+        return
+
+    public_raw = (os.environ.get("ADHD_HUB_PUBLIC_URL") or "").strip()
+    public_base: str | None = None
+    if public_raw:
+        try:
+            public_base = normalize_hub_url(public_raw)
+        except ValueError as exc:
+            report.add(
+                "hub oauth discovery",
+                "warn",
+                f"invalid ADHD_HUB_PUBLIC_URL ({exc})",
+            )
+            return
+
+    # Auth discovery needs a reachable public issuer. Skip quiet loopback doctor runs
+    # unless ADHD_HUB_PUBLIC_URL is set (then we still probe --hub below).
+    if public_base is None and _is_loopback_hub_url(base):
+        report.add(
+            "hub oauth discovery",
+            "ok",
+            "skipped — set Hub ADHD_HUB_PUBLIC_URL (or pass a non-loopback --hub) to probe Auth discovery",
+        )
+        return
+
+    status, detail = probe_oauth_discovery(base)
+    if public_base is not None and public_base != base:
+        detail = f"{detail} · note: ADHD_HUB_PUBLIC_URL={public_base} differs from --hub"
+        if status == "ok":
+            status = "warn"
+    report.add("hub oauth discovery", status, detail)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -242,13 +380,15 @@ alwaysApply: true
 
 # ADHD Progress Hub
 
+If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailable on Hub-worthy work: the **first line** of your reply on that turn (and on later substantial Hub-worthy turns while still down) MUST state that Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Then continue the authorized work. Never invent hub state or claim a Hub write succeeded.
+
 When this workspace involves starting, resuming, or leaving half-finished work:
 
 1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest`, then `check_overlap`.
 2. On pause, `upsert_progress` with a short Now / Done / Next / Return cue.
 3. When finished, `mark_done` on the known thread id only.
 
-Never invent hub state. Never send secrets or full transcripts.
+Never send secrets or full transcripts.
 """
 
 
@@ -1134,6 +1274,7 @@ def run_doctor(
         "npx available" if _npx_bin() else "npx not found",
     )
     append_companion_steps(report.add, list(agents or []))
+    _doctor_oauth_checks(report, hub_url)
     if ok:
         _doctor_remote_checks(report, hub_url, token)
     return report
@@ -1177,6 +1318,107 @@ def classify_step_group(name: str) -> str:
     if any(name.startswith(p) for p in _COMPANION_PREFIXES):
         return "Companions"
     return "Other"
+
+
+def run_use_hub(
+    *,
+    hub_url: str,
+    project: Path | None = None,
+    agents: list[str] | None = None,
+    scope: str = "project",
+    token: str | None = None,
+    dry_run: bool = False,
+) -> ConnectReport:
+    """Retarget local MCP configs and remember this Hub as the CLI default.
+
+    Does not reinstall companions or rewrite AGENTS.md — use ``connect`` for
+    a full wire-up. Saves ``default_hub`` so future ``connect`` / ``doctor`` /
+    ``login`` calls without ``--hub`` use this URL instead of localhost.
+    """
+    hub_url = normalize_hub_url(hub_url)
+    report = ConnectReport(hub_url=hub_url)
+    if dry_run:
+        report.add("mode", "ok", "dry-run (no files or remote writes)")
+
+    ok, detail = probe_hub(hub_url, token=token)
+    report.add("hub probe", "ok" if ok else "warn", detail)
+
+    if not dry_run:
+        try:
+            from adhd_hub.connect_login import set_default_hub
+
+            path = set_default_hub(hub_url)
+            report.add("default hub", "ok", f"saved: {path}")
+        except (OSError, ValueError, TypeError) as exc:
+            report.add("default hub", "error", str(exc))
+            return report
+    else:
+        report.add("default hub", "ok", f"would save preferred hub: {hub_url}")
+
+    agents_list = [a.strip() for a in (agents or []) if a and str(a).strip()]
+    if not agents_list:
+        agents_list = ["cursor", "codex", "claude"]
+    agents_set = {a.strip().lower() for a in agents_list if a.strip() and a.strip() != "*"}
+    if any(a.strip() == "*" for a in agents_list) and not agents_set:
+        agents_set = {"cursor", "codex", "claude"}
+
+    project_path: Path | None = None
+    if project is not None:
+        project_path = project.expanduser().resolve()
+        if not project_path.is_dir():
+            report.add("project", "error", f"not a directory: {project_path}")
+            return report
+        report.add("project", "ok", str(project_path))
+
+    if "cursor" in agents_set:
+        try:
+            targets: list[tuple[str, Path]] = []
+            if scope in {"user", "both"}:
+                targets.append(("cursor MCP (user)", cursor_user_mcp_path()))
+            if scope in {"project", "both"}:
+                if project_path is None:
+                    report.add(
+                        "cursor MCP (project)",
+                        "warn",
+                        "skipped — pass --project to retarget project MCP",
+                    )
+                else:
+                    targets.append(("cursor MCP (project)", cursor_project_mcp_path(project_path)))
+            for label, path in targets:
+                action = merge_cursor_mcp(path, hub_url, dry_run=dry_run)
+                report.add(label, "ok", f"{action}: {path}")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            report.add("cursor MCP", "error", str(exc))
+
+    if "codex" in agents_set:
+        try:
+            path = codex_config_path()
+            action = merge_codex_mcp(path, hub_url, dry_run=dry_run)
+            report.add("codex MCP", "ok", f"{action}: {path}")
+        except (OSError, ValueError, TypeError) as exc:
+            report.add("codex MCP", "error", str(exc))
+
+    if "claude" in agents_set or "claude-code" in agents_set:
+        try:
+            path = claude_user_mcp_path()
+            action = merge_claude_mcp(path, hub_url, dry_run=dry_run)
+            report.add("claude MCP", "ok", f"{action}: {path}")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            report.add("claude MCP", "error", str(exc))
+
+    doctor = format_hub_cli_command(
+        hub_url,
+        "doctor",
+        "--hub",
+        hub_url,
+        *(["--project", str(project_path)] if project_path else []),
+    )
+    report.add(
+        "setup complete",
+        "ok",
+        f"Open {hub_url}/ui · run: {doctor}",
+    )
+    return report
 
 
 def print_report(report: ConnectReport, *, verbose: bool = False) -> None:

@@ -48,6 +48,30 @@ adhd-hub login --hub "$ADHD_HUB_PUBLIC_URL"
 adhd-hub logout --hub "$ADHD_HUB_PUBLIC_URL"   # forget this machine's session
 ```
 
+### Switch Hub host (localhost → remote)
+
+If `connect` defaulted to `http://127.0.0.1:8787` and you want a hosted Hub instead:
+
+```bash
+adhd-hub use-hub https://adhd-hub.example.com \
+  --project /path/to/project \
+  --agents cursor,codex,claude
+```
+
+That command:
+
+1. Saves the URL as your CLI **default hub** (`~/.config/adhd-hub/credentials.json` → `default_hub`)
+2. Retargets Cursor / Codex / Claude MCP entries to `https://…/mcp`
+3. Runs the browser login handshake if you are not already signed in to that Hub
+
+Afterward, `adhd-hub doctor` / `connect` / `login` without `--hub` use the saved host (env vars like `ADHD_HUB_PUBLIC_URL` still win when set).
+
+You can also re-run a full connect with an explicit host:
+
+```bash
+adhd-hub connect /path/to/project --hub https://adhd-hub.example.com --agents cursor,codex,claude
+```
+
 ### Threat model (short)
 
 | Secret | Where it lives | Where it must not go |
@@ -59,6 +83,28 @@ adhd-hub logout --hub "$ADHD_HUB_PUBLIC_URL"   # forget this machine's session
 The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it in Settings → Connections (Windows / MCP / skills) or with `adhd-hub logout`. Dashboard password login is unchanged.
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
+
+## MCP Auth / Authenticate (OAuth)
+
+MCP clients that offer an **Auth** / **Authenticate** control can obtain a Hub Bearer for `/mcp` via Hub OAuth when the **Hub server** has:
+
+- `ADHD_HUB_PUBLIC_URL` set to the URL agents and browsers use, and
+- OAuth enabled (default; Hub env `ADHD_HUB_OAUTH_ENABLED` unset or `true`).
+
+Flow (agent-agnostic — any MCP client that speaks MCP OAuth 2.1; Cursor is one verification target):
+
+1. Point the client at `https://<hub>/mcp` (or your public Hub `/mcp`).
+2. Choose **Auth** / **Authenticate** in the client.
+3. Sign into the Hub UI if prompted, then press **Allow** on the consent page.
+
+That issues an opaque OAuth access token for MCP only. It is not the server access token and is not a CLI connect session.
+
+**Still supported (no Auth button required):**
+
+- Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).
+- CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in Settings → Connections).
+
+**Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` always probes that Hub’s OAuth well-known when diagnosing a non-loopback Hub (or when `ADHD_HUB_PUBLIC_URL` is set), independent of any local `ADHD_HUB_OAUTH_ENABLED` in the doctor process; it warns on missing/malformed metadata. Unreachable Hub is a warning, not a hard failure.
 
 ## CLI wire-up flags
 

@@ -451,10 +451,19 @@ class ConnectStore:
             return int(conn.execute("SELECT COUNT(*) AS c FROM cli_sessions").fetchone()["c"])
 
 
-def bearer_authorized(settings: Settings, store: ConnectStore, value: str) -> bool:
+def bearer_authorized(
+    settings: Settings,
+    store: ConnectStore,
+    value: str,
+    oauth_store: Any | None = None,
+) -> bool:
     from adhd_hub.auth import token_matches
 
-    return token_matches(settings, value) or store.valid_session(value)
+    if token_matches(settings, value) or store.valid_session(value):
+        return True
+    if oauth_store is not None and oauth_store.valid_access_token(value):
+        return True
+    return False
 
 
 class StartConnectRequest(BaseModel):

@@ -105,6 +105,7 @@ def test_secure_cookie_and_bearer_compatibility(tmp_path):
         )
         # Browser sessions never authorize MCP.
         assert client.post("/mcp", json={}).status_code == 401
+        # No public_url + non-loopback TestClient host → plain Bearer (no issuer).
         assert client.post("/mcp", json={}).headers["www-authenticate"] == "Bearer"
 
 

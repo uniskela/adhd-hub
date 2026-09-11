@@ -52,6 +52,13 @@ See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphif
 
 For substantial work in this project:
 
+- If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise
+  unavailable: the **first line** of your reply on that turn (and on later
+  substantial Hub-worthy turns while still down) MUST state that Hub MCP is
+  not available, plus a short fix hint (MCP URL → this Hub's `/mcp`,
+  `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs
+  until Hub OAuth is enabled). Then continue the authorized work. Never
+  invent Hub state or claim a Hub write succeeded.
 - Do not call Hub tools for trivial/read-only questions, tiny edits, or other
   work that does not benefit from continuity tracking.
 - Once per session/checkout, call `resolve_project` with the current absolute
