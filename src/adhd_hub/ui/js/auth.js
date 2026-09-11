@@ -24,9 +24,46 @@ export function showApp() {
     // Restore last tab without focusing the page heading (avoids green outline on refresh).
     showScreen(savedScreen(), { focusHeading: false });
   }
+function safeOAuthReturnPath(value) {
+    if (!value || typeof value !== "string" || value.length > 2048) return "";
+    if (value.includes("\\") || value.startsWith("//")) return "";
+    try {
+      const parsed = new URL(value, location.origin);
+      if (parsed.origin !== location.origin) return "";
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+      if (parsed.username || parsed.password) return "";
+      if (parsed.pathname !== "/api/oauth/authorize") return "";
+      if (parsed.hash) return "";
+      // Rebuild from a fixed path + copied query params (never assign the raw string).
+      const safe = new URL("/api/oauth/authorize", location.origin);
+      for (const [key, val] of parsed.searchParams.entries()) {
+        safe.searchParams.append(key, val);
+      }
+      return `${safe.pathname}${safe.search}`;
+    } catch (_) {
+      return "";
+    }
+  }
+function consumeOAuthReturn() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const raw = params.get("oauth_return") || "";
+      const path = safeOAuthReturnPath(raw);
+      if (!path) return false;
+      params.delete("oauth_return");
+      const next = `${location.pathname}${params.toString() ? `?${params}` : ""}${location.hash || ""}`;
+      history.replaceState({}, "", next);
+      // path is always pathname+search for /api/oauth/authorize on this origin.
+      window.location.assign(path);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 export async function tryAuth() {
     try {
       await api("/overview");
+      if (consumeOAuthReturn()) return true;
       showApp();
       return true;
     } catch (e) {
@@ -49,6 +86,7 @@ export async function handleLogin(ev) {
     try {
       await api("/auth/login", { method: "POST", body: JSON.stringify({ [state.loginMode]: value }) });
       $("login-token").value = "";
+      if (consumeOAuthReturn()) return;
       showApp();
       await loadAll();
     } catch (error) {
