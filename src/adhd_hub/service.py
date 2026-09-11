@@ -27,7 +27,13 @@ from adhd_hub.openclaw_config import OpenClawConfig
 from adhd_hub.openclaw_facade import OpenClawFacade
 from adhd_hub.overlap import check_overlap
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
-from adhd_hub.store import Store, slugify, workspace_basename
+from adhd_hub.store import Store, item_id, slugify, workspace_basename
+from adhd_hub.thread_state import (
+    compact_thread_dict,
+    milestone_text,
+    normalize_optional_text,
+    pick_safe_matches,
+)
 from adhd_hub.wiki import Wiki
 
 log = logging.getLogger(__name__)
@@ -453,10 +459,79 @@ class HubService:
             data["forge_issue_number"] = number
             data["forge_issue_url"] = cfg.issue_web_url(number)
         if thread.project_slug:
-            snippet = self.wiki.read_progress(thread.project_slug)
-            if snippet:
-                data["progress_snippet"] = snippet[-800:]
+            notes = self.store.list_progress_notes(
+                thread.project_slug, limit=3, thread_id=thread.id
+            )
+            if notes:
+                data["progress_snippet"] = notes[0]["content"][:800]
+            else:
+                snippet = self.wiki.read_progress(thread.project_slug)
+                if snippet:
+                    data["progress_snippet"] = snippet[-800:]
         return data
+
+    def _unfinished_threads(self, slug: str, *, limit: int = 50) -> list[Thread]:
+        return [
+            t
+            for t in self.store.list_threads(status=None, project_slug=slug, limit=limit)
+            if t.status in (ThreadStatus.open, ThreadStatus.blocked)
+        ]
+
+    def _milestone_rows(self, slug: str, *, limit: int = 20) -> list[dict[str, str]]:
+        notes = self.store.list_progress_notes(slug, limit=limit)
+        threads = {
+            t.id: t
+            for t in self.store.list_threads(status=None, project_slug=slug, limit=200)
+        }
+        rows: list[dict[str, str]] = []
+        for note in notes:
+            tid = note.get("thread_id") or ""
+            title = threads[tid].summary if tid and tid in threads else (tid or "project")
+            rows.append(
+                {
+                    "created_at": note["created_at"],
+                    "content": note["content"],
+                    "thread_id": tid,
+                    "thread_title": title,
+                }
+            )
+        return rows
+
+    def _project_title(self, slug: str, fallback: str | None = None) -> str:
+        proj = self.store.get_project(slug)
+        if proj:
+            return proj.title
+        return fallback or slug
+
+    def _sync_project_progress(
+        self,
+        slug: str,
+        *,
+        title: str | None = None,
+        history_note: str | None = None,
+        thread: Thread | None = None,
+    ) -> str:
+        """Rewrite PROGRESS.md from active thread state (+ optional history note)."""
+        active = self._unfinished_threads(slug)
+        milestones = self._milestone_rows(slug)
+        heading = self._project_title(slug, title)
+        if history_note and history_note.strip():
+            path = self.wiki.upsert_progress(
+                slug,
+                history_note,
+                title=heading,
+                thread=thread,
+                active_threads=active,
+                milestones=milestones,
+            )
+        else:
+            path = self.wiki.sync_progress(
+                slug,
+                title=heading,
+                active_threads=active,
+                milestones=milestones,
+            )
+        return str(path)
 
     def list_threads_public(
         self,
@@ -567,14 +642,10 @@ class HubService:
         thread = None
         created_thread = False
         if create_open_thread:
-            existing = [
-                t
-                for t in self.store.list_threads(
-                    status=ThreadStatus.open, project_slug=proj.slug, limit=5
-                )
-            ]
+            existing = self._unfinished_threads(proj.slug, limit=20)
             if existing:
-                thread = existing[0]
+                # Never silently adopt an arbitrary open thread for the workspace.
+                thread = None
             else:
                 thread_summary = (summary or "").strip() or f"Continue {proj.title}"
                 thread = self.upsert_thread(
@@ -591,6 +662,7 @@ class HubService:
             "project": proj.model_dump(mode="json"),
             "thread": self.thread_public_dict(thread) if thread else None,
             "created_thread": created_thread,
+            "open_thread_count": len(self._unfinished_threads(proj.slug, limit=50)),
         }
 
     def openclaw_memory_digest(
@@ -783,13 +855,21 @@ class HubService:
         self.store.ensure_project_for_slug(
             slug, title=payload.summary[:80], workspace_path=payload.workspace_path
         )
+        previous = self.store.get_thread(payload.id) if payload.id else None
+        if previous is None and not payload.id:
+            # Deterministic id may still update an existing row.
+            guessed = item_id(
+                payload.summary,
+                payload.transcript_ref or payload.workspace_path or slug or "",
+            )
+            previous = self.store.get_thread(guessed)
         thread = self.store.upsert_thread(payload)
-        self.wiki.upsert_progress(
-            thread.project_slug or slugify(thread.summary),
-            content=f"Thread upserted from {thread.source_tool or thread.origin}: {thread.summary}",
-            title=thread.summary,
-            thread=thread,
-        )
+        note = milestone_text(thread=thread, previous=previous)
+        if note:
+            self.store.add_progress_note(slug, note, thread_id=thread.id)
+            self._sync_project_progress(slug, title=thread.summary, history_note=note, thread=thread)
+        else:
+            self._sync_project_progress(slug, title=thread.summary, thread=thread)
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         self._forge_after_thread(thread)
         return thread
@@ -837,48 +917,162 @@ class HubService:
         self.store.ensure_project_for_slug(
             slug, title=payload.title, workspace_path=payload.workspace_path
         )
-        thread = None
-        if payload.create_thread_if_missing:
-            existing = [
-                t
-                for t in self.store.list_threads(status=None, project_slug=slug, limit=20)
-                if t.status in (ThreadStatus.open, ThreadStatus.blocked)
-            ]
-            if existing:
-                thread = existing[0]
-                thread = self.store.upsert_thread(
-                    ThreadUpsert(
-                        id=thread.id,
-                        summary=thread.summary,
-                        status=thread.status,
-                        energy=thread.energy,
-                        source_tool=payload.source_tool or thread.source_tool,
-                        workspace_path=payload.workspace_path or thread.workspace_path,
-                        project_slug=slug,
-                        origin=thread.origin,
-                    )
+        content = (payload.content or "").strip()
+        query_parts = [
+            payload.title,
+            payload.goal,
+            payload.focus,
+            content[:240] if content else None,
+        ]
+
+        unfinished = self._unfinished_threads(slug)
+        thread: Thread | None = None
+        created = False
+        previous: Thread | None = None
+
+        if payload.thread_id:
+            thread = self.store.get_thread(payload.thread_id)
+            if not thread:
+                raise KeyError(f"thread not found: {payload.thread_id}")
+            if thread.project_slug and thread.project_slug != slug:
+                raise ValueError("thread_id belongs to a different project")
+            previous = thread
+        elif payload.force_new_thread:
+            if not payload.create_thread_if_missing:
+                raise ValueError("force_new_thread requires create_thread_if_missing=true")
+            thread = None  # create below
+        elif payload.create_thread_if_missing:
+            matches = pick_safe_matches(unfinished, query_parts)
+            if not unfinished:
+                thread = None  # create below
+            elif len(matches) == 1:
+                thread = matches[0][0]
+                previous = thread
+            elif len(unfinished) == 1:
+                only = unfinished[0]
+                has_identity = bool(
+                    (payload.title or "").strip() or (payload.goal or "").strip()
                 )
+                # Single open thread: reuse for freeform checkpoints; split only when
+                # an explicit title/goal clearly names a different outcome.
+                if not has_identity or matches:
+                    thread = only
+                    previous = thread
+                else:
+                    thread = None  # create below
             else:
-                title = payload.title or f"In progress: {slug}"
-                thread = self.store.upsert_thread(
-                    ThreadUpsert(
-                        summary=title,
-                        status=ThreadStatus.open,
-                        source_tool=payload.source_tool,
-                        workspace_path=payload.workspace_path,
-                        project_slug=slug,
-                        origin="progress",
-                    )
+                return {
+                    "needs_thread_selection": True,
+                    "project_slug": slug,
+                    "thread_id": None,
+                    "progress_path": None,
+                    "candidates": [compact_thread_dict(t) for t in unfinished],
+                    "hint": (
+                        "Multiple unfinished threads — pass thread_id for the matching "
+                        "outcome, or force_new_thread=true to start a separate one."
+                    ),
+                    "forge": {},
+                }
+        # else: notes-only (no thread create/select)
+
+        should_create = (
+            thread is None
+            and payload.create_thread_if_missing
+            and (payload.force_new_thread or payload.thread_id is None)
+            and (
+                payload.force_new_thread
+                or not unfinished
+                or not pick_safe_matches(unfinished, query_parts)
+            )
+        )
+        if should_create:
+            title = payload.title or (
+                normalize_optional_text(payload.goal, limit=80) or f"In progress: {slug}"
+            )
+            thread = self.store.upsert_thread(
+                ThreadUpsert(
+                    summary=title,
+                    status=ThreadStatus.open,
+                    source_tool=payload.source_tool,
+                    workspace_path=payload.workspace_path,
+                    project_slug=slug,
+                    origin="progress",
+                    goal=payload.goal,
+                    focus=payload.focus,
+                    next_steps=payload.next_steps,
+                    blocked_reason=payload.blocked_reason,
+                    resume_step=payload.resume_step,
                 )
-        path = self.wiki.upsert_progress(
+            )
+            created = True
+            previous = None
+
+        if thread is not None and not created:
+            summary = payload.title or thread.summary
+            goal = payload.goal if payload.goal is not None else thread.goal
+            focus = payload.focus if payload.focus is not None else thread.focus
+            blocked = (
+                payload.blocked_reason
+                if payload.blocked_reason is not None
+                else thread.blocked_reason
+            )
+            resume = (
+                payload.resume_step if payload.resume_step is not None else thread.resume_step
+            )
+            next_steps = (
+                payload.next_steps if payload.next_steps is not None else thread.next_steps
+            )
+            thread = self.store.upsert_thread(
+                ThreadUpsert(
+                    id=thread.id,
+                    summary=summary,
+                    status=thread.status,
+                    energy=thread.energy,
+                    source_tool=payload.source_tool or thread.source_tool,
+                    workspace_path=payload.workspace_path or thread.workspace_path,
+                    project_slug=slug,
+                    origin=thread.origin,
+                    goal=goal,
+                    focus=focus,
+                    next_steps=list(next_steps or []),
+                    blocked_reason=blocked or "",
+                    resume_step=resume or "",
+                    chat_ref=thread.chat_ref,
+                    transcript_ref=thread.transcript_ref,
+                )
+            )
+
+        history_note: str | None = None
+        if thread is not None:
+            history_note = milestone_text(
+                thread=thread,
+                note=content or None,
+                previous=previous,
+            )
+            if created and not history_note:
+                history_note = f"Started: {thread.summary}"
+            if history_note:
+                recent = self.store.list_progress_notes(slug, limit=1, thread_id=thread.id)
+                if not recent or recent[0]["content"] != history_note:
+                    self.store.add_progress_note(slug, history_note, thread_id=thread.id)
+                else:
+                    history_note = None
+        elif content:
+            recent = self.store.list_progress_notes(slug, limit=1)
+            if not recent or recent[0]["content"] != content:
+                self.store.add_progress_note(slug, content, thread_id=None)
+
+        # Freeform content is preserved under History; Active/milestones come from SQLite.
+        fold_history = content if content else None
+        path = self._sync_project_progress(
             slug,
-            payload.content,
-            title=payload.title,
+            title=payload.title or (thread.summary if thread else None),
+            history_note=fold_history,
             thread=thread,
         )
-        self.store.add_progress_note(slug, payload.content)
+
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
-        forge = {}
+        forge: dict = {}
         if thread:
             forge = self._forge_after_thread(thread)
         else:
@@ -890,19 +1084,23 @@ class HubService:
                 forge["wiki"] = {"error": str(exc)}
         return {
             "project_slug": slug,
-            "progress_path": str(path),
+            "progress_path": path,
             "thread_id": thread.id if thread else None,
+            "created_thread": created,
+            "needs_thread_selection": False,
             "forge": forge,
+            "thread": compact_thread_dict(thread) if thread else None,
         }
 
     def mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
         thread, changed = self.store.transition_status(thread_id, ThreadStatus.done, note=note)
         if thread and changed:
-            self.wiki.upsert_progress(
-                thread.project_slug or slugify(thread.summary),
-                content=note or "Marked done.",
-                title=thread.summary,
-                thread=thread,
+            slug = thread.project_slug or slugify(thread.summary)
+            history = note or "Marked done."
+            if not note:
+                self.store.add_progress_note(slug, history, thread_id=thread.id)
+            self._sync_project_progress(
+                slug, title=thread.summary, history_note=history, thread=thread
             )
             self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
             self._forge_after_thread(thread)
@@ -911,8 +1109,21 @@ class HubService:
     def mark_dismissed(self, thread_id: str, note: str | None = None) -> Thread | None:
         thread, changed = self.store.transition_status(thread_id, ThreadStatus.dismissed, note=note)
         if thread and changed:
+            slug = thread.project_slug or slugify(thread.summary)
+            history = note or "Dismissed."
+            if not note:
+                self.store.add_progress_note(slug, history, thread_id=thread.id)
+            self._sync_project_progress(
+                slug, title=thread.summary, history_note=history, thread=thread
+            )
             self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
             self._forge_after_thread(thread)
+        return thread
+
+    def pause_thread(self, thread_id: str, next_step: str) -> Thread:
+        thread = self.store.pause_thread(thread_id, next_step)
+        slug = thread.project_slug or slugify(thread.summary)
+        self._sync_project_progress(slug, title=thread.summary, thread=thread)
         return thread
 
     def set_reminder(self, payload: ReminderCreate) -> Reminder:

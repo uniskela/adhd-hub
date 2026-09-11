@@ -164,16 +164,44 @@ class Store:
                 conn.execute("ALTER TABLE projects ADD COLUMN archived_at TEXT")
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
-            for column in ("resume_step", "paused_at"):
+            for column in (
+                "resume_step",
+                "paused_at",
+                "goal",
+                "focus",
+                "next_steps",
+                "blocked_reason",
+            ):
                 if column not in thread_cols:
                     conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
 
+            note_cols = {row[1] for row in conn.execute("PRAGMA table_info(progress_notes)")}
+            if "thread_id" not in note_cols:
+                conn.execute("ALTER TABLE progress_notes ADD COLUMN thread_id TEXT")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_progress_thread ON progress_notes(thread_id)"
+            )
+
     def _row_thread(self, row: sqlite3.Row) -> Thread:
+        keys = set(row.keys())
+        next_raw = row["next_steps"] if "next_steps" in keys else None
+        next_steps: list[str] = []
+        if next_raw:
+            try:
+                parsed = json.loads(next_raw)
+                if isinstance(parsed, list):
+                    next_steps = [str(x) for x in parsed if str(x).strip()][:3]
+            except (TypeError, json.JSONDecodeError):
+                next_steps = []
         return Thread(
             id=row["id"],
             summary=row["summary"],
-            resume_step=row["resume_step"],
-            paused_at=datetime.fromisoformat(row["paused_at"]) if row["paused_at"] else None,
+            resume_step=row["resume_step"] if "resume_step" in keys else None,
+            paused_at=(
+                datetime.fromisoformat(row["paused_at"])
+                if "paused_at" in keys and row["paused_at"]
+                else None
+            ),
             status=ThreadStatus(row["status"]),
             energy=EnergyLevel(row["energy"]),
             source_tool=row["source_tool"],
@@ -187,6 +215,10 @@ class Store:
             last_reminded_at=(
                 datetime.fromisoformat(row["last_reminded_at"]) if row["last_reminded_at"] else None
             ),
+            goal=row["goal"] if "goal" in keys else None,
+            focus=row["focus"] if "focus" in keys else None,
+            next_steps=next_steps,
+            blocked_reason=row["blocked_reason"] if "blocked_reason" in keys else None,
         )
 
     def upsert_thread(self, payload: ThreadUpsert) -> Thread:
@@ -196,9 +228,31 @@ class Store:
             payload.transcript_ref or payload.workspace_path or payload.project_slug or "",
         )
         slug = payload.project_slug or slugify(payload.summary)
+        next_json = (
+            json.dumps(payload.next_steps)
+            if payload.next_steps is not None
+            else None
+        )
         with self._conn() as conn:
             existing = conn.execute("SELECT * FROM threads WHERE id = ?", (tid,)).fetchone()
             if existing:
+                # Preserve structured fields when caller omits them (None).
+                goal = payload.goal if payload.goal is not None else existing["goal"]
+                focus = payload.focus if payload.focus is not None else existing["focus"]
+                blocked = (
+                    payload.blocked_reason
+                    if payload.blocked_reason is not None
+                    else existing["blocked_reason"]
+                )
+                resume = (
+                    payload.resume_step
+                    if payload.resume_step is not None
+                    else existing["resume_step"]
+                )
+                if payload.next_steps is not None:
+                    next_store = next_json
+                else:
+                    next_store = existing["next_steps"]
                 conn.execute(
                     """
                     UPDATE threads SET
@@ -209,6 +263,11 @@ class Store:
                         chat_ref = COALESCE(?, chat_ref),
                         transcript_ref = COALESCE(?, transcript_ref),
                         origin = ?,
+                        goal = ?,
+                        focus = ?,
+                        next_steps = ?,
+                        blocked_reason = ?,
+                        resume_step = ?,
                         updated_at = ?
                     WHERE id = ?
                     """,
@@ -222,6 +281,11 @@ class Store:
                         payload.chat_ref,
                         payload.transcript_ref,
                         payload.origin,
+                        goal,
+                        focus,
+                        next_store,
+                        blocked,
+                        resume,
                         now.isoformat(),
                         tid,
                     ),
@@ -232,8 +296,9 @@ class Store:
                     INSERT INTO threads (
                         id, summary, status, energy, source_tool, workspace_path,
                         project_slug, chat_ref, transcript_ref, origin,
-                        created_at, updated_at, last_reminded_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                        created_at, updated_at, last_reminded_at,
+                        goal, focus, next_steps, blocked_reason, resume_step
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
                     """,
                     (
                         tid,
@@ -248,6 +313,11 @@ class Store:
                         payload.origin,
                         now.isoformat(),
                         now.isoformat(),
+                        payload.goal,
+                        payload.focus,
+                        next_json if next_json is not None else "[]",
+                        payload.blocked_reason,
+                        payload.resume_step,
                     ),
                 )
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (tid,)).fetchone()
@@ -309,12 +379,14 @@ class Store:
                 return None, False
             if changed and note:
                 conn.execute(
-                    "INSERT INTO progress_notes (id, project_slug, content, created_at) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO progress_notes (id, project_slug, content, created_at, thread_id) "
+                    "VALUES (?, ?, ?, ?, ?)",
                     (
                         str(uuid4()),
                         row["project_slug"] or slugify(row["summary"]),
                         f"[status→{status.value}] {note}",
                         now.isoformat(),
+                        thread_id,
                     ),
                 )
         return self._row_thread(row), changed
@@ -345,25 +417,57 @@ class Store:
                     (now, tid),
                 )
 
-    def add_progress_note(self, project_slug: str, content: str) -> str:
+    def add_progress_note(
+        self,
+        project_slug: str,
+        content: str,
+        *,
+        thread_id: str | None = None,
+    ) -> str:
         nid = str(uuid4())
         with self._conn() as conn:
             conn.execute(
-                "INSERT INTO progress_notes (id, project_slug, content, created_at) VALUES (?, ?, ?, ?)",
-                (nid, project_slug, content, utcnow().isoformat()),
+                "INSERT INTO progress_notes (id, project_slug, content, created_at, thread_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (nid, project_slug, content, utcnow().isoformat(), thread_id),
             )
         return nid
 
-    def list_progress_notes(self, project_slug: str, limit: int = 50) -> list[dict[str, str]]:
+    def list_progress_notes(
+        self,
+        project_slug: str,
+        limit: int = 50,
+        *,
+        thread_id: str | None = None,
+    ) -> list[dict[str, str]]:
         with self._conn() as conn:
-            rows = conn.execute(
-                """
-                SELECT id, project_slug, content, created_at FROM progress_notes
-                WHERE project_slug = ? ORDER BY created_at DESC LIMIT ?
-                """,
-                (project_slug, limit),
-            ).fetchall()
-        return [dict(r) for r in rows]
+            if thread_id:
+                rows = conn.execute(
+                    """
+                    SELECT id, project_slug, content, created_at, thread_id FROM progress_notes
+                    WHERE project_slug = ? AND thread_id = ?
+                    ORDER BY created_at DESC LIMIT ?
+                    """,
+                    (project_slug, thread_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT id, project_slug, content, created_at, thread_id FROM progress_notes
+                    WHERE project_slug = ? ORDER BY created_at DESC LIMIT ?
+                    """,
+                    (project_slug, limit),
+                ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "project_slug": r["project_slug"],
+                "content": r["content"],
+                "created_at": r["created_at"],
+                "thread_id": r["thread_id"] or "",
+            }
+            for r in rows
+        ]
 
     def create_reminder(self, payload: ReminderCreate) -> Reminder:
         rid = str(uuid4())

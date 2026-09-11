@@ -17,9 +17,9 @@ from urllib.request import Request, urlopen
 from adhd_hub.cli_style import paint_status, print_running, style
 from adhd_hub.companions import append_companion_steps
 from adhd_hub.project_setup import (
-    normalize_skills_agents,
     install_agent_guidance,
     install_skills,
+    normalize_skills_agents,
 )
 
 CURSOR_MCP_KEY = "adhd-hub"
@@ -384,8 +384,8 @@ If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailab
 
 When this workspace involves starting, resuming, or leaving half-finished work:
 
-1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest`, then `check_overlap`.
-2. On pause, `upsert_progress` with a short Now / Done / Next / Return cue.
+1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query.
+2. One thread = one independently finishable outcome. Known thread → `upsert_progress(thread_id=...)` with goal/focus/next/resume. Different goal → separate thread.
 3. When finished, `mark_done` on the known thread id only.
 
 Never send secrets or full transcripts.

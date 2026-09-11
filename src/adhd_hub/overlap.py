@@ -106,6 +106,11 @@ def score_thread(query: str, thread: Thread) -> tuple[float, str]:
             None,
             [
                 thread.summary,
+                thread.goal or "",
+                thread.focus or "",
+                " ".join(thread.next_steps or []),
+                thread.resume_step or "",
+                thread.blocked_reason or "",
                 thread.project_slug or "",
                 thread.workspace_path or "",
                 thread.source_tool or "",
@@ -118,10 +123,17 @@ def score_thread(query: str, thread: Thread) -> tuple[float, str]:
     if score > 0:
         reasons.append(f"token_overlap={score:.2f}")
 
-    # Substring / phrase hints
+    # Substring / phrase hints — slug helps project routing but should not collapse
+    # distinct outcomes inside the same project.
     q_l = query.lower()
+    if thread.goal and thread.goal.lower() in q_l:
+        score += 0.4
+        reasons.append("goal_in_query")
+    if thread.summary and thread.summary.lower() in q_l:
+        score += 0.25
+        reasons.append("title_in_query")
     if thread.project_slug and thread.project_slug.lower() in q_l:
-        score += 0.35
+        score += 0.2
         reasons.append("slug_in_query")
     if thread.workspace_path:
         name = Path(thread.workspace_path).name.lower()

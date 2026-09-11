@@ -9,10 +9,10 @@ If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailab
 
 When this workspace involves starting, resuming, or leaving half-finished work:
 
-1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest`, then `check_overlap`.
-2. On pause, `upsert_progress` with a short Now / Done / Next / Return cue.
+1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query.
+2. One thread = one independently finishable outcome. Known thread → `upsert_progress(thread_id=...)` with goal/focus/next/resume. Different goal → separate thread.
 3. When finished, `mark_done` on the known thread id only.
 
-If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` (title prefix is enough; optional labels `adhd-hub`, `project:<slug>`, `source:cursor`) and a short Now/Done/Next/Return cue. Skip labels if the token cannot set them.
+If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` (title prefix is enough; optional labels `adhd-hub`, `project:<slug>`, `source:cursor`) and a short Goal/Focus/Next/Resume cue. Skip labels if the token cannot set them.
 
 Never send secrets or full transcripts. Prefer summaries; never dump full chat transcripts into the hub.

@@ -62,7 +62,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     @router.post("/threads/{thread_id}/pause", dependencies=[Depends(auth_dep)])
     def pause_thread(thread_id: str, payload: PauseRequest):
         try:
-            thread = service.store.pause_thread(thread_id, payload.next_step)
+            thread = service.pause_thread(thread_id, payload.next_step)
         except KeyError:
             raise HTTPException(404, "Thread not found") from None
         except ValueError as exc:
@@ -264,6 +264,8 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     def progress(payload: ProgressUpsert):
         try:
             return service.upsert_progress(payload)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 

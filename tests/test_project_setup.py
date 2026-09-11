@@ -33,12 +33,12 @@ def test_session_skill_requires_loud_mcp_down() -> None:
     assert "say so briefly" not in text.lower()
     assert "Do not call Hub tools for trivial/read-only questions" in text
     assert "Repeat the warning only if Hub status changes" in text
-    assert "Skip it when resuming a known thread" in text
+    assert "One thread = one independently finishable outcome" in text
+    assert "force_new_thread" in text
     assert "Use the forge mailbox only when forge issue-write access is available" in text
     assert "safe for the repository's visibility" in text
     assert "absolute local workspace paths" in text
-    assert "Call `upsert_progress` first" in text
-    assert "reuse the existing project convention" in text
+    assert "thread_id" in text
     assert "../../docs/writing.md" not in text
 
 
@@ -50,9 +50,10 @@ def test_install_creates_agents_file_and_is_idempotent(tmp_path: Path) -> None:
     assert first.startswith("# AGENTS.md")
     assert first.count(BEGIN_MARKER) == 1
     assert "resolve_project" in first
-    assert "Do not call Hub tools for trivial" in first
+    assert "Skip Hub for trivial" in first
+    assert "independently finishable outcome" in first
+    assert "thread_id" in first
     assert "transcripts" in first
-    assert "Never publish Hub URLs" in first
 
     same_path, second_action = install_agent_guidance(tmp_path)
     assert same_path == path

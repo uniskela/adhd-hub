@@ -38,6 +38,8 @@ Inbox sync imports **only** issues authored by usernames in `board_inbox_authors
 
 Prefer **Wave 6 → 7 → 8** (clarity and findability) before Wave 5 integrations or Wave 9 shared surfaces. Do not start Wave 5 early unless a specific integration is urgently needed (see issue #20).
 
+**Foundation (thread identity):** one thread = one independently finishable outcome; `upsert_progress(thread_id=...)`; structured goal/focus/next; Active/History `PROGRESS.md`. That work is a prerequisite for Waves 6–8, not a substitute for AI summaries (#52), merge/dedupe UI (#54), or reversible wiki compaction (#55).
+
 ## Wave 6 — AI clarity & project organisation
 
 1. **AI task/thread summaries** — default scannable Now/Done/Next/Waiting/Return cue; expand for full detail; opt-in local LLM with heuristic fallback.

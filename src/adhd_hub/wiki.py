@@ -4,7 +4,7 @@ import re
 import shutil
 from pathlib import Path
 
-from adhd_hub.models import Thread
+from adhd_hub.models import Thread, ThreadStatus
 from adhd_hub.store import slugify
 
 
@@ -76,6 +76,172 @@ class Wiki:
         shutil.rmtree(path)
         return {"deleted": True, "slug": safe}
 
+    _MANAGED_HEADINGS = (
+        "Status",
+        "Forge",
+        "Active threads",
+        "Recent milestones",
+        "History",
+        "Progress log",
+    )
+
+    @classmethod
+    def _extract_section(cls, text: str, heading: str) -> str | None:
+        managed = "|".join(re.escape(h) for h in cls._MANAGED_HEADINGS)
+        pattern = rf"^## {re.escape(heading)}\s*\n(.*?)(?=^## (?:{managed})\s*$|\Z)"
+        match = re.search(pattern, text, flags=re.MULTILINE | re.DOTALL)
+        return match.group(1).strip("\n") if match else None
+
+    def extract_preserved_sections(self, text: str) -> tuple[str | None, str]:
+        """Return (forge_block_without_heading, history_body) from an existing file."""
+        forge = self._extract_section(text, "Forge")
+        history = self._extract_section(text, "History")
+        legacy_migrate = False
+        if history is None:
+            # Legacy: fold Progress log plus any other non-managed body into History.
+            progress_log = self._extract_section(text, "Progress log")
+            stripped = re.sub(r"^# .*\n+", "", text, count=1)
+            stripped = re.sub(r"^_slug:_.*\n+", "", stripped, count=1)
+            for heading in self._MANAGED_HEADINGS:
+                stripped = re.sub(
+                    rf"^## {re.escape(heading)}\s*\n(?:.*?\n)*?(?=^## (?:Status|Forge|Active threads|Recent milestones|History|Progress log)\s*$|\Z)",
+                    "",
+                    stripped,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            extra = stripped.strip()
+            parts: list[str] = []
+            if progress_log and progress_log.strip():
+                parts.append(progress_log.strip())
+            if extra and extra not in (progress_log or ""):
+                parts.append(extra)
+            history = "\n\n".join(parts).strip()
+            legacy_migrate = bool(history)
+        if legacy_migrate and history and "Legacy project-level history" not in history:
+            history = (
+                "### Legacy project-level history\n\n"
+                "_Unscoped entries from before thread-targeted progress._\n\n"
+                + history
+            )
+        return forge, history or ""
+
+    @staticmethod
+    def _format_thread_block(thread: Thread) -> str:
+        lines = [f"### {thread.summary}", ""]
+        if thread.goal:
+            lines.append(f"Goal: {thread.goal}")
+            lines.append("")
+        if thread.focus:
+            lines.append("Focus:")
+            lines.append(f"- {thread.focus}")
+            lines.append("")
+        if thread.next_steps:
+            lines.append("Next:")
+            for i, step in enumerate(thread.next_steps[:3], start=1):
+                lines.append(f"{i}. {step}")
+            lines.append("")
+        if thread.blocked_reason:
+            lines.append("Blocked:")
+            lines.append(f"- {thread.blocked_reason}")
+            lines.append("")
+        if thread.resume_step:
+            lines.append("Resume:")
+            lines.append(f"- {thread.resume_step}")
+            lines.append("")
+        lines.append(f"Updated: {thread.updated_at.isoformat()}")
+        lines.append("")
+        lines.append(f"_thread_id:_ `{thread.id}`")
+        lines.append("")
+        return "\n".join(lines)
+
+    def render_progress(
+        self,
+        slug: str,
+        *,
+        title: str,
+        active_threads: list[Thread],
+        milestones: list[dict[str, str]],
+        forge_body: str | None = None,
+        history_body: str = "",
+    ) -> str:
+        safe = slugify(slug)
+        now = self._stamp()
+        lines = [
+            f"# {title}",
+            "",
+            f"_slug:_ `{safe}`",
+            "",
+            "## Status",
+            "",
+            f"- active_threads: {len(active_threads)}",
+            f"- updated: {now}",
+            "",
+        ]
+        if forge_body is not None:
+            lines.append("## Forge")
+            lines.append("")
+            lines.append(forge_body.rstrip() or "_No forge links yet._")
+            lines.append("")
+        lines.append("## Active threads")
+        lines.append("")
+        unfinished = [
+            t
+            for t in active_threads
+            if t.status in (ThreadStatus.open, ThreadStatus.blocked)
+        ]
+        if unfinished:
+            for thread in unfinished:
+                lines.append(self._format_thread_block(thread).rstrip())
+                lines.append("")
+        else:
+            lines.append("_No active threads._")
+            lines.append("")
+        lines.append("## Recent milestones")
+        lines.append("")
+        if milestones:
+            for item in milestones[:30]:
+                stamp = item.get("created_at") or now
+                label = item.get("thread_title") or item.get("thread_id") or "project"
+                content = (item.get("content") or "").strip().replace("\n", " ")
+                if content:
+                    lines.append(f"- {stamp} — {label}: {content}")
+            lines.append("")
+        else:
+            lines.append("_No milestones yet._")
+            lines.append("")
+        lines.append("## History")
+        lines.append("")
+        lines.append(history_body.strip() if history_body.strip() else "_No older history._")
+        lines.append("")
+        return "\n".join(lines)
+
+    def sync_progress(
+        self,
+        slug: str,
+        *,
+        title: str,
+        active_threads: list[Thread],
+        milestones: list[dict[str, str]],
+    ) -> Path:
+        """Rewrite PROGRESS.md from structured state; preserve Forge + History."""
+        path = self.progress_path(slug)
+        forge_body: str | None = None
+        history_body = ""
+        if path.exists():
+            existing = path.read_text(encoding="utf-8")
+            forge_body, history_body = self.extract_preserved_sections(existing)
+        body = self.render_progress(
+            slug,
+            title=title,
+            active_threads=active_threads,
+            milestones=milestones,
+            forge_body=forge_body,
+            history_body=history_body,
+        )
+        path.write_text(body, encoding="utf-8")
+        return path
+
     def upsert_progress(
         self,
         slug: str,
@@ -83,43 +249,38 @@ class Wiki:
         *,
         title: str | None = None,
         thread: Thread | None = None,
+        active_threads: list[Thread] | None = None,
+        milestones: list[dict[str, str]] | None = None,
     ) -> Path:
+        """Compatibility entry: sync structured doc; fold freeform content into History."""
         path = self.progress_path(slug)
-        now = self._stamp()
-        heading = title or (thread.summary if thread else slug)
-        if not path.exists():
-            body = (
-                f"# {heading}\n\n"
-                f"_slug:_ `{slugify(slug)}`\n\n"
-                f"## Status\n\n- status: {(thread.status.value if thread else 'open')}\n"
-                f"- updated: {now}\n\n"
-                f"## Progress log\n\n"
-                f"### {now}\n\n{content.strip()}\n"
-            )
-            path.write_text(body, encoding="utf-8")
-        else:
+        forge_body: str | None = None
+        history_body = ""
+        if path.exists():
             existing = path.read_text(encoding="utf-8")
-            existing = re.sub(
-                r"- updated:.*",
-                f"- updated: {now}",
-                existing,
-                count=1,
-            )
-            if thread:
-                existing = re.sub(
-                    r"- status:.*",
-                    f"- status: {thread.status.value}",
-                    existing,
-                    count=1,
-                )
-            addition = f"\n### {now}\n\n{content.strip()}\n"
-            if "## Progress log" in existing:
-                existing = existing.replace(
-                    "## Progress log\n", f"## Progress log\n{addition}", 1
-                )
-            else:
-                existing += f"\n## Progress log\n{addition}"
-            path.write_text(existing, encoding="utf-8")
+            forge_body, history_body = self.extract_preserved_sections(existing)
+        note = (content or "").strip()
+        if note:
+            stamp = self._stamp()
+            label = thread.summary if thread else (title or slug)
+            addition = f"### {stamp}\n\n**{label}**\n\n{note}\n"
+            history_body = (addition + "\n" + history_body).strip() if history_body else addition.strip()
+        heading = title or (thread.summary if thread else slug)
+        threads = active_threads
+        if threads is None:
+            threads = [thread] if thread and thread.status in (
+                ThreadStatus.open,
+                ThreadStatus.blocked,
+            ) else []
+        body = self.render_progress(
+            slug,
+            title=heading,
+            active_threads=threads,
+            milestones=milestones or [],
+            forge_body=forge_body,
+            history_body=history_body,
+        )
+        path.write_text(body, encoding="utf-8")
         return path
 
     def ensure_forge_section(
@@ -152,11 +313,19 @@ class Wiki:
                 flags=re.MULTILINE,
             )
         else:
-            if "## Progress log" in text:
+            if "## Active threads" in text:
+                text = text.replace("## Active threads", block + "## Active threads", 1)
+            elif "## Progress log" in text:
                 text = text.replace("## Progress log", block + "## Progress log", 1)
             else:
                 text = text.rstrip() + "\n\n" + block
         path.write_text(text, encoding="utf-8")
+        return path
+
+    def write_progress_raw(self, slug: str, content: str) -> Path:
+        """Replace PROGRESS.md wholesale (used by forge import)."""
+        path = self.progress_path(slug)
+        path.write_text(content, encoding="utf-8")
         return path
 
     def list_project_slugs(self) -> list[str]:
@@ -173,12 +342,6 @@ class Wiki:
         if not path.is_file():
             return None
         return path.read_text(encoding="utf-8")
-
-    def write_progress_raw(self, slug: str, content: str) -> Path:
-        """Replace PROGRESS.md wholesale (used by forge import)."""
-        path = self.progress_path(slug)
-        path.write_text(content, encoding="utf-8")
-        return path
 
     def rebuild_index(self, open_threads: list[Thread]) -> Path:
         """Rewrite wiki/INDEX.md from open threads + project folders."""
@@ -207,9 +370,10 @@ class Wiki:
                 if t.workspace_path:
                     age_bits.append(t.workspace_path)
                 meta = f" ({', '.join(age_bits)})" if age_bits else ""
+                goal = f" — goal: {t.goal}" if t.goal else ""
                 lines.append(
                     f"- [{t.status.value}] **{t.summary}** "
-                    f"`{t.project_slug or ''}`{meta} — id `{t.id}`"
+                    f"`{t.project_slug or ''}`{meta}{goal} — id `{t.id}`"
                 )
             lines.append("")
 

@@ -28,13 +28,13 @@ def build_mcp(service: HubService) -> MCPServer:
         version=__version__,
         instructions=(
             "Use this hub to avoid losing half-finished work. "
-            "On session start call resolve_project or register_workspace, then session_digest "
-            "(or get_overview), check_overlap, and list_reminders(due_only=true). "
-            "When pausing mid-task, call pause_thread with a next tiny step. "
-            "When leaving work incomplete, call upsert_progress and/or upsert_thread. "
-            "When finished, call mark_done; use dismiss_thread for soft close without done. "
-            "upsert_progress already returns a thread_id; avoid creating a duplicate thread. "
-            "Prefer project_slug from resolve_project. Never save secrets or full transcripts."
+            "One thread = one independently finishable outcome (not the whole project). "
+            "On session start call resolve_project, then session_digest with the task query. "
+            "Before potentially new work call check_overlap and compare against thread Goal. "
+            "At checkpoints call upsert_progress with the known thread_id and compact "
+            "goal/focus/next_steps/blocked_reason/resume_step. "
+            "If upsert_progress returns needs_thread_selection, pass thread_id or force_new_thread. "
+            "When finished, mark_done only that thread. Never save secrets or full transcripts."
         ),
     )
 
@@ -168,8 +168,13 @@ def build_mcp(service: HubService) -> MCPServer:
         transcript_ref: str | None = None,
         status: ThreadStatus = ThreadStatus.open,
         thread_id: str | None = None,
+        goal: str | None = None,
+        focus: str | None = None,
+        next_steps: list[str] | None = None,
+        blocked_reason: str | None = None,
+        resume_step: str | None = None,
     ) -> dict[str, Any]:
-        """Create or update an unfinished-work thread."""
+        """Create or update an unfinished-work thread (one finishable outcome)."""
         thread = service.upsert_thread(
             ThreadUpsert(
                 id=thread_id,
@@ -182,30 +187,54 @@ def build_mcp(service: HubService) -> MCPServer:
                 transcript_ref=transcript_ref,
                 status=ThreadStatus(status),
                 origin="manual",
+                goal=goal,
+                focus=focus,
+                next_steps=next_steps,
+                blocked_reason=blocked_reason,
+                resume_step=resume_step,
             )
         )
         return thread.model_dump(mode="json")
 
     @mcp.tool()
     def upsert_progress(
-        content: str,
+        content: str | None = None,
         project_slug: str | None = None,
         title: str | None = None,
         workspace_path: str | None = None,
         source_tool: str | None = None,
         create_thread_if_missing: bool = True,
+        thread_id: str | None = None,
+        force_new_thread: bool = False,
+        goal: str | None = None,
+        focus: str | None = None,
+        next_steps: list[str] | None = None,
+        blocked_reason: str | None = None,
+        resume_step: str | None = None,
     ) -> dict[str, Any]:
-        """Append to a project PROGRESS.md wiki page (and keep/create an open thread)."""
-        return service.upsert_progress(
-            ProgressUpsert(
-                project_slug=project_slug,
-                content=content,
-                create_thread_if_missing=create_thread_if_missing,
-                title=title,
-                workspace_path=workspace_path,
-                source_tool=source_tool,
+        """Update thread active state and project PROGRESS.md (target thread_id when known)."""
+        try:
+            return service.upsert_progress(
+                ProgressUpsert(
+                    project_slug=project_slug,
+                    content=content,
+                    create_thread_if_missing=create_thread_if_missing,
+                    title=title,
+                    workspace_path=workspace_path,
+                    source_tool=source_tool,
+                    thread_id=thread_id,
+                    force_new_thread=force_new_thread,
+                    goal=goal,
+                    focus=focus,
+                    next_steps=next_steps,
+                    blocked_reason=blocked_reason,
+                    resume_step=resume_step,
+                )
             )
-        )
+        except KeyError as exc:
+            return {"error": "not_found", "detail": str(exc)}
+        except ValueError as exc:
+            return {"error": str(exc)}
 
     @mcp.tool()
     def mark_done(thread_id: str, note: str | None = None) -> dict[str, Any]:
@@ -225,7 +254,7 @@ def build_mcp(service: HubService) -> MCPServer:
         if not step:
             return {"error": "next_step required", "id": thread_id}
         try:
-            thread = service.store.pause_thread(thread_id, step)
+            thread = service.pause_thread(thread_id, step)
         except KeyError:
             return {"error": "not_found", "id": thread_id}
         except ValueError as exc:

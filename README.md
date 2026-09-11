@@ -80,16 +80,17 @@ UI: `http://<host>:8787/ui/`
 
 | Tool | Purpose |
 |------|---------|
-| `session_digest` | Stale/open threads + due reminders + wiki snippet |
-| `check_overlap` | Rank open threads vs what you’re starting |
+| `session_digest` | Compact open threads (goal/focus/next/resume) + reminders |
+| `check_overlap` | Rank open threads vs what you’re starting (goal/title/focus) |
 | `resolve_project` | Map workspace path → project slug |
 | `list_projects` / `upsert_project` | Project registry (+ optional forge overrides) |
 | `rename_project` / `delete_project` | Queue rename/delete for **/ui confirmation** (not applied immediately) |
 | `list_pending_actions` | See delete/rename requests waiting for you |
 | `list_open_threads` | List unfinished work |
-| `upsert_thread` | Create/update a thread |
-| `upsert_progress` | Append to PROGRESS.md (+ keep thread open) |
-| `mark_done` | Close a thread |
+| `upsert_thread` | Create/update a thread (one finishable outcome) |
+| `upsert_progress` | Update thread state + PROGRESS.md (`thread_id` when known) |
+| `pause_thread` | Leave a concrete resume step |
+| `mark_done` | Close a known thread |
 | `set_reminder` | once / session / daily / random |
 
 ## Optional OpenClaw

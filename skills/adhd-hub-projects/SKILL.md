@@ -18,7 +18,7 @@ resolve_project(workspace_path="<absolute workspace>", create_if_missing=true)
 
 If the result is `error: not_found`, do not invent a project id or slug. Resolve with creation enabled only for a known project.
 
-Use the returned `slug` on all later `upsert_progress` / `upsert_thread` calls.
+Use the returned `slug` on later `upsert_progress` / `upsert_thread` calls. For checkpoints, also pass the known `thread_id` so progress stays on that outcome (one thread = one independently finishable outcome).
 
 ## Register or update
 

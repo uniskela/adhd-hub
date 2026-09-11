@@ -284,10 +284,14 @@ class ForgeFacade:
             thread = self._hub.store.upsert_thread(payload)
             # Map before any outbound board sync so we update issue #N instead of creating another.
             self._hub.store.set_meta(f"forge_issue:{thread.id}", str(number))
-            self._hub.wiki.upsert_progress(
+            note_import = f"Imported from forge issue #{number}: {thread.summary}"
+            self._hub.store.add_progress_note(
+                thread.project_slug or slug, note_import, thread_id=thread.id
+            )
+            self._hub._sync_project_progress(
                 thread.project_slug or slug,
-                content=(f"Imported from forge issue #{number}: {thread.summary}"),
                 title=thread.summary,
+                history_note=note_import,
                 thread=thread,
             )
             self._hub.wiki.rebuild_index(
@@ -298,13 +302,15 @@ class ForgeFacade:
             if note:
                 if len(note) > 8000:
                     note = note[:8000].rstrip() + "\n\n…(truncated from forge issue)"
-                self._hub.wiki.upsert_progress(
+                self._hub.store.add_progress_note(
+                    thread.project_slug or slug, note, thread_id=thread.id
+                )
+                self._hub._sync_project_progress(
                     thread.project_slug or slug,
-                    content=note,
                     title=thread.summary,
+                    history_note=note,
                     thread=thread,
                 )
-                self._hub.store.add_progress_note(thread.project_slug or slug, note)
 
             close_result = None
             if close_imported:
