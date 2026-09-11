@@ -50,7 +50,12 @@ def build_ui_router() -> APIRouter:
     def ui_js_module(name: str):
         if name not in UI_JS_MODULES:
             raise HTTPException(404, "Asset not found")
-        path = JS_DIR / name
+        js_root = JS_DIR.resolve()
+        path = (JS_DIR / name).resolve()
+        try:
+            path.relative_to(js_root)
+        except ValueError:
+            raise HTTPException(404, "Asset not found")
         if not path.is_file():
             raise HTTPException(404, "Asset not found")
         return FileResponse(path, media_type="text/javascript")
