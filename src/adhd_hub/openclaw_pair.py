@@ -36,10 +36,11 @@ class PairState:
     token_present: bool = False
     submitted_at: float | None = None
     error_code: str = ""
+    hub_origin: str = ""
 
     def public_dict(self) -> dict[str, Any]:
         remaining = max(0, int(self.expires_at - time.time())) if self.expires_at else 0
-        return {
+        out: dict[str, Any] = {
             "status": self.status,
             "user_code": self.user_code if self.status in {"waiting", "submitted"} else "",
             "expires_in": remaining if self.status in {"waiting", "submitted"} else 0,
@@ -47,8 +48,15 @@ class PairState:
             "agent_url": self.agent_url if self.status == "submitted" else "",
             "token_present": self.token_present if self.status == "submitted" else False,
             "submitted_at": self.submitted_at if self.status == "submitted" else None,
-            "error_code": self.error_code if self.status == "failed" else "",
         }
+        if self.status == "failed":
+            out["error_code"] = self.error_code
+        if self.status in {"waiting", "submitted"} and self.hub_origin:
+            out["prompt"] = openclaw_pair_prompt(
+                hub_origin=self.hub_origin,
+                user_code=self.user_code,
+            )
+        return out
 
 
 def pair_path(data_dir: Path) -> Path:
@@ -97,6 +105,7 @@ class OpenClawPairStore:
                 agent_url=str(raw.get("agent_url") or ""),
                 token_present=bool(raw.get("token")),
                 submitted_at=float(raw["submitted_at"]) if raw.get("submitted_at") else None,
+                hub_origin=str(raw.get("hub_origin") or ""),
             )
         if phase == "failed":
             return PairState(
@@ -108,9 +117,10 @@ class OpenClawPairStore:
             status="waiting",
             user_code=str(raw.get("user_code") or ""),
             expires_at=expires_at,
+            hub_origin=str(raw.get("hub_origin") or ""),
         )
 
-    def start(self) -> PairState:
+    def start(self, *, hub_origin: str = "") -> PairState:
         current = self.status()
         if current.status == "submitted":
             raise ValueError(
@@ -124,6 +134,7 @@ class OpenClawPairStore:
                 "user_code": code,
                 "expires_at": now + PAIR_SECONDS,
                 "created_at": now,
+                "hub_origin": str(hub_origin or "").rstrip("/"),
             }
         )
         return self.status()
@@ -218,6 +229,7 @@ class OpenClawPairStore:
                 "remind_cooldown_days": preview.remind_cooldown_days,
                 "digest_max_nudge": preview.digest_max_nudge,
                 "_schedule_from_submit": schedule_from_submit,
+                "hub_origin": str(raw.get("hub_origin") or ""),
             }
         )
         return self.status()
