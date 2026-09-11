@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.1](https://github.com/uniskela/adhd-hub/compare/v0.4.0...v0.4.1) (2026-09-11)
+
+
+### Features
+
+* add coding companions and ADHD-friendly connect reports ([65ee358](https://github.com/uniskela/adhd-hub/commit/65ee358dcd10ba0b28f17a055b4502443521ac23))
+* coding companions and ADHD-friendly connect reports ([79b58d2](https://github.com/uniskela/adhd-hub/commit/79b58d2ede14793d6863d196be385c8c7747d70f))
+* **ui:** list manual companions in Settings with upstream source links ([c12a144](https://github.com/uniskela/adhd-hub/commit/c12a1446807ce903c7c176fd9568e8e7110d59f5))
+
+
+### Bug Fixes
+
+* tighten AGENTS continuity block and skip trivial Hub calls ([7f40986](https://github.com/uniskela/adhd-hub/commit/7f409862c1e3176763b86bf35aada2eec10f7f6f))
+* tighten AGENTS continuity block and skip trivial Hub calls ([4741c97](https://github.com/uniskela/adhd-hub/commit/4741c972f6b61e0e512e4532dbee5372ddd3fecc))
+
+
+### Documentation
+
+* align README and setup with shipped v0.4.0 ([30f2716](https://github.com/uniskela/adhd-hub/commit/30f2716bced901143050e66f272bb4c2e9fd5c5a))
+* align README and setup with v0.4.0 connect pairing ([b280c0a](https://github.com/uniskela/adhd-hub/commit/b280c0af461295f5aa92d2723daed93d11353c7d))
+* clarify companion roles and don't recommend installing everything ([d827806](https://github.com/uniskela/adhd-hub/commit/d8278062f255735759040828e859e55df9cdf188))
+
 ## [0.4.0](https://github.com/uniskela/adhd-hub/compare/v0.3.11...v0.4.0) (2026-09-10)
 
 
