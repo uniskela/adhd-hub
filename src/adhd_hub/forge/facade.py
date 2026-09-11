@@ -315,7 +315,9 @@ class ForgeFacade:
             close_result = None
             if close_imported:
                 try:
-                    close_result = board.mark_issue_imported(number, thread_id=thread.id)
+                    close_result = board.mark_issue_imported(
+                        number, thread_id=thread.id, thread=thread
+                    )
                 except Exception as exc:  # noqa: BLE001
                     close_result = {"error": str(exc)}
             imported.append(
