@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.0](https://github.com/uniskela/adhd-hub/compare/v0.4.1...v0.5.0) (2026-09-11)
+
+
+### Features
+
+* **cli:** add use-hub to retarget preferred Hub host ([9d25fb9](https://github.com/uniskela/adhd-hub/commit/9d25fb96d594e5db39cac8d657248d7b90c20350))
+* **cli:** add use-hub to switch preferred Hub host ([b3f6b9d](https://github.com/uniskela/adhd-hub/commit/b3f6b9d90c3e810ec05174b79dcb03682d31fc9d))
+* **connect:** probe OAuth well-known in doctor ([f3494d5](https://github.com/uniskela/adhd-hub/commit/f3494d5ebcc645126ebd0c98a7e3d5221d146c66))
+* MCP OAuth 2.1 for Auth/Authenticate (discovery + PKCE + DCR) ([ddac6d7](https://github.com/uniskela/adhd-hub/commit/ddac6d7693ae24087f318137ed5269d6e20c2963))
+* **oauth:** add authorize, token, and DCR under /api/oauth ([3509569](https://github.com/uniskela/adhd-hub/commit/350956914101cc8f0ec33a86332195cfe49906df))
+* **oauth:** add discovery metadata and MCP 401 resource_metadata ([409fe3c](https://github.com/uniskela/adhd-hub/commit/409fe3c58cd097c2ed2bf34d0def06c6fda333b6))
+* **oauth:** add OAuthStore and MCP-only bearer acceptance ([d45e5df](https://github.com/uniskela/adhd-hub/commit/d45e5dff77a37505a3fa3c32e7a84d9b8601488b))
+
+
+### Bug Fixes
+
+* **connect:** always probe Hub OAuth discovery in doctor ([d446ee1](https://github.com/uniskela/adhd-hub/commit/d446ee10ddea77e45c8c5174bfb2194cf5f91173))
+* loud first-line when Hub MCP is unavailable ([bc68a64](https://github.com/uniskela/adhd-hub/commit/bc68a645f37552bd72984ea10411c10f4e0d6399))
+* **oauth:** clear CodeQL password-hash and return-path alerts ([4680b27](https://github.com/uniskela/adhd-hub/commit/4680b274a6a46e4138280d002a0ef23480631c3c))
+* **oauth:** rename MCP token prefix to avoid CodeQL password taint ([f51c078](https://github.com/uniskela/adhd-hub/commit/f51c078532593588ad2a5037080c2375cbd92bf2))
+* **oauth:** silence CodeQL false positive on MCP bearer digests ([d0a46ba](https://github.com/uniskela/adhd-hub/commit/d0a46ba9575f4272d5a1b6078a207dd122784bc7))
+* require a loud first-line when Hub MCP is unavailable ([0c518f8](https://github.com/uniskela/adhd-hub/commit/0c518f8894dd1eec2ceb01baee383aca20c85067))
+* tighten ADHD Hub session continuity guidance ([ca7f261](https://github.com/uniskela/adhd-hub/commit/ca7f2616db6a88f93d5fd37daf93a086ee117513))
+
+
+### Documentation
+
+* document MCP Auth vs Bearer and add OAuth design/plan ([13845c5](https://github.com/uniskela/adhd-hub/commit/13845c56fb31c99190ecb115337e200cb901decf))
+
 ## [0.4.1](https://github.com/uniskela/adhd-hub/compare/v0.4.0...v0.4.1) (2026-09-11)
 
 
