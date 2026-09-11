@@ -24,6 +24,26 @@ def test_prefs_connect_agents_roundtrip(tmp_path: Path) -> None:
     assert loaded.connect_agents_csv() == "cursor,claude"
 
 
+def test_prefs_connect_companions_roundtrip(tmp_path: Path) -> None:
+    prefs = HubPrefs(
+        timezone="UTC",
+        connect_companions=["graphify", "i-have-adhd"],
+    )
+    save_prefs(tmp_path, prefs)
+    loaded = load_prefs(tmp_path)
+    assert loaded.connect_companions == ["graphify", "i-have-adhd"]
+    assert loaded.companion_enabled("graphify")
+    assert loaded.companion_enabled("i-have-adhd")
+    assert not loaded.companion_enabled("rtk")
+
+
+def test_prefs_rejects_unknown_companion() -> None:
+    import pytest
+
+    with pytest.raises(Exception):
+        HubPrefs(connect_companions=["not-a-real-tool"])
+
+
 def test_format_timestamp_sydney() -> None:
     stamp = format_timestamp(
         datetime(2026, 1, 15, 12, 0, tzinfo=UTC),

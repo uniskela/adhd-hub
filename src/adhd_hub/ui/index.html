@@ -205,7 +205,7 @@
         <div class="preference-row">
           <div>
             <strong>Agents to wire up</strong>
-            <p class="hint">Choose which assistants get MCP config and Hub skills. Saved on this Hub and baked into the install scripts below. Claude uses skills.sh id <code>claude-code</code>.</p>
+            <p class="hint">Choose which assistants get MCP config and Hub skills. Saved on this Hub and used by the install scripts below. Claude uses skills.sh id <code>claude-code</code>.</p>
           </div>
         </div>
         <div class="checks" id="connect-agents-checks">
@@ -214,8 +214,21 @@
           <label><input type="checkbox" id="ca_claude" value="claude" /> Claude Code</label>
           <label><input type="checkbox" id="ca_all" value="*" /> All skills.sh agents (*)</label>
         </div>
+        <div class="settings-divider">
+          <div class="preference-row">
+            <div>
+              <strong>Coding companions (optional)</strong>
+              <p class="hint">Include these optional tools when someone runs the install script. They use the agents selected above. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md" target="_blank" rel="noopener">Learn more</a>.</p>
+            </div>
+          </div>
+          <div class="checks" id="connect-companions-checks">
+            <label><input type="checkbox" id="cc_i_have_adhd" value="i-have-adhd" /> i-have-adhd (reply shape)</label>
+            <label><input type="checkbox" id="cc_graphify" value="graphify" /> Graphify (code map)</label>
+            <label><input type="checkbox" id="cc_rtk" value="rtk" /> RTK (shell output)</label>
+          </div>
+        </div>
         <div class="actions">
-          <button type="button" class="primary compact" id="btn-save-connect-agents">Save agents</button>
+          <button type="button" class="primary compact" id="btn-save-connect-agents">Save connect defaults</button>
         </div>
         <p id="connect-agents-msg" class="msg" role="status"></p>
         <label>In the project folder, run <input id="install-cmd" readonly /></label>

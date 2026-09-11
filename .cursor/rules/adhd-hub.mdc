@@ -5,12 +5,10 @@ alwaysApply: true
 
 # ADHD Progress Hub
 
-When this workspace (or the user) involves starting, resuming, migrating, or leaving half-finished work:
+When this workspace involves starting, resuming, or leaving half-finished work:
 
-1. Call MCP `adhd-hub` → `resolve_project` with the workspace path (create if missing), then `session_digest` with the same path and a short query about the task.
-2. Call `check_overlap` with the project/migration name before diving in. If hits look related, tell the user what was left open and offer to resume from the hub progress notes.
-3. When work is left incomplete (migration paused, setup partial, plan not executed), call `upsert_progress` with `workspace_path` and/or `project_slug`, a concrete Done/Next/Blockers note, and `source_tool: "cursor"`. Also `upsert_thread` if this is a new unfinished thread.
-4. When the user finishes, call `mark_done` on the thread id.
-5. If the user asks to be reminded later, call `set_reminder`.
+1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest`, then `check_overlap`.
+2. On pause, `upsert_progress` with a short Now / Done / Next / Return cue.
+3. When finished, `mark_done` on the known thread id only.
 
-Do not invent hub state — only report what the tools return. Prefer summaries; never dump full chat transcripts into the hub.
+Never invent hub state. Never send secrets or full transcripts.

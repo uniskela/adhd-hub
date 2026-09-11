@@ -152,8 +152,11 @@ def cmd_connect(args: argparse.Namespace) -> int:
         find_roots=find_roots or None,
         token=token,
         dry_run=args.dry_run,
+        with_i_have_adhd=args.with_i_have_adhd,
+        with_graphify=args.with_graphify,
+        with_rtk=args.with_rtk,
     )
-    print_report(report)
+    print_report(report, verbose=args.verbose)
     return 0 if report.ok else 1
 
 
@@ -164,12 +167,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     project_arg = args.project or args.path
     project = Path(project_arg) if project_arg else None
     hub_url = resolve_hub_url(args.hub)
+    agents = [part.strip() for part in (args.agents or "").split(",") if part.strip()]
     report = run_doctor(
         hub_url=hub_url,
         project=project,
         token=resolve_cli_token(args.token, hub_url),
+        agents=agents or None,
     )
-    print_report(report)
+    print_report(report, verbose=args.verbose)
     return 0 if report.ok else 1
 
 
@@ -183,9 +188,9 @@ def cmd_login(args: argparse.Namespace) -> int:
         run_login(hub_url, open_browser=not args.no_browser, report=report)
     except (RuntimeError, ConnectionError, ValueError) as exc:
         report.add("login", "error", str(exc))
-        print_report(report)
+        print_report(report, verbose=args.verbose)
         return 1
-    print_report(report)
+    print_report(report, verbose=args.verbose)
     return 0
 
 
@@ -356,6 +361,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show planned writes without changing files or calling register",
     )
+    connect.add_argument(
+        "--with-i-have-adhd",
+        action="store_true",
+        help="Opt-in: install ayghri/i-have-adhd skill for selected --agents",
+    )
+    connect.add_argument(
+        "--with-graphify",
+        action="store_true",
+        help="Opt-in: install/register Graphify for selected --agents",
+    )
+    connect.add_argument(
+        "--with-rtk",
+        action="store_true",
+        help="Opt-in: run rtk init for selected --agents (binary must already be on PATH)",
+    )
     connect.set_defaults(func=cmd_connect)
 
     doctor = sub.add_parser(
@@ -374,6 +394,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Project folder to inspect (alias for positional path)",
     )
     doctor.add_argument("--hub", default=None, help="Hub base URL")
+    doctor.add_argument(
+        "--agents",
+        default="",
+        help=(
+            "Optional comma list used for companion install recipes "
+            "(same ids as connect --agents)."
+        ),
+    )
     doctor.add_argument(
         "--token",
         default=None,

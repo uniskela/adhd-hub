@@ -17,6 +17,7 @@ nav = [
     { "Personal wire-up" = "setup.md" },
     { "Connect (one-liner)" = "connect.md" },
     { "Project agent setup" = "project-agent-setup.md" },
+    { "Coding companions" = "coding-companions.md" },
   ]},
   { "Guides" = [
     { "Authentication" = "authentication.md" },
