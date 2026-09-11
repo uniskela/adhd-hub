@@ -1,5 +1,5 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
-const CACHE = "adhd-hub-shell-v6";
+const CACHE = "adhd-hub-shell-v7";
 const PRECACHE = [
   "/ui/",
   "/ui/app.css",
