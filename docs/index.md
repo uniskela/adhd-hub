@@ -8,6 +8,8 @@ ADHD Progress Hub keeps unfinished work findable. Start with one small action, s
 2. Keep one concrete **Now** action at the top of active progress.
 3. When stopping, save a **Return cue**: “When I return, I will …”.
 
+- [Installation](installation.md) — Docker Compose, published images, `docker run`, source/`uv`, upgrades, and first-run checks
+- [Environment variables](environment-variables.md) — complete `ADHD_HUB_*` server configuration reference
 - [Writing and planning](writing.md) — one visible Now action, short next steps, blockers, and a return cue
 - [Personal wire-up](setup.md) — a repeatable start, pause, and review loop
 - [Connect (one-liner)](connect.md) — MCP, AGENTS.md, skills, and optional OpenClaw from a running Hub; `connect` / `doctor` print a scannable report
