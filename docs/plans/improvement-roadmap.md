@@ -101,23 +101,31 @@ Reduce information overload without abandoning the wiki/thread source of truth.
 - Apply only after human confirmation (pending-actions pattern) — no surprise reorganisation.
 - Optional “tidy suggestions” digest once per session, not a nag stream.
 
-## Recommended candidates (not yet sequenced)
+## Wave 7 — Continuity intelligence
 
-High-fit ideas to consider after Wave 6 (or fold into later micro-waves). Prefer ADHD calm over feature count.
+**Status:** planned after Wave 6 — issue [#54](https://github.com/uniskela/adhd-hub/issues/54).
 
-| Idea | Why it fits | Constraint |
-|------|-------------|------------|
-| **Stale-thread triage** | Soft “still relevant?” pass for old open threads | Never auto-dismiss; confirm or snooze |
-| **Cross-project Next-up ranking** | One calm “what now?” across hubs when focus mode is off | Honour focus-mode drift policy |
-| **Thread merge / dedupe cues** | Extends `check_overlap` into a UI suggestion | Human merges only |
-| **Progress wiki compaction** | Rolling summary + older sections collapsed | Keep full markdown recoverable |
-| **Return-cue quality nudges** | Coach agents/humans toward concrete return cues | Advisory only; no blocking |
-| **Global search** | Find threads/projects/wiki snippets fast | Local-first; no external index required |
-| **Capture share target / mobile PWA** | Phone capture into quick thought → thread | PWA already started; keep offline-friendly |
-| **Energy / context modes** | Short vs deep return views | Prefs local; no gamified energy guilt |
-| **Related-work map** | Light graph of overlapping projects/threads | Optional view; default stays list |
-| **Household multi-profile (soft)** | Shared hub, separate Now surfaces | No public leaderboard by default |
-| **skills.sh listing** | Discoverability after publish | Marketing only; not UX-critical |
+1. **Stale-thread triage** — soft “still relevant?” pass for old open threads; confirm or snooze; never auto-dismiss.
+2. **Cross-project Next-up ranking** — one calm “what now?” across projects when focus mode is off; honour drift policy.
+3. **Thread merge / dedupe cues** — surface `check_overlap` as UI suggestions; human merges only.
+4. **Return-cue quality nudges** — advisory coaching toward concrete return cues; never blocking.
+
+## Wave 8 — Find & capture
+
+**Status:** planned after Wave 7 — issue [#55](https://github.com/uniskela/adhd-hub/issues/55).
+
+1. **Progress wiki compaction** — rolling summary + older sections collapsed; full markdown recoverable.
+2. **Global search** — find threads/projects/wiki snippets fast; local-first; no external index required.
+3. **Capture share target / mobile PWA** — phone capture into quick thought → thread; keep offline-friendly.
+4. **Energy / context modes** — short vs deep return views; prefs local; no gamified energy guilt.
+
+## Wave 9 — Shared surfaces & discoverability
+
+**Status:** planned after Waves 6–8 feel stable — issue [#56](https://github.com/uniskela/adhd-hub/issues/56).
+
+1. **Related-work map** — optional light graph of overlapping projects/threads; list remains the default.
+2. **Household multi-profile (soft)** — shared hub with separate Now surfaces; no public leaderboard by default.
+3. **skills.sh listing** — discoverability after package publish (ops/marketing; not UX-critical).
 
 Do **not** prioritise competitive social features, auto-closing remote issues, or dumping full chat transcripts into the hub.
 
@@ -144,5 +152,8 @@ Do **not** prioritise competitive social features, auto-closing remote issues, o
 | 4 Maintainability | Shipped in 0.3.8 (PR #28 / issue #19) |
 | 5 Optional integrations | Upcoming / opt-in — issue #20 |
 | 6 AI clarity + project list | Next — issue #52 |
+| 7 Continuity intelligence | After Wave 6 — issue #54 |
+| 8 Find & capture | After Wave 7 — issue #55 |
+| 9 Shared surfaces & discoverability | After 6–8 stable — issue #56 |
 
-Wave 1 + Wave 2 shipped together in **0.3.6**. Prefer Wave 6 (clarity) before expanding Wave 5 integrations unless a specific integration is urgently needed.
+Wave 1 + Wave 2 shipped together in **0.3.6**. Prefer Wave 6 → 7 → 8 (clarity and findability) before expanding Wave 5 integrations or Wave 9 shared surfaces, unless a specific need is urgent.

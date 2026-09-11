@@ -212,8 +212,10 @@ Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improveme
 - **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
 - **0.4.0–0.4.1 (shipped):** Connect agent prefs, Hub-served CLI wheel, OpenClaw pairing, coding companions
 - **Wave 6 (next):** AI task/thread summaries + cleaner project list (tags/categories) + optional AI organiser — [#52](https://github.com/uniskela/adhd-hub/issues/52)
-- Wave 5 (opt-in Slack/Discord/calendar) remains upcoming after clarity work
-- skills.sh listing after publish
+- **Wave 7:** Stale triage, cross-project Next-up, merge/dedupe cues, return-cue nudges — [#54](https://github.com/uniskela/adhd-hub/issues/54)
+- **Wave 8:** Wiki compaction, global search, mobile capture, energy/context modes — [#55](https://github.com/uniskela/adhd-hub/issues/55)
+- **Wave 9:** Related-work map, household multi-profile, skills.sh listing — [#56](https://github.com/uniskela/adhd-hub/issues/56)
+- Wave 5 (opt-in Slack/Discord/calendar) remains upcoming after clarity/findability work
 
 ### Dashboard comfort
 
