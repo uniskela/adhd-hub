@@ -10,10 +10,12 @@ from adhd_hub.openclaw_pair import OpenClawPairStore, openclaw_pair_prompt
 
 def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
     store = OpenClawPairStore(tmp_path)
-    started = store.start()
+    started = store.start(hub_origin="https://hub.example.test")
     assert started.status == "waiting"
     assert started.user_code
-    assert "error_code" not in started.public_dict()
+    started_public = started.public_dict()
+    assert "error_code" not in started_public
+    assert "hooks_token_secretref_unsupported" in started_public["prompt"]
     submitted = store.submit(
         user_code=started.user_code,
         webhook_url="http://openclaw:18789/hooks/wake",
@@ -23,7 +25,9 @@ def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
     assert submitted.status == "submitted"
     assert submitted.webhook_url.endswith("/hooks/wake")
     assert submitted.token_present is True
-    assert "error_code" not in submitted.public_dict()
+    submitted_public = submitted.public_dict()
+    assert "error_code" not in submitted_public
+    assert "hooks_token_secretref_unsupported" in submitted_public["prompt"]
     current = OpenClawConfig(
         alerts_enabled=False,
         webhook_url="http://old:1/hooks/wake",
