@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from argparse import Namespace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -144,6 +145,44 @@ def test_install_skills_without_agents_installs_for_all_agents() -> None:
         patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
     ):
         assert install_skills("./skills") == 0
+
+    run.assert_called_once_with(
+        [
+            "npx",
+            "skills",
+            "add",
+            "./skills",
+            "-g",
+            "-y",
+            "--skill",
+            "*",
+            "--agent",
+            "*",
+        ],
+        check=False,
+    )
+
+
+def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
+    from adhd_hub.cli import cmd_setup
+
+    completed = Mock(returncode=0)
+    args = Namespace(
+        path=str(tmp_path),
+        uninstall=False,
+        check=False,
+        refresh=False,
+        install_skills=True,
+        skills_source="./skills",
+    )
+    with (
+        patch(
+            "adhd_hub.project_setup.shutil.which",
+            side_effect=lambda name: "npx" if name == "npx" else None,
+        ),
+        patch("adhd_hub.project_setup.subprocess.run", return_value=completed) as run,
+    ):
+        assert cmd_setup(args) == 0
 
     run.assert_called_once_with(
         [
