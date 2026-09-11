@@ -174,6 +174,139 @@ def probe_hub(hub_url: str, *, token: str | None = None) -> tuple[bool, str]:
     return True, f"health ok ({version})"
 
 
+def _env_flag(name: str, *, default: bool = True) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def evaluate_oauth_prm_payload(
+    *,
+    http_status: int | None = None,
+    payload: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> tuple[str, str]:
+    """Classify OAuth protected-resource metadata for doctor (status, detail).
+
+    Never raises; unreachable / non-200 / malformed → ``warn`` (not ``error``).
+    """
+    if error:
+        return "warn", f"unreachable ({error})"[:200]
+    if http_status is None:
+        return "warn", "no HTTP status from well-known probe"
+    if http_status != 200:
+        return "warn", f"HTTP {http_status} from oauth-protected-resource"
+    if not isinstance(payload, dict):
+        return "warn", "malformed PRM (expected JSON object)"
+    resource = payload.get("resource")
+    servers = payload.get("authorization_servers")
+    if not isinstance(resource, str) or not resource.strip():
+        return "warn", "malformed PRM (missing resource)"
+    if not isinstance(servers, list) or not servers:
+        return "warn", "malformed PRM (missing authorization_servers)"
+    return "ok", f"PRM ok ({resource.strip()})"
+
+
+def probe_oauth_discovery(base_url: str, *, timeout: float = 5.0) -> tuple[str, str]:
+    """GET well-known OAuth PRM (and soft-check AS metadata). Returns (status, detail)."""
+    base = normalize_hub_url(base_url)
+    prm_url = f"{base}/.well-known/oauth-protected-resource"
+    try:
+        payload = _http_json(prm_url, timeout=timeout)
+        status, detail = evaluate_oauth_prm_payload(http_status=200, payload=payload)
+    except HTTPError as exc:
+        status, detail = evaluate_oauth_prm_payload(http_status=int(exc.code))
+    except (
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        OSError,
+    ) as exc:
+        status, detail = evaluate_oauth_prm_payload(error=str(exc))
+
+    if status != "ok":
+        return status, detail
+
+    as_url = f"{base}/.well-known/oauth-authorization-server"
+    try:
+        as_payload = _http_json(as_url, timeout=timeout)
+        if not isinstance(as_payload, dict) or not as_payload.get("issuer"):
+            return "warn", f"{detail}; AS metadata incomplete"
+        if not as_payload.get("authorization_endpoint"):
+            return "warn", f"{detail}; AS metadata missing authorization_endpoint"
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        OSError,
+    ) as exc:
+        return "warn", f"{detail}; AS metadata unreachable ({exc})"[:220]
+    return status, detail
+
+
+def _is_loopback_hub_url(url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def _doctor_oauth_checks(report: ConnectReport, hub_url: str) -> None:
+    """Probe OAuth well-known on the Hub under diagnosis (Auth-button discovery)."""
+    if not _env_flag("ADHD_HUB_OAUTH_ENABLED", default=True):
+        report.add(
+            "hub oauth discovery",
+            "ok",
+            "skipped — OAuth disabled (ADHD_HUB_OAUTH_ENABLED=false on this machine)",
+        )
+        return
+
+    try:
+        base = normalize_hub_url(hub_url)
+    except ValueError as exc:
+        report.add("hub oauth discovery", "warn", f"invalid hub URL ({exc})")
+        return
+
+    public_raw = (os.environ.get("ADHD_HUB_PUBLIC_URL") or "").strip()
+    public_base: str | None = None
+    if public_raw:
+        try:
+            public_base = normalize_hub_url(public_raw)
+        except ValueError as exc:
+            report.add(
+                "hub oauth discovery",
+                "warn",
+                f"invalid ADHD_HUB_PUBLIC_URL ({exc})",
+            )
+            return
+
+    # Auth discovery needs a reachable public issuer. Skip quiet loopback doctor runs
+    # unless ADHD_HUB_PUBLIC_URL is set (then we still probe --hub below).
+    if public_base is None and _is_loopback_hub_url(base):
+        report.add(
+            "hub oauth discovery",
+            "ok",
+            "skipped — set Hub ADHD_HUB_PUBLIC_URL (or pass a non-loopback --hub) to probe Auth discovery",
+        )
+        return
+
+    status, detail = probe_oauth_discovery(base)
+    if public_base is not None and public_base != base:
+        detail = f"{detail} · note: ADHD_HUB_PUBLIC_URL={public_base} differs from --hub"
+        if status == "ok":
+            status = "warn"
+    report.add("hub oauth discovery", status, detail)
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {}
@@ -1134,6 +1267,7 @@ def run_doctor(
         "npx available" if _npx_bin() else "npx not found",
     )
     append_companion_steps(report.add, list(agents or []))
+    _doctor_oauth_checks(report, hub_url)
     if ok:
         _doctor_remote_checks(report, hub_url, token)
     return report
