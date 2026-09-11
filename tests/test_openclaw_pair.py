@@ -13,6 +13,7 @@ def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
     started = store.start()
     assert started.status == "waiting"
     assert started.user_code
+    assert "error_code" not in started.public_dict()
     submitted = store.submit(
         user_code=started.user_code,
         webhook_url="http://openclaw:18789/hooks/wake",
@@ -22,6 +23,7 @@ def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
     assert submitted.status == "submitted"
     assert submitted.webhook_url.endswith("/hooks/wake")
     assert submitted.token_present is True
+    assert "error_code" not in submitted.public_dict()
     current = OpenClawConfig(
         alerts_enabled=False,
         webhook_url="http://old:1/hooks/wake",
