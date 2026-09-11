@@ -80,7 +80,7 @@ That issues an opaque OAuth access token for MCP only. It is not the server acce
 - Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).
 - CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in Settings → Connections).
 
-**Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` probes that Hub’s OAuth well-known (skips quiet loopback runs unless `ADHD_HUB_PUBLIC_URL` is set in the doctor environment) and warns on missing/malformed metadata; unreachable Hub is a warning, not a hard failure.
+**Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` always probes that Hub’s OAuth well-known when diagnosing a non-loopback Hub (or when `ADHD_HUB_PUBLIC_URL` is set), independent of any local `ADHD_HUB_OAUTH_ENABLED` in the doctor process; it warns on missing/malformed metadata. Unreachable Hub is a warning, not a hard failure.
 
 ## CLI wire-up flags
 

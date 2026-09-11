@@ -261,15 +261,11 @@ def _is_loopback_hub_url(url: str) -> bool:
 
 
 def _doctor_oauth_checks(report: ConnectReport, hub_url: str) -> None:
-    """Probe OAuth well-known on the Hub under diagnosis (Auth-button discovery)."""
-    if not _env_flag("ADHD_HUB_OAUTH_ENABLED", default=True):
-        report.add(
-            "hub oauth discovery",
-            "ok",
-            "skipped — OAuth disabled (ADHD_HUB_OAUTH_ENABLED=false on this machine)",
-        )
-        return
+    """Probe OAuth well-known on the Hub under diagnosis (Auth-button discovery).
 
+    Always probe the Hub URL when appropriate — ``ADHD_HUB_OAUTH_ENABLED`` is a
+    Hub *server* setting; the local CLI env must not skip remote discovery.
+    """
     try:
         base = normalize_hub_url(hub_url)
     except ValueError as exc:

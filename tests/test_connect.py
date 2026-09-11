@@ -218,7 +218,10 @@ def test_doctor_oauth_warns_when_public_url_differs(tmp_path: Path, monkeypatch)
     assert "differs" in step.detail
 
 
-def test_doctor_oauth_skipped_when_disabled(tmp_path: Path, monkeypatch) -> None:
+def test_doctor_oauth_probes_even_when_local_oauth_env_false(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Local ADHD_HUB_OAUTH_ENABLED must not skip Hub discovery (server setting)."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     (tmp_path / "home").mkdir()
     monkeypatch.setenv("ADHD_HUB_PUBLIC_URL", "https://hub.example")
@@ -227,14 +230,17 @@ def test_doctor_oauth_skipped_when_disabled(tmp_path: Path, monkeypatch) -> None
     project.mkdir()
     with (
         patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok")),
-        patch("adhd_hub.connect.probe_oauth_discovery") as probe,
+        patch(
+            "adhd_hub.connect.probe_oauth_discovery",
+            return_value=("ok", "PRM ok"),
+        ) as probe,
         patch("adhd_hub.connect._doctor_remote_checks"),
     ):
         report = run_doctor(hub_url="https://hub.example", project=project, token=None)
-    probe.assert_not_called()
+    probe.assert_called_once()
     step = next(s for s in report.steps if s.name == "hub oauth discovery")
     assert step.status == "ok"
-    assert "disabled" in step.detail.lower()
+    assert "PRM ok" in step.detail
 
 
 def test_doctor_oauth_skipped_on_loopback_without_public_url(
