@@ -1,0 +1,60 @@
+name: Verify PR 70 final
+
+on:
+  push:
+    branches:
+      - verify/pr70-final
+
+permissions:
+  contents: read
+
+jobs:
+  pr-head:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Ruff changed Python files
+        run: >-
+          ruff check
+          src/adhd_hub/openclaw_pair.py
+          src/adhd_hub/openclaw_facade.py
+          tests/test_openclaw_pair.py
+          tests/test_facades.py
+          tests/test_openclaw_pair_ui.py
+      - name: Focused OpenClaw tests
+        run: pytest -q tests/test_openclaw_pair.py tests/test_facades.py tests/test_openclaw_pair_ui.py
+      - name: JavaScript syntax
+        run: node --check src/adhd_hub/ui/js/boot.js
+      - name: Full pytest suite (capture baseline-known failures)
+        shell: bash
+        run: |
+          set +e
+          pytest -q
+          code=$?
+          echo "FULL_SUITE_EXIT=$code"
+          exit 0
+
+  main-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Full pytest suite on main (capture baseline)
+        shell: bash
+        run: |
+          set +e
+          pytest -q
+          code=$?
+          echo "FULL_SUITE_EXIT=$code"
+          exit 0
