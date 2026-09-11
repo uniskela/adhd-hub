@@ -19,7 +19,21 @@ You start a Proxmox migration / homelab setup / refactor in Cursor Cloud, contin
 
 ## Quick start
 
-### `uv` / `uvx`
+**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/environment-variables.md).
+
+### Docker from this checkout
+
+The repository Compose file builds the current checkout:
+
+```bash
+cp .env.example .env   # set a real ADHD_HUB_AUTH_TOKEN
+docker compose up -d --build
+curl -fsS http://127.0.0.1:8787/api/health
+```
+
+For a released server without a source checkout, use `ghcr.io/uniskela/adhd-hub:latest` (or a pinned `X.Y.Z`) as shown in the installation guide.
+
+### Run from source with `uv`
 
 ```bash
 cp .env.example .env   # set ADHD_HUB_AUTH_TOKEN
@@ -27,17 +41,9 @@ uv sync
 uv run adhd-hub serve --host 127.0.0.1 --port 8787
 ```
 
-### Docker
-
-```bash
-cp .env.example .env   # set a real token
-docker compose up -d --build
-curl -s http://127.0.0.1:8787/api/health
-```
-
 Published images (only after a manual release-PR merge by `uniskela`):
 
-- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.3.1`, `0.3`)
+- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.6.0`, `0.6`)
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
 
@@ -47,7 +53,7 @@ Documentation, chore, test, and CI-only merges do not open a release PR, even if
 
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
-docker pull ghcr.io/uniskela/adhd-hub:1.2.3
+docker pull ghcr.io/uniskela/adhd-hub:0.6.0
 ```
 
 Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).
@@ -66,7 +72,7 @@ npx skills add uniskela/adhd-hub -g
 npx skills add ./skills -g
 ```
 
-**Optional coding companions** (i-have-adhd, Graphify, RTK): see [docs/coding-companions.md](docs/coding-companions.md). Toggle them in Hub Settings → Connections, or pass `--with-i-have-adhd`, `--with-graphify`, and/or `--with-rtk` to `adhd-hub connect`.
+**Optional coding companions** (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub Settings → Connections and `adhd-hub connect --with-*` provide the supported opt-in install paths.
 
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 
@@ -179,7 +185,7 @@ Install a reversible, project-local `AGENTS.md` section that keeps coding-agent 
 adhd-hub setup /path/to/project
 ```
 
-Add `--install-skills` to also run `npx skills add uniskela/adhd-hub -g`, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes a global directory. See [project agent setup](docs/project-agent-setup.md).
+Add `--install-skills` to install both Hub skills globally for every skills.sh agent, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes global skill directories. Use `connect --skills --agents ...` when you want selected agent targets. See [project agent setup](docs/project-agent-setup.md).
 
 ## Connect (one-liner)
 
@@ -221,7 +227,8 @@ Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improveme
 - **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
 - **Wave 3 (shipped in 0.3.7):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
 - **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
-- **0.4.0–0.4.1 (shipped):** Connect agent prefs, Hub-served CLI wheel, OpenClaw pairing, coding companions
+- **0.4.0–0.4.1 (shipped):** Connect agent prefs, Hub-served CLI wheel, OpenClaw pairing, initial coding companions
+- **0.5.0–0.6.0 (shipped):** MCP OAuth/Auth, `use-hub`, outcome-focused thread continuity, guidance-health/drift checks, and expanded opt-in companions (Superpowers, Context7, agent-browser, Serena)
 - **Wave 6 (next):** AI task/thread summaries + cleaner project list (tags/categories) + optional AI organiser — [#52](https://github.com/uniskela/adhd-hub/issues/52)
 - **Wave 7:** Stale triage, cross-project Next-up, merge/dedupe cues, return-cue nudges — [#54](https://github.com/uniskela/adhd-hub/issues/54)
 - **Wave 8:** Wiki compaction, global search, mobile capture, energy/context modes — [#55](https://github.com/uniskela/adhd-hub/issues/55)
