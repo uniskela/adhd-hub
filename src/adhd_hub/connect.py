@@ -242,13 +242,15 @@ alwaysApply: true
 
 # ADHD Progress Hub
 
+If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailable on Hub-worthy work: the **first line** of your reply on that turn (and on later substantial Hub-worthy turns while still down) MUST state that Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Then continue the authorized work. Never invent hub state or claim a Hub write succeeded.
+
 When this workspace involves starting, resuming, or leaving half-finished work:
 
 1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest`, then `check_overlap`.
 2. On pause, `upsert_progress` with a short Now / Done / Next / Return cue.
 3. When finished, `mark_done` on the known thread id only.
 
-Never invent hub state. Never send secrets or full transcripts.
+Never send secrets or full transcripts.
 """
 
 
