@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from adhd_hub.openclaw_config import OpenClawConfig
-from adhd_hub.openclaw_pair import OpenClawPairStore
+from adhd_hub.openclaw_pair import OpenClawPairStore, openclaw_pair_prompt
 
 
 def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
@@ -59,3 +59,45 @@ def test_openclaw_pair_rejects_bad_code(tmp_path: Path) -> None:
             token="x",
         )
     assert store.status().user_code == started.user_code
+
+
+def test_openclaw_pair_records_protected_token_failure_without_token(tmp_path: Path) -> None:
+    store = OpenClawPairStore(tmp_path)
+    started = store.start()
+
+    failed = store.fail(
+        user_code=started.user_code,
+        error_code="hooks_token_secretref_unsupported",
+    )
+
+    assert failed.status == "failed"
+    assert failed.error_code == "hooks_token_secretref_unsupported"
+    assert failed.token_present is False
+    public = failed.public_dict()
+    assert public["error_code"] == "hooks_token_secretref_unsupported"
+    assert public["token_present"] is False
+    assert '"token"' not in (tmp_path / "openclaw_pair.json").read_text(encoding="utf-8")
+
+
+def test_openclaw_pair_rejects_unknown_failure_code(tmp_path: Path) -> None:
+    store = OpenClawPairStore(tmp_path)
+    started = store.start()
+
+    with pytest.raises(ValueError, match="invalid_pair_error_code"):
+        store.fail(user_code=started.user_code, error_code="unexpected_failure")
+
+    assert store.status().status == "waiting"
+
+
+def test_openclaw_pair_prompt_requires_protected_token_provisioning() -> None:
+    prompt = openclaw_pair_prompt(
+        hub_origin="https://hub.example.test",
+        user_code="ABCD-EFGH",
+    )
+    lowered = prompt.lower()
+
+    assert "hooks_token_secretref_unsupported" in prompt
+    assert "protected" in lowered
+    assert "never print" in lowered
+    assert "create or reveal a bearer token" not in lowered
+    assert "paste the token" not in lowered
