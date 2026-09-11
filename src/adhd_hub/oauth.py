@@ -54,7 +54,18 @@ SEED_CLIENTS: tuple[dict[str, Any], ...] = (
 
 
 def _sha256_hex(value: str) -> str:
+    """SHA-256 hex digest for high-entropy opaque secrets (lookup keys, not a password KDF)."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _access_token_digest(token: str) -> str | None:
+    """Hash only the random secret after ``OAUTH_TOKEN_PREFIX`` (prefix is not secret material)."""
+    if not token.startswith(OAUTH_TOKEN_PREFIX):
+        return None
+    secret = token[len(OAUTH_TOKEN_PREFIX) :]
+    if not secret:
+        return None
+    return _sha256_hex(secret)
 
 
 def _hostname(url: str) -> str:
@@ -121,21 +132,23 @@ def is_safe_oauth_return_path(value: str | None) -> bool:
     """Allow only relative `/api/oauth/authorize?...` return paths (no open redirect)."""
     if not value or not isinstance(value, str):
         return False
-    if len(value) > 2048:
+    if len(value) > 2048 or "\\" in value or value.startswith("//"):
         return False
-    if value.startswith("//") or "\\" in value:
+    # Resolve as a same-document relative URL against a throwaway origin so
+    # scheme tricks (javascript:, vbscript:, etc.) cannot pass a bare path check.
+    try:
+        parsed = urlparse(value, scheme="https")
+        if parsed.scheme and parsed.scheme.lower() not in {"", "https", "http"}:
+            return False
+        if parsed.netloc or parsed.username or parsed.password or parsed.fragment:
+            return False
+        if parsed.path != "/api/oauth/authorize":
+            return False
+        if ".." in parsed.path:
+            return False
+        return True
+    except ValueError:
         return False
-    lower = value.lower()
-    if lower.startswith(("http:", "https:", "javascript:", "data:")):
-        return False
-    if not value.startswith("/api/oauth/authorize"):
-        return False
-    path_only = value.split("?", 1)[0]
-    if path_only != "/api/oauth/authorize":
-        return False
-    if "/../" in value or "/.." in value or ".." in path_only:
-        return False
-    return True
 
 
 def append_query_params(uri: str, params: dict[str, str]) -> str:
@@ -667,7 +680,9 @@ class OAuthStore:
             raise ValueError("client_id and resource required")
         if self.get_client(client_id) is None:
             raise KeyError("invalid_client")
-        token = OAUTH_TOKEN_PREFIX + secrets.token_urlsafe(32)
+        secret = secrets.token_urlsafe(32)
+        token = OAUTH_TOKEN_PREFIX + secret
+        token_hash = _sha256_hex(secret)
         now = time.time()
         with self._connect() as conn:
             self._purge(conn)
@@ -677,15 +692,15 @@ class OAuthStore:
                     token_hash, client_id, resource, created_at, expires_at, last_used_at
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (_sha256_hex(token), client_id, resource, now, now + ACCESS_TOKEN_SECONDS, now),
+                (token_hash, client_id, resource, now, now + ACCESS_TOKEN_SECONDS, now),
             )
         return token
 
     def valid_access_token(self, token: str | None) -> bool:
-        if not token or not token.startswith(OAUTH_TOKEN_PREFIX):
+        token_hash = _access_token_digest(token or "")
+        if token_hash is None:
             return False
         now = time.time()
-        token_hash = _sha256_hex(token)
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT token_hash, resource, expires_at FROM oauth_access_tokens "
@@ -710,10 +725,13 @@ class OAuthStore:
             return True
 
     def expire_access_token_now(self, token: str) -> None:
+        token_hash = _access_token_digest(token)
+        if token_hash is None:
+            return
         with self._connect() as conn:
             conn.execute(
                 "UPDATE oauth_access_tokens SET expires_at = 0 WHERE token_hash = ?",
-                (_sha256_hex(token),),
+                (token_hash,),
             )
 
 

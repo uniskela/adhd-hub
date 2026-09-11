@@ -30,10 +30,16 @@ function safeOAuthReturnPath(value) {
     try {
       const parsed = new URL(value, location.origin);
       if (parsed.origin !== location.origin) return "";
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+      if (parsed.username || parsed.password) return "";
       if (parsed.pathname !== "/api/oauth/authorize") return "";
       if (parsed.hash) return "";
-      const qs = parsed.searchParams.toString();
-      return `/api/oauth/authorize${qs ? `?${qs}` : ""}`;
+      // Rebuild from a fixed path + copied query params (never assign the raw string).
+      const safe = new URL("/api/oauth/authorize", location.origin);
+      for (const [key, val] of parsed.searchParams.entries()) {
+        safe.searchParams.append(key, val);
+      }
+      return `${safe.pathname}${safe.search}`;
     } catch (_) {
       return "";
     }
@@ -47,6 +53,7 @@ function consumeOAuthReturn() {
       params.delete("oauth_return");
       const next = `${location.pathname}${params.toString() ? `?${params}` : ""}${location.hash || ""}`;
       history.replaceState({}, "", next);
+      // path is always pathname+search for /api/oauth/authorize on this origin.
       window.location.assign(path);
       return true;
     } catch (_) {
