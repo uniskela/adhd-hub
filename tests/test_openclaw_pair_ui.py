@@ -1,9 +1,13 @@
-from __future__ import annotations
-
 from pathlib import Path
 
-
-BOOT_JS = Path(__file__).resolve().parents[1] / "src" / "adhd_hub" / "ui" / "js" / "boot.js"
+BOOT_JS = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "adhd_hub"
+    / "ui"
+    / "js"
+    / "boot.js"
+)
 
 
 def test_openclaw_pair_failure_has_safe_ui_status() -> None:
