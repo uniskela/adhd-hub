@@ -31,6 +31,15 @@ def test_session_skill_requires_loud_mcp_down() -> None:
     assert "first line" in text.lower()
     assert "not available" in text.lower()
     assert "say so briefly" not in text.lower()
+    assert "Do not call Hub tools for trivial/read-only questions" in text
+    assert "Repeat the warning only if Hub status changes" in text
+    assert "Skip it when resuming a known thread" in text
+    assert "Use the forge mailbox only when forge issue-write access is available" in text
+    assert "safe for the repository's visibility" in text
+    assert "absolute local workspace paths" in text
+    assert "Call `upsert_progress` first" in text
+    assert "reuse the existing project convention" in text
+    assert "../../docs/writing.md" not in text
 
 
 def test_install_creates_agents_file_and_is_idempotent(tmp_path: Path) -> None:
@@ -138,4 +147,3 @@ def test_normalize_skills_agents_aliases() -> None:
     from adhd_hub.project_setup import normalize_skills_agents
 
     assert normalize_skills_agents(["Claude", "claude-code", "*"]) == ["claude-code"]
-
