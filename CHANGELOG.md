@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.7.0](https://github.com/uniskela/adhd-hub/compare/v0.6.0...v0.7.0) (2026-09-11)
+
+
+### Features
+
+* **openclaw:** record protected hook token pairing failures ([25ddab8](https://github.com/uniskela/adhd-hub/commit/25ddab816b44a85cf9f2f0fa0f56d3ab39a5c172))
+
+
+### Bug Fixes
+
+* align continuity setup and installation docs ([b1e323c](https://github.com/uniskela/adhd-hub/commit/b1e323c2933b1ae86b3537a968c2904e3aac2d1e))
+* align Cursor continuity policy ([7b8db50](https://github.com/uniskela/adhd-hub/commit/7b8db50c5e2e36532da00464a88649f473c70fff))
+* align packaged Cursor fallback guidance ([b291f62](https://github.com/uniskela/adhd-hub/commit/b291f62c173d9c9f30a1b4938a8f111670b48b3e))
+* align repository Cursor rule ([d7fb066](https://github.com/uniskela/adhd-hub/commit/d7fb066d2129ebde15efe463600a6f8ba8380fb7))
+* align setup skills and continuity guidance ([b215ed0](https://github.com/uniskela/adhd-hub/commit/b215ed00cf7e9cb1429b906e48f74b69695af8e7))
+* **openclaw:** persist secure pairing prompt origin ([6328618](https://github.com/uniskela/adhd-hub/commit/63286188447c68a8d465cf358e81e42f1bf2f5c9))
+* **openclaw:** preserve canonical secure prompt across pairing status ([b3dcf3e](https://github.com/uniskela/adhd-hub/commit/b3dcf3e4de68b4a8d8ff2b26bdb9dda937189f42))
+* **openclaw:** surface secure token provisioning failures ([c803d86](https://github.com/uniskela/adhd-hub/commit/c803d860058a4affbbd1d469f06569af22599bd9))
+* **ui:** explain OpenClaw protected-token pairing failures ([6807ad9](https://github.com/uniskela/adhd-hub/commit/6807ad923bfc210c83d1f986b5020d740875f32e))
+* **ui:** explain OpenClaw protected-token pairing failures ([486abbb](https://github.com/uniskela/adhd-hub/commit/486abbb5ae3baf4538106b801ab451902f96b0c2))
+* **ui:** remove unrelated clipboard diff ([8dc4756](https://github.com/uniskela/adhd-hub/commit/8dc47566f735e12194702ac9030bcb411c775258))
+* **ui:** restore clipboard handler syntax ([a6c8264](https://github.com/uniskela/adhd-hub/commit/a6c82647f8a5a7a80e58241d3d1a2f3cfb906ef1))
+* version refreshed continuity guidance ([93dd336](https://github.com/uniskela/adhd-hub/commit/93dd3360aed30a0f2aa6de543446661c755085de))
+
+
+### Reverts
+
+* prepare OpenClaw pairing UI regression test ([2a9bc78](https://github.com/uniskela/adhd-hub/commit/2a9bc780c1aad89963de2d4412854f092f90e279))
+
+
+### Documentation
+
+* add environment variable reference ([060ba1d](https://github.com/uniskela/adhd-hub/commit/060ba1d0d48f28e864b118920ebb52d7261a2f6d))
+* add install and configuration navigation ([f56f2a9](https://github.com/uniskela/adhd-hub/commit/f56f2a98e76ccf4dd660397d1a9accb5d2cae571))
+* add installation guide ([88b161f](https://github.com/uniskela/adhd-hub/commit/88b161f2d33edd1c1bc370bbf5c9b3e64d59057b))
+* align project agent guidance with v3 policy ([10f7dac](https://github.com/uniskela/adhd-hub/commit/10f7dac828e805311774a3c9a125983f66ce1a7e))
+* align session start and pause workflow ([5d512b1](https://github.com/uniskela/adhd-hub/commit/5d512b1ccbebd72cee3d421d36b0b8544e8c4753))
+* complete environment variable reference ([976fb7f](https://github.com/uniskela/adhd-hub/commit/976fb7f2dec7d4f66035da518b7f7e518086f152))
+* complete environment variable reference ([1fce248](https://github.com/uniskela/adhd-hub/commit/1fce2488e4f5f0b21672509534b3d9cfd7e94014))
+* focus homelab guide on Proxmox and Tailscale ([7d8b678](https://github.com/uniskela/adhd-hub/commit/7d8b678a1448ad2cc4c35f8419114bf79d5c8775))
+* **openclaw:** document protected hook token prerequisite ([5619402](https://github.com/uniskela/adhd-hub/commit/56194027d43ece8dad9872cb174ed1165eb2da5c))
+* point env example at full reference ([10f718d](https://github.com/uniskela/adhd-hub/commit/10f718dcc3ec7e19103cc0dc94b17fcd3fc4daf9))
+* refresh README for 0.6 installation and companions ([f27bf62](https://github.com/uniskela/adhd-hub/commit/f27bf624f0dc0f9b592c038b43c22551286c5464))
+* refresh repository continuity guidance ([deef263](https://github.com/uniskela/adhd-hub/commit/deef2638f12e0fe6ba98f63f55b6c6d10606102d))
+* surface install and environment guides ([0b14f6f](https://github.com/uniskela/adhd-hub/commit/0b14f6f15ea6a770674eefac5d334ff6b12f9b77))
+
 ## [0.6.0](https://github.com/uniskela/adhd-hub/compare/v0.5.0...v0.6.0) (2026-09-11)
 
 
