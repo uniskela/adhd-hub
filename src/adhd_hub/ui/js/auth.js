@@ -24,9 +24,37 @@ export function showApp() {
     // Restore last tab without focusing the page heading (avoids green outline on refresh).
     showScreen(savedScreen(), { focusHeading: false });
   }
+function safeOAuthReturnPath(value) {
+    if (!value || typeof value !== "string" || value.length > 2048) return "";
+    if (value.startsWith("//") || value.includes("\\")) return "";
+    const lower = value.toLowerCase();
+    if (lower.startsWith("http:") || lower.startsWith("https:") || lower.startsWith("javascript:") || lower.startsWith("data:")) {
+      return "";
+    }
+    const pathOnly = value.split("?", 1)[0];
+    if (pathOnly !== "/api/oauth/authorize") return "";
+    if (value.includes("/../") || value.includes("/..")) return "";
+    return value;
+  }
+function consumeOAuthReturn() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const raw = params.get("oauth_return") || "";
+      const path = safeOAuthReturnPath(raw);
+      if (!path) return false;
+      params.delete("oauth_return");
+      const next = `${location.pathname}${params.toString() ? `?${params}` : ""}${location.hash || ""}`;
+      history.replaceState({}, "", next);
+      window.location.assign(path);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 export async function tryAuth() {
     try {
       await api("/overview");
+      if (consumeOAuthReturn()) return true;
       showApp();
       return true;
     } catch (e) {
@@ -49,6 +77,7 @@ export async function handleLogin(ev) {
     try {
       await api("/auth/login", { method: "POST", body: JSON.stringify({ [state.loginMode]: value }) });
       $("login-token").value = "";
+      if (consumeOAuthReturn()) return;
       showApp();
       await loadAll();
     } catch (error) {

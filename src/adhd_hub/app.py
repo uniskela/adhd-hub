@@ -157,7 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.oauth_store = oauth_store
     app.include_router(build_auth_router(settings, sessions))
     app.include_router(build_connect_router(settings, sessions, connect_store))
-    app.include_router(build_oauth_router(settings))
+    app.include_router(build_oauth_router(settings, sessions, oauth_store))
     auth_dep = auth_dependency(settings, sessions, connect_store)
     app.include_router(build_router(service, auth_dep), prefix="/api")
     app.include_router(build_ui_router())
