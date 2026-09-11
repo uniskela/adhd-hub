@@ -1,16 +1,20 @@
 # Deploy ADHD Hub on a homelab (Proxmox + Tailscale)
 
-This matches the “hybrid” layout: **Docker hub on the lab** as source of truth; Cursor (Windows + Cloud), Codex, and a Dev LXC talk to it over **Tailscale** via MCP.
+This guide focuses on the **Proxmox/LXC + Tailscale** parts of a hybrid deployment: a Docker Hub instance in the lab is the source of truth, while Cursor (Windows + Cloud), Codex, and a Dev LXC talk to it over MCP.
 
-## 1. Create / pick an LXC
+For generic Docker Compose, published-image, `docker run`, source/`uv`, upgrade, and first-login instructions, start with [Install ADHD Progress Hub](installation.md). For every container/server setting, see [Environment variables](environment-variables.md).
 
-- New CT or reuse a Docker host (e.g. beside OpenClaw).
+## 1. Create or pick an LXC
+
+- Create a new CT or reuse a Docker host (for example beside OpenClaw).
 - Install Docker + Compose.
-- Join Tailscale (`tailscale up`). Note the Tailscale IPv4.
+- Join Tailscale (`tailscale up`). Note the Tailscale IPv4/MagicDNS name you want clients to use.
 
-## 2. Ship the app
+## 2. Deploy the Hub
 
-From your Windows/dev machine (after Tailscale SSH auth works):
+For a normal long-lived install, use the published-image Compose example from the [installation guide](installation.md#docker-compose-with-a-published-image) on the LXC.
+
+If you are developing ADHD Hub itself and intentionally deploy the current checkout, the repository also has sync/build tooling. From your Windows/dev machine, after Tailscale SSH auth works:
 
 ```bash
 # Linux/macOS or Git Bash / WSL:
@@ -23,35 +27,33 @@ Or manually on the Docker host:
 git clone <your-repo> /opt/adhd-hub   # or rsync the tree
 cd /opt/adhd-hub
 cp .env.example .env
-# Edit:
+# Edit at minimum:
 #   ADHD_HUB_AUTH_TOKEN=<long random>
+# Optional when OpenClaw is on the same/private network:
 #   ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://<openclaw-host>:18789/hooks/wake
 #   ADHD_HUB_OPENCLAW_TOKEN=<openclaw hooks token>
 docker compose up -d --build
-# Or pull a published image instead:
-#   image: ghcr.io/uniskela/adhd-hub:latest  (see docker-compose.yml)
-curl -s http://127.0.0.1:8787/api/health
+curl -fsS http://127.0.0.1:8787/api/health
 ```
 
-Ensure the container port `8787` is reachable on the Tailscale interface (publish `8787:8787` is enough if the LXC’s Tailscale IP is used by clients).
+Ensure container port `8787` is reachable on the Tailscale interface. With the standard Compose mapping, clients use `http://<tailscale-ip>:8787` while the process still listens on `0.0.0.0:8787` inside the container.
 
 ### Reverse proxy / HTTPS cookies
 
 If you terminate TLS in front of the Hub (Caddy, nginx, Tailscale Serve):
 
-1. Set `ADHD_HUB_PUBLIC_URL` to the **https** URL browsers use.
-2. Set `ADHD_HUB_TRUST_PROXY_HEADERS=true` so login cookies get the `Secure` flag from `X-Forwarded-Proto: https`.
-3. Optionally force cookies with `ADHD_HUB_COOKIE_SECURE=true`.
+1. Set `ADHD_HUB_PUBLIC_URL` to the **https** URL browsers and agents use.
+2. Set `ADHD_HUB_TRUST_PROXY_HEADERS=true` so login cookies can derive the Secure flag from `X-Forwarded-Proto: https`.
+3. Optionally force Secure cookies with `ADHD_HUB_COOKIE_SECURE=true`.
 4. Only trust those headers from your proxy — do not expose the Hub directly to the public internet with proxy trust enabled.
 
-Installable PWA: open `/ui/` over HTTPS (or localhost), then “Install app” / Add to Home Screen. The service worker caches the UI shell only — never `/api` or MCP.
+Installable PWA: open `/ui/` over HTTPS (or localhost), then use “Install app” / Add to Home Screen. The service worker caches the UI shell only — never `/api` or MCP.
 
-**Note:** First Tailscale SSH from a new machine may require opening an auth URL in the browser (`login.tailscale.com/...`).
+**Note:** First Tailscale SSH from a new machine may require opening a Tailscale authentication URL in the browser.
 
 ## 3. OpenClaw
 
-On the OpenClaw gateway, enable hooks with a bearer token. Point hub env at `/hooks/wake` (and optionally `/hooks/agent`).  
-Stale digests fire on `ADHD_HUB` cron (`stale_nudge_cron`, default `0 9 * * *`).
+On the OpenClaw gateway, enable hooks with a bearer token, or use Hub pairing from **Settings → Connections → OpenClaw**. Point manual Hub configuration at `/hooks/wake` (and optionally `/hooks/agent`). Stale digests use `ADHD_HUB_STALE_NUDGE_CRON` (default `0 9 * * *`).
 
 You can also have OpenClaw poll:
 
@@ -62,55 +64,63 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ## 4. Clients
 
-| Client | Config |
-|--------|--------|
-| Cursor Windows | MCP URL `http://<ts-ip>:8787/mcp` + Authorization header; install `adapters/cursor-rule.mdc` |
-| Cursor Cloud | Same MCP URL (Cloud agent must reach Tailscale — MagicDNS / subnet router as needed) |
+Prefer `adhd-hub connect` / the generated one-liner instead of hand-editing each client; see [Connect](connect.md).
+
+| Client | Typical route |
+|--------|---------------|
+| Cursor Windows | MCP URL `http://<ts-ip>:8787/mcp` or HTTPS public URL |
+| Cursor Cloud | Same MCP URL if the cloud agent can reach that private route; otherwise use the forge mailbox fallback |
 | Dev LXC | Same MCP URL from that host |
-| Codex | See `adapters/codex.md` |
+| Codex / Claude | Connect CLI or their documented MCP configuration |
+
+For MCP clients that support Auth/Authenticate, a correctly configured `ADHD_HUB_PUBLIC_URL` allows Hub OAuth discovery. Static Bearer auth remains supported.
 
 ## 5. Local indexer (Windows)
 
-Transcripts live on the PC; the hub may live on the lab:
+Transcripts normally live on the PC while the Hub lives in the lab. Run the indexer where those transcripts exist rather than mounting personal transcript directories into the server container:
 
-```bash
+```toml
 # config.toml
 hub_url = "http://<ts-ip>:8787"
 auth_token = "..."
+```
 
+```bash
 uv run adhd-hub index
 ```
 
-Schedule via Task Scheduler if you want nightly capture.
+Schedule it with Task Scheduler if you want nightly capture. See [Indexer schedule](indexer-schedule.md).
 
-## 7. Move an existing local hub to this LXC
+## 6. Back up the lab instance
 
-Two complementary paths:
+Before upgrades or migrations, use `/ui` → Settings → **Download backup** or the CLI export. Keep the Compose `/data` volume persistent; removing that volume removes the local Hub state.
+
+For regular container upgrades using a published image:
+
+```bash
+docker compose pull
+docker compose up -d
+curl -fsS http://127.0.0.1:8787/api/health
+```
+
+## 7. Move an existing local Hub to this LXC
+
+Two complementary paths are available.
 
 ### A. Full instance migrate (SQLite threads + wiki + forge prefs)
 
 On the old machine (UI or CLI):
 
-1. `/ui` → Settings → **Download backup**, or `uv run adhd-hub export -o adhd-hub-backup.zip`
+1. `/ui` → Settings → **Download backup**, or `uv run adhd-hub export -o adhd-hub-backup.zip`.
    - Optional encryption: `uv run adhd-hub export -o adhd-hub-backup.zip.enc --passphrase '…'`
-2. Copy the zip to the LXC (scp / Tailscale)
-3. On the LXC: **stop** the container, restore into the data volume, start again:
+2. Copy the backup to the LXC (scp / Tailscale).
+3. Stop the target Hub while restoring so SQLite is not open.
 
-```bash
-# Example: compose volume at ./data
-docker compose stop
-uv run adhd-hub import /path/to/adhd-hub-backup.zip
-# Encrypted:
-# uv run adhd-hub import /path/to/adhd-hub-backup.zip.enc --passphrase '…'
-# Prefer CLI import while the server is stopped so SQLite is not open.
-docker compose up -d
-```
+If you run the CLI on the host against a bind-mounted data directory, import directly there. With a named Docker volume, restore through the supported UI/import path or a temporary container/CLI environment that points `ADHD_HUB_DATA_DIR` at that volume; do not assume a named volume exists at `./data` on the host.
 
-Schedule backups however you like (cron / Task Scheduler) — weekly export of `data/` is enough for most homelabs. Encrypted exports are safe to park on shared storage.
+Encrypted files are a versioned envelope around the zip (magic `ADHDHUB1`), not a password-zip. New exports derive the Fernet key with **scrypt** using a random salt stored in the header. Older v1 encrypted backups still restore with the same passphrase. The HTTP restore path rejects archives over 80 MiB.
 
-Encrypted files are a versioned envelope around the zip (magic `ADHDHUB1`), not a password-zip. New exports derive the Fernet key with **scrypt** (random salt, stored in the header). Backups created before this upgrade used a single SHA-256 of a fixed prefix plus the passphrase (v1); those still restore with the same passphrase. The HTTP restore path still rejects archives over 80 MiB.
-
-Keep the same `ADHD_HUB_AUTH_TOKEN` (or update MCP clients). Point `ADHD_HUB_PUBLIC_URL` at the Tailscale IP.
+Keep the same `ADHD_HUB_AUTH_TOKEN` if you want existing static-Bearer clients to keep working, or reconnect/update those clients. Set `ADHD_HUB_PUBLIC_URL` to the final URL clients should use.
 
 ### Legacy forge wiki paths
 
@@ -127,23 +137,19 @@ Move remote files under the forge repo separately (`adhd-hub/wiki/projects/` →
 
 If the memory repo already has `projects/*/PROGRESS.md`:
 
-1. Deploy a fresh hub on the LXC
-2. Configure the same forge in `/ui` Settings (or `ADHD_HUB_FORGE_*`)
-3. Save forge / **Scan for import** — the UI lists remote projects missing from this hub
-4. **Import** registers projects and pulls progress files
+1. Deploy a fresh Hub on the LXC.
+2. Configure the same forge in `/ui` Settings (or `ADHD_HUB_FORGE_*`).
+3. Save forge / **Scan for import** — the UI lists remote projects missing from this Hub.
+4. **Import** registers projects and pulls progress files.
 
-Forge import does **not** recreate SQLite threads/reminders; use Export/Import (A) when you need the full local history.
+Forge import does **not** recreate SQLite threads/reminders; use Export/Import (A) when you need full local history.
 
 ## 8. Smoke test
 
-```bash
-TOKEN=...
-curl -s -H "Authorization: Bearer $TOKEN" -X POST http://<ts-ip>:8787/api/threads \
-  -H 'Content-Type: application/json' \
-  -d '{"summary":"Finish openclaw Valkey upgrade","project_slug":"openclaw-valkey","source_tool":"manual"}'
+First confirm health:
 
-curl -s -H "Authorization: Bearer $TOKEN" \
-  "http://<ts-ip>:8787/api/overlap?q=openclaw%20valkey"
+```bash
+curl -fsS http://<ts-ip>:8787/api/health
 ```
 
-In Cursor, start a chat about that migration and confirm `check_overlap` / `session_digest` surface the thread.
+Then run `adhd-hub doctor --hub http://<ts-ip>:8787 --project /path/to/project` from a client machine. If you want an API-level write test, use a CLI session or temporary Bearer token and create a disposable thread, then confirm `session_digest` / `check_overlap` can see it.
