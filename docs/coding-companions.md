@@ -2,18 +2,25 @@
 
 Optional tools that pair well with ADHD Progress Hub. **Hub does not require them.** They are independent projects: Hub does not ship, warranty, or auto-update them.
 
-| Role | Tool | Recommendation |
-|------|------|----------------|
-| Continuity (this product) | ADHD Progress Hub | Required for Hub |
-| Reply shape | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | Strong add (existing `--with-i-have-adhd`) |
-| Codebase map | [Graphify](https://github.com/Graphify-Labs/graphify) | Strong add (existing `--with-graphify`) |
-| Quieter shell output | [RTK](https://github.com/rtk-ai/rtk) | Strong add (existing `--with-rtk`) |
-| Agent workflow | [Superpowers](https://github.com/obra/superpowers) | Strong add — **docs / checklist only** |
-| Current docs | [Context7](https://github.com/upstash/context7) | Strong add — **docs / checklist only** |
-| Browser verification | [agent-browser](https://github.com/vercel-labs/agent-browser) | Strong add — **docs / checklist only** |
-| Semantic code navigation | [Serena](https://github.com/oraios/serena) | Optional / advanced — **docs / checklist only** |
+| Role | Tool |
+|------|------|
+| Continuity & progress | ADHD Progress Hub |
+| Reply shape | [i-have-adhd](https://github.com/ayghri/i-have-adhd) |
+| Agent workflow | [Superpowers](https://github.com/obra/superpowers) |
+| Codebase map | [Graphify](https://github.com/Graphify-Labs/graphify) |
+| Current library docs | [Context7](https://github.com/upstash/context7) |
+| Browser verification | [agent-browser](https://github.com/vercel-labs/agent-browser) |
+| Quieter shell output | [RTK](https://github.com/rtk-ai/rtk) |
 
-After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable the three installable companions in **Hub Settings → Connections → Coding companions**, or pass install flags:
+### Advanced companions
+
+| Role | Tool |
+|------|------|
+| Semantic code navigation & editing | [Serena](https://github.com/oraios/serena) |
+
+These tools solve different parts of the coding-agent workflow. Installing all of them is **not** recommended by default—choose companions that address problems in your existing workflow.
+
+After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Connections → Coding companions**, or pass install flags:
 
 ```bash
 adhd-hub connect /path/to/project \
@@ -23,11 +30,11 @@ adhd-hub connect /path/to/project \
   --with-rtk
 ```
 
-Use the same `--agents` list as Hub MCP/skills. With no agents selected, the CLI links the guide instead of guessing per-agent setup.
+Use the same `--agents` list as Hub MCP/skills. With no agents selected, the CLI links this guide instead of guessing per-agent setup.
 
 You can also put flags in `ADHD_HUB_CONNECT_FLAGS` for the install one-liner.
 
-Superpowers, Context7, agent-browser, and Serena appear only as a soft checklist tip — Hub does **not** offer `--with-*` flags or Settings toggles for them.
+Hub can opt-in install **i-have-adhd**, **Graphify**, and **RTK** only. Superpowers, Context7, agent-browser, and Serena are documented here for manual setup—no `--with-*` flags or Settings toggles.
 
 ---
 
@@ -48,6 +55,15 @@ npx skills add ayghri/i-have-adhd -g -y --agent '*'
 ```
 
 Then invoke `/i-have-adhd` (or `$i-have-adhd` in Codex) in a new session. Full platform matrix (Claude plugin, Gemini, Pi, …): upstream [INSTALL.md](https://github.com/ayghri/i-have-adhd/blob/main/INSTALL.md).
+
+---
+
+## Superpowers
+
+**License:** [MIT](https://github.com/obra/superpowers/blob/main/LICENSE)  
+**What it does:** Agent workflow skills (brainstorm → plan → TDD → review).  
+**Privacy:** Local skills/plugin; see upstream for any optional telemetry (visual companion).  
+**Install:** Follow the [obra/superpowers](https://github.com/obra/superpowers) README for Cursor/Codex/Claude. Hub does not install this.
 
 ---
 
@@ -75,6 +91,24 @@ Register for the agents you actually use (examples):
 | Many / unknown | Prefer `graphify agents install` or upstream platform table |
 
 Then in a project: `/graphify .` (PowerShell: `graphify .`). Upstream: [Graphify README](https://github.com/Graphify-Labs/graphify).
+
+---
+
+## Context7
+
+**License:** [MIT](https://github.com/upstash/context7/blob/master/LICENSE)  
+**What it does:** Up-to-date library docs via MCP/CLI.  
+**Privacy:** Queries go to Context7’s service; may need an API key — see upstream.  
+**Install:** [upstash/context7](https://github.com/upstash/context7). Hub does not install this.
+
+---
+
+## agent-browser
+
+**License:** [Apache-2.0](https://github.com/vercel-labs/agent-browser/blob/main/LICENSE) (confirmed from upstream LICENSE)  
+**What it does:** Browser automation for agents to verify UI.  
+**Privacy:** Drives a local browser; review upstream before enabling.  
+**Install:** [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser). Hub does not install this.
 
 ---
 
@@ -110,37 +144,10 @@ Restart the coding agent after init. Upstream: [RTK README](https://github.com/r
 
 ---
 
-## Superpowers
-
-**License:** [MIT](https://github.com/obra/superpowers/blob/main/LICENSE)  
-**What it does:** Agent workflow skills (brainstorm → plan → TDD → review).  
-**Privacy:** Local skills/plugin; see upstream for any optional telemetry (visual companion).  
-**Install:** Follow the [obra/superpowers](https://github.com/obra/superpowers) README for Cursor/Codex/Claude. Hub does not install this.
-
----
-
-## Context7
-
-**License:** [MIT](https://github.com/upstash/context7/blob/master/LICENSE)  
-**What it does:** Up-to-date library docs via MCP/CLI.  
-**Privacy:** Queries go to Context7’s service; may need an API key — see upstream.  
-**Install:** [upstash/context7](https://github.com/upstash/context7). Hub does not install this.
-
----
-
-## agent-browser
-
-**License:** [Apache-2.0](https://github.com/vercel-labs/agent-browser/blob/main/LICENSE) (confirmed from upstream LICENSE)  
-**What it does:** Browser automation for agents to verify UI.  
-**Privacy:** Drives a local browser; review upstream before enabling.  
-**Install:** [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser). Hub does not install this.
-
----
-
-## Serena
+## Serena (advanced)
 
 **License:** [MIT](https://github.com/oraios/serena/blob/main/LICENSE)  
-**What it does:** Semantic code navigation / editing via MCP (**optional / advanced**).  
+**What it does:** Semantic code navigation / editing via MCP. Heavier setup than the companions above—use when you want LSP-style repo intelligence.  
 **Privacy:** Typically local LSP/MCP; confirm upstream if using remote options.  
 **Install:** [oraios/serena](https://github.com/oraios/serena). Hub does not install this.
 
@@ -150,6 +157,6 @@ Restart the coding agent after init. Upstream: [RTK README](https://github.com/r
 
 - These are **recommendations**, not Hub dependencies.
 - Prefer linking and opt-in CLI flags over silent installs.
-- Existing `--with-i-have-adhd` / `--with-graphify` / `--with-rtk` (and Settings toggles) remain the only Hub install paths. There are **no** `--with-*` flags or Settings toggles for Superpowers, Context7, agent-browser, or Serena — docs and soft checklist only.
+- Existing `--with-i-have-adhd` / `--with-graphify` / `--with-rtk` (and Settings toggles) remain the only Hub install paths. There are **no** `--with-*` flags or Settings toggles for Superpowers, Context7, agent-browser, or Serena.
 - Respect each project’s license and attribution when redistributing (Hub does not vendor their code).
 - For RTK, prefer the README/TELEMETRY docs over any conflicting one-line disclaimer about defaults.
