@@ -12,30 +12,6 @@ import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjec
 
 initRepoLinks();
 
-const OPENCLAW_SECURE_PROMPT_STUB = [
-  "Start OpenClaw pairing to generate a one-time pairing code and secure setup prompt.",
-  "OpenClaw must provision hooks.token through a protected runtime SecretRef or supported gateway service environment injection.",
-  "Never print, echo, reveal, or paste the hook token into chat, command arguments, config files, or tool output.",
-].join("\n");
-
-async function loadOpenClawSecureStatus() {
-  await loadOpenClaw();
-  const pair = await api("/openclaw/pair").catch(() => null);
-  const status = $("oc-pair-status");
-  const prompt = $("oc-setup-prompt");
-  if (pair?.status === "failed" && pair.error_code === "hooks_token_secretref_unsupported") {
-    if (status) {
-      status.textContent =
-        "OpenClaw cannot securely provision hooks.token on this setup. Enable protected SecretRef or gateway environment support, then start pairing again. No hook token was saved.";
-    }
-    if (prompt) prompt.value = OPENCLAW_SECURE_PROMPT_STUB;
-    return;
-  }
-  if ((!pair || pair.status === "none" || pair.status === "expired") && prompt) {
-    prompt.value = OPENCLAW_SECURE_PROMPT_STUB;
-  }
-}
-
 $("proj-all").addEventListener("click", () => selectProject(null).catch((e) => setMsg(e.message)));
 $("btn-refresh").addEventListener("click", async () => {
   const button = $("btn-refresh");
@@ -47,7 +23,7 @@ $("btn-refresh").addEventListener("click", async () => {
 });
 $("btn-settings").addEventListener("click", () => {
   loadForge().catch((error) => setMsg(error.message));
-  loadOpenClawSecureStatus().catch((error) => setMsg(error.message));
+  loadOpenClaw().catch((error) => setMsg(error.message));
   loadCliSessions().catch(() => {});
   loadPrefs().catch(() => {});
   selectSettingsTab("preferences");
