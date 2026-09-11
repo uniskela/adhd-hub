@@ -111,6 +111,30 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
                     if key not in cleaned:
                         cleaned.append(key)
                 current["connect_agents"] = cleaned
+        if "connect_companions" in payload:
+            raw_c = payload.get("connect_companions")
+            if raw_c is None:
+                current["connect_companions"] = []
+            elif not isinstance(raw_c, list):
+                raise HTTPException(400, "connect_companions must be a list of companion ids")
+            else:
+                from adhd_hub.prefs import CONNECT_COMPANION_CHOICES
+
+                allowed_c = set(CONNECT_COMPANION_CHOICES)
+                cleaned_c: list[str] = []
+                for item in raw_c:
+                    key = str(item).strip().lower()
+                    if not key:
+                        continue
+                    if key not in allowed_c:
+                        raise HTTPException(
+                            400,
+                            f"Unknown connect companion {key!r}; "
+                            f"allowed: {', '.join(CONNECT_COMPANION_CHOICES)}",
+                        )
+                    if key not in cleaned_c:
+                        cleaned_c.append(key)
+                current["connect_companions"] = cleaned_c
         return service.save_prefs(HubPrefs.model_validate(current)).public_dict()
 
     @router.get("/projects", dependencies=[Depends(auth_dep)])

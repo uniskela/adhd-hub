@@ -6,6 +6,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from adhd_hub.cli_style import print_running
+
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"
 
@@ -139,5 +141,5 @@ def install_skills(
             return 2
         for agent in targets:
             command.extend(["-a", agent])
-    print("Running:", " ".join(command))
+    print_running(command)
     return subprocess.run(command, check=False).returncode

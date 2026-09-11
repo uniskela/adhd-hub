@@ -23,6 +23,9 @@ export async function loadPrefs() {
         preferences.setItem(tzKey, state.currentTz);
       }
       applyConnectAgents(Array.isArray(p.connect_agents) ? p.connect_agents : []);
+      applyConnectCompanions(
+        Array.isArray(p.connect_companions) ? p.connect_companions : []
+      );
     } catch (_e) {
       /* keep local */
     }
@@ -62,24 +65,45 @@ export function applyConnectAgents(agents) {
       if ($("ca_claude")) $("ca_claude").checked = true;
     }
   }
+export function selectedConnectCompanions() {
+    return ["cc_i_have_adhd", "cc_graphify", "cc_rtk"]
+      .map((id) => $(id))
+      .filter((el) => el && el.checked)
+      .map((el) => el.value);
+  }
+export function applyConnectCompanions(companions) {
+    const set = new Set((companions || []).map((c) => String(c).trim().toLowerCase()));
+    if ($("cc_i_have_adhd")) $("cc_i_have_adhd").checked = set.has("i-have-adhd");
+    if ($("cc_graphify")) $("cc_graphify").checked = set.has("graphify");
+    if ($("cc_rtk")) $("cc_rtk").checked = set.has("rtk");
+  }
 export async function saveConnectAgents() {
     const agents = selectedConnectAgents();
+    const companions = selectedConnectCompanions();
     const msg = $("connect-agents-msg");
     try {
       const saved = await api("/prefs", {
         method: "PUT",
-        body: JSON.stringify({ connect_agents: agents }),
+        body: JSON.stringify({
+          connect_agents: agents,
+          connect_companions: companions,
+        }),
       });
       applyConnectAgents(saved.connect_agents || agents);
+      applyConnectCompanions(saved.connect_companions || companions);
+      const parts = [];
+      if (agents.length) parts.push(`agents: ${agents.join(", ")}`);
+      else parts.push("no agents");
+      if (companions.length) parts.push(`companions: ${companions.join(", ")}`);
+      else parts.push("no companions");
       if (msg) {
-        msg.textContent = agents.length
-          ? `Saved: ${agents.join(", ")}. Re-copy the install command — scripts pick this up.`
-          : "Saved: no agents (install will not assume Cursor).";
+        msg.textContent =
+          `Saved (${parts.join("; ")}). Re-copy the install command — scripts pick this up.`;
       }
-      setMsg(agents.length ? `Connect agents saved: ${agents.join(", ")}` : "Connect agents cleared.");
+      setMsg(`Connect defaults saved (${parts.join("; ")}).`);
     } catch (e) {
-      if (msg) msg.textContent = "Could not save agents: " + e.message;
-      setMsg("Could not save connect agents: " + e.message);
+      if (msg) msg.textContent = "Could not save: " + e.message;
+      setMsg("Could not save connect defaults: " + e.message);
     }
   }
 export async function loadForge() {

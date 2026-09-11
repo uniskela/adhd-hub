@@ -64,6 +64,8 @@ npx skills add uniskela/adhd-hub -g
 npx skills add ./skills -g
 ```
 
+**Optional coding companions** (i-have-adhd, Graphify, RTK): see [docs/coding-companions.md](docs/coding-companions.md). Toggle them in Hub Settings → Connections, or pass `--with-i-have-adhd`, `--with-graphify`, and/or `--with-rtk` to `adhd-hub connect`.
+
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 
 **Documentation site:** enable **Settings → Pages → GitHub Actions** to publish [the public docs portal](https://uniskela.github.io/adhd-hub/) (built with [Zensical](https://zensical.org/)). Preview locally with `uv sync --extra dev && uv run zensical serve`. The workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.

@@ -106,6 +106,18 @@ adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 
 `adhd-hub setup` remains available for AGENTS-only installs.
 
+## Optional coding companions
+
+In **Settings → Connections**, under **Coding companions**, toggle i-have-adhd / Graphify / RTK and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
+
+`connect` / `doctor` also list them when missing. You can pass flags manually:
+
+```bash
+adhd-hub connect /path/to/project --agents codex,claude --with-i-have-adhd --with-graphify
+```
+
+Full install tables, licenses, and privacy notes: [Recommended coding companions](coding-companions.md).
+
 ## Safety
 
 - Never commits Hub URLs or tokens into `AGENTS.md`

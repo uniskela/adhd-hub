@@ -150,6 +150,7 @@ def test_install_sh_endpoint_has_no_token(tmp_path: Path) -> None:
     assert "http://hub.test:8787" in body
     assert "adhd-hub connect" in body
     assert "macOS" in body or "Windows PowerShell" in body
+    assert "WITH_I_HAVE_ADHD=0" in body
 
     ps1 = client.get("/install.ps1")
     assert ps1.status_code == 200
@@ -157,6 +158,41 @@ def test_install_sh_endpoint_has_no_token(tmp_path: Path) -> None:
     assert "http://hub.test:8787" in ps1.text
     assert "param(" in ps1.text
     assert "uvx" in ps1.text
+
+
+def test_install_scripts_bake_saved_companions(tmp_path: Path) -> None:
+    from adhd_hub.prefs import HubPrefs
+
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="tok",
+        host="127.0.0.1",
+        public_url="http://hub.test:8787",
+    )
+    app = create_app(settings)
+    # Persist companion prefs the same way the UI/API would.
+    from adhd_hub.service import HubService
+
+    svc = HubService(settings)
+    svc.save_prefs(
+        HubPrefs(
+            timezone="UTC",
+            connect_agents=["codex"],
+            connect_companions=["i-have-adhd", "graphify"],
+        )
+    )
+    client = TestClient(app)
+    # Recreate so prefs are loaded from disk for the request handlers' service.
+    client = TestClient(create_app(settings))
+    sh = client.get("/install.sh").text
+    assert "WITH_I_HAVE_ADHD=1" in sh
+    assert "WITH_GRAPHIFY=1" in sh
+    assert "WITH_RTK=0" in sh
+    assert 'AGENTS="${ADHD_HUB_CONNECT_AGENTS:-codex}"' in sh
+    ps1 = client.get("/install.ps1").text
+    assert "if (-not $WithIHaveAdhd -and $true)" in ps1
+    assert "if (-not $WithGraphify -and $true)" in ps1
+    assert "if (-not $WithRtk -and $false)" in ps1
 
 
 def test_render_install_sh_mentions_uvx() -> None:
@@ -171,12 +207,21 @@ def test_render_install_sh_supports_flags() -> None:
     assert "--dry-run" in script
     assert "ADHD_HUB_CONNECT_FLAGS" in script
     assert "ADHD_HUB_CONNECT_AGENTS" in script
+    assert "--with-i-have-adhd)" in script
+    assert "--with-graphify)" in script
+    assert "--with-rtk)" in script
+    assert "ADHD_HUB_CONNECT_WITH_GRAPHIFY" in script
 
 
 def test_render_install_ps1_supports_flags() -> None:
     script = render_install_ps1("http://example:8787")
     assert "[switch]$Register" in script
     assert "[switch]$DryRun" in script
+    assert "[switch]$WithIHaveAdhd" in script
+    assert "[switch]$WithGraphify" in script
+    assert "[switch]$WithRtk" in script
+    assert "--with-i-have-adhd" in script
+    assert "ADHD_HUB_CONNECT_WITH_RTK" in script
     assert "ADHD_HUB_CONNECT_OPENCLAW_SKILLS" in script
     assert "iwr $HubUrl/install.ps1 -OutFile" in script
     # Empty ValidateSet default breaks `irm | iex` on Windows.
@@ -210,7 +255,23 @@ def test_render_install_bakes_default_agents() -> None:
     assert '$DefaultAgents = "cursor,claude"' in ps1
 
 
-def test_print_report_shows_complete_banner(capsys) -> None:
+def test_render_install_bakes_companion_defaults() -> None:
+    sh = render_install_sh(
+        "http://example:8787",
+        with_i_have_adhd=True,
+        with_graphify=True,
+        with_rtk=False,
+    )
+    assert "WITH_I_HAVE_ADHD=1" in sh
+    assert "WITH_GRAPHIFY=1" in sh
+    assert "WITH_RTK=0" in sh
+    ps1 = render_install_ps1("http://example:8787", with_rtk=True, with_graphify=False)
+    assert "if (-not $WithRtk -and $true)" in ps1
+    assert "if (-not $WithGraphify -and $false)" in ps1
+
+
+def test_print_report_shows_complete_banner(capsys, monkeypatch) -> None:
+    monkeypatch.setenv("NO_COLOR", "1")
     from adhd_hub.connect import ConnectReport, print_report
 
     report = ConnectReport(hub_url="http://127.0.0.1:8787")
@@ -225,11 +286,76 @@ def test_print_report_shows_complete_banner(capsys) -> None:
     print_report(report)
     out = capsys.readouterr().out
     assert "Complete! ADHD Hub is connected." in out
-    assert "Summary of what ran:" in out
-    assert "Next steps:" in out
+    assert "Do next:" in out
     assert "http://127.0.0.1:8787/ui" in out
     assert "Verify anytime:" in out
     assert "uvx --refresh --from" in out
+
+
+def test_print_report_default_collapses_ok(capsys, monkeypatch) -> None:
+    monkeypatch.setenv("NO_COLOR", "1")
+    from adhd_hub.connect import ConnectReport, print_report
+
+    report = ConnectReport(hub_url="http://127.0.0.1:8787")
+    report.add("hub probe", "ok", "health ok")
+    report.add("cursor MCP (project)", "ok", "unchanged")
+    report.add("companion graphify", "ok", "on PATH")
+    report.add(
+        "setup complete",
+        "ok",
+        "Open http://127.0.0.1:8787/ui · run: uvx doctor-demo",
+    )
+    print_report(report, verbose=False)
+    out = capsys.readouterr().out
+    assert "Complete! ADHD Hub is connected." in out
+    assert "Do next:" in out
+    assert "pick what fits" in out
+    assert "coding-companions.md" in out
+    assert "Done:" in out
+    assert "Hub ·" in out and "ok" in out
+    assert "Agents ·" in out
+    assert "Companions ·" in out
+    assert "[OK] hub probe:" not in out
+    assert "Needs attention:" not in out
+
+
+def test_print_report_verbose_lists_all_steps(capsys, monkeypatch) -> None:
+    monkeypatch.setenv("NO_COLOR", "1")
+    from adhd_hub.connect import ConnectReport, print_report
+
+    report = ConnectReport(hub_url="http://127.0.0.1:8787")
+    report.add("hub probe", "ok", "health ok")
+    print_report(report, verbose=True)
+    out = capsys.readouterr().out
+    assert "[OK] hub probe: health ok" in out
+
+
+def test_print_report_fix_these_on_error(capsys, monkeypatch) -> None:
+    monkeypatch.setenv("NO_COLOR", "1")
+    from adhd_hub.connect import ConnectReport, print_report
+
+    report = ConnectReport(hub_url="http://127.0.0.1:8787")
+    report.add("hub probe", "ok", "health ok")
+    report.add("install rtk binary", "error", "rtk not on PATH")
+    report.add("companions agents", "manual", "soft tip only")
+    print_report(report, verbose=False)
+    out = capsys.readouterr().out
+    assert "Connect finished with errors" in out
+    assert "Fix these:" in out
+    assert "1. install rtk binary — rtk not on PATH" in out
+    assert "companions agents" not in out.split("Fix these:")[1].split("Needs attention:")[0]
+    assert "Needs attention:" in out
+    assert "[XX] install rtk binary:" in out
+    assert "[--] companions agents:" in out
+    assert "Done:" in out
+
+
+def test_classify_step_group_hub_claude_openclaw() -> None:
+    from adhd_hub.connect import classify_step_group
+
+    assert classify_step_group("hub") == "Hub"
+    assert classify_step_group("claude MCP") == "Agents"
+    assert classify_step_group("openclaw pair") == "Agents"
 
 
 def test_format_hub_cli_command_uses_uvx_when_missing(monkeypatch) -> None:

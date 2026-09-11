@@ -209,18 +209,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/install.sh", response_class=PlainTextResponse)
     def install_sh(request: Request):
         """Public POSIX bootstrap — never embeds auth tokens."""
+        prefs = service.prefs()
         script = render_install_sh(
             _install_hub_base(request),
-            default_agents=service.prefs().connect_agents_csv(),
+            default_agents=prefs.connect_agents_csv(),
+            with_i_have_adhd=prefs.companion_enabled("i-have-adhd"),
+            with_graphify=prefs.companion_enabled("graphify"),
+            with_rtk=prefs.companion_enabled("rtk"),
         )
         return PlainTextResponse(script, media_type="text/x-shellscript")
 
     @app.get("/install.ps1", response_class=PlainTextResponse)
     def install_ps1(request: Request):
         """Public Windows PowerShell bootstrap — never embeds auth tokens."""
+        prefs = service.prefs()
         script = render_install_ps1(
             _install_hub_base(request),
-            default_agents=service.prefs().connect_agents_csv(),
+            default_agents=prefs.connect_agents_csv(),
+            with_i_have_adhd=prefs.companion_enabled("i-have-adhd"),
+            with_graphify=prefs.companion_enabled("graphify"),
+            with_rtk=prefs.companion_enabled("rtk"),
         )
         return PlainTextResponse(script, media_type="text/plain")
 

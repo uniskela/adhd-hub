@@ -29,10 +29,11 @@ cd Z:\Projects\adhd-hub
 npx skills add ./skills -g
 ```
 
-4. **Start a coding session** in any project — agent should `resolve_project` → `session_digest` → `check_overlap`.
-5. **Pause unfinished work** — `upsert_progress` with one **Now**, short Done/Next lists, Waiting/blocked, and a **Return cue**. See [ADHD-friendly writing and planning](writing.md).
-6. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
-7. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
+4. **Optional coding companions** (i-have-adhd, Graphify, RTK) — toggle under **Settings → Connections**, or see [Recommended coding companions](coding-companions.md).
+5. **Start a coding session** in any project — agent should `resolve_project` → `session_digest` → `check_overlap`.
+6. **Pause unfinished work** — `upsert_progress` with one **Now**, short Done/Next lists, Waiting/blocked, and a **Return cue**. See [ADHD-friendly writing and planning](writing.md).
+7. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
+8. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
 
 ## Optional OpenClaw check-in
 
