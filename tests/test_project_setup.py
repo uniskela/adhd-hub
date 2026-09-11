@@ -7,10 +7,30 @@ import pytest
 
 from adhd_hub.project_setup import (
     BEGIN_MARKER,
+    agent_block,
     install_agent_guidance,
     install_skills,
     uninstall_agent_guidance,
 )
+
+
+def test_agent_block_requires_loud_mcp_down() -> None:
+    text = agent_block()
+    assert "first line" in text.lower()
+    assert "not available" in text.lower()
+    assert "Hub MCP" in text
+    assert "ADHD_HUB_AUTH_TOKEN" in text
+    assert "/mcp" in text
+    assert "invent Hub state" in text
+    assert "leave a concise local handoff instead of claiming" not in text
+
+
+def test_session_skill_requires_loud_mcp_down() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    text = (repo_root / "skills/adhd-hub-session/SKILL.md").read_text(encoding="utf-8")
+    assert "first line" in text.lower()
+    assert "not available" in text.lower()
+    assert "say so briefly" not in text.lower()
 
 
 def test_install_creates_agents_file_and_is_idempotent(tmp_path: Path) -> None:
