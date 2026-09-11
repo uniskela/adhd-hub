@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.0](https://github.com/uniskela/adhd-hub/compare/v0.5.0...v0.6.0) (2026-09-11)
+
+
+### Features
+
+* **companions:** opt-in Hub install for Superpowers, Context7, agent-browser, Serena ([e295d48](https://github.com/uniskela/adhd-hub/commit/e295d48be05fa4503214e68d0dc43efb8a277301))
+* **companions:** opt-in install for Superpowers, Context7, agent-browser, Serena ([345299a](https://github.com/uniskela/adhd-hub/commit/345299ae2eee74c5b26133c17390688f6b0b42c6))
+* **ui:** settings page nav and theme icon toggles ([7f6b28e](https://github.com/uniskela/adhd-hub/commit/7f6b28ef2085dbc55e038e20d418c56accfb460e))
+
+
+### Bug Fixes
+
+* **companions:** address Bugbot findings for opt-in installs ([a53e18e](https://github.com/uniskela/adhd-hub/commit/a53e18eab1517bc56489daeea4e6f3767dc4130e))
+* **ui:** remove close icons from Settings pages ([8c969c9](https://github.com/uniskela/adhd-hub/commit/8c969c9a98b1d987dc4f6c0d70989ed49a37bd4e))
+
+
+### Documentation
+
+* list all Hub-installable coding companions in index ([bd9560d](https://github.com/uniskela/adhd-hub/commit/bd9560dae7eb67e6a57a00d4d069360f0f8eacea))
+
 ## [0.5.0](https://github.com/uniskela/adhd-hub/compare/v0.4.1...v0.5.0) (2026-09-11)
 
 
