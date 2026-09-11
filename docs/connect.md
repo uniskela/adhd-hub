@@ -60,6 +60,28 @@ The CLI session is accepted as Bearer for REST and MCP. It is **not** the server
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
 
+## MCP Auth / Authenticate (OAuth)
+
+MCP clients that offer an **Auth** / **Authenticate** control can obtain a Hub Bearer for `/mcp` via Hub OAuth when the **Hub server** has:
+
+- `ADHD_HUB_PUBLIC_URL` set to the URL agents and browsers use, and
+- OAuth enabled (default; Hub env `ADHD_HUB_OAUTH_ENABLED` unset or `true`).
+
+Flow (agent-agnostic — any MCP client that speaks MCP OAuth 2.1; Cursor is one verification target):
+
+1. Point the client at `https://<hub>/mcp` (or your public Hub `/mcp`).
+2. Choose **Auth** / **Authenticate** in the client.
+3. Sign into the Hub UI if prompted, then press **Allow** on the consent page.
+
+That issues an opaque OAuth access token for MCP only. It is not the server access token and is not a CLI connect session.
+
+**Still supported (no Auth button required):**
+
+- Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).
+- CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in Settings → Connections).
+
+**Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` probes that Hub’s OAuth well-known (skips quiet loopback runs unless `ADHD_HUB_PUBLIC_URL` is set in the doctor environment) and warns on missing/malformed metadata; unreachable Hub is a warning, not a hard failure.
+
 ## CLI wire-up flags
 
 Both install scripts look for `uvx` first and install the CLI from **this Hub's** `/install/cli-wheel.url` (PEP 427 wheel matching the server), falling back to `git+https://github.com/uniskela/adhd-hub.git` if the wheel is missing. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).

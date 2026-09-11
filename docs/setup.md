@@ -3,7 +3,7 @@
 ## Day in the life
 
 1. **Hub running** — Docker or `uv run adhd-hub serve` on `:8787`.
-2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Connections**; do not export the server token into your shell:
+2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Connections**; do not export the server token into your shell. For MCP clients with an **Auth** / **Authenticate** button, set Hub `ADHD_HUB_PUBLIC_URL` and leave Hub OAuth enabled (default); Approve = Hub UI sign-in + **Allow**. Static `ADHD_HUB_AUTH_TOKEN` Bearer and CLI connect still work; set Hub `ADHD_HUB_OAUTH_ENABLED=false` to disable discovery/OAuth routes. Details: [Connect — MCP Auth / Authenticate](connect.md#mcp-auth--authenticate-oauth).
 
 ```bash
 # macOS / Linux / WSL
@@ -51,6 +51,7 @@ Then pair from **Settings → Connections → OpenClaw** (recommended): **Start 
 cd Z:\Projects\adhd-hub
 copy .env.example .env
 # Edit .env: ADHD_HUB_AUTH_TOKEN, optional ADHD_HUB_PUBLIC_URL
+# (and ADHD_HUB_OAUTH_ENABLED=false only if you need Bearer-only rollback)
 copy .cursor\mcp.json.example .cursor\mcp.json   # if present
 uv run adhd-hub serve --host 127.0.0.1 --port 8787
 ```
