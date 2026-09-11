@@ -26,15 +26,17 @@ export function showApp() {
   }
 function safeOAuthReturnPath(value) {
     if (!value || typeof value !== "string" || value.length > 2048) return "";
-    if (value.startsWith("//") || value.includes("\\")) return "";
-    const lower = value.toLowerCase();
-    if (lower.startsWith("http:") || lower.startsWith("https:") || lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
+    if (value.includes("\\") || value.startsWith("//")) return "";
+    try {
+      const parsed = new URL(value, location.origin);
+      if (parsed.origin !== location.origin) return "";
+      if (parsed.pathname !== "/api/oauth/authorize") return "";
+      if (parsed.hash) return "";
+      const qs = parsed.searchParams.toString();
+      return `/api/oauth/authorize${qs ? `?${qs}` : ""}`;
+    } catch (_) {
       return "";
     }
-    const pathOnly = value.split("?", 1)[0];
-    if (pathOnly !== "/api/oauth/authorize") return "";
-    if (value.includes("/../") || value.includes("/..")) return "";
-    return value;
   }
 function consumeOAuthReturn() {
     try {
