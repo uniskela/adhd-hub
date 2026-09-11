@@ -78,10 +78,10 @@ def test_push_primary_scaffold_skipped_when_disabled() -> None:
     assert out["skipped"] is True
 
 
-def test_issue_body_includes_progress() -> None:
+def test_issue_body_is_thread_scoped_not_project_log() -> None:
     from datetime import UTC, datetime
 
-    from adhd_hub.forge.board_sync import BoardForgeSync
+    from adhd_hub.forge.board_sync import STATUS_END, STATUS_START, BoardForgeSync
     from adhd_hub.models import Thread, ThreadStatus
 
     cfg = ForgeConfig(
@@ -98,24 +98,145 @@ def test_issue_body_includes_progress() -> None:
         cfg,
         lambda _k: None,
         lambda _k, _v: None,
-        progress_reader=lambda _slug: "## Done\n- ship it\n## Next\n- rest",
+        progress_reader=lambda _slug: (
+            "## Active threads\n\n### Other thread\n\nGoal: Should not appear\n"
+        ),
     )
     thread = Thread(
         id="abc",
-        summary="Test thread",
+        summary="Settings redesign",
         status=ThreadStatus.open,
         project_slug="adhd-hub",
+        goal="Ship Settings page + dark UI",
+        focus="Build form layout",
+        next_steps=["Wire prefs API", "Add dark tokens", "Polish a11y", "extra ignored"],
+        blocked_reason=None,
+        resume_step="Open settings.js",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
     body = sync._issue_body(thread)
-    assert "### Progress log" in body
-    assert "ship it" in body
-    assert "Test thread" in body
+    assert STATUS_START in body and STATUS_END in body
+    assert "### Progress log" not in body
+    assert "Should not appear" not in body
+    assert "Ship Settings page + dark UI" in body
+    assert "Build form layout" in body
+    assert "Wire prefs API" in body
+    assert "extra ignored" not in body
+    assert "Blocked" not in body
+    assert "Open settings.js" in body
     assert "projects/adhd-hub/PROGRESS.md" in body
     labels = sync._labels_for_thread(thread)
     assert "adhd-hub" in labels
     assert "project:adhd-hub" in labels
+
+
+def test_two_threads_produce_distinct_issue_bodies() -> None:
+    from datetime import UTC, datetime
+
+    from adhd_hub.forge.board_sync import BoardForgeSync
+    from adhd_hub.models import Thread, ThreadStatus
+
+    cfg = ForgeConfig(
+        provider=ForgeProvider.gitea,
+        base_url="https://git.example/api/v1",
+        token="t",
+        owner="a",
+        repo="r",
+        board_enabled=True,
+    )
+    sync = BoardForgeSync(cfg, lambda _k: None, lambda _k, _v: None)
+    now = datetime.now(UTC)
+    a = Thread(
+        id="a1",
+        summary="Settings",
+        status=ThreadStatus.open,
+        project_slug="hub",
+        goal="Ship Settings UI",
+        focus="Form",
+        created_at=now,
+        updated_at=now,
+    )
+    b = Thread(
+        id="b1",
+        summary="OAuth",
+        status=ThreadStatus.open,
+        project_slug="hub",
+        goal="Ship MCP OAuth",
+        focus="Discovery endpoint",
+        created_at=now,
+        updated_at=now,
+    )
+    body_a = sync._issue_body(a)
+    body_b = sync._issue_body(b)
+    assert "Ship Settings UI" in body_a and "Ship Settings UI" not in body_b
+    assert "Ship MCP OAuth" in body_b and "Ship MCP OAuth" not in body_a
+    assert "Discovery endpoint" not in body_a
+    assert "Form" not in body_b
+
+
+def test_merge_preserves_user_authored_issue_body() -> None:
+    from datetime import UTC, datetime
+
+    from adhd_hub.forge.board_sync import STATUS_START, BoardForgeSync
+    from adhd_hub.models import Thread, ThreadStatus
+
+    cfg = ForgeConfig(
+        provider=ForgeProvider.github,
+        token="t",
+        owner="o",
+        repo="r",
+        board_enabled=True,
+    )
+    sync = BoardForgeSync(cfg, lambda _k: None, lambda _k, _v: None)
+    now = datetime.now(UTC)
+    thread = Thread(
+        id="t1",
+        summary="OAuth",
+        status=ThreadStatus.open,
+        project_slug="hub",
+        goal="Ship OAuth",
+        focus="Token endpoint",
+        created_at=now,
+        updated_at=now,
+    )
+    user_body = "## My notes\n\nPlease keep this paragraph.\n"
+    merged = sync.merge_issue_body(user_body, thread)
+    assert "Please keep this paragraph." in merged
+    assert STATUS_START in merged
+    assert "Ship OAuth" in merged
+    # Second merge is idempotent for user content + single status block
+    again = sync.merge_issue_body(merged, thread)
+    assert again.count(STATUS_START) == 1
+    assert "Please keep this paragraph." in again
+
+
+def test_blocked_omitted_when_empty_included_when_set() -> None:
+    from datetime import UTC, datetime
+
+    from adhd_hub.forge.board_sync import BoardForgeSync
+    from adhd_hub.models import Thread, ThreadStatus
+
+    cfg = ForgeConfig(provider=ForgeProvider.gitea, token="t", owner="a", repo="r")
+    sync = BoardForgeSync(cfg, lambda _k: None, lambda _k, _v: None)
+    now = datetime.now(UTC)
+    open_t = Thread(
+        id="x",
+        summary="Work",
+        status=ThreadStatus.open,
+        project_slug="p",
+        goal="Done when shipped",
+        focus="Code",
+        blocked_reason="",
+        created_at=now,
+        updated_at=now,
+    )
+    assert "**Blocked**" not in sync._issue_body(open_t)
+    blocked = open_t.model_copy(update={"blocked_reason": "Waiting on review"})
+    body = sync._issue_body(blocked)
+    assert "**Blocked**" in body
+    assert "Waiting on review" in body
+    assert "None" not in body.split("**Blocked**", 1)[1].split("**Resume**", 1)[0]
 
 
 def test_gitea_file_web_url_root_wiki() -> None:

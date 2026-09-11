@@ -62,7 +62,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     @router.post("/threads/{thread_id}/pause", dependencies=[Depends(auth_dep)])
     def pause_thread(thread_id: str, payload: PauseRequest):
         try:
-            thread = service.store.pause_thread(thread_id, payload.next_step)
+            thread = service.pause_thread(thread_id, payload.next_step)
         except KeyError:
             raise HTTPException(404, "Thread not found") from None
         except ValueError as exc:
@@ -264,6 +264,8 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     def progress(payload: ProgressUpsert):
         try:
             return service.upsert_progress(payload)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
@@ -276,6 +278,20 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         return service.session_digest(
             workspace_path=workspace_path, query=q, energy=energy
         )
+
+    @router.post("/guidance/verify", dependencies=[Depends(auth_dep)])
+    def guidance_verify(payload: dict):
+        try:
+            return service.record_guidance_verification(
+                project_slug=payload.get("project_slug"),
+                workspace_path=payload.get("workspace_path"),
+                agent_guidance_version=payload.get("agent_guidance_version"),
+                session_skill_version=payload.get("session_skill_version"),
+                cursor_rule_version=payload.get("cursor_rule_version"),
+                source=str(payload.get("source") or "api"),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     @router.post("/reminders", dependencies=[Depends(auth_dep)])
     def create_reminder(payload: ReminderCreate):

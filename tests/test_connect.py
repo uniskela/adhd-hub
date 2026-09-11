@@ -184,7 +184,7 @@ def test_run_doctor_reports_missing_pieces(tmp_path: Path, monkeypatch) -> None:
     assert not report.ok
     names = {s.name for s in report.steps}
     assert "hub" in names
-    assert "AGENTS.md" in names
+    assert "AGENTS.md guidance" in names
 
 
 def test_evaluate_oauth_prm_payload_healthy() -> None:

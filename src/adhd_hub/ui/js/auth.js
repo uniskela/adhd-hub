@@ -132,7 +132,6 @@ export async function loadAuthStatus() {
       : "Create a password so you can keep the access token in your assistant configuration.";
   }
 export function openPasswordDialog() {
-    $("settings-dialog").close();
     $("password-title").textContent = state.authStatus.password_configured ? "Change your password" : "Set a dashboard password";
     $("password-method").value = state.authStatus.password_configured ? "password" : "token";
     $("password-dialog").showModal();

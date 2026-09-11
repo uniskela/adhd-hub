@@ -6,15 +6,20 @@ import { loadAll, loadOverview } from './load.js';
 import { saveRewardPreferences } from './progress.js';
 
 export function selectSettingsTab(name, focus = false) {
-    document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
-      const selected = tab.dataset.settingsTab === name;
-      tab.setAttribute("aria-selected", String(selected));
-      tab.tabIndex = selected ? 0 : -1;
-      $(tab.getAttribute("aria-controls")).hidden = !selected;
-      if (selected && focus) tab.focus();
-    });
-    $("settings-dialog").querySelector(".settings-content").scrollTop = 0;
-  }
+  const tabs = [...document.querySelectorAll("[data-settings-tab]")];
+  const known = new Set(tabs.map((tab) => tab.dataset.settingsTab));
+  const next = known.has(name) ? name : "preferences";
+  tabs.forEach((tab) => {
+    const selected = tab.dataset.settingsTab === next;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    const panel = $(tab.getAttribute("aria-controls"));
+    if (panel) panel.hidden = !selected;
+    if (selected && focus) tab.focus();
+  });
+  const content = document.querySelector("#settings-view .settings-content");
+  if (content) content.scrollTop = 0;
+}
 export async function loadPrefs() {
     try {
       const p = await api("/prefs");

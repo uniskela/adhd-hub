@@ -346,7 +346,10 @@ def test_mark_issue_imported_never_deletes() -> None:
     board = BoardForgeSync(_cfg(), lambda _k: None, lambda _k, _v: None)
     get_resp = MagicMock()
     get_resp.status_code = 200
-    get_resp.json.return_value = {"body": "hello", "labels": [{"name": "adhd-hub"}]}
+    get_resp.json.return_value = {
+        "body": "## User authored\n\nKeep me.\n",
+        "labels": [{"name": "adhd-hub"}],
+    }
     patch_resp = MagicMock()
     patch_resp.status_code = 200
     patch_resp.raise_for_status = MagicMock()
@@ -362,3 +365,6 @@ def test_mark_issue_imported_never_deletes() -> None:
     assert payload["state"] == "closed"
     assert "adhd-hub-synced" in payload["labels"]
     assert "DELETE" not in str(client.mock_calls)
+    assert "Keep me." in payload["body"]
+    assert "<!-- adhd-hub:status:start -->" in payload["body"]
+    assert "`abc`" in payload["body"]

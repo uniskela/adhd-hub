@@ -52,6 +52,9 @@ def test_mcp_discovery_validation_and_progress(tmp_path):
             assert (
                 "create_thread_if_missing" in tools["upsert_progress"]["inputSchema"]["properties"]
             )
+            assert "thread_id" in tools["upsert_progress"]["inputSchema"]["properties"]
+            assert "force_new_thread" in tools["upsert_progress"]["inputSchema"]["properties"]
+            assert "goal" in tools["upsert_progress"]["inputSchema"]["properties"]
             assert "repo_url" in tools["upsert_project"]["inputSchema"]["properties"]
             for name in (
                 "pause_thread",

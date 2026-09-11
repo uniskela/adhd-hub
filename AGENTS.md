@@ -48,6 +48,7 @@ If `graphify-out/wiki/index.md` exists, prefer it for navigation. Use `graphify-
 See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphify/SKILL.md) and rule [`.cursor/rules/graphify.mdc`](.cursor/rules/graphify.mdc).
 
 <!-- adhd-hub:project-agent:start -->
+<!-- adhd-hub:guidance-version:2 -->
 ## ADHD Hub continuity
 
 For substantial work in this project:
@@ -59,21 +60,21 @@ For substantial work in this project:
   `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs
   until Hub OAuth is enabled). Then continue the authorized work. Never
   invent Hub state or claim a Hub write succeeded.
-- Do not call Hub tools for trivial/read-only questions, tiny edits, or other
-  work that does not benefit from continuity tracking.
-- Once per session/checkout, call `resolve_project` with the current absolute
-  project root, then `session_digest` with that path and a brief task query.
-  Reuse resolved context where possible.
-- Before starting new work that may duplicate an existing thread, call
-  `check_overlap`.
-- At meaningful checkpoints or before pausing/switching context, call
-  `upsert_progress` for the resolved project and known thread using a concise
-  `Now / Done / Next / Waiting / Return cue` summary.
-- On genuine completion, call `mark_done` only for the known thread. Never close
-  unrelated overlap results.
-- Send summaries only; never send secrets, credentials, keys, env files, or
-  transcripts.
-- Never publish Hub URLs/tokens, internal hosts, machine paths, or private Hub
-  metadata. The local project path may only be sent to the configured Hub for
-  resolution.
+- Skip Hub for trivial/read-only/tiny work.
+- Once per meaningful session: `resolve_project`, then `session_digest` with
+  the task query. Reuse resolved context where possible.
+- **One thread = one independently finishable outcome** (not the whole repo).
+  Before updating a thread, compare new work to that thread's Goal; if it does
+  not advance the same outcome, use another thread or create one.
+- Known thread → `upsert_progress(thread_id=...)` with compact structured state
+  (goal / focus / ≤3 next / blocked if any / resume). Do not silently attach
+  to an unrelated open thread.
+- `check_overlap` only before potentially new work; reuse only when the Goal
+  matches. Different goal → separate thread (`force_new_thread` if needed).
+- Pause with one concrete resume action; `mark_done` only the known completed
+  thread — never close unrelated overlap results.
+- If Hub guidance looks stale (session_digest guidance status, or doctor),
+  mention it once, keep using the current MCP contract, and recommend
+  `adhd-hub setup . --refresh` — do not nag repeatedly or hand-edit AGENTS.md.
+- Summaries only; never secrets, credentials, env files, or transcripts.
 <!-- adhd-hub:project-agent:end -->

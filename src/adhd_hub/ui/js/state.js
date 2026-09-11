@@ -45,6 +45,7 @@ export const state = {
   overviewCache: null,
   detailCache: null,
   activeScreen: "now",
+  settingsReturnScreen: "now",
   chosenId: preferences.getItem("adhd_hub_chosen_thread"),
   chosenThread: null,
   focusState: preferences.getItem("adhd_hub_focus_state") || "ready",

@@ -101,9 +101,12 @@ def cmd_forge_wiki_paths(args: argparse.Namespace) -> int:
 
 
 def cmd_setup(args: argparse.Namespace) -> int:
+    from adhd_hub.connect import expected_cursor_rule_text
     from adhd_hub.project_setup import (
+        check_project_guidance,
         install_agent_guidance,
         install_skills,
+        print_guidance_check,
         uninstall_agent_guidance,
     )
 
@@ -112,6 +115,14 @@ def cmd_setup(args: argparse.Namespace) -> int:
         path, action = uninstall_agent_guidance(project)
         print(f"ADHD Hub project guidance {action}: {path}")
         return 0
+
+    if args.check:
+        items = check_project_guidance(
+            project,
+            expected_cursor_rule=expected_cursor_rule_text(),
+            check_skills=True,
+        )
+        return print_guidance_check(items)
 
     path, action = install_agent_guidance(project)
     print(f"ADHD Hub project guidance {action}: {path}")
@@ -179,7 +190,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         agents=agents or None,
     )
     print_report(report, verbose=args.verbose)
-    return 0 if report.ok else 1
+    continuity_drift = any(
+        s.status in {"warn", "error"}
+        for s in report.steps
+        if s.name.startswith("AGENTS.md")
+        or s.name == "Cursor rule"
+        or s.name.endswith(" skill")
+    )
+    return 0 if report.ok and not continuity_drift else 1
 
 
 def cmd_login(args: argparse.Namespace) -> int:
@@ -310,6 +328,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--uninstall",
         action="store_true",
         help="Remove only the managed ADHD Hub block from AGENTS.md",
+    )
+    setup.add_argument(
+        "--check",
+        action="store_true",
+        help="Report Hub guidance/skill drift without writing files",
+    )
+    setup.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Refresh Hub-managed AGENTS.md block (default behaviour of setup)",
     )
     setup.set_defaults(func=cmd_setup)
 
