@@ -202,6 +202,12 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 
 `adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
 
+To point an already-connected machine at a different Hub (for example localhost → HTTPS):
+
+```bash
+adhd-hub use-hub https://adhd-hub.example.com --project /path/to/project --agents cursor,codex,claude
+```
+
 ## Roadmap
 
 Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). Near-term highlights:

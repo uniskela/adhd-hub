@@ -48,6 +48,30 @@ adhd-hub login --hub "$ADHD_HUB_PUBLIC_URL"
 adhd-hub logout --hub "$ADHD_HUB_PUBLIC_URL"   # forget this machine's session
 ```
 
+### Switch Hub host (localhost → remote)
+
+If `connect` defaulted to `http://127.0.0.1:8787` and you want a hosted Hub instead:
+
+```bash
+adhd-hub use-hub https://adhd-hub.example.com \
+  --project /path/to/project \
+  --agents cursor,codex,claude
+```
+
+That command:
+
+1. Saves the URL as your CLI **default hub** (`~/.config/adhd-hub/credentials.json` → `default_hub`)
+2. Retargets Cursor / Codex / Claude MCP entries to `https://…/mcp`
+3. Runs the browser login handshake if you are not already signed in to that Hub
+
+Afterward, `adhd-hub doctor` / `connect` / `login` without `--hub` use the saved host (env vars like `ADHD_HUB_PUBLIC_URL` still win when set).
+
+You can also re-run a full connect with an explicit host:
+
+```bash
+adhd-hub connect /path/to/project --hub https://adhd-hub.example.com --agents cursor,codex,claude
+```
+
 ### Threat model (short)
 
 | Secret | Where it lives | Where it must not go |

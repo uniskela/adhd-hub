@@ -129,11 +129,20 @@ def normalize_hub_url(url: str) -> str:
 
 
 def resolve_hub_url(explicit: str | None = None) -> str:
+    saved_default: str | None = None
+    try:
+        # Lazy import: connect_login imports normalize helpers from this module.
+        from adhd_hub.connect_login import load_saved_default_hub
+
+        saved_default = load_saved_default_hub()
+    except (OSError, ValueError, TypeError, ImportError):
+        saved_default = None
     for candidate in (
         explicit,
         os.environ.get("ADHD_HUB_PUBLIC_URL"),
         os.environ.get("ADHD_HUB_HUB_URL"),
         os.environ.get("ADHD_HUB_URL"),
+        saved_default,
     ):
         if candidate and candidate.strip():
             return normalize_hub_url(candidate)
@@ -1177,6 +1186,107 @@ def classify_step_group(name: str) -> str:
     if any(name.startswith(p) for p in _COMPANION_PREFIXES):
         return "Companions"
     return "Other"
+
+
+def run_use_hub(
+    *,
+    hub_url: str,
+    project: Path | None = None,
+    agents: list[str] | None = None,
+    scope: str = "project",
+    token: str | None = None,
+    dry_run: bool = False,
+) -> ConnectReport:
+    """Retarget local MCP configs and remember this Hub as the CLI default.
+
+    Does not reinstall companions or rewrite AGENTS.md — use ``connect`` for
+    a full wire-up. Saves ``default_hub`` so future ``connect`` / ``doctor`` /
+    ``login`` calls without ``--hub`` use this URL instead of localhost.
+    """
+    hub_url = normalize_hub_url(hub_url)
+    report = ConnectReport(hub_url=hub_url)
+    if dry_run:
+        report.add("mode", "ok", "dry-run (no files or remote writes)")
+
+    ok, detail = probe_hub(hub_url, token=token)
+    report.add("hub probe", "ok" if ok else "warn", detail)
+
+    if not dry_run:
+        try:
+            from adhd_hub.connect_login import set_default_hub
+
+            path = set_default_hub(hub_url)
+            report.add("default hub", "ok", f"saved: {path}")
+        except (OSError, ValueError, TypeError) as exc:
+            report.add("default hub", "error", str(exc))
+            return report
+    else:
+        report.add("default hub", "ok", f"would save preferred hub: {hub_url}")
+
+    agents_list = [a.strip() for a in (agents or []) if a and str(a).strip()]
+    if not agents_list:
+        agents_list = ["cursor", "codex", "claude"]
+    agents_set = {a.strip().lower() for a in agents_list if a.strip() and a.strip() != "*"}
+    if any(a.strip() == "*" for a in agents_list) and not agents_set:
+        agents_set = {"cursor", "codex", "claude"}
+
+    project_path: Path | None = None
+    if project is not None:
+        project_path = project.expanduser().resolve()
+        if not project_path.is_dir():
+            report.add("project", "error", f"not a directory: {project_path}")
+            return report
+        report.add("project", "ok", str(project_path))
+
+    if "cursor" in agents_set:
+        try:
+            targets: list[tuple[str, Path]] = []
+            if scope in {"user", "both"}:
+                targets.append(("cursor MCP (user)", cursor_user_mcp_path()))
+            if scope in {"project", "both"}:
+                if project_path is None:
+                    report.add(
+                        "cursor MCP (project)",
+                        "warn",
+                        "skipped — pass --project to retarget project MCP",
+                    )
+                else:
+                    targets.append(("cursor MCP (project)", cursor_project_mcp_path(project_path)))
+            for label, path in targets:
+                action = merge_cursor_mcp(path, hub_url, dry_run=dry_run)
+                report.add(label, "ok", f"{action}: {path}")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            report.add("cursor MCP", "error", str(exc))
+
+    if "codex" in agents_set:
+        try:
+            path = codex_config_path()
+            action = merge_codex_mcp(path, hub_url, dry_run=dry_run)
+            report.add("codex MCP", "ok", f"{action}: {path}")
+        except (OSError, ValueError, TypeError) as exc:
+            report.add("codex MCP", "error", str(exc))
+
+    if "claude" in agents_set or "claude-code" in agents_set:
+        try:
+            path = claude_user_mcp_path()
+            action = merge_claude_mcp(path, hub_url, dry_run=dry_run)
+            report.add("claude MCP", "ok", f"{action}: {path}")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            report.add("claude MCP", "error", str(exc))
+
+    doctor = format_hub_cli_command(
+        hub_url,
+        "doctor",
+        "--hub",
+        hub_url,
+        *(["--project", str(project_path)] if project_path else []),
+    )
+    report.add(
+        "setup complete",
+        "ok",
+        f"Open {hub_url}/ui · run: {doctor}",
+    )
+    return report
 
 
 def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
