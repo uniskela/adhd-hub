@@ -15,7 +15,7 @@ from adhd_hub.openclaw_config import (
 from adhd_hub.openclaw_config import (
     save_openclaw_config as persist_openclaw_config,
 )
-from adhd_hub.openclaw_pair import OpenClawPairStore, openclaw_pair_prompt
+from adhd_hub.openclaw_pair import OpenClawPairStore
 
 if TYPE_CHECKING:
     from adhd_hub.service import HubService
@@ -64,15 +64,17 @@ class OpenClawFacade:
         return self._pair_store.status().public_dict()
 
     def start_openclaw_pair(self, *, hub_origin: str) -> dict:
-        state = self._pair_store.start()
-        out = state.public_dict()
-        out["prompt"] = openclaw_pair_prompt(
-            hub_origin=hub_origin,
-            user_code=state.user_code,
-        )
-        return out
+        state = self._pair_store.start(hub_origin=hub_origin)
+        return state.public_dict()
 
     def submit_openclaw_pair(self, payload: dict) -> dict:
+        error_code = str(payload.get("error_code") or "").strip()
+        if error_code:
+            state = self._pair_store.fail(
+                user_code=str(payload.get("user_code") or ""),
+                error_code=error_code,
+            )
+            return state.public_dict()
         state = self._pair_store.submit(
             user_code=str(payload.get("user_code") or ""),
             webhook_url=str(payload.get("webhook_url") or ""),

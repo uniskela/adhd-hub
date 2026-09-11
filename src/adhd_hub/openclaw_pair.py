@@ -3,7 +3,7 @@
 Flow (single-owner Hub):
 1. Operator starts a pair in the Hub UI (authenticated) → short user code.
 2. OpenClaw submits webhook/agent URLs + its hook bearer token with that code
-   (no ADHD_HUB_AUTH_TOKEN).
+   (no ADHD_HUB_AUTH_TOKEN), or reports a safe structured provisioning failure.
 3. Operator approves the submitted endpoints in the Hub UI → saved encrypted.
 
 This is not OAuth; OpenClaw hooks have no callback contract. Pairing avoids
@@ -22,7 +22,8 @@ from adhd_hub.connect_auth import generate_user_code, normalize_user_code
 from adhd_hub.openclaw_config import OpenClawConfig
 
 PAIR_SECONDS = 15 * 60
-PairStatus = Literal["none", "waiting", "submitted", "expired"]
+PAIR_FAILURE_CODES = frozenset({"hooks_token_secretref_unsupported"})
+PairStatus = Literal["none", "waiting", "submitted", "failed", "expired"]
 
 
 @dataclass
@@ -34,10 +35,12 @@ class PairState:
     agent_url: str = ""
     token_present: bool = False
     submitted_at: float | None = None
+    error_code: str = ""
+    hub_origin: str = ""
 
     def public_dict(self) -> dict[str, Any]:
         remaining = max(0, int(self.expires_at - time.time())) if self.expires_at else 0
-        return {
+        out: dict[str, Any] = {
             "status": self.status,
             "user_code": self.user_code if self.status in {"waiting", "submitted"} else "",
             "expires_in": remaining if self.status in {"waiting", "submitted"} else 0,
@@ -46,6 +49,14 @@ class PairState:
             "token_present": self.token_present if self.status == "submitted" else False,
             "submitted_at": self.submitted_at if self.status == "submitted" else None,
         }
+        if self.status == "failed":
+            out["error_code"] = self.error_code
+        if self.status in {"waiting", "submitted"} and self.hub_origin:
+            out["prompt"] = openclaw_pair_prompt(
+                hub_origin=self.hub_origin,
+                user_code=self.user_code,
+            )
+        return out
 
 
 def pair_path(data_dir: Path) -> Path:
@@ -94,14 +105,22 @@ class OpenClawPairStore:
                 agent_url=str(raw.get("agent_url") or ""),
                 token_present=bool(raw.get("token")),
                 submitted_at=float(raw["submitted_at"]) if raw.get("submitted_at") else None,
+                hub_origin=str(raw.get("hub_origin") or ""),
+            )
+        if phase == "failed":
+            return PairState(
+                status="failed",
+                expires_at=expires_at,
+                error_code=str(raw.get("error_code") or ""),
             )
         return PairState(
             status="waiting",
             user_code=str(raw.get("user_code") or ""),
             expires_at=expires_at,
+            hub_origin=str(raw.get("hub_origin") or ""),
         )
 
-    def start(self) -> PairState:
+    def start(self, *, hub_origin: str = "") -> PairState:
         current = self.status()
         if current.status == "submitted":
             raise ValueError(
@@ -115,6 +134,35 @@ class OpenClawPairStore:
                 "user_code": code,
                 "expires_at": now + PAIR_SECONDS,
                 "created_at": now,
+                "hub_origin": str(hub_origin or "").rstrip("/"),
+            }
+        )
+        return self.status()
+
+    def fail(self, *, user_code: str, error_code: str) -> PairState:
+        normalized = normalize_user_code(user_code)
+        if not normalized:
+            raise ValueError("invalid_user_code")
+        raw = self._load_raw()
+        if not raw:
+            raise ValueError("no_active_pair")
+        expires_at = float(raw.get("expires_at") or 0)
+        if expires_at <= time.time():
+            self.clear()
+            raise ValueError("pair_expired")
+        if normalize_user_code(str(raw.get("user_code") or "")) != normalized:
+            raise ValueError("user_code_mismatch")
+        if str(raw.get("phase") or "") != "waiting":
+            raise ValueError("pair_not_waiting")
+        if error_code not in PAIR_FAILURE_CODES:
+            raise ValueError("invalid_pair_error_code")
+        self._save_raw(
+            {
+                "phase": "failed",
+                "user_code": normalized,
+                "expires_at": expires_at,
+                "created_at": raw.get("created_at", time.time()),
+                "error_code": error_code,
             }
         )
         return self.status()
@@ -181,6 +229,7 @@ class OpenClawPairStore:
                 "remind_cooldown_days": preview.remind_cooldown_days,
                 "digest_max_nudge": preview.digest_max_nudge,
                 "_schedule_from_submit": schedule_from_submit,
+                "hub_origin": str(raw.get("hub_origin") or ""),
             }
         )
         return self.status()
@@ -235,20 +284,35 @@ def openclaw_pair_prompt(*, hub_origin: str, user_code: str) -> str:
             "   npx skills add uniskela/adhd-hub -g -y -a openclaw",
             "2. Ensure the OpenClaw gateway exposes /hooks/wake and optional /hooks/agent",
             "   on a LAN/Tailscale URL (not the public internet).",
-            "3. Create or reveal a bearer token those hooks accept.",
-            "4. Submit the pair to the Hub (no Hub auth token — pairing code only):",
+            "3. Provision a dedicated hook bearer token without exposing it. Configure",
+            "   hooks.token through a protected runtime SecretRef, or inject it through the",
+            "   gateway service environment if that is the supported secure path for this",
+            "   OpenClaw version. Never print, echo, reveal, or paste the token into chat,",
+            "   command arguments, config files, or tool output.",
+            "4. If hooks.token cannot be securely provisioned by reference/runtime injection,",
+            "   report this structured failure to the Hub and stop — do not fall back to",
+            "   exposing the token:",
             f"   POST {hub}/api/openclaw/pair/submit",
             "   JSON body:",
             "   {",
             f'     "user_code": "{code}",',
+            '     "error_code": "hooks_token_secretref_unsupported"',
+            "   }",
+            "5. If secure provisioning succeeds, submit the pair from a secret-injected",
+            "   request. The Hub needs the actual hook token to authenticate outbound nudges,",
+            "   but the request mechanism must inject it without displaying it:",
+            f"   POST {hub}/api/openclaw/pair/submit",
+            "   JSON body shape:",
+            "   {",
+            f'     "user_code": "{code}",',
             '     "webhook_url": "http(s)://<openclaw-host>:18789/hooks/wake",',
             '     "agent_url": "http(s)://<openclaw-host>:18789/hooks/agent",',
-            '     "token": "<openclaw-hook-bearer-token>",',
+            '     "token": "<secret-injected-at-request-time>",',
             '     "alerts_enabled": true',
             "   }",
-            "5. Recommended Hub alert defaults unless I say otherwise:",
+            "6. Recommended Hub alert defaults unless I say otherwise:",
             '   cron "0 9 * * *", stale after 3 days, cooldown 3 days, digest limit 2.',
-            "6. Tell me when submit succeeds so I can Approve in Hub Settings → Connections,",
+            "7. Tell me when submit succeeds so I can Approve in Hub Settings → Connections,",
             "   then help interpret Save & send test if needed.",
             "",
             f"Hub UI: {hub}/ui",

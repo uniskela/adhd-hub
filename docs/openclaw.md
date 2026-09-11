@@ -16,10 +16,16 @@ This installs the skills in OpenClaw's global skills directory. If you are devel
 
 **Pairing (recommended):** In ADHD Hub, open **Settings → Connections → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
 
-**Manual path:** Enable hooks on the OpenClaw gateway and create a bearer token there. In the same Connections panel:
+Secure pairing has one prerequisite on the OpenClaw side: `hooks.token` must be provisioned without exposing the raw bearer token to the pairing agent. Use a protected runtime SecretRef when the installed OpenClaw version supports it, or inject the hook token through the gateway service environment when that is the supported secure path. The pairing agent must never print, echo, reveal, or paste the hook token into chat, command arguments, config files, or tool output.
+
+The Hub still needs the **actual** hook token eventually because it authenticates outbound stale-work nudges to `/hooks/wake` and `/hooks/agent`. A SecretRef itself is meaningful only inside the OpenClaw gateway, so the successful pairing request must inject the resolved token directly into the request body without surfacing it to the agent or operator transcript.
+
+If OpenClaw cannot securely provision `hooks.token`, the generated pairing prompt reports the structured failure `hooks_token_secretref_unsupported` to the Hub and stops. The Connections panel then explains the prerequisite instead of leaving the pairing attempt apparently stuck. Do not work around that status by asking an agent to expose the token.
+
+**Manual path:** Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use the same Connections panel to:
 
 1. Add the private webhook URL, or the optional agent URL for a richer message.
-2. Enter the OpenClaw hook bearer token.
+2. Enter the OpenClaw hook bearer token directly into the Hub UI.
 3. Choose whether alerts are enabled.
 4. Save, then choose **Save & send test**.
 
