@@ -19,6 +19,7 @@ from adhd_hub.config import Settings, load_settings
 from adhd_hub.connect import render_install_ps1, render_install_sh
 from adhd_hub.connect_auth import ConnectStore, bearer_authorized, build_connect_router
 from adhd_hub.mcp_app import build_mcp
+from adhd_hub.oauth import build_oauth_router, www_authenticate_challenge
 from adhd_hub.package_dist import find_cli_wheel
 from adhd_hub.scheduler import start_scheduler
 from adhd_hub.service import HubService
@@ -64,7 +65,11 @@ class BearerGateMiddleware(BaseHTTPMiddleware):
                     return JSONResponse(
                         {"detail": "Unauthorized"},
                         status_code=401,
-                        headers={"WWW-Authenticate": "Bearer"},
+                        headers={
+                            "WWW-Authenticate": www_authenticate_challenge(
+                                self.settings, request
+                            )
+                        },
                     )
         response = await call_next(request)
         if path.startswith("/api/"):
@@ -142,6 +147,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.connect_store = connect_store
     app.include_router(build_auth_router(settings, sessions))
     app.include_router(build_connect_router(settings, sessions, connect_store))
+    app.include_router(build_oauth_router(settings))
     auth_dep = auth_dependency(settings, sessions, connect_store)
     app.include_router(build_router(service, auth_dep), prefix="/api")
     app.include_router(build_ui_router())
