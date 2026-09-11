@@ -119,18 +119,18 @@ Complete! ADHD Hub is connected.
 Hub: http://127.0.0.1:8787
 ```
 
-On failure the banner is `Connect finished with errors — see summary below.` (doctor uses that same wording). Color is green for success and red for failure when color is on.
+On failure the banner is `Connect finished with errors — see summary below.` (doctor uses that same wording). Color is green for success and red for failure when color is on. Failure here means at least one step has status **error**. **warn**, **missing**, and **manual** still appear under **Needs attention** on a green report (typical for `doctor` when optional files are absent).
 
 ### Do next or Fix these
 
 - **Do next** (success) — short bullets. Always includes opening the Hub UI and a close-the-terminal note. After `connect`, also restart agents, a `doctor` verify line, and optional `adhd-hub` PATH install. Optional companions guide when companion steps ran.
-- **Fix these** (failure) — numbered `name — short detail` lines for **warn**, **error**, and **missing** steps only. Manual companion tips are not listed here.
+- **Fix these** (failure) — numbered `name — detail` lines for **warn**, **error**, and **missing** steps only. Manual companion tips are not listed here.
 
 A failing report ends with `Fix the XX/!! items above, then re-run the install/connect command.`
 
 ### Needs attention and Done
 
-**Needs attention** lists every **warn**, **error**, **missing**, or **manual** step with a mark and the full detail. Empty sections are omitted.
+**Needs attention** lists every **warn**, **error**, **missing**, or **manual** step with a mark and the same step detail. Empty sections are omitted.
 
 | Status | Mark | Color (when enabled) |
 | --- | --- | --- |
