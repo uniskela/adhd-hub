@@ -379,24 +379,27 @@ def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
 _FALLBACK_CURSOR_RULE = """---
 description: ADHD Progress Hub — check overlap and save progress on unfinished work
 alwaysApply: true
-hub_guidance_version: 2
+hub_guidance_version: 3
 ---
 
 # ADHD Progress Hub
 
-If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailable on Hub-worthy work: the **first line** of your reply on that turn (and on later substantial Hub-worthy turns while still down) MUST state that Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Then continue the authorized work. Never invent hub state or claim a Hub write succeeded.
+Use Hub for substantial continuity-worthy work, not trivial/read-only questions, quick explanations, or tiny edits.
 
-When this workspace involves starting, resuming, or leaving half-finished work:
+If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailable: on the first substantial Hub-worthy turn after detecting the outage, the **first line** MUST state that Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Repeat the warning only if Hub status changes, a persistence attempt fails again, or the reply could otherwise imply continuity was saved. Then continue the authorized work. Never invent Hub state or claim a Hub write succeeded.
 
-1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query.
-2. One thread = one independently finishable outcome. Known thread → `upsert_progress(thread_id=...)` with goal/focus/next/resume. Different goal → separate thread.
-3. When finished, `mark_done` on the known thread id only.
+When this workspace involves substantial starting, resuming, or pausing work:
+
+1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query once per meaningful session. Reuse resolved context where possible.
+2. One thread = one independently finishable outcome. If resuming a known thread, reuse its `thread_id`. Otherwise call `check_overlap` before potentially new work and reuse a candidate only when its Goal matches; different goal → separate thread (`force_new_thread=true` when needed).
+3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state. When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
+4. When finished, `mark_done` on the known completed thread id only. Never close unrelated overlap results.
 
 If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` — do not nag or hand-edit AGENTS.md.
 
-If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox instead: open a GitHub/Gitea issue titled `[ADHD] …` (title prefix is enough; optional labels `adhd-hub`, `project:<slug>`, `source:cursor`) and a short Goal/Focus/Next/Resume cue. Skip labels if the token cannot set them.
+If Hub MCP is unreachable (Cursor Cloud / remote sandbox), use the forge issue mailbox only when issue-write access is available and the authenticated identity is accepted by Hub Inbox authors. Open/update a GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip labels if the token cannot set them.
 
-Never send secrets or full transcripts. Prefer summaries; never dump full chat transcripts into the hub.
+Never put credentials, customer/personal data, private Hub URLs, internal hostnames/IPs, absolute local workspace paths, or full transcripts in public issues or progress notes. Prefer short repository-relative summaries.
 """
 
 
