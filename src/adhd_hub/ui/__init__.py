@@ -8,20 +8,20 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Resp
 UI_DIR = Path(__file__).resolve().parent
 JS_DIR = UI_DIR / "js"
 
-# Allowlisted ES modules under /ui/js/
-UI_JS_MODULES = {
-    "state.js",
-    "dom.js",
-    "api.js",
-    "auth.js",
-    "theme.js",
-    "screens.js",
-    "now.js",
-    "work.js",
-    "progress.js",
-    "settings.js",
-    "load.js",
-    "boot.js",
+# Allowlisted ES modules under /ui/js/, mapped to trusted on-disk paths.
+UI_JS_MODULE_PATHS = {
+    "state.js": JS_DIR / "state.js",
+    "dom.js": JS_DIR / "dom.js",
+    "api.js": JS_DIR / "api.js",
+    "auth.js": JS_DIR / "auth.js",
+    "theme.js": JS_DIR / "theme.js",
+    "screens.js": JS_DIR / "screens.js",
+    "now.js": JS_DIR / "now.js",
+    "work.js": JS_DIR / "work.js",
+    "progress.js": JS_DIR / "progress.js",
+    "settings.js": JS_DIR / "settings.js",
+    "load.js": JS_DIR / "load.js",
+    "boot.js": JS_DIR / "boot.js",
 }
 
 
@@ -48,13 +48,8 @@ def build_ui_router() -> APIRouter:
 
     @router.get("/ui/js/{name}")
     def ui_js_module(name: str):
-        if name not in UI_JS_MODULES:
-            raise HTTPException(404, "Asset not found")
-        js_root = JS_DIR.resolve()
-        path = (JS_DIR / name).resolve()
-        try:
-            path.relative_to(js_root)
-        except ValueError:
+        path = UI_JS_MODULE_PATHS.get(name)
+        if path is None:
             raise HTTPException(404, "Asset not found")
         if not path.is_file():
             raise HTTPException(404, "Asset not found")
