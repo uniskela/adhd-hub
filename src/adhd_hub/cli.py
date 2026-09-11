@@ -204,6 +204,31 @@ def cmd_logout(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_use_hub(args: argparse.Namespace) -> int:
+    from adhd_hub.connect import print_report, resolve_hub_url, run_use_hub
+    from adhd_hub.connect_login import resolve_cli_token, run_login
+
+    hub_url = resolve_hub_url(args.hub)
+    agents = [part.strip() for part in (args.agents or "").split(",") if part.strip()]
+    token = resolve_cli_token(args.token, hub_url)
+    if not args.dry_run and not args.no_login and not token:
+        try:
+            token = run_login(hub_url, open_browser=not args.no_browser)
+        except (RuntimeError, ConnectionError, ValueError) as exc:
+            print(f"CLI login skipped: {exc}", file=sys.stderr)
+            token = None
+    report = run_use_hub(
+        hub_url=hub_url,
+        project=Path(args.project) if args.project else None,
+        agents=agents or None,
+        scope=args.scope,
+        token=token,
+        dry_run=args.dry_run,
+    )
+    print_report(report, verbose=args.verbose)
+    return 0 if report.ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="adhd-hub", description="ADHD Progress Hub")
     p.add_argument("-c", "--config", help="Path to config.toml")
@@ -292,7 +317,7 @@ def build_parser() -> argparse.ArgumentParser:
     connect.add_argument(
         "--hub",
         default=None,
-        help="Hub base URL (default: ADHD_HUB_PUBLIC_URL or http://127.0.0.1:8787)",
+        help="Hub base URL (default: ADHD_HUB_PUBLIC_URL, saved default_hub, or http://127.0.0.1:8787)",
     )
     connect.add_argument(
         "--agents",
@@ -425,6 +450,52 @@ def build_parser() -> argparse.ArgumentParser:
     logout.add_argument("--hub", default=None, help="Hub base URL")
     logout.add_argument("--token", default=None, help="Optional bearer to revoke")
     logout.set_defaults(func=cmd_logout)
+
+    use_hub = sub.add_parser(
+        "use-hub",
+        help="Switch preferred Hub host and retarget local MCP configs",
+    )
+    use_hub.add_argument(
+        "hub",
+        help="Hub base URL (e.g. https://adhd-hub.example.com)",
+    )
+    use_hub.add_argument(
+        "--project",
+        default=".",
+        help="Project folder whose Cursor MCP to retarget (default: .)",
+    )
+    use_hub.add_argument(
+        "--agents",
+        default="cursor,codex,claude",
+        help="Comma list of agents to retarget (default: cursor,codex,claude)",
+    )
+    use_hub.add_argument(
+        "--scope",
+        choices=("project", "user", "both"),
+        default="project",
+        help="Where to write Cursor MCP config (default: project)",
+    )
+    use_hub.add_argument(
+        "--token",
+        default=None,
+        help="Hub bearer token (default: saved CLI session, then ADHD_HUB_AUTH_TOKEN)",
+    )
+    use_hub.add_argument(
+        "--no-login",
+        action="store_true",
+        help="Do not open the browser connect handshake when no session is saved",
+    )
+    use_hub.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Print the connect code instead of opening a browser",
+    )
+    use_hub.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show planned writes without changing files",
+    )
+    use_hub.set_defaults(func=cmd_use_hub)
 
     return p
 

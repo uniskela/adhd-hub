@@ -41,6 +41,8 @@ Published images (only after a manual release-PR merge by `uniskela`):
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
 
+Pre-1.0 bumps (see `release-please-config.json`): `fix:` → patch, `feat:` → minor, `feat!:` / breaking → minor (not 1.0.0 yet).
+
 Documentation, chore, test, and CI-only merges do not open a release PR, even if their subject accidentally starts with `feat:`. A feature, fix, performance, revert, or explicit breaking-change subject reaches Release Please only when that commit changes a shipped runtime surface (`src/`, package metadata/lockfile, `Dockerfile`, or `docker-compose.yml`). A generated release PR continues through the tag-and-publish step after `uniskela` manually merges it.
 
 ```bash
@@ -201,6 +203,12 @@ adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
 `adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
+
+To point an already-connected machine at a different Hub (for example localhost → HTTPS):
+
+```bash
+adhd-hub use-hub https://adhd-hub.example.com --project /path/to/project --agents cursor,codex,claude
+```
 
 ## Roadmap
 

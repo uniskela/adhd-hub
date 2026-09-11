@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,6 +23,61 @@ from adhd_hub.connect import (
 
 def test_normalize_hub_url_strips_slash() -> None:
     assert normalize_hub_url("http://hub.example:8787/") == "http://hub.example:8787"
+
+
+def test_resolve_hub_url_uses_saved_default(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub.connect import resolve_hub_url
+    from adhd_hub.connect_login import set_default_hub
+
+    monkeypatch.delenv("ADHD_HUB_PUBLIC_URL", raising=False)
+    monkeypatch.delenv("ADHD_HUB_HUB_URL", raising=False)
+    monkeypatch.delenv("ADHD_HUB_URL", raising=False)
+    monkeypatch.setenv("ADHD_HUB_CREDENTIALS", str(tmp_path / "creds.json"))
+    set_default_hub("https://adhd-hub.example.com/")
+    assert resolve_hub_url(None) == "https://adhd-hub.example.com"
+    assert resolve_hub_url("http://127.0.0.1:8787") == "http://127.0.0.1:8787"
+
+
+def test_run_use_hub_retargets_mcp_and_saves_default(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub.connect import run_use_hub
+    from adhd_hub.connect_login import load_saved_default_hub
+
+    project = tmp_path / "proj"
+    project.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("ADHD_HUB_CREDENTIALS", str(tmp_path / "creds.json"))
+    (project / ".cursor").mkdir()
+    (project / ".cursor" / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "adhd-hub": {
+                        "url": "http://127.0.0.1:8787/mcp",
+                        "headers": {"Authorization": "Bearer ${env:ADHD_HUB_AUTH_TOKEN}"},
+                    }
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok")):
+        report = run_use_hub(
+            hub_url="https://adhd-hub.example.com/",
+            project=project,
+            agents=["cursor"],
+            scope="project",
+        )
+
+    assert report.ok
+    assert load_saved_default_hub() == "https://adhd-hub.example.com"
+    mcp = json.loads((project / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
+    assert mcp["mcpServers"]["adhd-hub"]["url"] == "https://adhd-hub.example.com/mcp"
+    assert any(s.name == "default hub" and s.status == "ok" for s in report.steps)
 
 
 def test_merge_cursor_mcp_is_idempotent(tmp_path: Path) -> None:
