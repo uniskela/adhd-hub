@@ -309,7 +309,7 @@ def test_print_report_default_collapses_ok(capsys, monkeypatch) -> None:
     out = capsys.readouterr().out
     assert "Complete! ADHD Hub is connected." in out
     assert "Do next:" in out
-    assert "Superpowers" in out
+    assert "pick what fits" in out
     assert "coding-companions.md" in out
     assert "Done:" in out
     assert "Hub ·" in out and "ok" in out

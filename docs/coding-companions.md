@@ -34,7 +34,7 @@ Use the same `--agents` list as Hub MCP/skills. With no agents selected, the CLI
 
 You can also put flags in `ADHD_HUB_CONNECT_FLAGS` for the install one-liner.
 
-Hub can opt-in install **i-have-adhd**, **Graphify**, and **RTK** only. Superpowers, Context7, agent-browser, and Serena are documented here for manual setup—no `--with-*` flags or Settings toggles.
+Hub can opt-in install **i-have-adhd**, **Graphify**, and **RTK** only (Settings checkboxes + `--with-*`). Superpowers, Context7, agent-browser, and Serena appear in Settings as **manual** companions with links to their upstream repos—no Hub install flags.
 
 ---
 
@@ -157,6 +157,6 @@ Restart the coding agent after init. Upstream: [RTK README](https://github.com/r
 
 - These are **recommendations**, not Hub dependencies.
 - Prefer linking and opt-in CLI flags over silent installs.
-- Existing `--with-i-have-adhd` / `--with-graphify` / `--with-rtk` (and Settings toggles) remain the only Hub install paths. There are **no** `--with-*` flags or Settings toggles for Superpowers, Context7, agent-browser, or Serena.
+- Existing `--with-i-have-adhd` / `--with-graphify` / `--with-rtk` (and Settings checkboxes) remain the only Hub install paths. Superpowers, Context7, agent-browser, and Serena are listed in Settings with links to their upstream repos for manual install—no `--with-*` flags.
 - Respect each project’s license and attribution when redistributing (Hub does not vendor their code).
 - For RTK, prefer the README/TELEMETRY docs over any conflicting one-line disclaimer about defaults.
