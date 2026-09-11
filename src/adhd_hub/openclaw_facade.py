@@ -73,6 +73,13 @@ class OpenClawFacade:
         return out
 
     def submit_openclaw_pair(self, payload: dict) -> dict:
+        error_code = str(payload.get("error_code") or "").strip()
+        if error_code:
+            state = self._pair_store.fail(
+                user_code=str(payload.get("user_code") or ""),
+                error_code=error_code,
+            )
+            return state.public_dict()
         state = self._pair_store.submit(
             user_code=str(payload.get("user_code") or ""),
             webhook_url=str(payload.get("webhook_url") or ""),
