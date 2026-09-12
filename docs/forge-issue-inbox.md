@@ -25,7 +25,7 @@ Match GitHub `user.login` / Gitea username (case-insensitive).
 
 ## Enable
 
-1. Settings → Connections → Forge: turn on **Board / issues** and **Import cloud-agent issues (inbox)**.
+1. Settings → Forge: turn on **Board / issues** and **Import cloud-agent issues (inbox)**.
 2. Add your forge username(s) under **Inbox authors**.
 3. Save. Optionally click **Import issue inbox** once to test.
 4. The Hub also polls on `ADHD_HUB_FORGE_INBOX_CRON` (default every 15 minutes).
