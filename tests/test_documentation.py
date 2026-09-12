@@ -4,7 +4,6 @@ from pathlib import Path
 
 from adhd_hub.config import Settings
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
