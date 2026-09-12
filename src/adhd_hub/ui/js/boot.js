@@ -192,6 +192,7 @@ $("project-form").addEventListener("submit", (event) => {
   event.preventDefault();
   saveProject().catch((e) => setMsg(String(e)));
 });
+$("btn-close-project").addEventListener("click", () => $("project-dialog").close());
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
