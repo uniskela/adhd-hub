@@ -329,6 +329,9 @@ dialog {
   color: var(--ink);
   background: var(--card);
   overflow: hidden;
+}
+/* Native <dialog> hides via UA display:none when closed; never set display on bare dialog. */
+dialog[open] {
   display: flex;
   flex-direction: column;
 }
