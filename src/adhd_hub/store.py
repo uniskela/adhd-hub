@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,18 @@ from adhd_hub.models import (
     ThreadStatus,
     ThreadUpsert,
 )
+from adhd_hub.work_identity import (
+    WORK_IDENTITY_MIGRATED_META,
+    DuplicateExternalIdentityError,
+    ExternalIdentity,
+    ExternalIssueState,
+    WorkSource,
+    host_from_forge_browse_root,
+    normalize_external_identity,
+    thread_has_external_identity,
+)
+
+log = logging.getLogger(__name__)
 
 
 def utcnow() -> datetime:
@@ -162,6 +175,11 @@ class Store:
                 conn.execute("ALTER TABLE projects ADD COLUMN repo_url TEXT")
             if "archived_at" not in cols:
                 conn.execute("ALTER TABLE projects ADD COLUMN archived_at TEXT")
+            if "default_work_source" not in cols:
+                conn.execute(
+                    "ALTER TABLE projects ADD COLUMN default_work_source TEXT "
+                    "NOT NULL DEFAULT 'local'"
+                )
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
             for column in (
@@ -171,9 +189,35 @@ class Store:
                 "focus",
                 "next_steps",
                 "blocked_reason",
+                "work_source",
+                "external_provider",
+                "external_host",
+                "external_owner",
+                "external_repo",
+                "external_issue_state",
             ):
                 if column not in thread_cols:
                     conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
+            if "external_issue_number" not in thread_cols:
+                conn.execute("ALTER TABLE threads ADD COLUMN external_issue_number INTEGER")
+
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_threads_external_identity
+                ON threads(
+                    external_provider,
+                    external_host,
+                    external_owner,
+                    external_repo,
+                    external_issue_number
+                )
+                WHERE external_provider IS NOT NULL
+                  AND external_host IS NOT NULL
+                  AND external_owner IS NOT NULL
+                  AND external_repo IS NOT NULL
+                  AND external_issue_number IS NOT NULL
+                """
+            )
 
             note_cols = {row[1] for row in conn.execute("PRAGMA table_info(progress_notes)")}
             if "thread_id" not in note_cols:
@@ -219,6 +263,29 @@ class Store:
             focus=row["focus"] if "focus" in keys else None,
             next_steps=next_steps,
             blocked_reason=row["blocked_reason"] if "blocked_reason" in keys else None,
+            work_source=(
+                WorkSource(row["work_source"])
+                if "work_source" in keys and row["work_source"]
+                else None
+            ),
+            external_provider=(
+                WorkSource(row["external_provider"])
+                if "external_provider" in keys and row["external_provider"]
+                else None
+            ),
+            external_host=row["external_host"] if "external_host" in keys else None,
+            external_owner=row["external_owner"] if "external_owner" in keys else None,
+            external_repo=row["external_repo"] if "external_repo" in keys else None,
+            external_issue_number=(
+                int(row["external_issue_number"])
+                if "external_issue_number" in keys and row["external_issue_number"] is not None
+                else None
+            ),
+            external_issue_state=(
+                ExternalIssueState(row["external_issue_state"])
+                if "external_issue_state" in keys and row["external_issue_state"]
+                else None
+            ),
         )
 
     def upsert_thread(self, payload: ThreadUpsert) -> Thread:
@@ -253,6 +320,19 @@ class Store:
                     next_store = next_json
                 else:
                     next_store = existing["next_steps"]
+                work_source = (
+                    payload.work_source.value
+                    if payload.work_source is not None
+                    else dict(existing).get("work_source")
+                )
+                # Linked threads keep a pinned work_source; ignore conflicting upserts.
+                if (
+                    dict(existing).get("external_issue_number") is not None
+                    and dict(existing).get("external_provider")
+                ):
+                    work_source = dict(existing).get("work_source") or dict(existing).get(
+                        "external_provider"
+                    )
                 conn.execute(
                     """
                     UPDATE threads SET
@@ -268,6 +348,7 @@ class Store:
                         next_steps = ?,
                         blocked_reason = ?,
                         resume_step = ?,
+                        work_source = ?,
                         updated_at = ?
                     WHERE id = ?
                     """,
@@ -286,6 +367,7 @@ class Store:
                         next_store,
                         blocked,
                         resume,
+                        work_source,
                         now.isoformat(),
                         tid,
                     ),
@@ -297,8 +379,9 @@ class Store:
                         id, summary, status, energy, source_tool, workspace_path,
                         project_slug, chat_ref, transcript_ref, origin,
                         created_at, updated_at, last_reminded_at,
-                        goal, focus, next_steps, blocked_reason, resume_step
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+                        goal, focus, next_steps, blocked_reason, resume_step,
+                        work_source
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         tid,
@@ -318,6 +401,7 @@ class Store:
                         next_json if next_json is not None else "[]",
                         payload.blocked_reason,
                         payload.resume_step,
+                        payload.work_source.value if payload.work_source else None,
                     ),
                 )
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (tid,)).fetchone()
@@ -617,6 +701,237 @@ class Store:
             ).fetchall()
         return {row["key"]: row["value"] for row in rows}
 
+    def get_thread_by_external_identity(
+        self,
+        provider: WorkSource | str,
+        host: str | None,
+        owner: str,
+        repo: str,
+        number: int,
+    ) -> Thread | None:
+        identity = normalize_external_identity(provider, host, owner, repo, number)
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM threads
+                WHERE external_provider = ?
+                  AND external_host = ?
+                  AND external_owner = ?
+                  AND external_repo = ?
+                  AND external_issue_number = ?
+                """,
+                (
+                    identity.provider.value,
+                    identity.host,
+                    identity.owner,
+                    identity.repo,
+                    identity.number,
+                ),
+            ).fetchone()
+        return self._row_thread(row) if row else None
+
+    def attach_external_identity(
+        self,
+        thread_id: str,
+        identity: ExternalIdentity,
+        *,
+        dual_write_meta: bool = True,
+        external_issue_state: ExternalIssueState | None = None,
+    ) -> Thread:
+        """Pin work_source to provider and store host-scoped external identity (internal)."""
+        identity = normalize_external_identity(
+            identity.provider,
+            identity.host,
+            identity.owner,
+            identity.repo,
+            identity.number,
+        )
+        existing = self.get_thread_by_external_identity(
+            identity.provider,
+            identity.host,
+            identity.owner,
+            identity.repo,
+            identity.number,
+        )
+        if existing and existing.id != thread_id:
+            raise DuplicateExternalIdentityError(
+                f"external identity already linked to thread {existing.id}"
+            )
+        current = self.get_thread(thread_id)
+        if not current:
+            raise KeyError("thread_not_found")
+        if thread_has_external_identity(current):
+            pinned = normalize_external_identity(
+                current.external_provider or WorkSource.github,
+                current.external_host,
+                current.external_owner or "",
+                current.external_repo or "",
+                int(current.external_issue_number or 0),
+            )
+            if pinned != identity:
+                raise DuplicateExternalIdentityError(
+                    f"thread {thread_id} already linked to a different external identity"
+                )
+        now = utcnow().isoformat()
+        with self._conn() as conn:
+            try:
+                conn.execute(
+                    """
+                    UPDATE threads SET
+                        work_source = ?,
+                        external_provider = ?,
+                        external_host = ?,
+                        external_owner = ?,
+                        external_repo = ?,
+                        external_issue_number = ?,
+                        external_issue_state = COALESCE(?, external_issue_state),
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        identity.provider.value,
+                        identity.provider.value,
+                        identity.host,
+                        identity.owner,
+                        identity.repo,
+                        identity.number,
+                        external_issue_state.value if external_issue_state else None,
+                        now,
+                        thread_id,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise DuplicateExternalIdentityError(
+                    "external identity already linked to another thread"
+                ) from exc
+            if dual_write_meta:
+                conn.execute(
+                    "INSERT INTO meta(key, value) VALUES(?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (f"forge_issue:{thread_id}", str(identity.number)),
+                )
+            out = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+        assert out is not None
+        return self._row_thread(out)
+
+    def try_attach_from_forge_config(
+        self,
+        thread_id: str,
+        number: int,
+        *,
+        provider: str,
+        browse_root: str | None,
+        owner: str,
+        repo: str,
+    ) -> Thread | None:
+        """Dual-write first-class identity when forge target is confident; else meta-only."""
+        try:
+            src = WorkSource(provider)
+        except ValueError:
+            return None
+        if src not in (WorkSource.github, WorkSource.gitea):
+            return None
+        host = host_from_forge_browse_root(src, browse_root)
+        if not host or not owner.strip() or not repo.strip():
+            return None
+        try:
+            identity = normalize_external_identity(src, host, owner, repo, number)
+            return self.attach_external_identity(thread_id, identity)
+        except (ValueError, DuplicateExternalIdentityError, KeyError) as exc:
+            log.warning("skip first-class forge attach for %s: %s", thread_id, exc)
+            return None
+
+    def migrate_work_identity(
+        self,
+        resolve_forge_target: Callable[[str | None], dict[str, str] | None],
+    ) -> dict[str, Any]:
+        """One-shot fail-safe promote of forge_issue meta → first-class identity.
+
+        ``resolve_forge_target(project_slug)`` returns a confident dict with keys
+        provider, host, owner, repo — or None when identity cannot be established.
+        """
+        if self.get_meta(WORK_IDENTITY_MIGRATED_META) == "1":
+            return {"skipped": True, "reason": "already_migrated"}
+
+        mappings = self.list_meta_prefix("forge_issue:")
+        promoted: list[str] = []
+        unresolved: list[dict[str, str]] = []
+
+        for key, raw_number in mappings.items():
+            thread_id = key.removeprefix("forge_issue:")
+            thread = self.get_thread(thread_id)
+            if not thread:
+                unresolved.append(
+                    {"thread_id": thread_id, "reason": "missing_thread", "number": str(raw_number)}
+                )
+                continue
+            if thread_has_external_identity(thread):
+                promoted.append(thread_id)
+                continue
+            if not str(raw_number).isdigit():
+                unresolved.append(
+                    {
+                        "thread_id": thread_id,
+                        "reason": "invalid_number",
+                        "number": str(raw_number),
+                    }
+                )
+                continue
+            target = resolve_forge_target(thread.project_slug)
+            if not target:
+                unresolved.append(
+                    {
+                        "thread_id": thread_id,
+                        "reason": "unresolved_forge_target",
+                        "number": str(raw_number),
+                    }
+                )
+                log.warning(
+                    "work identity migration unresolved for thread %s (forge_issue=%s)",
+                    thread_id,
+                    raw_number,
+                )
+                continue
+            try:
+                identity = normalize_external_identity(
+                    target["provider"],
+                    target["host"],
+                    target["owner"],
+                    target["repo"],
+                    int(raw_number),
+                )
+                # Leave external_issue_state null — never infer from Hub status.
+                self.attach_external_identity(thread_id, identity, dual_write_meta=True)
+                promoted.append(thread_id)
+            except (ValueError, DuplicateExternalIdentityError, KeyError) as exc:
+                unresolved.append(
+                    {
+                        "thread_id": thread_id,
+                        "reason": f"attach_failed:{exc}",
+                        "number": str(raw_number),
+                    }
+                )
+                log.warning("work identity migration attach failed for %s: %s", thread_id, exc)
+
+        self.set_meta(WORK_IDENTITY_MIGRATED_META, "1")
+        result = {
+            "promoted": promoted,
+            "unresolved": unresolved,
+            "promoted_count": len(promoted),
+            "unresolved_count": len(unresolved),
+        }
+        if unresolved:
+            log.warning(
+                "work identity migration complete with %s unresolved mapping(s)",
+                len(unresolved),
+            )
+        else:
+            log.info(
+                "work identity migration complete (%s promoted)",
+                len(promoted),
+            )
+        return result
+
     def _row_pending(self, row: sqlite3.Row) -> PendingAction:
         try:
             payload = json.loads(row["payload"] or "{}")
@@ -757,6 +1072,9 @@ class Store:
             repo_url=dict(row).get("repo_url"),
             workspace_paths=[str(p) for p in paths],
             default_energy=EnergyLevel(row["default_energy"] or "unknown"),
+            default_work_source=WorkSource(
+                dict(row).get("default_work_source") or WorkSource.local.value
+            ),
             forge_owner=row["forge_owner"],
             forge_repo=row["forge_repo"],
             forge_wiki_path=row["forge_wiki_path"],
@@ -792,11 +1110,17 @@ class Store:
                     if "repo_url" in payload.model_fields_set
                     else dict(existing).get("repo_url")
                 )
+                default_work_source = (
+                    payload.default_work_source.value
+                    if payload.default_work_source is not None
+                    else (dict(existing).get("default_work_source") or WorkSource.local.value)
+                )
                 conn.execute(
                     """
                     UPDATE projects SET
                         title = ?, description = COALESCE(?, description), repo_url = ?,
                         workspace_paths = ?, default_energy = ?,
+                        default_work_source = ?,
                         forge_owner = COALESCE(?, forge_owner),
                         forge_repo = COALESCE(?, forge_repo),
                         forge_wiki_path = COALESCE(?, forge_wiki_path),
@@ -810,6 +1134,7 @@ class Store:
                         repo_url,
                         json.dumps(merged),
                         payload.default_energy.value,
+                        default_work_source,
                         payload.forge_owner,
                         payload.forge_repo,
                         payload.forge_wiki_path,
@@ -823,9 +1148,10 @@ class Store:
                     """
                     INSERT INTO projects (
                         slug, title, description, repo_url, workspace_paths, default_energy,
+                        default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slug,
@@ -834,6 +1160,7 @@ class Store:
                         payload.repo_url,
                         json.dumps(paths),
                         payload.default_energy.value,
+                        (payload.default_work_source or WorkSource.local).value,
                         payload.forge_owner,
                         payload.forge_repo,
                         payload.forge_wiki_path,
@@ -934,6 +1261,7 @@ class Store:
                         repo_url=existing.repo_url,
                         workspace_paths=paths,
                         default_energy=existing.default_energy,
+                        default_work_source=existing.default_work_source,
                         forge_owner=existing.forge_owner,
                         forge_repo=existing.forge_repo,
                         forge_wiki_path=existing.forge_wiki_path,
@@ -975,9 +1303,10 @@ class Store:
                     """
                     INSERT INTO projects (
                         slug, title, description, workspace_paths, default_energy,
+                        default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new,
@@ -985,6 +1314,7 @@ class Store:
                         row["description"],
                         row["workspace_paths"],
                         row["default_energy"],
+                        dict(row).get("default_work_source") or WorkSource.local.value,
                         row["forge_owner"],
                         row["forge_repo"],
                         row["forge_wiki_path"],

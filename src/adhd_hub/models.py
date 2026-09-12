@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from adhd_hub.work_identity import ExternalIssueState, WorkSource
+
 
 def _validated_repo_url(value: str | None) -> str | None:
     if value is None or not value.strip():
@@ -61,6 +63,14 @@ class Thread(BaseModel):
     focus: str | None = None
     next_steps: list[str] = Field(default_factory=list)
     blocked_reason: str | None = None
+    # Work source: None inherits project.default_work_source unless externally linked.
+    work_source: WorkSource | None = None
+    external_provider: WorkSource | None = None
+    external_host: str | None = None
+    external_owner: str | None = None
+    external_repo: str | None = None
+    external_issue_number: int | None = None
+    external_issue_state: ExternalIssueState | None = None
 
 
 class ThreadUpsert(BaseModel):
@@ -79,6 +89,7 @@ class ThreadUpsert(BaseModel):
     next_steps: list[str] | None = None
     blocked_reason: str | None = None
     resume_step: str | None = None
+    work_source: WorkSource | None = None
 
     @field_validator("next_steps")
     @classmethod
@@ -157,6 +168,7 @@ class Project(BaseModel):
     repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
     default_energy: EnergyLevel = EnergyLevel.unknown
+    default_work_source: WorkSource = WorkSource.local
     # Optional per-project forge override (empty = use global forge config)
     forge_owner: str | None = None
     forge_repo: str | None = None
@@ -179,6 +191,7 @@ class ProjectUpsert(BaseModel):
     repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
     default_energy: EnergyLevel = EnergyLevel.unknown
+    default_work_source: WorkSource | None = None
     forge_owner: str | None = None
     forge_repo: str | None = None
     forge_wiki_path: str | None = None
