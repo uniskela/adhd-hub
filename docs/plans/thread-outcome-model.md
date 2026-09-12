@@ -21,7 +21,7 @@ One thread = one independently finishable outcome.
 | Hub-created / wholly Hub-owned body | Hub may replace the status block (usually the whole body) |
 | Inbox / user-authored issue | Preserve content outside markers; upsert only the Hub status block |
 
-Association storage remains `forge_issue:<thread_id>` → issue number (opaque meta). A later **forge work graph** may promote this to a first-class link without requiring hierarchy tables in this change.
+Association storage is first-class host-scoped external identity on the thread (`external_provider` / `external_host` / `external_owner` / `external_repo` / `external_issue_number`) with dual-write of legacy `forge_issue:<thread_id>` → issue number during Foundation B1 (#73). See `docs/superpowers/specs/2026-09-12-source-aware-work-identity-design.md`.
 
 ## Deliberately deferred (separate finishable outcomes)
 

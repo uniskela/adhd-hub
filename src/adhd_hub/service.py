@@ -35,6 +35,11 @@ from adhd_hub.thread_state import (
     pick_safe_matches,
 )
 from adhd_hub.wiki import Wiki
+from adhd_hub.work_identity import (
+    WorkSource,
+    authority_for,
+    resolve_work_source,
+)
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +53,7 @@ class HubService:
         self.wiki = Wiki(settings.wiki_dir, timezone=self._prefs.timezone)
         self._forge = ForgeFacade(self)
         self._openclaw_ops = OpenClawFacade(self)
+        self.store.migrate_work_identity(self._confident_forge_target)
 
     def _apply_openclaw_config(self, config: OpenClawConfig) -> None:
         self._openclaw_ops._apply_openclaw_config(config)
@@ -93,6 +99,10 @@ class HubService:
 
     def save_forge_config(self, config: ForgeConfig) -> ForgeConfig:
         return self._forge.save_forge_config(config)
+
+    def _confident_forge_target(self, project_slug: str | None) -> dict[str, str] | None:
+        """Offline forge identity for migration — no guessing from partial overrides."""
+        return self._forge.confident_forge_target(project_slug)
 
     def resolve_project(
         self,
@@ -452,12 +462,36 @@ class HubService:
 
     def thread_public_dict(self, thread: Thread) -> dict:
         data = thread.model_dump(mode="json")
+        project = (
+            self.store.get_project(thread.project_slug) if thread.project_slug else None
+        )
+        source = resolve_work_source(project, thread)
+        data["work_source"] = source.value
+        data["authority"] = authority_for(source).value
+        number = thread.external_issue_number
         raw = self.store.get_meta(f"forge_issue:{thread.id}")
-        cfg = self.forge_config(thread.project_slug)
-        if raw and str(raw).isdigit():
+        if number is None and raw and str(raw).isdigit():
             number = int(raw)
+        cfg = self.forge_config(thread.project_slug)
+        if number is not None:
             data["forge_issue_number"] = number
-            data["forge_issue_url"] = cfg.issue_web_url(number)
+            if (
+                thread.external_provider
+                and thread.external_host
+                and thread.external_owner
+                and thread.external_repo
+            ):
+                scheme_host = (
+                    "https://github.com"
+                    if thread.external_provider == WorkSource.github
+                    else f"https://{thread.external_host}"
+                )
+                data["forge_issue_url"] = (
+                    f"{scheme_host}/{thread.external_owner}/"
+                    f"{thread.external_repo}/issues/{number}"
+                )
+            else:
+                data["forge_issue_url"] = cfg.issue_web_url(number)
         if thread.project_slug:
             notes = self.store.list_progress_notes(
                 thread.project_slug, limit=3, thread_id=thread.id
@@ -468,6 +502,31 @@ class HubService:
                 snippet = self.wiki.read_progress(thread.project_slug)
                 if snippet:
                     data["progress_snippet"] = snippet[-800:]
+        return data
+
+    def _enrich_compact_thread(self, thread: Thread) -> dict:
+        data = compact_thread_dict(thread)
+        project = (
+            self.store.get_project(thread.project_slug) if thread.project_slug else None
+        )
+        source = resolve_work_source(project, thread)
+        data["work_source"] = source.value
+        data["authority"] = authority_for(source).value
+        data["external_provider"] = (
+            thread.external_provider.value if thread.external_provider else None
+        )
+        data["external_host"] = thread.external_host
+        data["external_owner"] = thread.external_owner
+        data["external_repo"] = thread.external_repo
+        number = thread.external_issue_number
+        if number is None:
+            raw = self.store.get_meta(f"forge_issue:{thread.id}")
+            if raw and str(raw).isdigit():
+                number = int(raw)
+        data["external_issue_number"] = number
+        data["external_issue_state"] = (
+            thread.external_issue_state.value if thread.external_issue_state else None
+        )
         return data
 
     def _unfinished_threads(self, slug: str, *, limit: int = 50) -> list[Thread]:
@@ -966,7 +1025,7 @@ class HubService:
                     "project_slug": slug,
                     "thread_id": None,
                     "progress_path": None,
-                    "candidates": [compact_thread_dict(t) for t in unfinished],
+                    "candidates": [self._enrich_compact_thread(t) for t in unfinished],
                     "hint": (
                         "Multiple unfinished threads — pass thread_id for the matching "
                         "outcome, or force_new_thread=true to start a separate one."
@@ -1089,7 +1148,7 @@ class HubService:
             "created_thread": created,
             "needs_thread_selection": False,
             "forge": forge,
-            "thread": compact_thread_dict(thread) if thread else None,
+            "thread": self._enrich_compact_thread(thread) if thread else None,
         }
 
     def mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
