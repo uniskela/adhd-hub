@@ -62,6 +62,16 @@ class DuplicateExternalIdentityError(ValueError):
     """Raised when attaching an external identity already linked to another thread."""
 
 
+class RepoOwnedFieldMutationError(ValueError):
+    """Continuity API attempted to change a repo-owned field on external-authority work."""
+
+
+REPO_OWNED_CONTINUITY_MUTATION = (
+    "repo_owned_field_forbidden: use an explicit forge-aware operation "
+    "(B2b mark_done/reopen/promote) to change remote-owned fields"
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ExternalIdentity:
     provider: WorkSource

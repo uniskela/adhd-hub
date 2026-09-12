@@ -70,15 +70,78 @@ class BoardForgeSync:
     def sync_thread(self, thread: Thread) -> dict[str, Any]:
         if not (self.config.enabled() and self.config.board_enabled):
             return {"skipped": True, "reason": "board_sync_disabled"}
+
+        from adhd_hub.work_identity import (
+            WorkAuthority,
+            WorkSource,
+            thread_has_external_identity,
+        )
+
+        if thread_has_external_identity(thread) or (
+            thread.work_source in (WorkSource.github, WorkSource.gitea)
+        ):
+            authority = WorkAuthority.external
+        else:
+            authority = WorkAuthority.hub
+
         existing = None
         if thread.external_issue_number is not None:
             existing = str(thread.external_issue_number)
         if existing is None:
             existing = self._meta_get(self._meta_key(thread.id))
+
+        if authority == WorkAuthority.external:
+            if not self.config.publish_hub_status_block:
+                return {"skipped": True, "reason": "repo_primary_no_hub_mirror"}
+            if not existing:
+                return {"skipped": True, "reason": "repo_primary_no_hub_mirror"}
+            with httpx.Client(timeout=30.0) as client:
+                return self._patch_status_block_only(client, int(existing), thread)
+
+        # Hub authority — preserve-existing mirrors only when board_mirror_local.
+        if not self.config.board_mirror_local:
+            return {"skipped": True, "reason": "board_mirror_local_disabled"}
+        if not existing:
+            return {"skipped": True, "reason": "board_mirror_preserve_only"}
         with httpx.Client(timeout=30.0) as client:
-            if existing:
-                return self._update_issue(client, int(existing), thread)
-            return self._create_issue(client, thread)
+            return self._update_issue(client, int(existing), thread)
+
+    def _pinned_issue_url(self, thread: Thread, number: int) -> str:
+        """Issue URL for pinned external identity; never substitutes config owner/repo."""
+        from adhd_hub.work_identity import thread_has_external_identity
+
+        if thread_has_external_identity(thread):
+            owner = (thread.external_owner or "").strip()
+            repo = (thread.external_repo or "").strip()
+            if owner and repo:
+                return (
+                    f"{self.config.api_root()}/repos/{owner}/{repo}/issues/{number}"
+                )
+        return self._issue_url(number)
+
+    def _patch_status_block_only(
+        self, client: httpx.Client, number: int, thread: Thread
+    ) -> dict[str, Any]:
+        """External + publish_hub_status_block: body merge only (no state/title/labels)."""
+        url = self._pinned_issue_url(thread, number)
+        current_body = ""
+        get = client.get(url, headers=self._headers())
+        if get.status_code < 400:
+            current_body = get.json().get("body") or ""
+        payload = {"body": self.merge_issue_body(current_body, thread)}
+        resp = client.patch(url, headers=self._headers(), json=payload)
+        if resp.status_code >= 400:
+            log.warning(
+                "status-block-only patch failed: %s %s", resp.status_code, resp.text[:300]
+            )
+            resp.raise_for_status()
+        data = resp.json() if resp.content else {}
+        return {
+            "updated": True,
+            "status_block_only": True,
+            "number": number,
+            "url": data.get("html_url") or data.get("url"),
+        }
 
     def _project_label(self, thread: Thread) -> str | None:
         if not thread.project_slug:
@@ -496,56 +559,43 @@ class BoardForgeSync:
         *,
         thread_id: str,
         thread: Thread | None = None,
+        close_remote: bool = False,
+        stamp_synced_label: bool = False,
     ) -> dict[str, Any]:
-        """Close the forge issue and stamp the synced label — never delete."""
+        """Optionally close/stamp imported issues — never delete. Default: no close."""
         synced = self._synced_label()
         with httpx.Client(timeout=30.0) as client:
-            self._ensure_labels(client, [synced] if synced else None)
-            labels = list(self.config.issue_labels or [])
-            if synced and synced not in labels:
-                labels.append(synced)
-            payload: dict[str, Any] = {
-                "state": "closed",
-                "state_reason": "completed",
-            }
-            # Fetch current labels so we preserve project:* etc.
-            get = client.get(self._issue_url(number), headers=self._headers())
-            if get.status_code < 400:
-                current = {
-                    (lab.get("name") if isinstance(lab, dict) else str(lab))
-                    for lab in (get.json().get("labels") or [])
-                }
-                labels = sorted({*current, *labels})
-            if labels:
-                payload["labels"] = labels
-            # Upsert Hub status block; preserve user-authored content outside markers.
-            if get.status_code < 400:
-                body = get.json().get("body") or ""
-                if thread is not None:
-                    payload["body"] = self.merge_issue_body(body, thread)
-                else:
-                    from datetime import UTC, datetime
-
-                    from adhd_hub.models import EnergyLevel
-
-                    stub = Thread(
-                        id=thread_id,
-                        summary=f"Hub thread `{thread_id}`",
-                        status=ThreadStatus.done,
-                        energy=EnergyLevel.unknown,
-                        created_at=datetime.now(UTC),
-                        updated_at=datetime.now(UTC),
-                    )
-                    payload["body"] = self.merge_issue_body(body, stub)
-            resp = client.patch(self._issue_url(number), headers=self._headers(), json=payload)
-            if resp.status_code >= 400 and "state_reason" in payload:
-                payload.pop("state_reason", None)
-                resp = client.patch(self._issue_url(number), headers=self._headers(), json=payload)
+            payload: dict[str, Any] = {}
+            if close_remote:
+                payload["state"] = "closed"
+                payload["state_reason"] = "completed"
+            if stamp_synced_label and synced:
+                self._ensure_labels(client, [synced])
+                labels = list(self.config.issue_labels or [])
+                if synced not in labels:
+                    labels.append(synced)
+                get = client.get(self._issue_url(number), headers=self._headers())
+                if get.status_code < 400:
+                    current = {
+                        (lab.get("name") if isinstance(lab, dict) else str(lab))
+                        for lab in (get.json().get("labels") or [])
+                    }
+                    labels = sorted({*current, *labels})
+                    payload["labels"] = labels
+            if not payload:
+                return {"updated": False, "number": number, "closed": False}
+            resp = client.patch(
+                self._issue_url(number), headers=self._headers(), json=payload
+            )
             if resp.status_code >= 400:
                 log.warning(
-                    "mark issue imported failed: %s %s",
-                    resp.status_code,
-                    resp.text[:300],
+                    "mark imported failed: %s %s", resp.status_code, resp.text[:300]
                 )
                 resp.raise_for_status()
-        return {"closed": True, "number": number, "thread_id": thread_id, "label": synced}
+            data = resp.json() if resp.content else {}
+            return {
+                "updated": True,
+                "number": number,
+                "closed": bool(close_remote),
+                "url": data.get("html_url") or data.get("url"),
+            }

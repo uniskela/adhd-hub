@@ -239,7 +239,10 @@ def build_mcp(service: HubService) -> MCPServer:
     @mcp.tool()
     def mark_done(thread_id: str, note: str | None = None) -> dict[str, Any]:
         """Mark a thread done."""
-        thread = service.mark_done(thread_id, note)
+        try:
+            thread = service.mark_done(thread_id, note)
+        except ValueError as exc:
+            return {"error": str(exc), "id": thread_id}
         if not thread:
             return {"error": "not_found", "id": thread_id}
         return thread.model_dump(mode="json")

@@ -240,11 +240,17 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/threads", dependencies=[Depends(auth_dep)])
     def upsert_thread(payload: ThreadUpsert):
-        return service.upsert_thread(payload)
+        try:
+            return service.upsert_thread(payload)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     @router.post("/threads/mark-done", dependencies=[Depends(auth_dep)])
     def mark_done(payload: MarkDoneRequest):
-        thread = service.mark_done(payload.id, payload.note)
+        try:
+            thread = service.mark_done(payload.id, payload.note)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
         if not thread:
             raise HTTPException(404, "Thread not found")
         return thread
@@ -478,10 +484,14 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             raise HTTPException(400, "limit must be an integer") from exc
         if limit_i < 1 or limit_i > 100:
             raise HTTPException(400, "limit must be between 1 and 100")
-        close_imported = body.get("close_imported", True)
+        close_imported = body.get("close_imported")
+        if close_imported is None:
+            close = None
+        else:
+            close = bool(close_imported)
         return service.import_forge_inbox(
             limit=limit_i,
-            close_imported=bool(close_imported),
+            close_imported=close,
         )
 
     @router.get("/admin/export", dependencies=[Depends(auth_dep)])
