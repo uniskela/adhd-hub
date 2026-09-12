@@ -201,7 +201,7 @@ export function renderThreads(threads) {
           </div>
           <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
           <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.updated_at))}</span></div>
-          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Notes &amp; context</summary><div class="notes-scroll markdown-body"></div></details>
+          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Notes &amp; context</summary><div class="notes-scroll"></div></details>
           <div class="actions thread-actions">
             ${
               t.status !== "done"

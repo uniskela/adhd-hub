@@ -837,6 +837,8 @@ body { background: var(--bg); color: var(--ink); }
     top: 88px;
     right: max(24px, calc((100vw - 1600px) / 2 + 24px));
     width: min(390px, 31vw);
+    /* Definite height so flex children can shrink and scroll (max-height alone fails on <details>). */
+    height: calc(100dvh - 116px);
     max-height: calc(100dvh - 116px);
     overflow: hidden;
     display: flex;
@@ -848,7 +850,7 @@ body { background: var(--bg); color: var(--ink); }
     box-shadow: var(--shadow);
   }
   .thread .progress-details[open] > summary {
-    position: sticky;
+    position: relative;
     top: 0;
     z-index: 2;
     flex: 0 0 auto;
@@ -858,13 +860,13 @@ body { background: var(--bg); color: var(--ink); }
     color: var(--accent);
     border-bottom: 1px solid var(--line);
   }
-  .thread .progress-details[open] > .markdown-body,
   .thread .progress-details[open] > .notes-scroll {
-    flex: 1 1 auto;
+    flex: 1 1 0%;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: .75rem 1.1rem 1rem;
   }
 }
@@ -887,12 +889,23 @@ body { background: var(--bg); color: var(--ink); }
 }
 .notes-entry .markdown-body p { margin: .35rem 0; }
 .notes-entry .markdown-body p:first-child { margin-top: 0; }
-.notes-wiki-details { margin-top: 1rem; }
+.notes-wiki-details { margin-top: .35rem; }
 .notes-wiki-details > summary {
   cursor: pointer;
   color: var(--muted);
   font-size: .78rem;
   font-weight: 550;
+  padding: .35rem 0;
+}
+.notes-wiki-details[open] > summary { margin-bottom: .5rem; }
+.notes-wiki-details .markdown-body {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.notes-empty-hint {
+  margin: 0 0 .75rem;
+  font-size: .78rem;
+  color: var(--muted);
 }
 
 /* Progress: reflection first, rewards second. */
@@ -993,15 +1006,33 @@ dialog::backdrop { background: rgb(5 8 7 / .66); backdrop-filter: none; }
     position: fixed;
     z-index: 90;
     inset: 56px 0 calc(64px + env(safe-area-inset-bottom));
-    overflow: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     margin: 0;
-    padding: 1rem;
+    padding: 0;
     border: 0;
     border-radius: 0;
     background: var(--bg);
   }
-  .thread .progress-details[open] > summary { color: var(--accent); font-size: .9rem; }
+  .thread .progress-details[open] > summary {
+    flex: 0 0 auto;
+    color: var(--accent);
+    font-size: .9rem;
+    padding: 1rem 1rem .55rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
   .thread .progress-details[open] > summary::before { content: "← "; }
+  .thread .progress-details[open] > .notes-scroll {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: .75rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  }
   #activity-section .stats { grid-template-columns: 1fr 1fr; }
   #activity-section .chart { height: 110px; }
   .milestones .rank-hero { align-items: flex-start; }

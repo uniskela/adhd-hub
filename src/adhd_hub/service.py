@@ -683,11 +683,13 @@ class HubService:
         from adhd_hub.markdown import render_markdown
 
         parts: list[str] = []
+        has_entries = False
         if thread.project_slug:
             notes = self.store.list_progress_notes(
                 thread.project_slug, limit=40, thread_id=thread.id
             )
             if notes:
+                has_entries = True
                 for note in notes:
                     stamp = escape(note.get("created_at") or "")
                     body = render_markdown(note.get("content") or "")
@@ -700,8 +702,16 @@ class HubService:
             wiki = self.wiki.read_progress(thread.project_slug) or ""
             if wiki.strip():
                 wiki_html = render_markdown(wiki)
+                # Open wiki by default when there are no thread-scoped entries so
+                # first expand is not an empty-looking shell.
+                open_attr = " open" if not has_entries else ""
+                if not has_entries:
+                    parts.append(
+                        '<p class="notes-empty-hint">No thread-scoped notes yet. '
+                        "Project wiki is shown below.</p>"
+                    )
                 parts.append(
-                    '<details class="notes-wiki-details">'
+                    f'<details class="notes-wiki-details"{open_attr}>'
                     "<summary>Project wiki / full progress</summary>"
                     f'<div class="markdown-body">{wiki_html}</div>'
                     "</details>"

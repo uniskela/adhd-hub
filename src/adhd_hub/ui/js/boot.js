@@ -291,6 +291,13 @@ $("password-dialog").addEventListener("close", () => {
   $("password-error").textContent = "";
 });
 $("quick-capture").addEventListener("submit", captureStep);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const openNotes = document.querySelector("details[data-notes][open]");
+  if (!openNotes) return;
+  if (document.querySelector("dialog[open]")) return;
+  openNotes.open = false;
+});
 fillTimezoneSelect(state.currentTz);
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/ui/sw.js", { scope: "/ui/" }).catch(() => {});
