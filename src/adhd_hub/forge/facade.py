@@ -18,6 +18,7 @@ from adhd_hub.forge.config import (
 from adhd_hub.forge.wiki_sync import WikiForgeSync
 from adhd_hub.models import Thread, ThreadStatus, ThreadUpsert
 from adhd_hub.store import item_id
+from adhd_hub.work_identity import thread_has_external_identity
 
 if TYPE_CHECKING:
     from adhd_hub.service import HubService
@@ -62,6 +63,103 @@ class ForgeFacade:
         persist_forge_config(self._hub.settings.data_dir, config)
         return config
 
+    def confident_forge_target(self, project_slug: str | None) -> dict[str, str] | None:
+        """Return provider/host/owner/repo only when offline evidence is unambiguous."""
+        from adhd_hub.forge.config import ForgeProvider
+        from adhd_hub.work_identity import WorkSource, host_from_forge_browse_root
+
+        base = load_forge_config(
+            self._hub.settings.data_dir, env_defaults=forge_from_settings(self._hub.settings)
+        )
+        if base.provider not in (ForgeProvider.github, ForgeProvider.gitea):
+            return None
+        proj = self._hub.store.get_project(project_slug) if project_slug else None
+        if proj:
+            has_o = bool((proj.forge_owner or "").strip())
+            has_r = bool((proj.forge_repo or "").strip())
+            if has_o ^ has_r:
+                return None
+            owner = (proj.forge_owner or "").strip() or base.owner
+            repo = (proj.forge_repo or "").strip() or base.repo
+        else:
+            owner, repo = base.owner, base.repo
+        if not (owner and repo):
+            return None
+        provider = WorkSource(base.provider.value)
+        host = host_from_forge_browse_root(provider, base.web_browse_root())
+        if not host:
+            return None
+        return {
+            "provider": provider.value,
+            "host": host,
+            "owner": owner,
+            "repo": repo,
+        }
+
+    def _meta_set_with_identity(self, cfg: ForgeConfig):
+        def meta_set(key: str, value: str | dict) -> None:
+            if not (
+                isinstance(key, str)
+                and key.startswith("forge_issue:")
+                and str(value).isdigit()
+            ):
+                self._hub.store.set_meta(key, value)
+                return
+            thread_id = key.removeprefix("forge_issue:")
+            number = int(value)
+            thread = self._hub.store.get_thread(thread_id)
+            if thread is not None and thread_has_external_identity(thread):
+                if thread.external_issue_number == number:
+                    # Idempotent: keep first-class identity; refresh legacy meta.
+                    self._hub.store.set_meta(key, value)
+                else:
+                    log.warning(
+                        "refuse forge remapping for thread %s: pinned #%s vs requested #%s",
+                        thread_id,
+                        thread.external_issue_number,
+                        number,
+                    )
+                return
+            attached = self._hub.store.try_attach_from_forge_config(
+                thread_id,
+                number,
+                provider=cfg.provider.value,
+                browse_root=cfg.web_browse_root(),
+                owner=cfg.owner,
+                repo=cfg.repo,
+            )
+            if attached is not None:
+                return
+            try:
+                other = self._hub.store.get_thread_by_external_identity(
+                    cfg.provider.value,
+                    cfg.web_browse_root(),
+                    cfg.owner,
+                    cfg.repo,
+                    number,
+                )
+            except ValueError:
+                other = None
+            if other is not None:
+                log.warning(
+                    "refuse forge_issue meta for thread %s: identity owned by %s",
+                    thread_id,
+                    other.id,
+                )
+                return
+            # Not confident enough for first-class identity — legacy meta only.
+            self._hub.store.set_meta(key, value)
+
+        return meta_set
+
+    def _board(self, cfg: ForgeConfig) -> BoardForgeSync:
+        return BoardForgeSync(
+            cfg,
+            self._hub.store.get_meta,
+            self._meta_set_with_identity(cfg),
+            progress_reader=self._hub.wiki.read_progress,
+        )
+
     def _refresh_forge_section(self, slug: str) -> None:
         cfg = self.forge_config(slug)
         progress_url = cfg.file_web_url(f"projects/{slug}/PROGRESS.md")
@@ -82,12 +180,7 @@ class ForgeFacade:
         cfg = self.forge_config(thread.project_slug)
         out: dict = {}
         try:
-            out["board"] = BoardForgeSync(
-                cfg,
-                self._hub.store.get_meta,
-                self._hub.store.set_meta,
-                progress_reader=self._hub.wiki.read_progress,
-            ).sync_thread(thread)
+            out["board"] = self._board(cfg).sync_thread(thread)
         except Exception as exc:
             log.exception("board sync failed")
             out["board"] = {"error": str(exc)}
@@ -117,13 +210,7 @@ class ForgeFacade:
         for thread in self._hub.list_open_threads(limit=200):
             try:
                 tcfg = self.forge_config(thread.project_slug)
-                board = BoardForgeSync(
-                    tcfg,
-                    self._hub.store.get_meta,
-                    self._hub.store.set_meta,
-                    progress_reader=self._hub.wiki.read_progress,
-                )
-                board_results.append(board.sync_thread(thread))
+                board_results.append(self._board(tcfg).sync_thread(thread))
             except Exception as exc:  # noqa: BLE001 — continue syncing other threads
                 board_results.append({"error": str(exc), "thread_id": thread.id})
         # Also push per-project forge wiki overrides (distinct owner/repo)
@@ -180,12 +267,7 @@ class ForgeFacade:
                 "skipped_issues": [],
                 "hint": "Add allowed forge usernames under Settings → Forge → Inbox authors.",
             }
-        board = BoardForgeSync(
-            cfg,
-            self._hub.store.get_meta,
-            self._hub.store.set_meta,
-            progress_reader=self._hub.wiki.read_progress,
-        )
+        board = self._board(cfg)
         mapped_numbers = {
             value: key.removeprefix("forge_issue:")
             for key, value in self._hub.store.list_meta_prefix("forge_issue:").items()
@@ -202,6 +284,26 @@ class ForgeFacade:
             number = int(issue.get("number") or 0)
             if not number:
                 continue
+            linked = None
+            try:
+                linked = self._hub.store.get_thread_by_external_identity(
+                    cfg.provider.value,
+                    cfg.web_browse_root(),
+                    cfg.owner,
+                    cfg.repo,
+                    number,
+                )
+            except ValueError:
+                linked = None
+            if linked:
+                skipped.append(
+                    {
+                        "number": number,
+                        "reason": "already_mapped",
+                        "thread_id": linked.id,
+                    }
+                )
+                continue
             if str(number) in mapped_numbers:
                 skipped.append(
                     {
@@ -215,7 +317,7 @@ class ForgeFacade:
             existing = re.search(r"\*\*ADHD Hub thread\*\*\s+`([^`]+)`", body)
             if existing:
                 thread_id = existing.group(1).strip()
-                self._hub.store.set_meta(f"forge_issue:{thread_id}", str(number))
+                self._meta_set_with_identity(cfg)(f"forge_issue:{thread_id}", str(number))
                 if close_imported:
                     try:
                         board.mark_issue_imported(number, thread_id=thread_id)
@@ -283,7 +385,7 @@ class ForgeFacade:
             )
             thread = self._hub.store.upsert_thread(payload)
             # Map before any outbound board sync so we update issue #N instead of creating another.
-            self._hub.store.set_meta(f"forge_issue:{thread.id}", str(number))
+            self._meta_set_with_identity(cfg)(f"forge_issue:{thread.id}", str(number))
             note_import = f"Imported from forge issue #{number}: {thread.summary}"
             self._hub.store.add_progress_note(
                 thread.project_slug or slug, note_import, thread_id=thread.id

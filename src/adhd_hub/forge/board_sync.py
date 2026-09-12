@@ -70,7 +70,11 @@ class BoardForgeSync:
     def sync_thread(self, thread: Thread) -> dict[str, Any]:
         if not (self.config.enabled() and self.config.board_enabled):
             return {"skipped": True, "reason": "board_sync_disabled"}
-        existing = self._meta_get(self._meta_key(thread.id))
+        existing = None
+        if thread.external_issue_number is not None:
+            existing = str(thread.external_issue_number)
+        if existing is None:
+            existing = self._meta_get(self._meta_key(thread.id))
         with httpx.Client(timeout=30.0) as client:
             if existing:
                 return self._update_issue(client, int(existing), thread)
