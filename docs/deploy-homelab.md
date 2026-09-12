@@ -53,7 +53,7 @@ Installable PWA: open `/ui/` over HTTPS (or localhost), then use “Install app�
 
 ## 3. OpenClaw
 
-On the OpenClaw gateway, enable hooks with a bearer token, or use Hub pairing from **Settings → Connections → OpenClaw**. Point manual Hub configuration at `/hooks/wake` (and optionally `/hooks/agent`). Stale digests use `ADHD_HUB_STALE_NUDGE_CRON` (default `0 9 * * *`).
+On the OpenClaw gateway, enable hooks with a bearer token, or use Hub pairing from **Settings → OpenClaw**. Point manual Hub configuration at `/hooks/wake` (and optionally `/hooks/agent`). Stale digests use `ADHD_HUB_STALE_NUDGE_CRON` (default `0 9 * * *`).
 
 You can also have OpenClaw poll:
 

@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
 
@@ -50,7 +50,8 @@ $("btn-settings").addEventListener("click", () => {
   loadOpenClawSecureStatus().catch((error) => setMsg(error.message));
   loadCliSessions().catch(() => {});
   loadPrefs().catch(() => {});
-  selectSettingsTab("preferences");
+  if (matchMedia("(max-width: 760px)").matches) showSettingsIndex();
+  else selectSettingsTab("preferences");
   $("mcp-url").value = location.origin + "/mcp";
   $("install-cmd").value =
     'curl -fsSL "' + location.origin + '/install.sh" | sh -s -- .';
@@ -64,6 +65,7 @@ $("btn-settings").addEventListener("click", () => {
     $("app-version").textContent = health.version ? `v${health.version}` : "Version unavailable";
   }).catch(() => { $("app-version").textContent = "Version unavailable"; });
 });
+$("btn-mobile-settings")?.addEventListener("click", () => $("btn-settings").click());
 $("btn-save-connect-agents")?.addEventListener("click", () =>
   saveConnectAgents().catch((e) => setMsg(e.message))
 );
@@ -74,6 +76,7 @@ $("ca_all")?.addEventListener("change", () => {
     if ($("ca_claude")) $("ca_claude").checked = true;
   }
 });
+$("btn-settings-index-back")?.addEventListener("click", showSettingsIndex);
 document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
   tab.addEventListener("click", () => selectSettingsTab(tab.dataset.settingsTab));
   tab.addEventListener("keydown", (event) => {
@@ -189,6 +192,7 @@ $("project-form").addEventListener("submit", (event) => {
   event.preventDefault();
   saveProject().catch((e) => setMsg(String(e)));
 });
+$("btn-close-project").addEventListener("click", () => $("project-dialog").close());
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());

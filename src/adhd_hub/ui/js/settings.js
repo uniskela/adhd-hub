@@ -5,7 +5,19 @@ import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { saveRewardPreferences } from './progress.js';
 
+export function showSettingsIndex() {
+  const view = $("settings-view");
+  if (!view) return;
+  view.classList.add("settings-index-open");
+  const heading = view.querySelector("h1");
+  if (heading) {
+    if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
+    heading.focus({ preventScroll: true });
+  }
+}
+
 export function selectSettingsTab(name, focus = false) {
+  $("settings-view")?.classList.remove("settings-index-open");
   const tabs = [...document.querySelectorAll("[data-settings-tab]")];
   const known = new Set(tabs.map((tab) => tab.dataset.settingsTab));
   const next = known.has(name) ? name : "preferences";
@@ -151,7 +163,7 @@ export function openClawSetupPrompt(hubOrigin = location.origin, userCode = "") 
     const code = String(userCode || "").trim();
     const codeLine = code
       ? `Pairing code from the Hub UI: ${code}`
-      : "Pairing code: (missing — operator must click Start OpenClaw pairing in Hub Settings → Connections, then copy this prompt again)";
+      : "Pairing code: (missing — operator must click Start OpenClaw pairing in Hub Settings → OpenClaw, then copy this prompt again)";
     const codeJson = code || "<PAIRING_CODE_FROM_HUB>";
     return [
       "Set up ADHD Progress Hub ↔ OpenClaw on my private LAN or Tailscale.",
@@ -176,7 +188,7 @@ export function openClawSetupPrompt(hubOrigin = location.origin, userCode = "") 
       "   }",
       "5. Recommended Hub alert defaults unless I say otherwise:",
       '   cron "0 9 * * *", stale after 3 days, cooldown 3 days, digest limit 2.',
-      "6. Tell me when submit succeeds so I can Approve in Hub Settings → Connections,",
+      "6. Tell me when submit succeeds so I can Approve in Hub Settings → OpenClaw,",
       "   then help interpret Save & send test if needed.",
       "",
       `Hub UI: ${hub}/ui`,

@@ -21,17 +21,17 @@ Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wo
 
 | Role | Light | Dark | Use |
 | --- | --- | --- | --- |
-| Canvas | Ivory `#F7F5EF` | Deep forest `#111E1B` | Page background |
-| Card | White `#FFFFFF` | Forest `#1A2B25` | Dialogs and the focus surface |
-| Surface | Mist `#ECEEE7` | Moss `#233930` | Quiet grouped content |
-| Text | Ink `#203832` | Pale sage `#EAF2ED` | Headings and body |
-| Secondary text | Slate sage `#5B6F66` | Sage `#AABFB1` | Supporting text |
-| Primary action | Teal `#176B60` | Mint `#89D9C3` | Start, save, resume, selected navigation |
-| Primary label | White `#FFFFFF` | Forest ink `#102E25` | Text on primary buttons |
-| Accent surface | Pale mint `#E4F0E9` | Green `#24483B` | Selected tabs and rank summary |
-| Divider | `#D4DDD5` | `#3E5649` | Subtle boundaries; not the only control cue |
-| Achievement surface | Cream `#FAF0D6` | Umber `#3A3321` | Earned badges |
-| Achievement text | Bronze `#715017` | Gold `#EFC978` | Badge icons and labels |
+| Canvas | `#F7F6F1` | `#0D1210` | Page background |
+| Header / navigation | White `#FFFFFF` | `#101613` | Primary chrome |
+| Primary surface | White `#FFFFFF` | `#151D19` | Intentional grouped content |
+| Elevated surface | White `#FFFFFF` | `#1B2520` | Dialogs and popovers |
+| Text | `#20332C` | `#E7EEEA` | Headings and body |
+| Secondary text | `#617069` | `#98A89F` | Supporting text |
+| Primary action | Teal `#176B60` | Mint `#7ACDB6` | Action, focus and selection |
+| Selected subtle background | `#EFF1EC` | `#172A24` | Selected rows/tabs |
+| Divider | `#D7DDD8` | `#2A3731` | Thin boundaries |
+| Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
+| Destructive action | `#AB3546` | `#F08C99` | Delete and irreversible actions |
 | Destructive action | Berry `#AB3546` | Rose `#FFACB8` | Delete and irreversible actions |
 
 Gold `#EFC978` is a small accent, not body text on white. Use colour with labels and state text: earned badges say **Earned**, tabs expose selection, and destructive buttons name the action. Primary labels and normal body/secondary text should meet WCAG AA contrast in both modes; focus outlines should remain visible. The interface follows the system theme unless the user chooses otherwise.
@@ -40,7 +40,7 @@ Gold `#EFC978` is a small accent, not body text on white. Use colour with labels
 
 Use the local system sans-serif stack; no font download is required. Body: 15 px / 1.6. Headings: 1.2 line height. Section headings: about 18–20 px. Main headings: 29–41 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. All-caps eyebrows are short landmarks, never paragraphs or instructions.
 
-Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Dialog and focus-surface corners are 18–20 px; controls use 10 px corners. Shadows are subtle and never needed to understand a control.
+Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces and controls use roughly 8–10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
 
 - **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
 - **Secondary:** quiet outline with text. Use for alternatives such as Choose another, Copy text, or Settings.

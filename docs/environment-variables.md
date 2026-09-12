@@ -71,7 +71,7 @@ See [Authentication](authentication.md) and [Installation](installation.md#rever
 
 ## OpenClaw
 
-These are optional. OpenClaw connection details can also be configured from **Settings → Connections**; UI-saved configuration is intended for normal ongoing administration while environment variables are useful for initial provisioning.
+These are optional. OpenClaw connection details can also be configured from **Settings → OpenClaw**; UI-saved configuration is intended for normal ongoing administration while environment variables are useful for initial provisioning.
 
 | Variable | Default | Type | Purpose |
 | --- | --- | --- | --- |

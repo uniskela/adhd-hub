@@ -12,31 +12,35 @@ extra_css = ["stylesheets/extra.css"]
 
 nav = [
   { "Start here" = [
-    { "Welcome" = "index.md" },
+    { "What is ADHD Progress Hub?" = "index.md" },
     { "Installation" = "installation.md" },
-    { "Environment variables" = "environment-variables.md" },
-    { "Writing and planning" = "writing.md" },
-    { "Personal wire-up" = "setup.md" },
-    { "Connect (one-liner)" = "connect.md" },
+    { "Connect an agent" = "connect.md" },
     { "Project agent setup" = "project-agent-setup.md" },
-    { "Coding companions" = "coding-companions.md" },
+    { "Personal setup" = "setup.md" },
+    { "Writing & continuity" = "writing.md" },
   ]},
-  { "Guides" = [
-    { "Authentication" = "authentication.md" },
+  { "Using the Hub" = [
     { "Dashboard" = "dashboard.md" },
-    { "OpenClaw connection and alerts" = "openclaw.md" },
-    { "Homelab deployment" = "deploy-homelab.md" },
-    { "Forge permissions" = "forge-permissions.md" },
+    { "Coding companions" = "coding-companions.md" },
+    { "OpenClaw" = "openclaw.md" },
     { "Forge issue inbox" = "forge-issue-inbox.md" },
     { "Indexer schedule" = "indexer-schedule.md" },
     { "Rewards roadmap" = "rewards-roadmap.md" },
+  ]},
+  { "Deploy & configure" = [
+    { "Homelab deployment" = "deploy-homelab.md" },
+    { "Authentication" = "authentication.md" },
+    { "Environment variables" = "environment-variables.md" },
+    { "Forge permissions" = "forge-permissions.md" },
+  ]},
+  { "Project" = [
     { "Brand guide" = "brand-guide.md" },
     { "Review improvements" = "review-improvements.md" },
-  ]},
-  { "Plans" = [
     { "Improvement roadmap" = "plans/improvement-roadmap.md" },
+    { "Next waves" = "plans/next-waves.md" },
     { "ADHD Hub foundation" = "plans/adhd-hub-foundation.md" },
     { "Projects CRUD revamp" = "plans/projects-crud-ui-revamp.md" },
+    { "Thread outcome model" = "plans/thread-outcome-model.md" },
   ]},
 ]
 

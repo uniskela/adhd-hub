@@ -1,48 +1,40 @@
-# A calmer place to pick work back up
+# ADHD Progress Hub
 
-ADHD Progress Hub keeps unfinished work findable. Start with one small action, save the context you will need later, then step away without losing the thread.
+Keep enough context to resume unfinished work without reconstructing your last session.
+
+[Install](installation.md) · [Connect an agent](connect.md) · [View on GitHub](https://github.com/uniskela/adhd-hub)
+
+**Self-hosted · MCP + REST · Cursor / Codex / Claude Code · GitHub/Gitea optional**
+
+## The loop
+
+**Work → Save continuity → Leave → Come back → Resume**
+
+The Hub keeps the parts that matter when you return: what you were trying to do, what matters now, what is blocking you, and the next concrete place to continue.
 
 ## Start here
 
-1. Give the project a durable purpose.
-2. Keep one concrete **Now** action at the top of active progress.
-3. When stopping, save a **Return cue**: “When I return, I will …”.
+1. [Install the Hub](installation.md).
+2. [Connect your coding agent](connect.md).
+3. [Set up project continuity](project-agent-setup.md) for substantial work.
+4. Open the [dashboard](dashboard.md) when you want to choose, pause, or resume work visually.
 
-- [Installation](installation.md) — Docker Compose, published images, `docker run`, source/`uv`, upgrades, and first-run checks
-- [Environment variables](environment-variables.md) — complete `ADHD_HUB_*` server configuration reference
-- [Writing and planning](writing.md) — one visible Now action, short next steps, blockers, and a return cue
-- [Personal wire-up](setup.md) — a repeatable start, pause, and review loop
-- [Connect (one-liner)](connect.md) — MCP, AGENTS.md, skills, and optional OpenClaw from a running Hub; `connect` / `doctor` print a scannable report
-- [Project agent setup](project-agent-setup.md) — reversible AGENTS.md continuity guidance
-- [Recommended coding companions](coding-companions.md) — optional i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena
+For a practical day-to-day routine, see [Personal setup](setup.md). For concise Goal / Focus / Next / Blocked / Resume notes, see [Writing & continuity](writing.md).
 
-## Guides
+## What belongs here?
 
-- [Authentication](authentication.md)
-- [Dashboard](dashboard.md)
-- [OpenClaw connection and alerts](openclaw.md)
+Repository work can be linked to GitHub/Gitea while the Hub keeps local continuity around it. Non-repository work — homelab changes, migrations, research, admin, or a PC setup — can stay entirely local to the Hub.
+
+The project is designed to be useful without streaks, competitive pressure, or a requirement to keep every task in one system.
+
+## Deploy and configure
+
 - [Homelab deployment](deploy-homelab.md)
+- [Authentication](authentication.md)
+- [Environment variables](environment-variables.md)
 - [Forge permissions](forge-permissions.md)
-- [Forge issue inbox](forge-issue-inbox.md)
-- [Indexer schedule](indexer-schedule.md)
-- [Rewards roadmap](rewards-roadmap.md)
-- [Brand guide](brand-guide.md)
-- [Review improvements](review-improvements.md)
+- [OpenClaw](openclaw.md)
 
-## Plans
+## Project
 
-- [Improvement roadmap](plans/improvement-roadmap.md)
-- [Next waves](plans/next-waves.md)
-- [ADHD Hub foundation](plans/adhd-hub-foundation.md)
-- [Projects CRUD revamp](plans/projects-crud-ui-revamp.md)
-
-## Publishing this site
-
-In GitHub, open **Settings → Pages** and select **GitHub Actions** as the build source. The included workflow builds with [Zensical](https://zensical.org/) and deploys only after `uniskela` merges documentation changes to protected `main`; it never executes for a pull request or from a manual run.
-
-Preview locally:
-
-```bash
-uv sync --extra dev
-uv run zensical serve
-```
+The [roadmap](plans/improvement-roadmap.md), [next waves](plans/next-waves.md), [brand guide](brand-guide.md), and public repository document how the Hub is evolving.

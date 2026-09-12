@@ -1,8 +1,8 @@
 # A calmer dashboard
 
-Choose **Appearance → System, Light, or Dark** at the top of the page. The preference is saved in this browser, works on the sign-in page, and follows operating-system changes when set to System. If browser storage is blocked, the dashboard still works and preferences last for the current page visit.
+On desktop, use the compact **Appearance** menu in the app header for System, Light, or Dark. The same control is available under **Settings → Preferences**; on mobile, use Settings. The preference is saved in this browser and follows operating-system changes when set to System. If browser storage is blocked, the dashboard still works and preferences last for the current page visit.
 
-The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Work on this** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
+The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Choose this step** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
 
 Use **Save a thought** for a quick capture without leaving the current task. When you need to stop, choose **Pause here**, enter the smallest useful next step, and save it. That step appears when you return.
 
@@ -39,7 +39,7 @@ Switching projects clears the previous project’s actions while the new one loa
 
 ## Settings and sharing
 
-Settings has a fixed **Close settings** button and four sections: **Preferences**, **Account**, **Connections**, and **Data**. Arrow keys, Home, and End move between tabs; Escape closes the dialog. Appearance and rewards save automatically in this browser; timezone uses **Save**. Password controls are under Account. Assistant setup, encrypted OpenClaw connection settings, alert controls, and optional forge configuration live under Connections.
+Settings is a full application destination with categories for **Preferences**, **Account**, **Agents & install**, **Windows / MCP**, **OpenClaw**, **Forge**, and **Data**. Desktop uses the left category navigation; mobile opens a simple Settings index and each category has a Back to settings action. Appearance and rewards save automatically in this browser; timezone uses **Save**. Password controls are under Account.
 
 With rewards enabled, Progress shows the hub's current rank, upcoming rank, and six completion badges. Use **Share progress** to preview the exact export, then download a PNG or copy the text. Compatible devices also offer a share sheet. Nothing is posted automatically. The preview excludes task titles, project names, notes, and connection details. Ranks represent this hub's records; there is no public leaderboard yet.
 

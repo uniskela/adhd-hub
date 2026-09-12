@@ -20,7 +20,7 @@ Optional tools that pair well with ADHD Progress Hub. **Hub does not require the
 
 These tools solve different parts of the coding-agent workflow. Installing all of them is **not** recommended by default—choose companions that address problems in your existing workflow.
 
-After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Connections → Coding companions**, or pass install flags:
+After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Agents & install → Coding companions**, or pass install flags:
 
 ```bash
 adhd-hub connect /path/to/project \

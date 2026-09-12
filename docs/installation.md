@@ -173,7 +173,7 @@ Only trust forwarded headers from a proxy you control. For a Proxmox/Tailscale l
 
 ## Connect coding agents after the server is running
 
-Open **Settings → Connections** and copy the generated command, or run the CLI directly:
+Open **Settings → Agents & install** and copy the generated command, or run the CLI directly:
 
 ```bash
 adhd-hub connect /path/to/project \

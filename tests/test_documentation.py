@@ -4,7 +4,6 @@ from pathlib import Path
 
 from adhd_hub.config import Settings
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -19,3 +18,11 @@ def test_installation_and_environment_reference_are_in_docs_nav() -> None:
     nav = (REPO_ROOT / "zensical.toml").read_text(encoding="utf-8")
     assert '"installation.md"' in nav
     assert '"environment-variables.md"' in nav
+
+
+def test_docs_navigation_has_calm_information_architecture() -> None:
+    nav = (REPO_ROOT / "zensical.toml").read_text(encoding="utf-8")
+    for group in ["Start here", "Using the Hub", "Deploy & configure", "Project"]:
+        assert f'{{ "{group}" = [' in nav
+    assert '{ "Connect an agent" = "connect.md" }' in nav
+    assert '{ "Dashboard" = "dashboard.md" }' in nav

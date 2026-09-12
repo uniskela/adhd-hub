@@ -4,7 +4,7 @@ Point coding agents at a running ADHD Progress Hub without hand-editing every co
 
 ## Safer CLI connect (recommended)
 
-Stay signed in to the Hub UI. In **Settings → Connections** copy the command (no token in it):
+Stay signed in to the Hub UI. In **Settings → Agents & install** copy the command (no token in it):
 
 ### macOS / Linux / WSL / Git Bash
 
@@ -38,7 +38,7 @@ uvx --from git+https://github.com/uniskela/adhd-hub.git adhd-hub …
 What happens next:
 
 1. The CLI opens your browser to this Hub (or prints a short code like `ABCD-WXYZ`).
-2. Press **Allow this CLI** (or type the code under Settings → Connections).
+2. Press **Allow this CLI** (or type the code under **Settings → Windows / MCP**).
 3. The CLI saves a **CLI session** under `~/.config/adhd-hub/credentials.json` (mode `0600`). That file is local to this computer.
 
 You can run the handshake alone:
@@ -80,7 +80,7 @@ adhd-hub connect /path/to/project --hub https://adhd-hub.example.com --agents cu
 | One-time connect code | Hub SQLite for ~10 minutes, single-use | Reuse / replay; it expires |
 | CLI session (`ahcli_…`) | `~/.config/adhd-hub/credentials.json` on the client | Shell `export`, git, progress notes |
 
-The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it in Settings → Connections (Windows / MCP / skills) or with `adhd-hub logout`. Dashboard password login is unchanged.
+The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it in **Settings → Windows / MCP** or with `adhd-hub logout`. Dashboard password login is unchanged.
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
 
@@ -102,7 +102,7 @@ That issues an opaque OAuth access token for MCP only. It is not the server acce
 **Still supported (no Auth button required):**
 
 - Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).
-- CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in Settings → Connections).
+- CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in **Settings → Windows / MCP**).
 
 **Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` always probes that Hub’s OAuth well-known when diagnosing a non-loopback Hub (or when `ADHD_HUB_PUBLIC_URL` is set), independent of any local `ADHD_HUB_OAUTH_ENABLED` in the doctor process; it warns on missing/malformed metadata. Unreachable Hub is a warning, not a hard failure.
 
@@ -110,7 +110,7 @@ That issues an opaque OAuth access token for MCP only. It is not the server acce
 
 Both install scripts look for `uvx` first and install the CLI from **this Hub's** `/install/cli-wheel.url` (PEP 427 wheel matching the server), falling back to `git+https://github.com/uniskela/adhd-hub.git` if the wheel is missing. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
 
-`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Connections**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
+`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Agents & install**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
 
 ```powershell
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents 'cursor,codex,claude'"
@@ -146,7 +146,7 @@ adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
 - **AGENTS.md** — same reversible managed block as `adhd-hub setup`
 - **Skills** — opt-in global `npx skills add` (`--skills`)
-- **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → Connections**
+- **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → OpenClaw**
 - **Register** — `GET /api/projects/resolve?create=true` when a CLI session or bearer token is available
 - **Find** — scan `--find-roots` for `.git` / `AGENTS.md` / `.cursor` folders and list them
 
@@ -195,7 +195,7 @@ Color is on when stdout is a TTY. It is off when output is piped (including typi
 
 ## Optional coding companions
 
-In **Settings → Connections**, under **Coding companions**, toggle opt-in companions (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
+In **Settings → Agents & install**, under **Coding companions**, toggle opt-in companions (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
 
 `connect` / `doctor` also list them when missing. You can pass flags manually:
 
