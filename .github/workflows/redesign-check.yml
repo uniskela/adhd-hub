@@ -22,13 +22,23 @@ jobs:
         id: apply
         run: |
           python scripts/apply_ui_docs_redesign.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/browser_smoke.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''                page.locator("#next-card summary").click()\n                expect(\n                    page.locator("#next-card").get_by_role("heading", name="Next visit")\n                ).to_be_visible()\n                expect(page.locator("#next-card .markdown-body strong")).to_have_text(\n                    "Choose a photo"\n                )\n                expect(page.locator("#next-card script")).to_have_count(0)\n'''
+          new = '''                notes = page.locator("#next-card .progress-details")\n                assert notes.evaluate("el => !el.open")\n                notes.locator("summary").click()\n                expect(notes.locator(".markdown-body")).to_contain_text("Personal website")\n                expect(page.locator("#next-card script")).to_have_count(0)\n'''
+          if old in text:
+              path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/adhd_hub/ui docs zensical.toml scripts/browser_smoke.py scripts/docs_browser_smoke.py tests/test_documentation.py
-            git commit -m "feat: redesign dashboard and documentation"
+            git commit -m "test: align redesign smoke coverage"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
