@@ -399,6 +399,44 @@ def test_board_mirror_local_does_not_create_new_issues() -> None:
     assert out.get("reason") == "board_mirror_preserve_only"
 
 
+def test_mark_done_external_uses_remote_first_not_legacy_set_state(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    proj = svc.store.upsert_project(ProjectUpsert(title="App"))
+    thread = svc.store.upsert_thread(
+        ThreadUpsert(summary="Linked", project_slug=proj.slug)
+    )
+    identity = normalize_external_identity(WorkSource.github, "github.com", "acme", "app", 9)
+    svc.store.attach_external_identity(thread.id, identity)
+    save_forge_config(
+        svc.settings.data_dir,
+        ForgeConfig(
+            provider=ForgeProvider.github,
+            token="tok",
+            owner="acme",
+            repo="app",
+            board_enabled=True,
+        ),
+    )
+    snap = IssueSnapshot(
+        identity=identity,
+        title="Linked",
+        state=ExternalIssueState.closed,
+        labels=(),
+        updated_at="t",
+    )
+    with (
+        patch.object(BoardForgeSync, "_set_issue_state") as set_state,
+        patch(
+            "adhd_hub.forge.repo_sync.mutate_pinned_issue_state",
+            return_value=snap,
+        ),
+    ):
+        done = svc.mark_done(thread.id)
+    assert done is not None
+    assert done.status.value == "done"
+    set_state.assert_not_called()
+
+
 def test_external_publish_status_block_uses_pinned_owner_repo() -> None:
     cfg = ForgeConfig(
         provider=ForgeProvider.github,
@@ -494,9 +532,9 @@ def test_mark_done_unlinked_github_project_default_stays_local(tmp_path: Path) -
     thread = svc.store.upsert_thread(
         ThreadUpsert(summary="Local continuity only", project_slug=proj.slug)
     )
-    with patch.object(BoardForgeSync, "_set_issue_state") as set_state:
+    with patch("adhd_hub.forge.repo_sync.mutate_pinned_issue_state") as mutate:
         done = svc.mark_done(thread.id)
-    set_state.assert_not_called()
+    mutate.assert_not_called()
     assert done is not None
     assert done.status.value == "done"
 

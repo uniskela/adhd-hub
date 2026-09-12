@@ -1184,14 +1184,34 @@ class HubService:
         }
 
     def mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
-        # B2a transitional: Hub-local only (no remote-first close). Unlinked threads
-        # keep forge_after; pinned external identity skips forge_after (would try remote close).
-        from adhd_hub.work_identity import thread_has_external_identity
-
         current = self.store.get_thread(thread_id)
         if not current:
             return None
-        linked = thread_has_external_identity(current)
+        from adhd_hub.work_identity import thread_has_external_identity
+
+        # Remote-first close only when a pinned external identity exists.
+        # Project default_work_source=github/gitea without a link stays Hub-local.
+        if thread_has_external_identity(current):
+            result = self._forge.close_external_thread(current)
+            if not result.get("ok"):
+                raise ValueError(result.get("error") or "remote_close_failed")
+            # Remote + projection updated; now Hub done.
+            thread, changed = self.store.transition_status(
+                thread_id, ThreadStatus.done, note=note
+            )
+            if thread and changed:
+                slug = thread.project_slug or slugify(thread.summary)
+                history = note or "Marked done."
+                if not note:
+                    self.store.add_progress_note(slug, history, thread_id=thread.id)
+                self._sync_project_progress(
+                    slug, title=thread.summary, history_note=history, thread=thread
+                )
+                self.wiki.rebuild_index(
+                    self.store.list_threads(status=ThreadStatus.open, limit=500)
+                )
+            return thread
+
         thread, changed = self.store.transition_status(thread_id, ThreadStatus.done, note=note)
         if thread and changed:
             slug = thread.project_slug or slugify(thread.summary)
@@ -1202,9 +1222,41 @@ class HubService:
                 slug, title=thread.summary, history_note=history, thread=thread
             )
             self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
-            if not linked:
-                self._forge_after_thread(thread)
+            self._forge_after_thread(thread)
         return thread
+
+    def reopen_external_thread(self, thread_id: str) -> Thread:
+        thread = self.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError(f"thread not found: {thread_id}")
+        result = self._forge.reopen_external_thread(thread)
+        if not result.get("ok"):
+            raise ValueError(result.get("error") or "remote_reopen_failed")
+        updated, _ = self.store.transition_status(thread_id, ThreadStatus.open)
+        assert updated is not None
+        return updated
+
+    def promote_thread_to_issue(self, thread_id: str) -> dict:
+        return self._forge.promote_thread_to_issue(thread_id)
+
+    def link_thread_to_issue(
+        self,
+        thread_id: str,
+        *,
+        owner: str,
+        repo: str,
+        number: int,
+        host: str | None = None,
+        provider: str | None = None,
+    ) -> dict:
+        return self._forge.link_thread_to_issue(
+            thread_id,
+            owner=owner,
+            repo=repo,
+            number=number,
+            host=host,
+            provider=provider,
+        )
 
     def mark_dismissed(self, thread_id: str, note: str | None = None) -> Thread | None:
         thread, changed = self.store.transition_status(thread_id, ThreadStatus.dismissed, note=note)

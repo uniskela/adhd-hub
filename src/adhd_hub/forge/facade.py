@@ -391,7 +391,15 @@ class ForgeFacade:
                                 "reason": "needs_project_disambiguation",
                             }
                         )
-                        # Needs-review persistence is B2b; B2a only returns structured skip.
+                        self.record_sync_review(
+                            reason="needs_project_disambiguation",
+                            payload={
+                                "number": snap.identity.number,
+                                "owner": snap.identity.owner,
+                                "repo": snap.identity.repo,
+                                "claimants": [p.slug for p in claimants],
+                            },
+                        )
                         continue
                     else:
                         project_slug = "inbox"
@@ -733,3 +741,241 @@ class ForgeFacade:
             "errors": scan.get("errors") or [],
         }
 
+    def _credentials_for_identity(self, identity, project_slug: str | None):
+        from adhd_hub.forge.repo_sync import credentials_apply_to_pinned
+
+        tcfg = self.forge_config(project_slug)
+        cfg = self.forge_config()
+        if credentials_apply_to_pinned(tcfg, identity):
+            return tcfg
+        if credentials_apply_to_pinned(cfg, identity):
+            return cfg
+        return None
+
+    def record_sync_review(
+        self,
+        *,
+        reason: str,
+        payload: dict,
+        project_slug: str | None = None,
+    ):
+        from adhd_hub.models import PendingActionKind
+
+        data = dict(payload)
+        if project_slug:
+            data["project_slug"] = project_slug
+        return self._hub.store.create_pending_action(
+            kind=PendingActionKind.sync_review,
+            payload=data,
+            reason=reason,
+            source_tool="forge-sync",
+        )
+
+    def close_external_thread(self, thread: Thread) -> dict:
+        from adhd_hub.forge.repo_sync import (
+            fingerprint_for,
+            mutate_pinned_issue_state,
+        )
+        from adhd_hub.work_identity import WorkSource, normalize_external_identity
+
+        try:
+            identity = normalize_external_identity(
+                thread.external_provider or WorkSource.github,
+                thread.external_host,
+                thread.external_owner or "",
+                thread.external_repo or "",
+                int(thread.external_issue_number or 0),
+            )
+        except ValueError:
+            return {"ok": False, "error": "pinned_identity_unreachable", "pending": False}
+        cfg = self._credentials_for_identity(identity, thread.project_slug)
+        if cfg is None:
+            return {"ok": False, "error": "pinned_identity_unreachable", "pending": False}
+        result = mutate_pinned_issue_state(cfg, identity, closed=True)
+        if isinstance(result, dict):
+            return result
+        title = result.title or thread.summary
+        fp = fingerprint_for(result)
+        self._hub.store.apply_external_projection(
+            thread.id,
+            summary=title,
+            external_issue_state=result.state,
+            external_updated_at=result.updated_at,
+            external_fingerprint=fp,
+            external_labels=list(result.labels),
+        )
+        return {"ok": True, "number": identity.number}
+
+    def reopen_external_thread(self, thread: Thread) -> dict:
+        from adhd_hub.forge.repo_sync import (
+            fingerprint_for,
+            mutate_pinned_issue_state,
+        )
+        from adhd_hub.work_identity import WorkSource, normalize_external_identity
+
+        try:
+            identity = normalize_external_identity(
+                thread.external_provider or WorkSource.github,
+                thread.external_host,
+                thread.external_owner or "",
+                thread.external_repo or "",
+                int(thread.external_issue_number or 0),
+            )
+        except ValueError:
+            return {"ok": False, "error": "pinned_identity_unreachable", "pending": False}
+        cfg = self._credentials_for_identity(identity, thread.project_slug)
+        if cfg is None:
+            return {"ok": False, "error": "pinned_identity_unreachable", "pending": False}
+        result = mutate_pinned_issue_state(cfg, identity, closed=False)
+        if isinstance(result, dict):
+            return result
+        title = result.title or thread.summary
+        fp = fingerprint_for(result)
+        self._hub.store.apply_external_projection(
+            thread.id,
+            summary=title,
+            external_issue_state=result.state,
+            external_updated_at=result.updated_at,
+            external_fingerprint=fp,
+            external_labels=list(result.labels),
+        )
+        return {"ok": True, "number": identity.number}
+
+    def promote_thread_to_issue(self, thread_id: str) -> dict:
+        from adhd_hub.forge.repo_sync import create_remote_issue, fingerprint_for
+        from adhd_hub.work_identity import (
+            DuplicateExternalIdentityError,
+            thread_has_external_identity,
+        )
+
+        thread = self._hub.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError(f"thread not found: {thread_id}")
+        if thread_has_external_identity(thread):
+            return {"ok": False, "error": "already_linked"}
+        cfg = self.forge_config(thread.project_slug)
+        body = ""
+        if cfg.publish_hub_status_block:
+            body = self._board(cfg).render_status_block(thread)
+        created = create_remote_issue(cfg, title=thread.summary[:200], body=body)
+        if isinstance(created, dict):
+            return created
+        try:
+            self._hub.store.attach_external_identity(
+                thread.id,
+                created.identity,
+                external_issue_state=created.state,
+            )
+        except DuplicateExternalIdentityError as exc:
+            self.record_sync_review(
+                reason="identity_collision",
+                payload={
+                    "thread_id": thread.id,
+                    "number": created.identity.number,
+                    "owner": created.identity.owner,
+                    "repo": created.identity.repo,
+                },
+                project_slug=thread.project_slug,
+            )
+            return {"ok": False, "error": str(exc), "needs_review": True}
+        fp = fingerprint_for(created)
+        self._hub.store.apply_external_projection(
+            thread.id,
+            summary=created.title or thread.summary,
+            external_issue_state=created.state,
+            external_updated_at=created.updated_at,
+            external_fingerprint=fp,
+            external_labels=list(created.labels),
+        )
+        return {
+            "ok": True,
+            "thread_id": thread.id,
+            "number": created.identity.number,
+            "identity": {
+                "provider": created.identity.provider.value,
+                "host": created.identity.host,
+                "owner": created.identity.owner,
+                "repo": created.identity.repo,
+                "number": created.identity.number,
+            },
+        }
+
+    def link_thread_to_issue(
+        self,
+        thread_id: str,
+        *,
+        owner: str,
+        repo: str,
+        number: int,
+        host: str | None = None,
+        provider: str | None = None,
+    ) -> dict:
+        from adhd_hub.forge.repo_sync import fetch_pinned_issue, fingerprint_for
+        from adhd_hub.work_identity import (
+            DuplicateExternalIdentityError,
+            WorkSource,
+            normalize_external_identity,
+            thread_has_external_identity,
+        )
+
+        thread = self._hub.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError(f"thread not found: {thread_id}")
+        if thread_has_external_identity(thread):
+            return {"ok": False, "error": "already_linked"}
+        cfg = self.forge_config(thread.project_slug)
+        src = WorkSource(provider or cfg.provider.value)
+        if src not in (WorkSource.github, WorkSource.gitea):
+            return {"ok": False, "error": "invalid_provider"}
+        identity = normalize_external_identity(
+            src,
+            host or cfg.web_browse_root() or cfg.base_url,
+            owner,
+            repo,
+            number,
+        )
+        existing = self._hub.store.get_thread_by_external_identity(
+            identity.provider,
+            identity.host,
+            identity.owner,
+            identity.repo,
+            identity.number,
+        )
+        if existing and existing.id != thread.id:
+            self.record_sync_review(
+                reason="identity_collision",
+                payload={
+                    "thread_id": thread.id,
+                    "existing_thread_id": existing.id,
+                    "number": identity.number,
+                },
+                project_slug=thread.project_slug,
+            )
+            return {"ok": False, "error": "identity_collision", "needs_review": True}
+        cred = self._credentials_for_identity(identity, thread.project_slug) or cfg
+        fetched = fetch_pinned_issue(cred, identity)
+        if isinstance(fetched, dict):
+            return {"ok": False, **fetched}
+        try:
+            self._hub.store.attach_external_identity(
+                thread.id,
+                identity,
+                external_issue_state=fetched.state,
+            )
+        except DuplicateExternalIdentityError as exc:
+            self.record_sync_review(
+                reason="identity_collision",
+                payload={"thread_id": thread.id, "number": identity.number},
+                project_slug=thread.project_slug,
+            )
+            return {"ok": False, "error": str(exc), "needs_review": True}
+        fp = fingerprint_for(fetched)
+        self._hub.store.apply_external_projection(
+            thread.id,
+            summary=fetched.title or thread.summary,
+            external_issue_state=fetched.state,
+            external_updated_at=fetched.updated_at,
+            external_fingerprint=fp,
+            external_labels=list(fetched.labels),
+        )
+        return {"ok": True, "thread_id": thread.id, "number": identity.number}
