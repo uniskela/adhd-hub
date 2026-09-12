@@ -28,6 +28,11 @@ export function showScreen(screen, { focusHeading = true, persist = true } = {})
     if (next === "settings") settingsBtn.setAttribute("aria-current", "page");
     else settingsBtn.removeAttribute("aria-current");
   }
+  const mobileSettingsBtn = $("btn-mobile-settings");
+  if (mobileSettingsBtn) {
+    if (next === "settings") mobileSettingsBtn.setAttribute("aria-current", "page");
+    else mobileSettingsBtn.removeAttribute("aria-current");
+  }
   document.body.classList.toggle("settings-open", next === "settings");
   if (next !== "work") {
     ++state.projectRequest;

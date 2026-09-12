@@ -115,13 +115,13 @@ def main():
                 page.goto(base + "/ui")
                 expect(page.locator("#login-gate")).to_be_visible()
                 expect(page.locator("#app-shell")).to_be_hidden()
-                page.locator("#theme-select").select_option("light")
+                page.evaluate("localStorage.setItem(\"adhd_hub_theme\", \"light\")"); page.reload()
                 page.screenshot(path=str(screenshots / "login-light.png"), full_page=True)
-                page.locator("#theme-select").select_option("dark")
+                page.evaluate("localStorage.setItem(\"adhd_hub_theme\", \"dark\")"); page.reload()
                 page.reload()
                 expect(page.locator("html")).to_have_attribute("data-theme", "dark")
                 page.screenshot(path=str(screenshots / "login-dark.png"), full_page=True)
-                page.locator("#theme-select").select_option("system")
+                page.evaluate("localStorage.setItem(\"adhd_hub_theme\", \"system\")"); page.reload()
                 page.emulate_media(color_scheme="light")
                 expect(page.locator("html")).to_have_attribute("data-theme", "light")
                 page.emulate_media(color_scheme="dark")
@@ -132,6 +132,9 @@ def main():
                 page.locator("#login-token").fill(token)
                 page.get_by_role("button", name="Sign in", exact=True).click()
                 expect(page.locator("#app-shell")).to_be_visible()
+                expect(page.locator(".appearance-bar")).to_have_count(0)
+                expect(page.locator(".app-header")).to_be_visible()
+                expect(page.locator(".mobile-nav")).to_have_count(1)
                 expect(page.locator("#login-gate")).to_be_hidden()
                 expect(page.locator("#now-view")).to_be_visible()
                 expect(page.locator("#work-view")).to_be_hidden()
@@ -200,7 +203,7 @@ def main():
                 page.locator("#daily-goal").select_option("3")
                 page.get_by_role("button", name="Save", exact=True).click()
                 expect(page.locator("#settings-msg")).to_contain_text("Settings saved")
-                page.get_by_role("button", name="Close settings", exact=True).click()
+                page.get_by_role("button", name="Now", exact=True).click()
                 page.locator("#next-card").get_by_role("button", name="Done", exact=True).click()
                 expect(page.get_by_role("button", name="Choose a task", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Progress", exact=True).click()
@@ -243,10 +246,10 @@ def main():
                     installed_version = json.load(response)["version"]
                 expect(page.locator("#app-version")).to_have_text("v" + installed_version)
                 expect(page.locator("#repo-link")).to_have_attribute("href", "https://github.com/uniskela/adhd-hub")
-                page.locator("#settings-theme").select_option("light")
+                page.locator("#settings-preferences [data-theme-value=\"light\"]").click()
                 expect(page.locator("html")).to_have_attribute("data-theme", "light")
                 page.screenshot(path=str(screenshots / "settings-light.png"), full_page=True)
-                page.locator("#settings-theme").select_option("dark")
+                page.locator("#settings-preferences [data-theme-value=\"dark\"]").click()
                 page.get_by_role("tab", name="Connections", exact=True).click()
                 expect(page.locator("#install-cmd")).to_be_visible()
                 expect(page.get_by_role("button", name="Allow this CLI", exact=True)).to_be_visible()
@@ -260,25 +263,25 @@ def main():
                 expect(page.locator("#oc_token")).to_have_value("")
                 expect(page.locator("#oc_token_status")).to_contain_text("saved")
                 page.screenshot(path=str(screenshots / "settings-connections.png"), full_page=True)
-                page.get_by_role("button", name="Close settings", exact=True).click()
-                expect(page.get_by_role("button", name="Settings", exact=True)).to_be_focused()
+                page.get_by_role("button", name="Now", exact=True).click()
+                expect(page.locator("#now-view")).to_be_visible()
 
                 page.get_by_role("button", name="Settings", exact=True).click()
                 page.locator("#rewards-enabled").uncheck()
-                page.get_by_role("button", name="Close settings", exact=True).click()
+                page.get_by_role("button", name="Now", exact=True).click()
                 page.reload()
                 page.get_by_role("button", name="Progress", exact=True).click()
                 expect(page.locator("#rewards-panel")).to_be_hidden()
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Help me choose", exact=True).click()
                 page.get_by_role("button", name="Choose this", exact=True).click()
-                page.locator("#theme-select").select_option("light")
+                page.evaluate("localStorage.setItem(\"adhd_hub_theme\", \"light\")"); page.reload()
                 page.screenshot(
                     path=str(screenshots / "dashboard-light.png"),
                     full_page=True,
                     animations="disabled",
                 )
-                page.locator("#theme-select").select_option("dark")
+                page.evaluate("localStorage.setItem(\"adhd_hub_theme\", \"dark\")"); page.reload()
                 page.screenshot(
                     path=str(screenshots / "dashboard-dark.png"),
                     full_page=True,
@@ -306,7 +309,7 @@ def main():
                 expect(page.locator("#threads .thread-project").first).to_be_visible()
                 expect(page.locator("#threads .thread-status").first).to_have_text("Ready")
                 expect(page.get_by_role("button", name="Choose this step").first).to_be_visible()
-                page.screenshot(path=str(screenshots / "my-work-thread-cards.png"), full_page=True)
+                page.screenshot(path=str(screenshots / "my-work-dense-list.png"), full_page=True)
                 # Deliver project A after B; B must remain selected and editable.
                 held = []
 
@@ -355,7 +358,7 @@ def main():
                 page.get_by_role("button", name="Settings", exact=True).click()
                 for name in ["Preferences", "Account", "Connections", "Data"]:
                     page.get_by_role("tab", name=name, exact=True).click()
-                    assert page.locator("#settings-dialog").evaluate(
+                    assert page.locator("#settings-view").evaluate(
                         "el => el.scrollWidth <= el.clientWidth"
                     )
                     expect(
@@ -364,7 +367,7 @@ def main():
                 page.get_by_role("tab", name="Preferences", exact=True).click()
                 page.locator("#rewards-enabled").check()
                 page.screenshot(path=str(screenshots / "settings-mobile.png"), full_page=True)
-                page.get_by_role("button", name="Close settings", exact=True).click()
+                page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Progress", exact=True).click()
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 page.screenshot(path=str(screenshots / "progress-mobile.png"), full_page=True)
@@ -387,7 +390,7 @@ def main():
                 blocked.get_by_role("button", name="Sign in", exact=True).click()
                 expect(blocked.locator("#app-shell")).to_be_visible()
                 expect(blocked.locator("#now-view")).to_be_visible()
-                blocked.locator("#theme-select").select_option("light")
+                blocked.locator("#appearance-menu").get_by_text("Appearance", exact=True).click(); blocked.locator("#appearance-menu [data-theme-value=\"light\"]").click()
                 expect(blocked.locator("html")).to_have_attribute("data-theme", "light")
                 blocked.get_by_role("button", name="Settings", exact=True).click()
                 blocked.locator("#rewards-enabled").uncheck()

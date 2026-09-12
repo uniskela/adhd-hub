@@ -25,20 +25,6 @@
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
-  <div class="appearance-bar">
-    <span class="appearance-label" id="appearance-label">Appearance</span>
-    <div class="theme-toggle" role="radiogroup" aria-labelledby="appearance-label" data-theme-toggle>
-      <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="system" title="System" aria-label="System theme">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v9A2.5 2.5 0 0 1 17.5 17H13v2h2.5a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1 0-1.5H11v-2H6.5A2.5 2.5 0 0 1 4 14.5v-9Zm1.5 0v9A1 1 0 0 0 6.5 15.5h11a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-11a1 1 0 0 0-1 1Z"/></svg>
-      </button>
-      <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="light" title="Light" aria-label="Light theme">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 7.25a4.75 4.75 0 1 1 0 9.5 4.75 4.75 0 0 1 0-9.5Zm0-4.5a.75.75 0 0 1 .75.75v1.2a.75.75 0 0 1-1.5 0V3.5A.75.75 0 0 1 12 2.75Zm0 15.3a.75.75 0 0 1 .75.75v1.2a.75.75 0 0 1-1.5 0v-1.2a.75.75 0 0 1 .75-.75Zm9.25-6.3a.75.75 0 0 1-.75.75h-1.2a.75.75 0 0 1 0-1.5H20.5a.75.75 0 0 1 .75.75ZM5.7 12a.75.75 0 0 1-.75.75H3.75a.75.75 0 0 1 0-1.5H4.95A.75.75 0 0 1 5.7 12Zm12.43-6.13a.75.75 0 0 1 0 1.06l-.85.85a.75.75 0 1 1-1.06-1.06l.85-.85a.75.75 0 0 1 1.06 0ZM8.78 16.28a.75.75 0 0 1 0 1.06l-.85.85a.75.75 0 0 1-1.06-1.06l.85-.85a.75.75 0 0 1 1.06 0Zm9.56 1.06a.75.75 0 0 1-1.06 0l-.85-.85a.75.75 0 1 1 1.06-1.06l.85.85a.75.75 0 0 1 0 1.06ZM7.93 6.93a.75.75 0 0 1-1.06 0l-.85-.85A.75.75 0 0 1 7.08 5l.85.85a.75.75 0 0 1 0 1.06Z"/></svg>
-      </button>
-      <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="dark" title="Dark" aria-label="Dark theme">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12.4 3.1a.75.75 0 0 1 .78.98 7.5 7.5 0 1 0 6.74 6.74.75.75 0 0 1 .98.78A8.75 8.75 0 1 1 12.4 3.1Z"/></svg>
-      </button>
-    </div>
-  </div>
   <div id="login-gate" class="login-gate" hidden>
     <div class="login-intro">
       <img class="brand-mark" src="/ui/brand/icon.svg" alt="" width="64" height="64" />
@@ -68,16 +54,30 @@
   </div>
 
   <div class="shell" id="app-shell" hidden>
-    <header class="top">
-      <p class="brand"><img class="brand-mark small" src="/ui/brand/icon.svg" alt="" width="34" height="34" /> Progress Hub</p>
-      <nav class="view-nav" aria-label="Main views">
+    <header class="app-header">
+      <div class="app-brand">
+        <img class="brand-mark small" src="/ui/brand/icon.svg" alt="" width="32" height="32" />
+        <span>Progress Hub</span>
+      </div>
+      <nav class="desktop-nav" aria-label="Main views">
         <button type="button" data-screen="now" aria-current="page">Now</button>
         <button type="button" data-screen="work">My work</button>
         <button type="button" data-screen="progress">Progress</button>
       </nav>
-      <div class="top-actions">
+      <div class="app-header-actions">
         <button type="button" class="ghost" id="btn-capture" aria-haspopup="dialog">Save a thought</button>
         <button type="button" class="ghost" id="btn-settings">Settings</button>
+        <details id="appearance-menu" class="appearance-menu">
+          <summary aria-label="Appearance">Appearance</summary>
+          <div class="appearance-popover">
+            <span class="meta">Theme</span>
+            <div class="theme-toggle theme-toggle-labeled" role="radiogroup" aria-label="Theme" data-theme-toggle>
+              <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="system"><span>System</span></button>
+              <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="light"><span>Light</span></button>
+              <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="dark"><span>Dark</span></button>
+            </div>
+          </div>
+        </details>
       </div>
     </header>
     <main id="main-content" tabindex="-1">
@@ -109,7 +109,7 @@
         <div class="view-heading work-heading-row">
           <div>
             <h1>My work</h1>
-            <p>Choose a task to bring into Now.</p>
+            <p>Scan your work. Open context only when you need it.</p>
           </div>
           <button type="button" class="ghost" id="btn-new-reminder">Leave a reminder</button>
         </div>
@@ -156,13 +156,13 @@
       </section>
       <section id="progress-view" class="view progress-view" aria-label="Progress" hidden>
         <div class="view-heading"><h1>Progress, at your pace.</h1><p>Your finished work stays here when you take a break.</p></div>
-        <details class="progress-numbers"><summary>Show my activity</summary><div class="stats" id="stats"></div>
-          <details class="activity-details"><summary>Your last 14 days</summary><div class="chart-wrap" id="chart-wrap" hidden>
+        <details class="progress-numbers" id="activity-section" open><summary>Show my activity</summary><div class="stats" id="stats"></div>
+          <details class="activity-details" open><summary>Your last 14 days</summary><div class="chart-wrap" id="chart-wrap" hidden>
             <p id="chart-summary" class="chart-summary hint"></p>
             <p class="eyebrow">Last 14 days · gold: added · teal: finished</p>
             <div class="chart" id="chart" role="img" aria-label="Activity over the last 14 days"></div>
           </div></details>        </details>
-        <section id="rewards-panel" aria-labelledby="rewards-title" hidden>
+        <section id="rewards-panel" class="milestones" aria-labelledby="rewards-title" hidden>
           <div class="rank-hero">
             <div class="rank-copy"><p class="eyebrow">YOUR JOURNEY</p><h2 id="rank-name">Seedling</h2>
               <p id="reward-level" class="rank-level"></p><p id="rank-next" class="hint"></p>
@@ -195,9 +195,10 @@
           </aside>
           <div class="settings-main">
             <div class="settings-header">
+              <button type="button" class="text-button settings-index-back" id="btn-settings-index-back">← Back to settings</button>
               <div>
-                <p class="eyebrow">MAKE YOURSELF AT HOME</p>
                 <h1 id="settings-title">Settings</h1>
+                <p class="hint">Preferences, connections and data — change only what you need.</p>
               </div>
             </div>
             <p id="settings-msg" class="msg" role="status" aria-live="polite"></p>
@@ -380,6 +381,12 @@
         </div>
       </section>
     </main>
+    <nav class="mobile-nav" aria-label="Main views">
+      <button type="button" data-screen="now">Now</button>
+      <button type="button" data-screen="work">My work</button>
+      <button type="button" data-screen="progress">Progress</button>
+      <button type="button" id="btn-mobile-settings">Settings</button>
+    </nav>
   </div>
 
   <dialog id="project-dialog" aria-labelledby="edit-heading">

@@ -5,7 +5,19 @@ import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { saveRewardPreferences } from './progress.js';
 
+export function showSettingsIndex() {
+  const view = $("settings-view");
+  if (!view) return;
+  view.classList.add("settings-index-open");
+  const heading = view.querySelector("h1");
+  if (heading) {
+    if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
+    heading.focus({ preventScroll: true });
+  }
+}
+
 export function selectSettingsTab(name, focus = false) {
+  $("settings-view")?.classList.remove("settings-index-open");
   const tabs = [...document.querySelectorAll("[data-settings-tab]")];
   const known = new Set(tabs.map((tab) => tab.dataset.settingsTab));
   const next = known.has(name) ? name : "preferences";
