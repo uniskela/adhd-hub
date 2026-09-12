@@ -6,9 +6,9 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection } from './work.js';
 
 initRepoLinks();
 
@@ -153,6 +153,13 @@ $("btn-save-settings").addEventListener("click", (e) => {
 $("btn-save-forge").addEventListener("click", () =>
   saveForge().catch((e) => setMsg(String(e)))
 );
+$("btn-add-forge-profile")?.addEventListener("click", () => addForgeProfile());
+$("p_repo_url")?.addEventListener("change", () => {
+  suggestProjectForgeConnection().catch(() => {});
+});
+$("p_repo_url")?.addEventListener("blur", () => {
+  suggestProjectForgeConnection().catch(() => {});
+});
 $("btn-save-openclaw").addEventListener("click", () =>
   saveOpenClaw().catch((e) => { $("openclaw-msg").textContent = e.message; })
 );

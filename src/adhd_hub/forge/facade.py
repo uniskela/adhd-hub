@@ -9,8 +9,11 @@ from typing import TYPE_CHECKING
 from adhd_hub.forge.board_sync import BoardForgeSync
 from adhd_hub.forge.config import (
     ForgeConfig,
+    ForgeProvider,
+    config_from_profile,
     forge_from_settings,
     load_forge_config,
+    profile_matches_identity_host,
 )
 from adhd_hub.forge.config import (
     save_forge_config as persist_forge_config,
@@ -41,20 +44,70 @@ class ForgeFacade:
             "adhd-hub/wiki",
         ):
             data["wiki_path"] = ""
+            base = ForgeConfig.model_validate(data)
+        else:
+            base = ForgeConfig.model_validate(data)
         if not project_slug:
-            return ForgeConfig.model_validate(data)
+            return base
         proj = self._hub.store.get_project(project_slug)
         if not proj:
-            return ForgeConfig.model_validate(data)
+            return base
+        profile = base.profile_by_id(proj.forge_connection_profile_id)
+        if profile is None:
+            # Local-only / unbound: never leak default-profile credentials.
+            return base.model_copy(
+                update={
+                    "provider": ForgeProvider.none,
+                    "token": "",
+                    "owner": proj.forge_owner or "",
+                    "repo": proj.forge_repo or "",
+                    "project_id": proj.forge_project_id,
+                    "wiki_path": (
+                        proj.forge_wiki_path
+                        if proj.forge_wiki_path is not None
+                        else base.wiki_path
+                    ),
+                }
+            )
+        cfg = config_from_profile(base, profile)
+        updates: dict = {}
         if proj.forge_owner:
-            data["owner"] = proj.forge_owner
+            updates["owner"] = proj.forge_owner
         if proj.forge_repo:
-            data["repo"] = proj.forge_repo
+            updates["repo"] = proj.forge_repo
         if proj.forge_wiki_path is not None:
-            data["wiki_path"] = proj.forge_wiki_path
+            updates["wiki_path"] = proj.forge_wiki_path
         if proj.forge_project_id:
-            data["project_id"] = proj.forge_project_id
-        return ForgeConfig.model_validate(data)
+            updates["project_id"] = proj.forge_project_id
+        return cfg.model_copy(update=updates) if updates else cfg
+
+    def resolve_credentials_for_identity(self, identity) -> ForgeConfig | None:
+        """Return forge config whose token applies to the pinned identity host."""
+        from adhd_hub.work_identity import ExternalIdentity
+
+        if not isinstance(identity, ExternalIdentity):
+            return None
+        base = load_forge_config(
+            self._hub.settings.data_dir, env_defaults=forge_from_settings(self._hub.settings)
+        )
+        for profile in base.connection_profiles:
+            if profile_matches_identity_host(profile, identity):
+                return config_from_profile(base, profile)
+        return None
+
+    def operational_forge_config(self, project_slug: str | None = None) -> ForgeConfig:
+        """Config for intentional forge ops (link/promote/wiki board).
+
+        Bound projects use their profile. Unbound projects fall back to the
+        default Hub connection so explicit operator actions still work; discovery
+        remains gated on forge_connection_profile_id via forge_config().
+        """
+        if not project_slug:
+            return self.forge_config()
+        pcfg = self.forge_config(project_slug)
+        if pcfg.provider != ForgeProvider.none and pcfg.token:
+            return pcfg
+        return self.forge_config()
 
     def save_forge_config(self, config: ForgeConfig) -> ForgeConfig:
         # Persist empty wiki_path for primary memory instead of re-defaulting
@@ -65,7 +118,6 @@ class ForgeFacade:
 
     def confident_forge_target(self, project_slug: str | None) -> dict[str, str] | None:
         """Return provider/host/owner/repo only when offline evidence is unambiguous."""
-        from adhd_hub.forge.config import ForgeProvider
         from adhd_hub.work_identity import WorkSource, host_from_forge_browse_root
 
         base = load_forge_config(
@@ -79,15 +131,24 @@ class ForgeFacade:
             has_r = bool((proj.forge_repo or "").strip())
             if has_o ^ has_r:
                 return None
-            owner = (proj.forge_owner or "").strip() or base.owner
-            repo = (proj.forge_repo or "").strip() or base.repo
+            # Prefer bound profile host when set; else default (legacy global) profile.
+            bound = base.profile_by_id(proj.forge_connection_profile_id)
+            if bound is not None:
+                cfg = config_from_profile(base, bound)
+                owner = (proj.forge_owner or "").strip() or cfg.owner
+                repo = (proj.forge_repo or "").strip() or cfg.repo
+                provider = WorkSource(cfg.provider.value)
+                host = host_from_forge_browse_root(provider, cfg.web_browse_root())
+            else:
+                owner = (proj.forge_owner or "").strip() or base.owner
+                repo = (proj.forge_repo or "").strip() or base.repo
+                provider = WorkSource(base.provider.value)
+                host = host_from_forge_browse_root(provider, base.web_browse_root())
         else:
             owner, repo = base.owner, base.repo
-        if not (owner and repo):
-            return None
-        provider = WorkSource(base.provider.value)
-        host = host_from_forge_browse_root(provider, base.web_browse_root())
-        if not host:
+            provider = WorkSource(base.provider.value)
+            host = host_from_forge_browse_root(provider, base.web_browse_root())
+        if not (owner and repo and host):
             return None
         return {
             "provider": provider.value,
@@ -241,10 +302,9 @@ class ForgeFacade:
                     }
                 )
                 continue
-            # Prefer credentials from thread project config when they apply; else global.
-            tcfg = self.forge_config(thread.project_slug)
-            cred_cfg = tcfg if credentials_apply_to_pinned(tcfg, identity) else cfg
-            if not credentials_apply_to_pinned(cred_cfg, identity):
+            # Prefer host-matched profile credentials; never send wrong-host tokens.
+            cred_cfg = self.resolve_credentials_for_identity(identity)
+            if cred_cfg is None or not credentials_apply_to_pinned(cred_cfg, identity):
                 reconcile_results.append(
                     {
                         "thread_id": thread.id,
@@ -270,13 +330,14 @@ class ForgeFacade:
                 {"thread_id": thread.id, "identity": identity.number, **applied}
             )
 
-        # 2) Separately: discovery for projects with resolvable forge targets.
+        # 2) Discovery for projects with a connection profile (plus default hub target).
         discovery_results: list[dict] = []
         seen_targets: set[tuple[str, str, str]] = set()
         projects = list(self._hub.store.list_projects())
-        # Include global target as a pseudo entry
         targets: list[tuple[str | None, ForgeConfig]] = [(None, cfg)]
         for proj in projects:
+            if not proj.forge_connection_profile_id:
+                continue
             pcfg = self.forge_config(proj.slug)
             targets.append((proj.slug, pcfg))
         for slug, tcfg in targets:
@@ -744,10 +805,13 @@ class ForgeFacade:
     def _credentials_for_identity(self, identity, project_slug: str | None):
         from adhd_hub.forge.repo_sync import credentials_apply_to_pinned
 
+        matched = self.resolve_credentials_for_identity(identity)
+        if matched is not None and credentials_apply_to_pinned(matched, identity):
+            return matched
         tcfg = self.forge_config(project_slug)
-        cfg = self.forge_config()
         if credentials_apply_to_pinned(tcfg, identity):
             return tcfg
+        cfg = self.forge_config()
         if credentials_apply_to_pinned(cfg, identity):
             return cfg
         return None
@@ -853,7 +917,7 @@ class ForgeFacade:
             raise KeyError(f"thread not found: {thread_id}")
         if thread_has_external_identity(thread):
             return {"ok": False, "error": "already_linked"}
-        cfg = self.forge_config(thread.project_slug)
+        cfg = self.operational_forge_config(thread.project_slug)
         body = ""
         if cfg.publish_hub_status_block:
             body = self._board(cfg).render_status_block(thread)
@@ -923,7 +987,7 @@ class ForgeFacade:
             raise KeyError(f"thread not found: {thread_id}")
         if thread_has_external_identity(thread):
             return {"ok": False, "error": "already_linked"}
-        cfg = self.forge_config(thread.project_slug)
+        cfg = self.operational_forge_config(thread.project_slug)
         src = WorkSource(provider or cfg.provider.value)
         if src not in (WorkSource.github, WorkSource.gitea):
             return {"ok": False, "error": "invalid_provider"}

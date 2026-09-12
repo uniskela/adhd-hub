@@ -177,6 +177,7 @@ class Project(BaseModel):
     forge_repo: str | None = None
     forge_wiki_path: str | None = None
     forge_project_id: str | None = None  # Gitea/GitHub project board id override
+    forge_connection_profile_id: str | None = None
     archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
@@ -199,6 +200,7 @@ class ProjectUpsert(BaseModel):
     forge_repo: str | None = None
     forge_wiki_path: str | None = None
     forge_project_id: str | None = None
+    forge_connection_profile_id: str | None = None
 
     @field_validator("repo_url")
     @classmethod

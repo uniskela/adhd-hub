@@ -195,6 +195,10 @@ class Store:
                     "ALTER TABLE projects ADD COLUMN default_work_source TEXT "
                     "NOT NULL DEFAULT 'local'"
                 )
+            if "forge_connection_profile_id" not in cols:
+                conn.execute(
+                    "ALTER TABLE projects ADD COLUMN forge_connection_profile_id TEXT"
+                )
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
             for column in (
@@ -1287,6 +1291,7 @@ class Store:
             forge_repo=row["forge_repo"],
             forge_wiki_path=row["forge_wiki_path"],
             forge_project_id=dict(row).get("forge_project_id"),
+            forge_connection_profile_id=dict(row).get("forge_connection_profile_id"),
             archived_at=(
                 datetime.fromisoformat(row["archived_at"])
                 if dict(row).get("archived_at")
@@ -1333,6 +1338,7 @@ class Store:
                         forge_repo = COALESCE(?, forge_repo),
                         forge_wiki_path = COALESCE(?, forge_wiki_path),
                         forge_project_id = COALESCE(?, forge_project_id),
+                        forge_connection_profile_id = ?,
                         updated_at = ?
                     WHERE slug = ?
                     """,
@@ -1347,6 +1353,11 @@ class Store:
                         payload.forge_repo,
                         payload.forge_wiki_path,
                         payload.forge_project_id,
+                        (
+                            payload.forge_connection_profile_id
+                            if "forge_connection_profile_id" in payload.model_fields_set
+                            else dict(existing).get("forge_connection_profile_id")
+                        ),
                         now.isoformat(),
                         slug,
                     ),
@@ -1358,8 +1369,9 @@ class Store:
                         slug, title, description, repo_url, workspace_paths, default_energy,
                         default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
+                        forge_connection_profile_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slug,
@@ -1373,6 +1385,7 @@ class Store:
                         payload.forge_repo,
                         payload.forge_wiki_path,
                         payload.forge_project_id,
+                        payload.forge_connection_profile_id,
                         now.isoformat(),
                         now.isoformat(),
                     ),
@@ -1422,6 +1435,38 @@ class Store:
             row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
         assert row is not None
         return self._row_project(row)
+
+    def set_project_forge_connection_profile(
+        self, slug: str, profile_id: str | None
+    ) -> Project:
+        safe = slugify(slug)
+        now = utcnow()
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
+            if not row:
+                raise KeyError(safe)
+            conn.execute(
+                """
+                UPDATE projects
+                SET forge_connection_profile_id = ?, updated_at = ?
+                WHERE slug = ?
+                """,
+                (profile_id, now.isoformat(), safe),
+            )
+            row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
+        assert row is not None
+        return self._row_project(row)
+
+    def count_projects_with_forge_connection_profile(self, profile_id: str) -> int:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS n FROM projects
+                WHERE forge_connection_profile_id = ?
+                """,
+                (profile_id,),
+            ).fetchone()
+        return int(row["n"] if row else 0)
 
     def resolve_project_by_workspace(self, workspace_path: str | None) -> Project | None:
         norm = normalize_workspace_path(workspace_path)
@@ -1474,6 +1519,7 @@ class Store:
                         forge_repo=existing.forge_repo,
                         forge_wiki_path=existing.forge_wiki_path,
                         forge_project_id=existing.forge_project_id,
+                        forge_connection_profile_id=existing.forge_connection_profile_id,
                     )
                 )
             return existing
@@ -1510,16 +1556,18 @@ class Store:
                 conn.execute(
                     """
                     INSERT INTO projects (
-                        slug, title, description, workspace_paths, default_energy,
+                        slug, title, description, repo_url, workspace_paths, default_energy,
                         default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
+                        forge_connection_profile_id, archived_at,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new,
                         new_title,
                         row["description"],
+                        dict(row).get("repo_url"),
                         row["workspace_paths"],
                         row["default_energy"],
                         dict(row).get("default_work_source") or WorkSource.local.value,
@@ -1527,6 +1575,8 @@ class Store:
                         row["forge_repo"],
                         row["forge_wiki_path"],
                         dict(row).get("forge_project_id"),
+                        dict(row).get("forge_connection_profile_id"),
+                        dict(row).get("archived_at"),
                         row["created_at"],
                         now,
                     ),

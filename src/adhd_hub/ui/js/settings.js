@@ -138,11 +138,8 @@ export async function saveConnectAgents() {
 export async function loadForge() {
     try {
       const c = await api("/forge/config");
-      $("provider").value = c.provider || "none";
-      $("base_url").value = c.base_url || "";
-      $("owner").value = c.owner || "";
-      $("repo").value = c.repo || "";
-      $("forge_token").value = c.token || "";
+      state.forgeConfigCache = c;
+      renderForgeProfiles(c);
       $("wiki_path").value = c.wiki_path ?? "";
       $("wiki_branch").value = c.wiki_branch || "main";
       $("hub_public_url").value = c.hub_public_url || "";
@@ -156,6 +153,166 @@ export async function loadForge() {
       $("primary_memory_repo").checked = !!c.primary_memory_repo;
     } catch (_e) {
       /* forge optional */
+    }
+  }
+
+function newProfileId() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+    }
+    return `p${Date.now().toString(36)}`;
+  }
+
+function profileCardHtml(p, idx) {
+    const id = escapeHtml(p.id || "");
+    const policy = p.issue_import_policy || "manual";
+    const labels = Array.isArray(p.issue_import_labels)
+      ? p.issue_import_labels.join(", ")
+      : "";
+    return `<article class="forge-profile-card" data-profile-idx="${idx}" data-profile-id="${id}">
+      <div class="form-grid">
+        <label>Name <input data-f="name" value="${escapeHtml(p.name || "")}" /></label>
+        <label>Provider
+          <select data-f="provider">
+            <option value="none"${p.provider === "none" ? " selected" : ""}>none</option>
+            <option value="gitea"${p.provider === "gitea" ? " selected" : ""}>gitea</option>
+            <option value="github"${p.provider === "github" ? " selected" : ""}>github</option>
+          </select>
+        </label>
+        <label>API base URL <input data-f="base_url" value="${escapeHtml(p.base_url || "")}" /></label>
+        <label>Web base URL <input data-f="web_base_url" value="${escapeHtml(p.web_base_url || "")}" /></label>
+        <label>Owner <input data-f="owner" value="${escapeHtml(p.owner || "")}" /></label>
+        <label>Repo <input data-f="repo" value="${escapeHtml(p.repo || "")}" /></label>
+        <label class="span2">Token <input data-f="token" type="password" value="${escapeHtml(p.token || "")}" autocomplete="off" /></label>
+        <label>Import policy
+          <select data-f="issue_import_policy">
+            <option value="manual"${policy === "manual" ? " selected" : ""}>manual</option>
+            <option value="all_open"${policy === "all_open" ? " selected" : ""}>all_open</option>
+            <option value="labels"${policy === "labels" ? " selected" : ""}>labels</option>
+            <option value="assigned_to_me"${policy === "assigned_to_me" ? " selected" : ""}>assigned_to_me</option>
+            <option value="adhd_inbox"${policy === "adhd_inbox" ? " selected" : ""}>adhd_inbox</option>
+          </select>
+        </label>
+        <label>Import labels <input data-f="issue_import_labels" value="${escapeHtml(labels)}" placeholder="label-one, label-two" /></label>
+        <label>Account login <input data-f="forge_account_login" value="${escapeHtml(p.forge_account_login || "")}" placeholder="for assigned_to_me" /></label>
+        <label class="check-row span2"><input type="checkbox" data-f="publish_hub_status_block"${p.publish_hub_status_block ? " checked" : ""} /> Publish Hub status block on forge issues</label>
+      </div>
+      <div class="actions">
+        <button type="button" class="ghost" data-test-profile>Test connection</button>
+        <button type="button" class="danger" data-delete-profile>Delete</button>
+      </div>
+      <p class="hint forge-profile-test" data-test-msg hidden></p>
+    </article>`;
+  }
+
+export function renderForgeProfiles(cfg) {
+    const root = $("forge-profiles");
+    const defSel = $("default_connection_profile_id");
+    if (!root || !defSel) return;
+    const profiles = Array.isArray(cfg?.connection_profiles) ? cfg.connection_profiles : [];
+    root.innerHTML = profiles.length
+      ? profiles.map((p, i) => profileCardHtml(p, i)).join("")
+      : `<p class="hint">No profiles yet. Add one for GitHub, Gitea, or both.</p>`;
+    defSel.innerHTML = profiles
+      .map(
+        (p) =>
+          `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)}</option>`
+      )
+      .join("");
+    if (cfg?.default_connection_profile_id) {
+      defSel.value = cfg.default_connection_profile_id;
+    }
+    root.querySelectorAll("[data-test-profile]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const card = btn.closest(".forge-profile-card");
+        const pid = card?.dataset.profileId;
+        if (pid) testForgeProfile(pid, card).catch((e) => setMsg(String(e)));
+      });
+    });
+    root.querySelectorAll("[data-delete-profile]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const card = btn.closest(".forge-profile-card");
+        const pid = card?.dataset.profileId;
+        if (pid) deleteForgeProfile(pid).catch((e) => setMsg(String(e)));
+      });
+    });
+  }
+
+function collectForgeProfilesFromDom() {
+    return [...document.querySelectorAll(".forge-profile-card")].map((card) => {
+      const get = (name) => card.querySelector(`[data-f="${name}"]`);
+      const labelsRaw = get("issue_import_labels")?.value || "";
+      return {
+        id: card.dataset.profileId,
+        name: get("name")?.value?.trim() || "",
+        provider: get("provider")?.value || "none",
+        base_url: get("base_url")?.value?.trim() || "",
+        web_base_url: get("web_base_url")?.value?.trim() || "",
+        owner: get("owner")?.value?.trim() || "",
+        repo: get("repo")?.value?.trim() || "",
+        token: get("token")?.value?.trim() || "",
+        issue_import_policy: get("issue_import_policy")?.value || "manual",
+        issue_import_labels: labelsRaw
+          .split(/[,;]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+        forge_account_login: get("forge_account_login")?.value?.trim() || "",
+        publish_hub_status_block: !!get("publish_hub_status_block")?.checked,
+      };
+    });
+  }
+
+export function addForgeProfile() {
+    const cfg = state.forgeConfigCache || { connection_profiles: [] };
+    const profiles = collectForgeProfilesFromDom();
+    profiles.push({
+      id: newProfileId(),
+      name: "New connection",
+      provider: "github",
+      base_url: "https://api.github.com",
+      web_base_url: "https://github.com",
+      owner: "",
+      repo: "",
+      token: "",
+      issue_import_policy: "manual",
+      issue_import_labels: [],
+      forge_account_login: "",
+      publish_hub_status_block: false,
+    });
+    const next = { ...cfg, connection_profiles: profiles };
+    state.forgeConfigCache = next;
+    renderForgeProfiles(next);
+  }
+
+async function testForgeProfile(profile_id, card) {
+    const msg = card?.querySelector("[data-test-msg]");
+    if (msg) {
+      msg.hidden = false;
+      msg.textContent = "Testing…";
+    }
+    const out = await api(`/forge/profiles/${encodeURIComponent(profile_id)}/test`, {
+      method: "POST",
+      body: "{}",
+    });
+    const text = out.ok
+      ? `Connected${out.login ? ` as ${out.login}` : ""} (${out.provider || ""} @ ${out.host || ""})`
+      : `Failed: ${out.error || "unknown"}`;
+    if (msg) msg.textContent = text;
+    setMsg(text, { variant: out.ok ? "success" : "error" });
+  }
+
+async function deleteForgeProfile(profile_id) {
+    const result = await confirmDialog({
+      title: "Delete connection profile?",
+      body: "Projects using this profile must be reassigned first.",
+    });
+    if (!result.ok) return;
+    try {
+      await api(`/forge/profiles/${encodeURIComponent(profile_id)}`, { method: "DELETE" });
+      setMsg("Profile deleted.");
+      await loadForge();
+    } catch (e) {
+      setMsg(e.message || "Could not delete profile", { variant: "error" });
     }
   }
 export function openClawSetupPrompt(hubOrigin = location.origin, userCode = "") {
@@ -460,12 +617,10 @@ export async function saveSettings() {
     }
   }
 export async function saveForge() {
+    const profiles = collectForgeProfilesFromDom();
     const payload = {
-      provider: $("provider").value,
-      base_url: $("base_url").value.trim(),
-      owner: $("owner").value.trim(),
-      repo: $("repo").value.trim(),
-      token: $("forge_token").value.trim(),
+      connection_profiles: profiles,
+      default_connection_profile_id: $("default_connection_profile_id").value || null,
       wiki_path: $("wiki_path").value.trim(),
       wiki_branch: $("wiki_branch").value.trim() || "main",
       hub_public_url: $("hub_public_url").value.trim(),
@@ -481,6 +636,7 @@ export async function saveForge() {
     };
     await api("/forge/config", { method: "PUT", body: JSON.stringify(payload) });
     setMsg("Forge settings saved.");
+    await loadForge();
     await scanForgeImport().catch(() => {});
   }
 export async function syncForge() {

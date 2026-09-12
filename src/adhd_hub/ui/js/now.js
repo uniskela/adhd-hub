@@ -101,7 +101,9 @@ export function wireNotes(root) {
       details.addEventListener("toggle", async () => {
         if (!details.open || details.dataset.loaded || details.dataset.loading) return;
         details.dataset.loading = "true";
-        const content = details.querySelector(".markdown-body");
+        const content =
+          details.querySelector(".notes-scroll") ||
+          details.querySelector(".markdown-body");
         content.textContent = "Loading notes…";
         try {
           const thread = await api("/threads/" + encodeURIComponent(details.dataset.notes));

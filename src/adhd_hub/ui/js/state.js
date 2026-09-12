@@ -22,9 +22,83 @@ export const prefersReducedMotion = () =>
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export const $ = (id) => document.getElementById(id);
-export const setMsg = (t) => {
-  $("msg").textContent = t || "";
-  $("settings-msg").textContent = t || "";
+
+const TOAST_DEFAULT_MS = { success: 4500, info: 4500, warning: 7000, error: 0 };
+let _toastSeq = 0;
+
+function _toastVariant(text, opts) {
+  if (opts && opts.variant) return opts.variant;
+  if (opts && opts.error) return "error";
+  const t = String(text || "");
+  if (/^error\b|failed|could not|unavailable/i.test(t)) return "error";
+  if (/^warning\b|skipped/i.test(t)) return "warning";
+  if (/saved|done|imported|copied|up to date|approved|restored|downloaded/i.test(t))
+    return "success";
+  return "info";
+}
+
+export const setMsg = (t, opts = {}) => {
+  const host = $("toast-host");
+  const legacyMsg = $("msg");
+  const legacySettings = $("settings-msg");
+  if (legacyMsg) {
+    legacyMsg.textContent = "";
+    legacyMsg.hidden = true;
+  }
+  if (legacySettings) {
+    legacySettings.textContent = "";
+    legacySettings.hidden = true;
+  }
+  if (!host) return;
+  if (!t) return;
+
+  const variant = _toastVariant(t, opts);
+  const text = String(t);
+  const existing = [...host.querySelectorAll(".toast")].find(
+    (el) => el.dataset.variant === variant && el.dataset.text === text
+  );
+  if (existing) {
+    existing.classList.add("toast-bump");
+    clearTimeout(Number(existing.dataset.timer || 0) || undefined);
+    const ms = TOAST_DEFAULT_MS[variant] ?? TOAST_DEFAULT_MS.info;
+    if (ms > 0) {
+      existing.dataset.timer = String(
+        setTimeout(() => existing.remove(), ms)
+      );
+    }
+    return;
+  }
+
+  const id = `toast-${++_toastSeq}`;
+  const el = document.createElement("div");
+  el.className = `toast toast-${variant}`;
+  el.id = id;
+  el.dataset.variant = variant;
+  el.dataset.text = text;
+  el.setAttribute("role", variant === "error" ? "alert" : "status");
+  el.setAttribute("aria-live", variant === "error" ? "assertive" : "polite");
+
+  const body = document.createElement("p");
+  body.className = "toast-body";
+  body.textContent = text;
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.textContent = "×";
+  close.addEventListener("click", () => {
+    clearTimeout(Number(el.dataset.timer || 0) || undefined);
+    el.remove();
+  });
+
+  el.append(body, close);
+  host.append(el);
+
+  const ms = TOAST_DEFAULT_MS[variant] ?? TOAST_DEFAULT_MS.info;
+  if (ms > 0) {
+    el.dataset.timer = String(setTimeout(() => el.remove(), ms));
+  }
 };
 export const escapeHtml = (s) =>
   String(s ?? "")
@@ -64,6 +138,7 @@ export const state = {
     "UTC",
   repoUrl: "",
   repoDisplayUrl: "",
+  forgeConfigCache: null,
 };
 
 export function initRepoLinks() {
