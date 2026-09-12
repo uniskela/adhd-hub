@@ -68,6 +68,11 @@ export function fillProjectForm(p) {
     $("btn-delete-project").hidden = !!p.unregistered;
     $("btn-archive-project").hidden = !!p.unregistered || archived || p.slug === "unclassified";
     $("btn-restore-project").hidden = !!p.unregistered || !archived;
+    const syncBtn = $("btn-sync-project");
+    if (syncBtn) {
+      syncBtn.hidden = !!p.unregistered || p.slug === "unclassified";
+      syncBtn.disabled = false;
+    }
   }
 
 function fillForgeConnectionSelect(selectedId) {
@@ -368,6 +373,44 @@ export async function restoreProject() {
       await selectProject(slug);
     } catch (e) {
       setMsg("Could not restore: " + e.message);
+    }
+  }
+export async function syncProjectForge() {
+    const slug = $("p_slug").value.trim();
+    if (!slug) {
+      setMsg("Save the project first, then Sync forge.");
+      return;
+    }
+    const btn = $("btn-sync-project");
+    if (btn) btn.disabled = true;
+    setMsg(`Syncing forge for ${slug}…`);
+    try {
+      const out = await api(`/projects/${encodeURIComponent(slug)}/forge/sync`, {
+        method: "POST",
+        body: "{}",
+      });
+      if (out.skipped && out.reason === "no_forge_connection") {
+        setMsg(
+          out.hint || "Pick a Forge connection for this project, then Sync forge.",
+          { variant: "warning" }
+        );
+        return;
+      }
+      const reconciled = Array.isArray(out.reconcile) ? out.reconcile.length : 0;
+      const discovered = Array.isArray(out.discovery)
+        ? out.discovery.reduce(
+            (n, d) => n + ((d.imported && d.imported.length) || 0),
+            0
+          )
+        : 0;
+      setMsg(
+        `Forge sync for ${slug}: ${reconciled} linked checked, ${discovered} imported.`
+      );
+      await loadAll();
+    } catch (e) {
+      setMsg("Project forge sync failed: " + e.message, { variant: "error" });
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 export async function saveProject() {

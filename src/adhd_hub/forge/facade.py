@@ -259,8 +259,7 @@ class ForgeFacade:
             out["wiki"] = {"error": str(exc)}
         return out
 
-    def sync_forge_now(self) -> dict:
-        cfg = self.forge_config()
+    def sync_forge_now(self, project_slug: str | None = None) -> dict:
         from adhd_hub.forge.repo_sync import (
             credentials_apply_to_pinned,
             discover_issue_payloads,
@@ -274,14 +273,50 @@ class ForgeFacade:
             thread_has_external_identity,
         )
 
-        scaffold = push_primary_scaffold(
-            cfg, hub_ui_url=self._hub.settings.resolve_public_url()
-        )
-        wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+        scope_slug = (project_slug or "").strip() or None
+        if scope_slug:
+            proj = self._hub.store.get_project(scope_slug)
+            if not proj:
+                raise KeyError(scope_slug)
+            if not proj.forge_connection_profile_id:
+                return {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "no_forge_connection",
+                    "project_slug": scope_slug,
+                    "hint": "Pick a Forge connection for this project, then Sync forge.",
+                }
+            cfg = self.forge_config(scope_slug)
+            if cfg.provider == ForgeProvider.none or not cfg.token:
+                return {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "no_forge_connection",
+                    "project_slug": scope_slug,
+                    "hint": "Pick a Forge connection for this project, then Sync forge.",
+                }
+            scaffold = {"skipped": True, "reason": "project_scoped"}
+            try:
+                wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+            except Exception as exc:  # noqa: BLE001
+                log.exception("project wiki sync failed")
+                wiki = {"error": str(exc)}
+            try:
+                self._refresh_forge_section(scope_slug)
+            except Exception:  # noqa: BLE001
+                log.exception("forge section refresh failed for %s", scope_slug)
+        else:
+            cfg = self.forge_config()
+            scaffold = push_primary_scaffold(
+                cfg, hub_ui_url=self._hub.settings.resolve_public_url()
+            )
+            wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
 
-        # 1) Reconcile all linked threads from pinned identity (not project forge gate).
+        # 1) Reconcile linked threads (optionally scoped to one project).
         reconcile_results: list[dict] = []
         for thread in self._hub.store.list_externally_linked_threads(limit=500):
+            if scope_slug and thread.project_slug != scope_slug:
+                continue
             if not thread_has_external_identity(thread):
                 continue
             try:
@@ -330,16 +365,20 @@ class ForgeFacade:
                 {"thread_id": thread.id, "identity": identity.number, **applied}
             )
 
-        # 2) Discovery for projects with a connection profile (plus default hub target).
+        # 2) Discovery for projects with a connection profile (plus default hub target),
+        # or only the scoped project when project sync was requested.
         discovery_results: list[dict] = []
         seen_targets: set[tuple[str, str, str]] = set()
         projects = list(self._hub.store.list_projects())
-        targets: list[tuple[str | None, ForgeConfig]] = [(None, cfg)]
-        for proj in projects:
-            if not proj.forge_connection_profile_id:
-                continue
-            pcfg = self.forge_config(proj.slug)
-            targets.append((proj.slug, pcfg))
+        if scope_slug:
+            targets: list[tuple[str | None, ForgeConfig]] = [(scope_slug, cfg)]
+        else:
+            targets = [(None, cfg)]
+            for proj in projects:
+                if not proj.forge_connection_profile_id:
+                    continue
+                pcfg = self.forge_config(proj.slug)
+                targets.append((proj.slug, pcfg))
         for slug, tcfg in targets:
             if not (tcfg.enabled() and tcfg.board_enabled and tcfg.owner and tcfg.repo):
                 continue
@@ -428,42 +467,45 @@ class ForgeFacade:
                         }
                     )
                     continue
-                claimants = [
-                    p
-                    for p in projects
-                    if (p.forge_owner or tcfg.owner).casefold() == snap.identity.owner
-                    and (p.forge_repo or tcfg.repo).casefold() == snap.identity.repo
-                ]
-                # Also count projects using global owner/repo without override
-                if slug is None and not claimants:
+                if scope_slug:
+                    project_slug = scope_slug
+                else:
                     claimants = [
                         p
                         for p in projects
-                        if not (p.forge_owner and p.forge_repo)
+                        if (p.forge_owner or tcfg.owner).casefold() == snap.identity.owner
+                        and (p.forge_repo or tcfg.repo).casefold() == snap.identity.repo
                     ]
-                project_slug = slug
-                if project_slug is None:
-                    if len(claimants) == 1:
-                        project_slug = claimants[0].slug
-                    elif len(claimants) > 1:
-                        skipped.append(
-                            {
-                                "number": snap.identity.number,
-                                "reason": "needs_project_disambiguation",
-                            }
-                        )
-                        self.record_sync_review(
-                            reason="needs_project_disambiguation",
-                            payload={
-                                "number": snap.identity.number,
-                                "owner": snap.identity.owner,
-                                "repo": snap.identity.repo,
-                                "claimants": [p.slug for p in claimants],
-                            },
-                        )
-                        continue
-                    else:
-                        project_slug = "inbox"
+                    # Also count projects using global owner/repo without override
+                    if slug is None and not claimants:
+                        claimants = [
+                            p
+                            for p in projects
+                            if not (p.forge_owner and p.forge_repo)
+                        ]
+                    project_slug = slug
+                    if project_slug is None:
+                        if len(claimants) == 1:
+                            project_slug = claimants[0].slug
+                        elif len(claimants) > 1:
+                            skipped.append(
+                                {
+                                    "number": snap.identity.number,
+                                    "reason": "needs_project_disambiguation",
+                                }
+                            )
+                            self.record_sync_review(
+                                reason="needs_project_disambiguation",
+                                payload={
+                                    "number": snap.identity.number,
+                                    "owner": snap.identity.owner,
+                                    "repo": snap.identity.repo,
+                                    "claimants": [p.slug for p in claimants],
+                                },
+                            )
+                            continue
+                        else:
+                            project_slug = "inbox"
                 assert project_slug is not None
                 self._hub.store.ensure_project_for_slug(project_slug, title=project_slug)
                 thread, created = self._hub.store.get_or_create_thread_for_external_identity(
@@ -502,6 +544,8 @@ class ForgeFacade:
         board_results = []
         if cfg.board_mirror_local:
             for thread in self._hub.list_open_threads(limit=200):
+                if scope_slug and thread.project_slug != scope_slug:
+                    continue
                 if thread_has_external_identity(thread):
                     continue
                 try:
@@ -511,27 +555,31 @@ class ForgeFacade:
                     board_results.append({"error": str(exc), "thread_id": thread.id})
 
         per_project_wiki: list[dict] = []
-        seen: set[tuple[str, str, str]] = set()
-        for proj in self._hub.store.list_projects():
-            if not (proj.forge_owner and proj.forge_repo):
-                continue
-            key = (proj.forge_owner, proj.forge_repo, proj.forge_wiki_path or "")
-            if key in seen:
-                continue
-            seen.add(key)
-            pcfg = self.forge_config(proj.slug)
-            try:
-                per_project_wiki.append(
-                    {
-                        "slug": proj.slug,
-                        "result": WikiForgeSync(pcfg).push_wiki_tree(
-                            self._hub.settings.wiki_dir
-                        ),
-                    }
-                )
-            except Exception as exc:  # noqa: BLE001
-                per_project_wiki.append({"slug": proj.slug, "error": str(exc)})
-        return {
+        if scope_slug:
+            per_project_wiki.append({"slug": scope_slug, "result": wiki})
+        else:
+            seen: set[tuple[str, str, str]] = set()
+            for proj in self._hub.store.list_projects():
+                if not (proj.forge_owner and proj.forge_repo):
+                    continue
+                key = (proj.forge_owner, proj.forge_repo, proj.forge_wiki_path or "")
+                if key in seen:
+                    continue
+                seen.add(key)
+                pcfg = self.forge_config(proj.slug)
+                try:
+                    per_project_wiki.append(
+                        {
+                            "slug": proj.slug,
+                            "result": WikiForgeSync(pcfg).push_wiki_tree(
+                                self._hub.settings.wiki_dir
+                            ),
+                        }
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    per_project_wiki.append({"slug": proj.slug, "error": str(exc)})
+        out = {
+            "ok": True,
             "scaffold": scaffold,
             "wiki": wiki,
             "reconcile": reconcile_results,
@@ -539,8 +587,12 @@ class ForgeFacade:
             "board": board_results,
             "per_project_wiki": per_project_wiki,
             "config": cfg.public_dict(),
-            "import_preview": self.preview_forge_import(),
         }
+        if scope_slug:
+            out["project_slug"] = scope_slug
+        else:
+            out["import_preview"] = self.preview_forge_import()
+        return out
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         """Pull cloud-agent forge issues into Hub threads (never deletes remote issues)."""

@@ -1021,8 +1021,11 @@ class HubService:
     def _forge_after_thread(self, thread: Thread) -> dict:
         return self._forge._forge_after_thread(thread)
 
-    def sync_forge_now(self) -> dict:
-        return self._forge.sync_forge_now()
+    def sync_forge_now(self, project_slug: str | None = None) -> dict:
+        return self._forge.sync_forge_now(project_slug=project_slug)
+
+    def sync_forge_project(self, project_slug: str) -> dict:
+        return self._forge.sync_forge_now(project_slug=project_slug)
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         return self._forge.import_forge_inbox(limit=limit, close_imported=close_imported)

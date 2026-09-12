@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 
 initRepoLinks();
 
@@ -204,6 +204,9 @@ $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.de
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
 $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));
+$("btn-sync-project")?.addEventListener("click", () =>
+  syncProjectForge().catch((e) => setMsg(String(e)))
+);
 $("btn-restore-project").addEventListener("click", () => restoreProject().catch((e) => setMsg(String(e))));
 $("btn-focus-mode").addEventListener("click", toggleFocusMode);
 $("focus-minutes").addEventListener("change", () => {

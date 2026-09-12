@@ -215,6 +215,13 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         except KeyError:
             raise HTTPException(404, "Project not found") from None
 
+    @router.post("/projects/{slug}/forge/sync", dependencies=[Depends(auth_dep)])
+    def sync_project_forge(slug: str):
+        try:
+            return service.sync_forge_project(slug)
+        except KeyError:
+            raise HTTPException(404, "Project not found") from None
+
     @router.get("/pending-actions", dependencies=[Depends(auth_dep)])
     def list_pending_actions():
         return service.list_pending_actions()
