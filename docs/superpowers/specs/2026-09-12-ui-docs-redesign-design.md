@@ -8,114 +8,117 @@ Status: Approved design, implementation not started
 
 Redesign the ADHD Progress Hub dashboard (`/ui`) and public documentation/wiki so they feel deliberately designed, calm, information-first, and consistent with the product's ADHD-friendly purpose.
 
-This is not a cosmetic reskin. The work changes visual hierarchy and presentation patterns while preserving existing product behaviour, API/MCP semantics, authentication, persistence, and Foundation B data-model work.
+This is not a cosmetic reskin. It changes visual hierarchy and presentation while preserving product behaviour, API/MCP semantics, authentication, persistence, and Foundation B data-model work.
 
 The redesign should remove the current card-heavy/glossy appearance, improve information density where scanning matters, reduce visual competition, and make the docs read like technical documentation rather than an application dashboard.
 
 ## Product principles
 
-1. **Immediate work wins attention.** The UI should make the current task, next action, and resume cue easier to find than secondary metadata, rewards, or configuration.
-2. **Progressive disclosure.** Show the smallest amount of information needed for the current decision. Keep history, technical metadata, long notes, and advanced configuration available without making them visually dominant.
-3. **Whitespace before containers.** Use spacing, alignment, typography, and dividers before adding bordered cards or tinted surfaces.
-4. **Calm, not sparse for its own sake.** Empty space should support focus, but large dead regions caused by unconstrained desktop layouts should be avoided.
-5. **Dense where scanning matters.** Task lists should support quickly scanning many threads without turning every item into a mini-dashboard.
-6. **No productivity shame.** Rewards and statistics are optional reflection tools, not the primary framing of progress.
-7. **Accessible by default.** Keyboard focus, screen-reader semantics, reduced motion, touch targets, contrast, and responsive behaviour must remain first-class.
-8. **One visual language, two contexts.** `/ui` and docs share tokens, typography, logo, and brand colour relationships, but the dashboard remains application-like while documentation remains editorial.
+1. **Immediate work wins attention.** Current task, next action, and resume cue are more prominent than secondary metadata, rewards, or configuration.
+2. **Progressive disclosure.** Show the minimum information needed for the current decision. History, long notes, technical metadata, and advanced configuration stay available without dominating the default view.
+3. **Whitespace before containers.** Prefer spacing, alignment, typography, and dividers before adding bordered/tinted surfaces.
+4. **Calm, not empty.** Empty space should support focus; avoid large accidental dead regions on wide displays.
+5. **Dense where scanning matters.** Work lists should support quickly scanning many threads without turning each one into a mini-dashboard.
+6. **No productivity shame.** Rewards/statistics are optional reflection tools, not the primary framing of progress.
+7. **Accessible by default.** Keyboard focus, screen-reader semantics, reduced motion, touch targets, contrast, and responsive behaviour remain first-class.
+8. **One visual language, two contexts.** `/ui` and docs share tokens, typography, logo, and brand relationships, while the dashboard remains application-like and docs remain editorial.
 
 ## Non-goals
 
-- No changes to Thread/Project schemas, Foundation B source/authority fields, forge reconciliation, or MCP behaviour.
-- No new statistics implementation from #72.
-- No new event/SSE plumbing from #75.
+- No Thread/Project schema changes.
+- No Foundation B source/authority, forge reconciliation, or MCP behaviour changes.
+- No #72 statistics implementation.
+- No #75 event/SSE implementation.
 - No rewrite of every documentation page.
-- No framework migration for the dashboard.
-- No React/Vue/Svelte introduction solely for this redesign.
-- No generic "modern SaaS" treatment, glassmorphism, decorative gradients, or widespread blur effects.
+- No frontend framework migration.
+- No React/Vue/Svelte introduction solely for the redesign.
+- No generic glassmorphism, decorative gradients, or widespread blur effects.
 - No removal of keyboard focus indicators.
 
 ## Current-state problems
 
 ### Dashboard
 
-The current dashboard uses a repeated visual recipe across most top-level sections: translucent backgrounds, rounded borders, large radii, shadows, and blur. This makes unrelated pieces of content feel equally important and gives the product a generated-dashboard appearance.
+Most top-level sections use the same visual recipe: translucent background, rounded border, large radius, shadow, and blur. This makes unrelated content appear equally important and gives the product a generated-dashboard appearance.
 
-The standalone Appearance strip above the main header creates two competing top-level bars. The content area also uses the full viewport width even when the useful content is narrow, which creates large empty regions on wide displays.
+The standalone Appearance strip above the application header creates two competing top-level bars. Content also uses the full viewport even where the useful content is narrow, producing large dead regions on wide screens.
 
-The three main screens have different information-density needs but currently share too much of the same card language:
+The primary screens need different density:
 
-- **Now** is conceptually simple but visually sits in a large left-aligned surface with excessive unused desktop space.
-- **My Work** renders threads too prominently, making long task lists slow to scan.
+- **Now** is conceptually simple but currently occupies a large left-aligned surface with excessive unused space.
+- **My Work** renders thread items too prominently, making long lists slow to scan.
 - **Progress** gives rewards/gamification more visual weight than activity/reflection.
-- **Settings** stretches form content too widely and wraps configuration in oversized surfaces.
+- **Settings** stretches forms too widely and wraps configuration in oversized surfaces.
 
-The SPA navigation correctly moves focus to each screen heading, but the global focus-ring styling makes those programmatically focused headings look like large selected boxes. The focus movement should remain; the heading-specific visual treatment should improve.
+SPA navigation correctly moves focus to the new screen heading. The global focus styling then makes the focused `h1` look like a large selected box. Keep the focus movement; fix the heading-specific visual treatment.
 
 ### Documentation/wiki
 
-The Zensical site has good structural foundations: searchable docs, navigation, light/dark palettes, code blocks, and repository integration. The custom stylesheet, however, intentionally uses a glossy treatment with gradients, glow, blur, wide viewport usage, and dashboard-like chrome.
+Zensical already provides sound foundations: search, navigation, light/dark palettes, code rendering, and repository integration. The custom stylesheet pushes it toward glossy application chrome with gradients, glow, blur, and full-width prose.
 
-This conflicts with the existing brand-guide direction that explicitly says to prefer whitespace/alignment/dividers before extra containers and not to add gradients, bevels, or glow to the identity.
+That conflicts with the brand-guide direction to prefer whitespace/alignment/dividers before extra containers and to avoid gradients/glow in the identity.
 
-Long-form documentation also benefits from a constrained reading measure; ordinary prose should not stretch across a large desktop viewport.
+Long-form documentation also needs a constrained reading measure.
 
 ## Visual system
 
 ### Colour
 
-Keep the existing Progress Hub identity and colour relationships:
+Keep the existing Progress Hub palette and relationships:
 
 - ivory / deep forest canvas
 - white / forest surfaces
 - ink / pale-sage text
 - teal / mint primary accent
-- gold used sparingly for milestone/achievement emphasis
+- gold used sparingly for milestones
 - berry / rose for destructive actions
 
-Accent colour should identify actions, selection, focus, and important state—not decorate every panel.
+Accent colour indicates action, selection, focus, or meaningful state. It is not general decoration.
 
 ### Typography
 
-Continue using the local system sans-serif stack. Strengthen hierarchy through size, weight, line height, and spacing rather than background treatments.
+Keep the local system sans-serif stack. Build hierarchy using size, weight, line height, and spacing rather than background treatments.
 
-- Main page headings: clear but not oversized.
+- Page headings: clear, not oversized.
 - Section headings: compact and consistent.
 - Labels/metadata: visibly secondary.
-- Long-form notes/docs: comfortable reading width and line height.
-- Eyebrow/all-caps labels: rare landmarks only, not repeated decoration.
+- Long-form notes/docs: comfortable line length and line height.
+- Eyebrow/all-caps labels: rare landmarks only.
 
 ### Spacing and surfaces
 
-Use the existing 4/8/12/16/24/32 spacing rhythm consistently.
+Use the established 4/8/12/16/24/32 spacing rhythm.
 
-Default surface radius should move toward roughly 8–10px for ordinary grouped content and controls. Larger soft corners may remain for the primary focus surface or dialogs where appropriate.
+Ordinary grouped surfaces and controls use roughly 8–10px radii. The primary Now focus surface and dialogs may use larger soft corners where that distinction is useful.
 
-Shadows are reserved mainly for dialogs, popovers, and true elevation. Ordinary sections should use flat canvas/surface contrast, whitespace, or dividers.
+Ordinary page sections should be flat. Use whitespace, subtle surface contrast, or dividers. Reserve shadows for dialogs, popovers, and actual elevation.
 
-Backdrop blur and decorative gradients should be removed from normal page surfaces.
+Remove backdrop blur and decorative gradients from normal dashboard/docs surfaces.
 
 ## Application shell
 
-Replace the current separate Appearance strip plus header with one clear application header.
+Replace the separate Appearance strip + header with a single application header.
 
-Desktop header contents:
+Desktop header:
 
 - Progress Hub brand/logo
-- primary navigation: Now / My Work / Progress
+- Now / My Work / Progress navigation
 - Save a thought
 - Settings
-- compact theme control at the far edge, or a compact theme shortcut that complements the full Appearance setting
+- one compact **Appearance button** at the far edge
 
-The header should remain visually quiet and sticky only if it improves navigation without consuming excessive vertical space.
+The Appearance button opens a small three-option System / Light / Dark popover. The full Appearance setting also remains in Settings. This preserves quick switching without a second permanent toolbar.
 
-The main application content should use deliberate max-widths per screen rather than one global full-width presentation.
+On mobile, theme selection lives in Settings only; the compact header Appearance button is hidden to preserve space.
 
-On wide displays:
+The main content uses screen-specific max widths rather than a single full-width layout:
 
-- Now uses a narrower centred work column.
-- My Work can use more width for project navigation + task list + details.
-- Progress uses a medium-wide analytical/content column.
-- Settings uses a constrained form column within a wider settings shell.
+- Now: narrow centred work column.
+- My Work: wide workspace for project rail + work list + detail pane.
+- Progress: medium-wide content/analysis column.
+- Settings: wider shell with a constrained form column.
+
+The application header is **not sticky** in this redesign. Avoid consuming persistent vertical space; revisit only if real usage demonstrates a need.
 
 ## Now screen
 
@@ -129,30 +132,30 @@ Answer only:
 
 ### Empty state
 
-Use a centred working area around 760–900px maximum width.
+Use a centred working area around 760–900px max width.
 
-Primary content:
+Show:
 
-- "One thing at a time."
-- concise helper copy such as "Choose one task. Everything else can wait."
+- `One thing at a time.`
+- concise helper copy such as `Choose one task. Everything else can wait.`
 - primary action: Choose a task
 - secondary action: Help me choose
 
-Avoid unrelated stats, rewards, project lists, and dashboard widgets.
+Do not show unrelated stats, rewards, project lists, or dashboard widgets.
 
-### Active-work state
+### Active state
 
 Show:
 
 - project/source as quiet metadata
 - task title
 - prominent next step / resume cue
-- Focus / Blocked / Resume context beneath it
-- small coherent action group: Start/Resume, Pause here, Done
-- focus timer controls available but visually secondary
+- Focus / Blocked / Resume context beneath
+- compact action group: Start/Resume, Pause here, Done
+- focus timer controls as secondary controls
 - notes/history/details collapsed by default
 
-The active task may use one intentional focus surface. This is one of the few places where a larger rounded container is justified.
+The active task may use one intentional focus surface. It is one of the few places where a larger rounded container is justified.
 
 ## My Work screen
 
@@ -162,13 +165,13 @@ Support scanning, filtering, choosing, and inspecting many work items quickly.
 
 ### Desktop layout
 
-Three conceptual regions:
+Use three regions:
 
-1. **Projects/filter rail** — compact, quiet, scannable.
+1. **Projects/filter rail** — compact and scannable.
 2. **Work list** — dense task rows.
-3. **Selected-task details** — right-side panel when viewport width permits.
+3. **Selected-task detail pane** — right side on sufficiently wide viewports.
 
-The list should not render every thread as a large card.
+Do not render every thread as a large card.
 
 Default row content:
 
@@ -177,27 +180,29 @@ Default row content:
 - source/provider when relevant
 - continuity/status state
 - last-updated cue
-- at most one secondary continuity line, such as current Focus or Resume cue
+- at most one secondary continuity line such as Focus or Resume
 
-Rows use dividers/selection state instead of heavy card chrome.
+Rows use dividers and a restrained selected state, not heavy card chrome.
 
-Selecting a task opens its continuity/actions in the desktop detail pane. On smaller widths, details become an inline expansion or dedicated full-width detail view/sheet.
+Selecting a row updates the right-side detail pane without navigating away from the list.
+
+### Medium/mobile task details
+
+When the desktop detail pane no longer fits, selecting a work item opens a **dedicated full-width task-detail view** with an explicit Back to work list action. Do not use inline expansion; it makes dense lists harder to scan and creates unstable vertical position.
 
 ### Projects rail
 
-Keep project navigation, but reduce button weight. "New project" is available without competing visually with actual work.
-
-Archived projects remain progressively disclosed.
+Keep project navigation but reduce button weight. `New project` remains available without competing visually with task content. Archived projects stay progressively disclosed.
 
 ### Tabs/search
 
-Open / Pick up later / Finished remain clear filters. Search should be prominent enough to use quickly but not consume a large vertical block.
+Open / Pick up later / Finished remain clear filters. Search stays close to the work list and should not consume a large vertical panel.
 
 ## Progress screen
 
 ### Purpose
 
-Answer "What progress have I made lately?" without framing inactivity as failure.
+Answer: `What progress have I made lately?` without framing inactivity as failure.
 
 ### Primary hierarchy
 
@@ -205,39 +210,37 @@ Answer "What progress have I made lately?" without framing inactivity as failure
 2. activity history/chart
 3. optional milestones/rewards
 
-Existing useful summary metrics such as finished-this-week/open work may remain. The current 14-day activity view should be visually stronger than rewards when rewards are enabled.
+Existing useful summary metrics such as finished-this-week/open work may remain. The existing 14-day activity view should have more visual weight than rewards when rewards are enabled.
 
-The layout should be compatible with future #72 additions such as:
+Structure the screen so later #72 additions can fit naturally:
 
-- contribution-style activity heatmap
+- activity heatmap
 - tracked focus time
 - daily/weekly/monthly completions
 - project breakdowns
-
-without requiring another full structural redesign.
 
 ### Rewards
 
 Rewards remain opt-in.
 
-Replace oversized rank/badge presentation with a compact Milestones section:
+Replace oversized rank/badge presentation with a compact **Milestones** section:
 
 - current rank/level/XP
 - concise progress-to-next-rank indicator
 - compact badge list/chips
-- share action remains available
+- existing share action
 
-Rewards are one interpretation of progress, not the dominant screen identity.
+Rewards are one interpretation of progress, not the screen's visual identity.
 
 ## Settings
 
-### Desktop structure
+### Desktop
 
-Keep category navigation because the underlying information architecture is sound.
+Keep the existing category model but present it as a proper preferences layout.
 
-Use a left settings navigation and a constrained main settings column of approximately 720–840px.
+Use a left settings navigation and a main settings column capped around 720–840px.
 
-Categories continue to cover the existing settings areas, such as:
+Categories continue to cover existing areas such as:
 
 - Preferences
 - Account
@@ -250,84 +253,93 @@ Within a category:
 - normal section headings
 - short consequence-oriented descriptions
 - dividers/spacing instead of nested cards
-- connection/provider status shown as compact labelled rows
-- destructive/data actions clearly separated from ordinary preferences
+- provider/connection status as compact labelled rows
+- destructive/data actions clearly separated
 - version/repository information in a quiet footer/meta region
 
 Remove decorative copy that does not help configure the product.
 
 ### Appearance
 
-The full System / Light / Dark setting remains in Settings. A compact header shortcut may remain for convenience, but the separate appearance strip above the application is removed.
+System / Light / Dark remains a full setting here. The desktop header popover is only a convenience shortcut and writes the same preference.
 
 ## Dialogs
 
 Dialogs are one of the few places where elevation/shadow is appropriate.
 
-Standardise dialogs around:
+Standardise around:
 
 - clear title
-- concise explanation only where needed
+- concise explanation only when needed
 - focused content
 - logical action row
-- one clear primary action per action group
-- explicit destructive styling where appropriate
+- one clear primary action per group
+- explicit destructive styling
 - visible close/cancel behaviour
 - Escape handling and focus return preserved
 
-Avoid explanatory sub-panels inside dialogs unless they materially reduce risk/confusion.
+Avoid explanatory sub-panels unless they materially reduce risk/confusion.
 
 ## Responsive/mobile behaviour
 
-Mobile should be designed as its own composition rather than desktop compressed to fit.
+Mobile is a distinct composition, not compressed desktop.
 
 ### Navigation
 
-On narrow screens, use durable mobile navigation for Now / My Work / Progress / Settings. A bottom navigation is preferred if it integrates cleanly with existing semantics and does not obscure content; otherwise use an equally clear compact top-navigation pattern.
+On narrow screens use a fixed **bottom navigation** with four destinations:
+
+- Now
+- My Work
+- Progress
+- Settings
+
+It must respect safe-area insets, preserve at least 44px touch targets, and add enough bottom content padding that it never obscures page controls/content.
+
+The top mobile header becomes brand/context + Save thought/overflow actions rather than duplicating the primary destination navigation.
 
 ### Now
 
 - full-width work surface
 - no horizontal action overflow
-- focus timer controls collapse cleanly
+- focus timer controls collapse/wrap cleanly
 
 ### My Work
 
-- projects become a filter/project drawer or compact picker
-- work list remains dense and single-column
-- selected-task details open as a full-width detail surface rather than a squeezed side pane
+- projects become a project/filter drawer or compact picker
+- work list stays dense and single-column
+- selected work item opens the dedicated full-width task-detail view described above
 
 ### Progress
 
 - summary metrics stack/wrap cleanly
 - charts remain readable
-- future heatmap should use responsive cell sizing before horizontal scrolling
-- rewards remain beneath activity
+- future heatmap should prefer responsive cell sizing before horizontal scrolling
+- rewards remain below activity
 
 ### Settings
 
-- category list becomes a mobile settings index
-- selected category opens as its own panel/page
-- avoid horizontally scrolling tab bars where practical
+Use a mobile settings index. Selecting a category opens that category as a full-width settings view with Back to settings. Do not use a horizontally scrolling tab bar.
 
 ## Accessibility
 
 Preserve and improve:
 
-- 44px minimum touch targets for interactive controls where applicable
+- 44px minimum touch targets where applicable
 - visible keyboard focus
 - semantic current/selected state
 - programmatic screen-heading focus after SPA navigation
 - focus return after dialogs/settings
 - reduced-motion support
-- colour-independent status cues
-- usable contrast in light/dark themes
+- colour-independent state cues
+- usable contrast in both themes
 - keyboard-operable settings navigation
 - screen-reader-friendly labels/status messages
 
 ### Page-heading focus
 
-Do not remove the existing focus transfer to the active screen heading. Instead, introduce heading-specific focus styling so a focused `h1[tabindex="-1"]` is clearly discoverable to keyboard/screen-reader users without looking like a giant selected form control.
+Keep focus transfer to `h1[tabindex="-1"]` after screen changes. Give those headings a dedicated focus presentation, for example a short accent underline/left marker plus outline-offset treatment that remains clearly visible but does not box the entire heading like a form control.
+
+Do not suppress focus with `outline: none` without an equivalent visible replacement.
 
 ## Documentation/wiki redesign
 
@@ -335,12 +347,12 @@ Do not remove the existing focus transfer to the active screen heading. Instead,
 
 The docs should feel like technical documentation, not a glossy dashboard.
 
-Retain Zensical and the existing documentation content system.
+Retain Zensical and the existing content system.
 
 Remove/reduce:
 
-- glossy gradient header treatments
-- glow effects
+- glossy gradient headers
+- glow
 - backdrop blur
 - decorative chrome
 - unnecessarily full-width prose
@@ -349,23 +361,23 @@ Remove/reduce:
 Use:
 
 - flat header/navigation
-- restrained use of brand teal/mint
+- restrained brand teal/mint
 - strong typography hierarchy
-- constrained article measure around 70–80 characters for normal prose
-- wider breakout treatment only for tables, diagrams, and code where needed
-- clean code/admonition styles
-- clear active navigation state
-- generous but purposeful vertical rhythm
+- article measure of approximately **72ch** for ordinary prose
+- wider breakout treatment only for tables, diagrams, and code where genuinely useful
+- clean code/admonition styling
+- clear active navigation
+- purposeful vertical rhythm
 
 ### Information architecture
 
-Reorganise navigation conceptually as:
+Reorganise navigation as:
 
 **Start here**
 - What is ADHD Progress Hub?
 - Installation
 - Connect your coding agent
-- First project / setup
+- First project / personal setup
 - First continuity session
 
 **Using the Hub**
@@ -390,37 +402,33 @@ Reorganise navigation conceptually as:
 - Contributing
 - Brand/design
 
-The implementation does not need to rewrite every page. Navigation labels/placement and targeted landing-page copy can change where needed to support the new structure.
+Do not rewrite every page. Change navigation labels/placement and targeted landing-page copy where needed for the new structure.
 
 ### Documentation homepage
 
-Use a simple introduction rather than a marketing-card grid.
-
-Recommended structure:
+Use a simple introduction rather than a marketing-card grid:
 
 - product name
-- one-sentence value proposition: preserving enough context to resume unfinished work without reconstructing the previous session
+- one-sentence value proposition: keep enough context to resume unfinished work without reconstructing the previous session
 - primary links: Install / Connect an agent / GitHub
 - concise compatibility/self-hosting line
-- short "How it works" flow: Work → Save continuity → Leave → Come back → Resume
+- short flow: Work → Save continuity → Leave → Come back → Resume
 
-Avoid oversized hero gradients, decorative product cards, or dense feature walls.
+Avoid oversized hero gradients, decorative product cards, and dense feature walls.
 
 ## Brand-guide alignment
 
-The redesign should make implementation match the existing brand principles more closely.
+Make implementation match the established brand principles more closely:
 
-Where the current brand guide and implementation disagree, prefer these established guide principles:
-
-- grounded, clear, welcoming identity
-- no gradients/glow added to the logo/identity
+- grounded, clear, welcoming
+- no gradients/glow in logo/identity treatment
 - whitespace/alignment/dividers before extra containers
 - restrained shadows
 - calm collaborator voice
-- Now screen focused on immediate work
-- rewards kept on their own screen and optional
+- Now focused on immediate work
+- rewards optional and kept on Progress
 
-If implementation reveals that the brand guide itself needs a small wording update (for example, ordinary surface radius guidance), update it narrowly and explicitly rather than silently diverging.
+If the brand guide needs a small wording update (for example ordinary surface-radius guidance), change it narrowly and explicitly rather than silently diverging.
 
 ## Implementation boundaries and likely files
 
@@ -428,32 +436,32 @@ Primary files:
 
 - `src/adhd_hub/ui/index.html`
 - `src/adhd_hub/ui/app.css`
-- focused files under `src/adhd_hub/ui/js/` only where structural/responsive/accessibility behaviour requires changes
+- focused files under `src/adhd_hub/ui/js/` only where structural/responsive/accessibility behaviour requires it
 - `docs/stylesheets/extra.css`
 - `zensical.toml`
 - `docs/index.md`
-- selected docs pages only when navigation/copy needs alignment
+- selected docs pages when navigation/copy needs alignment
 - `scripts/browser_smoke.py`
-- UI/browser tests where selectors or responsive behaviour need coverage
+- UI/browser tests where selectors/responsive behaviour need coverage
 
 Avoid unrelated backend/model changes.
 
 ## Compatibility requirements
 
-The redesign must preserve existing user-visible capabilities, including:
+Preserve existing capabilities:
 
 - authentication/password/token flows
-- theme persistence and System/Light/Dark options
+- System/Light/Dark preference persistence
 - project selection/creation/editing
 - thread filtering/search/selection
-- Now task start/resume/pause/done flows
+- Now start/resume/pause/done flows
 - reminders/capture
 - Progress stats/rewards/share flows
 - Settings categories and connection/configuration flows
 - PWA behaviour unless explicitly tested and intentionally improved
 - existing API/MCP contracts
 
-Prefer preserving existing element IDs used by JavaScript and tests where doing so does not block the new information architecture. Where IDs/DOM structure must change, update tests and JS together rather than adding compatibility hacks.
+Prefer preserving existing element IDs used by JavaScript/tests when they do not block the new information architecture. If IDs/DOM structure must change, update JS/tests together rather than adding compatibility hacks.
 
 ## Testing and verification
 
@@ -465,42 +473,49 @@ Run:
 - `uv run ruff check src tests`
 - `uv run --with playwright python scripts/browser_smoke.py`
 
-Update browser-smoke coverage to verify the redesigned flows rather than merely keeping obsolete selectors alive.
+Update browser-smoke coverage to test the redesigned flows rather than preserving obsolete selectors.
 
 ### Responsive/browser coverage
 
 At minimum verify screenshots/flows for:
 
 - desktop light and dark
-- mobile-width light and dark
+- mobile light and dark
 - Now empty and active states
-- My Work list + selected-task details
+- My Work list + selected-task detail
 - Progress with rewards enabled and disabled
-- Settings category navigation
+- Settings navigation
 - representative dialog
 - docs homepage/article on desktop and mobile
 
-### Accessibility checks
+### Accessibility
 
 Verify:
 
 - keyboard-only navigation
-- heading focus after screen changes
-- dialog focus trap/return behaviour where applicable
+- screen-heading focus after navigation
+- dialog focus/return behaviour
 - settings keyboard navigation
+- mobile bottom-nav semantics and safe-area spacing
 - reduced motion
 - no focus indicator clipping
 - colour contrast and state labels
 
 ## Rollout / PR strategy
 
-Use one dedicated redesign branch/PR so reviewers can evaluate `/ui` and docs as one coherent visual system while remaining isolated from Foundation B backend work.
+Use one dedicated redesign branch/PR so reviewers can evaluate `/ui` and docs as one coherent system while remaining isolated from Foundation B backend work.
 
-The PR should explain that it intentionally changes presentation and information hierarchy but not backend semantics.
+The PR should state that presentation/information hierarchy changes intentionally, while backend semantics do not.
 
-If implementation becomes too large to review safely, split the implementation commits internally by coherent layer (tokens/shell, screens, settings/mobile, docs, tests) while keeping one PR unless an actual dependency/review problem appears.
+Use coherent commits where practical:
 
-Do not merge unrelated Foundation B schema changes into this branch.
+1. visual tokens + app shell
+2. Now / My Work / Progress
+3. Settings / dialogs / mobile
+4. docs/wiki redesign
+5. browser/accessibility test updates
+
+If implementation becomes unsafe to review as one PR, split only when an actual dependency/review problem appears. Do not mix Foundation B schema changes into this branch.
 
 ## Acceptance criteria
 
@@ -508,14 +523,16 @@ The redesign is complete when:
 
 - `/ui` no longer presents most sections as glossy rounded cards.
 - the standalone Appearance strip is removed.
+- desktop uses one compact theme popover; mobile theme selection lives in Settings.
 - Now is a focused, intentionally constrained work surface.
-- My Work supports dense scanning of many threads and provides a clear selected-task detail experience.
-- Progress prioritises useful activity/reflection above optional rewards.
+- My Work supports dense scanning and a desktop selected-task detail pane.
+- medium/mobile My Work uses a dedicated full-width task-detail view.
+- Progress prioritises activity/reflection above optional rewards.
 - Settings uses a constrained, readable configuration layout.
-- mobile layouts are deliberate rather than compressed desktop layouts.
-- SPA heading focus remains accessible without the current oversized heading focus box appearance.
-- docs use a readable article width and restrained technical-documentation styling.
-- docs navigation and homepage provide a clearer start path.
+- mobile uses a four-destination bottom navigation without obscuring content.
+- SPA heading focus remains accessible without the current oversized focus-box appearance.
+- docs use a ~72ch prose measure and restrained documentation styling.
+- docs navigation/homepage provide a clearer start path.
 - light/dark/system themes remain functional.
 - existing functional flows covered by browser smoke tests continue to pass.
-- no backend/source-sync/MCP semantics are changed as part of the redesign.
+- no backend/source-sync/MCP semantics change as part of this redesign.
