@@ -1,0 +1,68 @@
+name: Redesign verification
+
+on:
+  push:
+    branches: [feat/ui-docs-redesign]
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/adhd_hub/ui/**"
+      - "docs/**"
+      - "zensical.toml"
+      - "scripts/browser_smoke.py"
+      - "scripts/docs_browser_smoke.py"
+      - "tests/test_documentation.py"
+      - ".github/workflows/redesign-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      - name: Run pytest
+        run: uv run pytest
+
+      - name: Run Ruff
+        run: uv run ruff check src tests
+
+      - name: Install Playwright Chromium
+        run: uv run --with playwright python -m playwright install --with-deps chromium
+
+      - name: Run dashboard browser smoke
+        env:
+          ADHD_HUB_SCREENSHOT_DIR: /tmp/adhd-hub-preview
+        run: uv run --with playwright python scripts/browser_smoke.py
+
+      - name: Build docs
+        run: uv run zensical build --clean
+
+      - name: Run docs browser smoke when present
+        run: |
+          if [ -f scripts/docs_browser_smoke.py ]; then
+            uv run --with playwright python scripts/docs_browser_smoke.py
+          fi
+
+      - name: Upload redesign screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: redesign-screenshots
+          path: |
+            /tmp/adhd-hub-preview
+            /tmp/adhd-hub-docs-preview
+          if-no-files-found: ignore
