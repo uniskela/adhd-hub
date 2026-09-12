@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0](https://github.com/uniskela/adhd-hub/compare/v0.8.0...v0.9.0) (2026-09-12)
+
+
+### Features
+
+* **ui:** add per-project Sync forge in project settings ([2018b7a](https://github.com/uniskela/adhd-hub/commit/2018b7a3c0ad20ed5c739ce1958fb04ef2739120))
+
+
+### Bug Fixes
+
+* **forge:** keep wiki PROGRESS.md on Hub memory repo only ([b3b9399](https://github.com/uniskela/adhd-hub/commit/b3b939911557f9f5a3a2629188884066b281e264))
+* **ui:** contain mobile work overflow and restore bottom nav ([3fbb446](https://github.com/uniskela/adhd-hub/commit/3fbb446266cb4ed5b6078bfdfcaf2fd90be2053f))
+* **ui:** hide closed dialogs by scoping flex to dialog[open] ([a5c20b1](https://github.com/uniskela/adhd-hub/commit/a5c20b1c5078cdeb03f4ba7e96e45c5f7ab18c7b))
+* **ui:** keep mobile tab bar viewport-fixed and unclip dialog actions ([32063fd](https://github.com/uniskela/adhd-hub/commit/32063fd8fd0eb01467973a8ec489802bfad36333))
+* **ui:** make Notes panel body scroll with absolute layout ([e7b3cc5](https://github.com/uniskela/adhd-hub/commit/e7b3cc50b9bdf3871b5f305adadba32c06efc362))
+* **ui:** Notes overlay exclusivity and reliable scroll ([3e6e1a6](https://github.com/uniskela/adhd-hub/commit/3e6e1a6b01a18eeedb74b9b204ee05fff0c20d9a))
+* **ui:** use open-up and close icons for Notes disclosure ([fdbfeef](https://github.com/uniskela/adhd-hub/commit/fdbfeef674de7e1e1ff17c2bbf0d774e9d2dff07))
+* **ui:** v0.8.1 usability blockers and multi-forge profiles ([dfcd2b2](https://github.com/uniskela/adhd-hub/commit/dfcd2b253bce8788ba3a688585b3026844e72b2d))
+* **ui:** v0.8.1 usability blockers and multi-forge profiles ([47cb5d3](https://github.com/uniskela/adhd-hub/commit/47cb5d34295e10e8e7576164a3e04893eb7ca096))
+* **wiki:** open external markdown links in new tab and document wiki drift audits ([d5dbbe3](https://github.com/uniskela/adhd-hub/commit/d5dbbe34c2645313d3a2be867bd5b272c4394c62))
+
 ## [0.8.0](https://github.com/uniskela/adhd-hub/compare/v0.7.0...v0.8.0) (2026-09-12)
 
 
