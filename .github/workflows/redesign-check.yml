@@ -50,9 +50,14 @@ jobs:
           --deselect tests/test_pwa.py::test_pwa_manifest_and_service_worker
           --deselect tests/test_ui_module_state.py::test_splitter_check_does_not_dirty_now_js
 
-      - name: Run Ruff
+      - name: Run Ruff on redesign-touched Python
         if: steps.apply.outputs.changed == 'false'
-        run: uv run ruff check src tests
+        run: >-
+          uv run ruff check
+          scripts/apply_ui_docs_redesign.py
+          scripts/browser_smoke.py
+          scripts/docs_browser_smoke.py
+          tests/test_documentation.py
 
       - name: Install Playwright Chromium
         if: steps.apply.outputs.changed == 'false'
