@@ -30,9 +30,9 @@ upsert_project(
   workspace_path="Z:/Projects/my-website",
   description="Marketing site",
   repo_url="https://github.com/me/my-website",  # optional browser link
-  forge_owner="alex",          # optional override
-  forge_repo="my-website",     # optional; default = hub memory repo
-  forge_wiki_path="",          # blank = repo root (primary memory)
+  forge_owner="alex",          # optional: issue/code repo owner (not wiki)
+  forge_repo="my-website",     # optional: issue/code repo; wiki stays on Hub memory repo
+  forge_wiki_path="",          # unused for target repo; wiki path is Hub forge wiki_path
   forge_project_id=null        # optional Gitea/GitHub board id override
 )
 ```

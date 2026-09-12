@@ -172,7 +172,9 @@ class Project(BaseModel):
     workspace_paths: list[str] = Field(default_factory=list)
     default_energy: EnergyLevel = EnergyLevel.unknown
     default_work_source: WorkSource = WorkSource.local
-    # Optional per-project forge override (empty = use global forge config)
+    # Optional per-project forge override for issue/code repo binding
+    # (empty = use global forge owner/repo). Wiki PROGRESS.md always uses the
+    # Hub memory repo from global forge config — never this override.
     forge_owner: str | None = None
     forge_repo: str | None = None
     forge_wiki_path: str | None = None

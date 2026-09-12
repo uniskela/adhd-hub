@@ -313,6 +313,9 @@ class HubService:
     def forge_config(self, project_slug: str | None = None) -> ForgeConfig:
         return self._forge.forge_config(project_slug)
 
+    def wiki_forge_config(self) -> ForgeConfig:
+        return self._forge.wiki_forge_config()
+
     def save_forge_config(self, config: ForgeConfig) -> ForgeConfig:
         return self._forge.save_forge_config(config)
 
@@ -371,9 +374,9 @@ class HubService:
             for t in self.store.list_threads(project_slug=safe, limit=100)
         ]
         open_threads = [t for t in threads if t.get("status") == "open"]
-        cfg = self.forge_config(safe)
+        wiki_cfg = self.wiki_forge_config()
         progress_rel = f"projects/{safe}/PROGRESS.md"
-        forge_folder = cfg.file_web_url(progress_rel)
+        forge_folder = wiki_cfg.file_web_url(progress_rel)
         data = (
             proj.model_dump(mode="json")
             if proj
@@ -391,10 +394,10 @@ class HubService:
         data["progress_path"] = progress_rel
         data["forge"] = {
             "folder_url": forge_folder,
-            "wiki_path": cfg.wiki_path,
-            "owner": cfg.owner,
-            "repo": cfg.repo,
-            "enabled": cfg.enabled(),
+            "wiki_path": wiki_cfg.wiki_path,
+            "owner": wiki_cfg.owner,
+            "repo": wiki_cfg.repo,
+            "enabled": wiki_cfg.enabled(),
         }
         return data
 
@@ -421,7 +424,7 @@ class HubService:
             raise
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         forge_out: dict = {"uploaded": [], "deleted": [], "errors": []}
-        cfg = self.forge_config(proj.slug)
+        cfg = self.wiki_forge_config()
         if cfg.enabled() and cfg.wiki_enabled:
             try:
                 content = self.wiki.read_progress(proj.slug) or ""
@@ -459,7 +462,7 @@ class HubService:
         if not self.store.get_project(safe):
             raise KeyError("not_found")
         forge_out: dict = {"deleted": [], "errors": []}
-        cfg = self.forge_config(safe)
+        cfg = self.wiki_forge_config()
         if delete_remote and cfg.enabled() and cfg.wiki_enabled:
             try:
                 rel = f"projects/{safe}/PROGRESS.md"
@@ -1431,7 +1434,7 @@ class HubService:
             forge = self._forge_after_thread(thread)
         else:
             try:
-                forge["wiki"] = WikiForgeSync(self.forge_config(slug)).push_wiki_tree(
+                forge["wiki"] = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
                     self.settings.wiki_dir
                 )
             except Exception as exc:  # noqa: BLE001

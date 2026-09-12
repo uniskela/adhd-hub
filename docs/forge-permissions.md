@@ -4,7 +4,7 @@ ADHD Hub talks to your forge with a **Personal Access Token (PAT)** for two opti
 
 | Feature | What the token is used for |
 |---------|----------------------------|
-| **Wiki sync** | Create/update/delete files in a repo (Contents API) — primary memory: `projects/<slug>/PROGRESS.md` at repo root; otherwise under Wiki path |
+| **Wiki sync** | Create/update/delete files in the **Hub memory repo** (Contents API) — primary memory: `projects/<slug>/PROGRESS.md` at repo root; otherwise under Wiki path. Project `forge_owner`/`forge_repo` bind the **issue/code** repo and must not receive the wiki tree. |
 | **Board sync** | Create/update Issues (labels `adhd-hub` + `project:<slug>`), close when done; optionally attach to a **Project** board |
 
 Use a **dedicated bot/machine user** token when you can. Prefer **least privilege**: only enable the scopes below that match what you turned on in `/ui`.

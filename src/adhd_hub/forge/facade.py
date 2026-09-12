@@ -109,6 +109,16 @@ class ForgeFacade:
             return pcfg
         return self.forge_config()
 
+    def wiki_forge_config(self) -> ForgeConfig:
+        """Hub primary-memory wiki target (global owner/repo).
+
+        Project ``forge_owner`` / ``forge_repo`` override the issue/code repo for
+        board sync and discovery — never the shared wiki tree. Always push
+        ``PROGRESS.md`` / ``INDEX.md`` to this config so code repos do not receive
+        ``projects/<slug>/…`` dumps.
+        """
+        return self.forge_config()
+
     def save_forge_config(self, config: ForgeConfig) -> ForgeConfig:
         # Persist empty wiki_path for primary memory instead of re-defaulting
         if config.primary_memory_repo and config.wiki_path.strip("/") == "adhd-hub/wiki":
@@ -219,11 +229,12 @@ class ForgeFacade:
             self._hub.store.get_meta,
             self._meta_set_with_identity(cfg),
             progress_reader=self._hub.wiki.read_progress,
+            wiki_config=self.wiki_forge_config(),
         )
 
     def _refresh_forge_section(self, slug: str) -> None:
-        cfg = self.forge_config(slug)
-        progress_url = cfg.file_web_url(f"projects/{slug}/PROGRESS.md")
+        wiki_cfg = self.wiki_forge_config()
+        progress_url = wiki_cfg.file_web_url(f"projects/{slug}/PROGRESS.md")
         issue_links: list[tuple[str, str]] = []
         for t in self._hub.store.list_threads(
             status=ThreadStatus.open, project_slug=slug, limit=50
@@ -238,10 +249,11 @@ class ForgeFacade:
         )
 
     def _forge_after_thread(self, thread: Thread) -> dict:
-        cfg = self.forge_config(thread.project_slug)
+        board_cfg = self.forge_config(thread.project_slug)
+        wiki_cfg = self.wiki_forge_config()
         out: dict = {}
         try:
-            out["board"] = self._board(cfg).sync_thread(thread)
+            out["board"] = self._board(board_cfg).sync_thread(thread)
         except Exception as exc:
             log.exception("board sync failed")
             out["board"] = {"error": str(exc)}
@@ -251,9 +263,10 @@ class ForgeFacade:
             except Exception:
                 log.exception("forge section refresh failed")
         try:
-            # Global wiki tree still primary; per-project forge may point elsewhere
-            # for board, while wiki uses configured wiki_path on that forge target.
-            out["wiki"] = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+            # Shared wiki always uses Hub memory repo; project forge_repo is for issues.
+            out["wiki"] = WikiForgeSync(wiki_cfg).push_wiki_tree(
+                self._hub.settings.wiki_dir
+            )
         except Exception as exc:
             log.exception("wiki sync failed")
             out["wiki"] = {"error": str(exc)}
@@ -297,7 +310,9 @@ class ForgeFacade:
                 }
             scaffold = {"skipped": True, "reason": "project_scoped"}
             try:
-                wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+                wiki = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
+                    self._hub.settings.wiki_dir
+                )
             except Exception as exc:  # noqa: BLE001
                 log.exception("project wiki sync failed")
                 wiki = {"error": str(exc)}
@@ -310,7 +325,9 @@ class ForgeFacade:
             scaffold = push_primary_scaffold(
                 cfg, hub_ui_url=self._hub.settings.resolve_public_url()
             )
-            wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+            wiki = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
+                self._hub.settings.wiki_dir
+            )
 
         # 1) Reconcile linked threads (optionally scoped to one project).
         reconcile_results: list[dict] = []
@@ -554,30 +571,11 @@ class ForgeFacade:
                 except Exception as exc:  # noqa: BLE001
                     board_results.append({"error": str(exc), "thread_id": thread.id})
 
-        per_project_wiki: list[dict] = []
-        if scope_slug:
-            per_project_wiki.append({"slug": scope_slug, "result": wiki})
-        else:
-            seen: set[tuple[str, str, str]] = set()
-            for proj in self._hub.store.list_projects():
-                if not (proj.forge_owner and proj.forge_repo):
-                    continue
-                key = (proj.forge_owner, proj.forge_repo, proj.forge_wiki_path or "")
-                if key in seen:
-                    continue
-                seen.add(key)
-                pcfg = self.forge_config(proj.slug)
-                try:
-                    per_project_wiki.append(
-                        {
-                            "slug": proj.slug,
-                            "result": WikiForgeSync(pcfg).push_wiki_tree(
-                                self._hub.settings.wiki_dir
-                            ),
-                        }
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    per_project_wiki.append({"slug": proj.slug, "error": str(exc)})
+        # Wiki tree belongs only on the Hub memory repo (global forge owner/repo).
+        # Do not dual-write projects/*/PROGRESS.md into each project's code forge_repo.
+        per_project_wiki: list[dict] = [
+            {"slug": scope_slug or "_hub", "result": wiki, "target": "wiki_forge_config"}
+        ]
         out = {
             "ok": True,
             "scaffold": scaffold,
