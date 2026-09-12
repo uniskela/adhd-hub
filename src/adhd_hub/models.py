@@ -214,6 +214,7 @@ class ProjectRename(BaseModel):
 class PendingActionKind(StrEnum):
     delete_project = "delete_project"
     rename_project = "rename_project"
+    sync_review = "sync_review"
 
 
 class PendingActionStatus(StrEnum):

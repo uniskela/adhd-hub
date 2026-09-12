@@ -362,3 +362,108 @@ def discover_issue_payloads(
     finally:
         if own_client:
             http.close()
+
+
+def mutate_pinned_issue_state(
+    cfg: ForgeConfig,
+    identity: ExternalIdentity,
+    *,
+    closed: bool,
+    client: httpx.Client | None = None,
+) -> IssueSnapshot | dict[str, Any]:
+    """PATCH remote open/closed for pinned identity; return fresh snapshot or error dict."""
+    if not credentials_apply_to_pinned(cfg, identity):
+        return {
+            "ok": False,
+            "error": "pinned_identity_unreachable",
+            "pending": False,
+        }
+    url = (
+        f"{cfg.api_root()}/repos/{identity.owner}/{identity.repo}/issues/{identity.number}"
+    )
+    payload: dict[str, Any] = {
+        "state": "closed" if closed else "open",
+    }
+    if closed and cfg.provider == ForgeProvider.github:
+        payload["state_reason"] = "completed"
+    own_client = client is None
+    http = client or httpx.Client(timeout=30.0)
+    try:
+        resp = http.patch(url, headers=_headers(cfg), json=payload)
+        if resp.status_code >= 400 and "state_reason" in payload:
+            payload.pop("state_reason", None)
+            resp = http.patch(url, headers=_headers(cfg), json=payload)
+        if resp.status_code >= 400:
+            return {
+                "ok": False,
+                "error": f"remote_patch_failed:{resp.status_code}",
+                "pending": False,
+                "detail": resp.text[:300],
+            }
+        data = resp.json() if resp.content else {}
+        snap = issue_snapshot_from_raw(
+            data if isinstance(data, dict) else {},
+            provider=identity.provider,
+            host=identity.host,
+            owner=identity.owner,
+            repo=identity.repo,
+        )
+        if snap is None:
+            snap = IssueSnapshot(
+                identity=identity,
+                title=str(data.get("title") or "") if isinstance(data, dict) else "",
+                state=ExternalIssueState.closed if closed else ExternalIssueState.open,
+                labels=(),
+                updated_at=str(data.get("updated_at") or "") if isinstance(data, dict) else "",
+            )
+        return snap
+    finally:
+        if own_client:
+            http.close()
+
+
+def create_remote_issue(
+    cfg: ForgeConfig,
+    *,
+    title: str,
+    body: str = "",
+    client: httpx.Client | None = None,
+) -> IssueSnapshot | dict[str, Any]:
+    if not (cfg.enabled() and cfg.token and cfg.owner and cfg.repo):
+        return {"ok": False, "error": "forge_target_unresolved", "pending": False}
+    url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}/issues"
+    own_client = client is None
+    http = client or httpx.Client(timeout=30.0)
+    try:
+        resp = http.post(
+            url,
+            headers=_headers(cfg),
+            json={"title": title[:200], "body": body or ""},
+        )
+        if resp.status_code >= 400:
+            return {
+                "ok": False,
+                "error": f"remote_create_failed:{resp.status_code}",
+                "pending": False,
+                "detail": resp.text[:300],
+            }
+        host = normalize_host(
+            WorkSource.github if cfg.provider == ForgeProvider.github else WorkSource.gitea,
+            cfg.web_browse_root() or cfg.base_url,
+        )
+        provider = (
+            WorkSource.github if cfg.provider == ForgeProvider.github else WorkSource.gitea
+        )
+        snap = issue_snapshot_from_raw(
+            resp.json(),
+            provider=provider,
+            host=host,
+            owner=cfg.owner,
+            repo=cfg.repo,
+        )
+        if snap is None:
+            return {"ok": False, "error": "remote_create_invalid_response", "pending": False}
+        return snap
+    finally:
+        if own_client:
+            http.close()

@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     stale_nudge_cron: str = "0 9 * * *"
     wiki_index_cron: str = "30 9 * * *"
     forge_inbox_cron: str = "*/15 * * * *"
+    forge_reconcile_cron: str = "*/30 * * * *"
 
     # Indexer (used by CLI; also loadable from config.toml [indexer])
     cursor_projects_dir: Path | None = None

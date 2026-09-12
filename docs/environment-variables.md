@@ -49,6 +49,7 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 | `ADHD_HUB_STALE_NUDGE_CRON` | `0 9 * * *` | Schedule for stale-work/OpenClaw nudges. |
 | `ADHD_HUB_WIKI_INDEX_CRON` | `30 9 * * *` | Schedule for rebuilding/synchronising the wiki index task. |
 | `ADHD_HUB_FORGE_INBOX_CRON` | `*/15 * * * *` | Poll schedule for the forge issue inbox when enabled. |
+| `ADHD_HUB_FORGE_RECONCILE_CRON` | `*/30 * * * *` | Poll schedule for pinned-identity repo reconcile when forge board sync is enabled. |
 
 ## Authentication, OAuth, and reverse proxies
 
