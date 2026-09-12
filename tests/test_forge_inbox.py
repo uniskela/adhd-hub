@@ -181,14 +181,14 @@ def test_import_forge_inbox_creates_thread_and_closes(tmp_path) -> None:
     def fake_list(limit=50):
         return [issue]
 
-    def fake_mark(number, *, thread_id):
+    def fake_mark(number, *, thread_id, thread=None, close_remote=False, stamp_synced_label=False):
         return {"closed": True, "number": number, "thread_id": thread_id}
 
     with (
         patch.object(BoardForgeSync, "list_inbox_issues", side_effect=fake_list),
         patch.object(BoardForgeSync, "mark_issue_imported", side_effect=fake_mark),
     ):
-        out = service.import_forge_inbox()
+        out = service.import_forge_inbox(close_imported=True)
 
     assert out["count"] == 1
     item = out["imported"][0]
@@ -225,14 +225,14 @@ def test_import_forge_inbox_title_only_without_hub_label(tmp_path) -> None:
         "html_url": "https://github.com/o/r/issues/88",
     }
 
-    def fake_mark(number, *, thread_id):
+    def fake_mark(number, *, thread_id, thread=None, close_remote=False, stamp_synced_label=False):
         return {"closed": True, "number": number, "thread_id": thread_id}
 
     with (
         patch.object(BoardForgeSync, "list_inbox_issues", return_value=[issue]),
         patch.object(BoardForgeSync, "mark_issue_imported", side_effect=fake_mark),
     ):
-        out = service.import_forge_inbox()
+        out = service.import_forge_inbox(close_imported=True)
 
     assert out["count"] == 1
     thread = service.store.get_thread(out["imported"][0]["thread_id"])
@@ -326,7 +326,7 @@ def test_import_same_title_different_issues_do_not_collide(tmp_path) -> None:
         },
     ]
 
-    def fake_mark(number, *, thread_id):
+    def fake_mark(number, *, thread_id, **_kwargs):
         return {"closed": True, "number": number, "thread_id": thread_id}
 
     with (
@@ -353,18 +353,19 @@ def test_mark_issue_imported_never_deletes() -> None:
     patch_resp = MagicMock()
     patch_resp.status_code = 200
     patch_resp.raise_for_status = MagicMock()
+    patch_resp.content = b"{}"
+    patch_resp.json.return_value = {}
     label_get = MagicMock()
     label_get.status_code = 200
     with patch("httpx.Client") as client_cls:
         client = client_cls.return_value.__enter__.return_value
         client.get.side_effect = [label_get, get_resp]
         client.patch.return_value = patch_resp
-        out = board.mark_issue_imported(9, thread_id="abc")
+        out = board.mark_issue_imported(
+            9, thread_id="abc", close_remote=True, stamp_synced_label=True
+        )
     assert out["closed"] is True
     payload = client.patch.call_args.kwargs["json"]
     assert payload["state"] == "closed"
     assert "adhd-hub-synced" in payload["labels"]
     assert "DELETE" not in str(client.mock_calls)
-    assert "Keep me." in payload["body"]
-    assert "<!-- adhd-hub:status:start -->" in payload["body"]
-    assert "`abc`" in payload["body"]

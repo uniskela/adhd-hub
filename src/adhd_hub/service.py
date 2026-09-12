@@ -764,7 +764,7 @@ class HubService:
     def sync_forge_now(self) -> dict:
         return self._forge.sync_forge_now()
 
-    def import_forge_inbox(self, *, limit: int = 50, close_imported: bool = True) -> dict:
+    def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         return self._forge.import_forge_inbox(limit=limit, close_imported=close_imported)
 
     @staticmethod
@@ -904,6 +904,27 @@ class HubService:
         except (TypeError, json.JSONDecodeError):
             return {"raw": str(raw)}
 
+    def _reject_repo_owned_continuity_mutation(
+        self,
+        thread: Thread,
+        *,
+        title: str | None,
+        project_slug: str | None = None,
+    ) -> None:
+        from adhd_hub.work_identity import (
+            REPO_OWNED_CONTINUITY_MUTATION,
+            RepoOwnedFieldMutationError,
+            thread_has_external_identity,
+        )
+
+        # Repo owns title only when a pinned external identity exists.
+        # Project default_work_source alone must not block Hub-local continuity.
+        _ = project_slug  # kept for call-site compatibility
+        if not thread_has_external_identity(thread):
+            return
+        if title is not None and title.strip() and title.strip() != thread.summary.strip():
+            raise RepoOwnedFieldMutationError(REPO_OWNED_CONTINUITY_MUTATION)
+
     def upsert_thread(self, payload: ThreadUpsert) -> Thread:
         slug = self._resolve_slug_for_write(
             project_slug=payload.project_slug,
@@ -922,6 +943,12 @@ class HubService:
                 payload.transcript_ref or payload.workspace_path or slug or "",
             )
             previous = self.store.get_thread(guessed)
+        if previous is not None:
+            self._reject_repo_owned_continuity_mutation(
+                previous,
+                title=payload.summary,
+                project_slug=slug,
+            )
         thread = self.store.upsert_thread(payload)
         note = milestone_text(thread=thread, previous=previous)
         if note:
@@ -1067,6 +1094,11 @@ class HubService:
             previous = None
 
         if thread is not None and not created:
+            self._reject_repo_owned_continuity_mutation(
+                thread,
+                title=payload.title,
+                project_slug=slug,
+            )
             summary = payload.title or thread.summary
             goal = payload.goal if payload.goal is not None else thread.goal
             focus = payload.focus if payload.focus is not None else thread.focus
@@ -1152,6 +1184,14 @@ class HubService:
         }
 
     def mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
+        # B2a transitional: Hub-local only (no remote-first close). Unlinked threads
+        # keep forge_after; pinned external identity skips forge_after (would try remote close).
+        from adhd_hub.work_identity import thread_has_external_identity
+
+        current = self.store.get_thread(thread_id)
+        if not current:
+            return None
+        linked = thread_has_external_identity(current)
         thread, changed = self.store.transition_status(thread_id, ThreadStatus.done, note=note)
         if thread and changed:
             slug = thread.project_slug or slugify(thread.summary)
@@ -1162,7 +1202,8 @@ class HubService:
                 slug, title=thread.summary, history_note=history, thread=thread
             )
             self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
-            self._forge_after_thread(thread)
+            if not linked:
+                self._forge_after_thread(thread)
         return thread
 
     def mark_dismissed(self, thread_id: str, note: str | None = None) -> Thread | None:

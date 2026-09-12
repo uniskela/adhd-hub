@@ -200,20 +200,247 @@ class ForgeFacade:
 
     def sync_forge_now(self) -> dict:
         cfg = self.forge_config()
+        from adhd_hub.forge.repo_sync import (
+            credentials_apply_to_pinned,
+            discover_issue_payloads,
+            fetch_pinned_issue,
+            fingerprint_for,
+        )
         from adhd_hub.forge.scaffold import push_primary_scaffold
+        from adhd_hub.work_identity import (
+            WorkSource,
+            normalize_external_identity,
+            thread_has_external_identity,
+        )
 
         scaffold = push_primary_scaffold(
             cfg, hub_ui_url=self._hub.settings.resolve_public_url()
         )
         wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
-        board_results = []
-        for thread in self._hub.list_open_threads(limit=200):
+
+        # 1) Reconcile all linked threads from pinned identity (not project forge gate).
+        reconcile_results: list[dict] = []
+        for thread in self._hub.store.list_externally_linked_threads(limit=500):
+            if not thread_has_external_identity(thread):
+                continue
             try:
-                tcfg = self.forge_config(thread.project_slug)
-                board_results.append(self._board(tcfg).sync_thread(thread))
-            except Exception as exc:  # noqa: BLE001 — continue syncing other threads
-                board_results.append({"error": str(exc), "thread_id": thread.id})
-        # Also push per-project forge wiki overrides (distinct owner/repo)
+                identity = normalize_external_identity(
+                    thread.external_provider or WorkSource.github,
+                    thread.external_host,
+                    thread.external_owner or "",
+                    thread.external_repo or "",
+                    int(thread.external_issue_number or 0),
+                )
+            except ValueError as exc:
+                reconcile_results.append(
+                    {
+                        "thread_id": thread.id,
+                        "skipped": True,
+                        "reason": "pinned_identity_unreachable",
+                        "error": str(exc),
+                    }
+                )
+                continue
+            # Prefer credentials from thread project config when they apply; else global.
+            tcfg = self.forge_config(thread.project_slug)
+            cred_cfg = tcfg if credentials_apply_to_pinned(tcfg, identity) else cfg
+            if not credentials_apply_to_pinned(cred_cfg, identity):
+                reconcile_results.append(
+                    {
+                        "thread_id": thread.id,
+                        "skipped": True,
+                        "reason": "pinned_identity_unreachable",
+                    }
+                )
+                continue
+            fetched = fetch_pinned_issue(cred_cfg, identity)
+            if isinstance(fetched, dict):
+                reconcile_results.append({"thread_id": thread.id, **fetched})
+                continue
+            fp = fingerprint_for(fetched)
+            applied = self._hub.store.apply_external_projection(
+                thread.id,
+                summary=fetched.title,
+                external_issue_state=fetched.state,
+                external_updated_at=fetched.updated_at,
+                external_fingerprint=fp,
+                external_labels=list(fetched.labels),
+            )
+            reconcile_results.append(
+                {"thread_id": thread.id, "identity": identity.number, **applied}
+            )
+
+        # 2) Separately: discovery for projects with resolvable forge targets.
+        discovery_results: list[dict] = []
+        seen_targets: set[tuple[str, str, str]] = set()
+        projects = list(self._hub.store.list_projects())
+        # Include global target as a pseudo entry
+        targets: list[tuple[str | None, ForgeConfig]] = [(None, cfg)]
+        for proj in projects:
+            pcfg = self.forge_config(proj.slug)
+            targets.append((proj.slug, pcfg))
+        for slug, tcfg in targets:
+            if not (tcfg.enabled() and tcfg.board_enabled and tcfg.owner and tcfg.repo):
+                continue
+            key = (tcfg.provider.value, tcfg.owner.casefold(), tcfg.repo.casefold())
+            if key in seen_targets:
+                continue
+            seen_targets.add(key)
+            discovered = discover_issue_payloads(tcfg, limit=50)
+            if isinstance(discovered, dict):
+                discovery_results.append({"project_slug": slug, **discovered})
+                continue
+            imported: list[dict] = []
+            skipped: list[dict] = []
+            # Legacy forge_issue: meta is number-only; scoped to this discovery target.
+            legacy_by_number = {
+                str(value): key.removeprefix("forge_issue:")
+                for key, value in self._hub.store.list_meta_prefix("forge_issue:").items()
+            }
+            for item in discovered:
+                snap = item["snapshot"]
+                # Multi-project claim check when creating new
+                existing = self._hub.store.get_thread_by_external_identity(
+                    snap.identity.provider,
+                    snap.identity.host,
+                    snap.identity.owner,
+                    snap.identity.repo,
+                    snap.identity.number,
+                )
+                if existing is None:
+                    legacy_tid = legacy_by_number.get(str(snap.identity.number))
+                    if legacy_tid:
+                        legacy_thread = self._hub.store.get_thread(legacy_tid)
+                        if legacy_thread is not None:
+                            same_identity = False
+                            if thread_has_external_identity(legacy_thread):
+                                try:
+                                    legacy_identity = normalize_external_identity(
+                                        legacy_thread.external_provider or WorkSource.github,
+                                        legacy_thread.external_host,
+                                        legacy_thread.external_owner or "",
+                                        legacy_thread.external_repo or "",
+                                        int(legacy_thread.external_issue_number or 0),
+                                    )
+                                    same_identity = (
+                                        legacy_identity.provider == snap.identity.provider
+                                        and legacy_identity.host == snap.identity.host
+                                        and legacy_identity.owner.casefold()
+                                        == snap.identity.owner.casefold()
+                                        and legacy_identity.repo.casefold()
+                                        == snap.identity.repo.casefold()
+                                        and legacy_identity.number == snap.identity.number
+                                    )
+                                except ValueError:
+                                    same_identity = False
+                                if same_identity:
+                                    existing = legacy_thread
+                            else:
+                                # Heal only when this discovery target matches the
+                                # legacy thread's resolvable forge target (not number alone).
+                                lcfg = self.forge_config(legacy_thread.project_slug)
+                                target_matches = (
+                                    lcfg.enabled()
+                                    and lcfg.owner
+                                    and lcfg.repo
+                                    and lcfg.owner.casefold() == snap.identity.owner.casefold()
+                                    and lcfg.repo.casefold() == snap.identity.repo.casefold()
+                                )
+                                if target_matches:
+                                    try:
+                                        self._hub.store.attach_external_identity(
+                                            legacy_tid, snap.identity, dual_write_meta=True
+                                        )
+                                        existing = self._hub.store.get_thread(legacy_tid)
+                                    except (ValueError, KeyError) as exc:
+                                        log.warning(
+                                            "legacy forge_issue heal skipped for %s: %s",
+                                            legacy_tid,
+                                            exc,
+                                        )
+                if existing:
+                    skipped.append(
+                        {
+                            "number": snap.identity.number,
+                            "reason": "already_mapped",
+                            "thread_id": existing.id,
+                        }
+                    )
+                    continue
+                claimants = [
+                    p
+                    for p in projects
+                    if (p.forge_owner or tcfg.owner).casefold() == snap.identity.owner
+                    and (p.forge_repo or tcfg.repo).casefold() == snap.identity.repo
+                ]
+                # Also count projects using global owner/repo without override
+                if slug is None and not claimants:
+                    claimants = [
+                        p
+                        for p in projects
+                        if not (p.forge_owner and p.forge_repo)
+                    ]
+                project_slug = slug
+                if project_slug is None:
+                    if len(claimants) == 1:
+                        project_slug = claimants[0].slug
+                    elif len(claimants) > 1:
+                        skipped.append(
+                            {
+                                "number": snap.identity.number,
+                                "reason": "needs_project_disambiguation",
+                            }
+                        )
+                        # Needs-review persistence is B2b; B2a only returns structured skip.
+                        continue
+                    else:
+                        project_slug = "inbox"
+                assert project_slug is not None
+                self._hub.store.ensure_project_for_slug(project_slug, title=project_slug)
+                thread, created = self._hub.store.get_or_create_thread_for_external_identity(
+                    identity=snap.identity,
+                    project_slug=project_slug,
+                    summary=snap.title or f"Issue #{snap.identity.number}",
+                    external_issue_state=snap.state,
+                )
+                fp = fingerprint_for(snap)
+                self._hub.store.apply_external_projection(
+                    thread.id,
+                    summary=snap.title or thread.summary,
+                    external_issue_state=snap.state,
+                    external_updated_at=snap.updated_at,
+                    external_fingerprint=fp,
+                    external_labels=list(snap.labels),
+                )
+                imported.append(
+                    {
+                        "number": snap.identity.number,
+                        "thread_id": thread.id,
+                        "created": created,
+                    }
+                )
+            discovery_results.append(
+                {
+                    "project_slug": slug,
+                    "owner": tcfg.owner,
+                    "repo": tcfg.repo,
+                    "imported": imported,
+                    "skipped": skipped,
+                }
+            )
+
+        # Preserve-existing local mirrors only (no new creates) — optional legacy.
+        board_results = []
+        if cfg.board_mirror_local:
+            for thread in self._hub.list_open_threads(limit=200):
+                if thread_has_external_identity(thread):
+                    continue
+                try:
+                    tcfg = self.forge_config(thread.project_slug)
+                    board_results.append(self._board(tcfg).sync_thread(thread))
+                except Exception as exc:  # noqa: BLE001
+                    board_results.append({"error": str(exc), "thread_id": thread.id})
+
         per_project_wiki: list[dict] = []
         seen: set[tuple[str, str, str]] = set()
         for proj in self._hub.store.list_projects():
@@ -238,15 +465,19 @@ class ForgeFacade:
         return {
             "scaffold": scaffold,
             "wiki": wiki,
+            "reconcile": reconcile_results,
+            "discovery": discovery_results,
             "board": board_results,
             "per_project_wiki": per_project_wiki,
             "config": cfg.public_dict(),
             "import_preview": self.preview_forge_import(),
         }
 
-    def import_forge_inbox(self, *, limit: int = 50, close_imported: bool = True) -> dict:
+    def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         """Pull cloud-agent forge issues into Hub threads (never deletes remote issues)."""
         cfg = self.forge_config()
+        if close_imported is None:
+            close_imported = bool(cfg.board_inbox_close_imported)
         if not (cfg.enabled() and cfg.board_enabled and cfg.board_inbox_enabled):
             return {
                 "skipped": True,
@@ -320,7 +551,12 @@ class ForgeFacade:
                 self._meta_set_with_identity(cfg)(f"forge_issue:{thread_id}", str(number))
                 if close_imported:
                     try:
-                        board.mark_issue_imported(number, thread_id=thread_id)
+                        board.mark_issue_imported(
+                            number,
+                            thread_id=thread_id,
+                            close_remote=True,
+                            stamp_synced_label=True,
+                        )
                     except Exception as exc:  # noqa: BLE001
                         skipped.append(
                             {"number": number, "reason": f"link_close_failed:{exc}"}
@@ -418,7 +654,11 @@ class ForgeFacade:
             if close_imported:
                 try:
                     close_result = board.mark_issue_imported(
-                        number, thread_id=thread.id, thread=thread
+                        number,
+                        thread_id=thread.id,
+                        thread=thread,
+                        close_remote=True,
+                        stamp_synced_label=True,
                     )
                 except Exception as exc:  # noqa: BLE001
                     close_result = {"error": str(exc)}
@@ -492,3 +732,4 @@ class ForgeFacade:
             "importable_count": len(importable),
             "errors": scan.get("errors") or [],
         }
+

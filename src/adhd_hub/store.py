@@ -69,6 +69,21 @@ def workspace_basename(path: str | None) -> str | None:
     return parts[-1] if parts else None
 
 
+def _parse_external_labels(raw: Any) -> list[str]:
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, list):
+        return [str(x) for x in raw]
+    if isinstance(raw, str):
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(data, list):
+            return [str(x) for x in data]
+    return []
+
+
 def item_id(summary: str, key: str = "") -> str:
     raw = f"{summary.strip().lower()}::{key}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
@@ -195,6 +210,9 @@ class Store:
                 "external_owner",
                 "external_repo",
                 "external_issue_state",
+                "external_updated_at",
+                "external_fingerprint",
+                "external_labels",
             ):
                 if column not in thread_cols:
                     conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
@@ -285,6 +303,15 @@ class Store:
                 ExternalIssueState(row["external_issue_state"])
                 if "external_issue_state" in keys and row["external_issue_state"]
                 else None
+            ),
+            external_updated_at=(
+                row["external_updated_at"] if "external_updated_at" in keys else None
+            ),
+            external_fingerprint=(
+                row["external_fingerprint"] if "external_fingerprint" in keys else None
+            ),
+            external_labels=_parse_external_labels(
+                row["external_labels"] if "external_labels" in keys else None
             ),
         )
 
@@ -813,6 +840,187 @@ class Store:
             out = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
         assert out is not None
         return self._row_thread(out)
+
+    def get_or_create_thread_for_external_identity(
+        self,
+        *,
+        identity: ExternalIdentity,
+        project_slug: str,
+        summary: str,
+        external_issue_state: ExternalIssueState | None = None,
+        source_tool: str | None = "forge-import",
+    ) -> tuple[Thread, bool]:
+        """Atomic lookup-or-create + attach. Never leaves an orphan without identity."""
+        identity = normalize_external_identity(
+            identity.provider,
+            identity.host,
+            identity.owner,
+            identity.repo,
+            identity.number,
+        )
+        existing = self.get_thread_by_external_identity(
+            identity.provider,
+            identity.host,
+            identity.owner,
+            identity.repo,
+            identity.number,
+        )
+        if existing:
+            return existing, False
+
+        now = utcnow().isoformat()
+        tid = item_id(
+            summary,
+            f"{identity.provider.value}:{identity.host}/{identity.owner}/{identity.repo}#{identity.number}",
+        )
+        with self._conn() as conn:
+            found = conn.execute(
+                """
+                SELECT * FROM threads
+                WHERE external_provider = ?
+                  AND external_host = ?
+                  AND external_owner = ?
+                  AND external_repo = ?
+                  AND external_issue_number = ?
+                """,
+                (
+                    identity.provider.value,
+                    identity.host,
+                    identity.owner,
+                    identity.repo,
+                    identity.number,
+                ),
+            ).fetchone()
+            if found:
+                return self._row_thread(found), False
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO threads(
+                        id, summary, status, energy, source_tool, workspace_path,
+                        project_slug, chat_ref, transcript_ref, origin,
+                        created_at, updated_at, last_reminded_at,
+                        goal, focus, next_steps, blocked_reason, resume_step,
+                        work_source, external_provider, external_host, external_owner,
+                        external_repo, external_issue_number, external_issue_state
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        tid,
+                        summary[:500],
+                        ThreadStatus.open.value,
+                        EnergyLevel.unknown.value,
+                        source_tool,
+                        None,
+                        project_slug,
+                        None,
+                        None,
+                        "forge-import",
+                        now,
+                        now,
+                        None,
+                        None,
+                        None,
+                        "[]",
+                        None,
+                        None,
+                        identity.provider.value,
+                        identity.provider.value,
+                        identity.host,
+                        identity.owner,
+                        identity.repo,
+                        identity.number,
+                        external_issue_state.value if external_issue_state else None,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                found = conn.execute(
+                    """
+                    SELECT * FROM threads
+                    WHERE external_provider = ?
+                      AND external_host = ?
+                      AND external_owner = ?
+                      AND external_repo = ?
+                      AND external_issue_number = ?
+                    """,
+                    (
+                        identity.provider.value,
+                        identity.host,
+                        identity.owner,
+                        identity.repo,
+                        identity.number,
+                    ),
+                ).fetchone()
+                if found:
+                    return self._row_thread(found), False
+                raise
+            conn.execute(
+                "INSERT INTO meta(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (f"forge_issue:{tid}", str(identity.number)),
+            )
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (tid,)).fetchone()
+        assert row is not None
+        return self._row_thread(row), True
+
+    def apply_external_projection(
+        self,
+        thread_id: str,
+        *,
+        summary: str,
+        external_issue_state: ExternalIssueState,
+        external_updated_at: str,
+        external_fingerprint: str,
+        external_labels: list[str] | tuple[str, ...] | None = None,
+    ) -> dict[str, Any]:
+        """Update repo-owned projection only; never Hub continuity fields."""
+        current = self.get_thread(thread_id)
+        if not current:
+            raise KeyError("thread_not_found")
+        if current.external_fingerprint == external_fingerprint:
+            return {"applied": False, "reason": "fingerprint_match", "thread_id": thread_id}
+        labels_json = json.dumps(list(external_labels or []))
+        now = utcnow().isoformat()
+        with self._conn() as conn:
+            conn.execute(
+                """
+                UPDATE threads SET
+                    summary = ?,
+                    external_issue_state = ?,
+                    external_updated_at = ?,
+                    external_fingerprint = ?,
+                    external_labels = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    summary[:500],
+                    external_issue_state.value,
+                    external_updated_at,
+                    external_fingerprint,
+                    labels_json,
+                    now,
+                    thread_id,
+                ),
+            )
+        return {"applied": True, "thread_id": thread_id}
+
+    def list_externally_linked_threads(self, *, limit: int = 500) -> list[Thread]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM threads
+                WHERE external_provider IS NOT NULL
+                  AND external_host IS NOT NULL
+                  AND external_owner IS NOT NULL
+                  AND external_repo IS NOT NULL
+                  AND external_issue_number IS NOT NULL
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [self._row_thread(row) for row in rows]
 
     def try_attach_from_forge_config(
         self,

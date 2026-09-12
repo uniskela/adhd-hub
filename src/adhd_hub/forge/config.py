@@ -14,6 +14,14 @@ class ForgeProvider(StrEnum):
     gitea = "gitea"
 
 
+class IssueImportPolicy(StrEnum):
+    manual = "manual"
+    all_open = "all_open"
+    labels = "labels"
+    assigned_to_me = "assigned_to_me"
+    adhd_inbox = "adhd_inbox"
+
+
 class ForgeConfig(BaseModel):
     """Runtime forge settings (env defaults + data/forge.json overrides)."""
 
@@ -46,6 +54,14 @@ class ForgeConfig(BaseModel):
     project_number: int | None = None
     project_id: str | None = None  # Gitea numeric id as string, or GitHub node id if known
     issue_labels: list[str] = Field(default_factory=lambda: ["adhd-hub"])
+
+    # Foundation B2a — repo-primary import / mirror controls
+    issue_import_policy: IssueImportPolicy = IssueImportPolicy.manual
+    issue_import_labels: list[str] = Field(default_factory=list)
+    forge_account_login: str = ""
+    board_mirror_local: bool = False
+    board_inbox_close_imported: bool = False
+    publish_hub_status_block: bool = False
 
     def api_root(self) -> str:
         return self.base_url.rstrip("/")
@@ -103,11 +119,16 @@ def load_forge_config(data_dir: Path, env_defaults: ForgeConfig | None = None) -
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return base
+    if not isinstance(raw, dict):
+        return base
     merged = base.model_dump()
     merged.update({k: v for k, v in raw.items() if v is not None})
     # Keep existing token if UI sent masked value
     if isinstance(merged.get("token"), str) and merged["token"].startswith("***"):
         merged["token"] = base.token
+    # Migrated inbox installs: retain adhd_inbox when policy key was absent.
+    if "issue_import_policy" not in raw and bool(raw.get("board_inbox_enabled")):
+        merged["issue_import_policy"] = IssueImportPolicy.adhd_inbox.value
     return ForgeConfig.model_validate(merged)
 
 

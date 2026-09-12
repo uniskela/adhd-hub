@@ -71,6 +71,9 @@ class Thread(BaseModel):
     external_repo: str | None = None
     external_issue_number: int | None = None
     external_issue_state: ExternalIssueState | None = None
+    external_updated_at: str | None = None
+    external_fingerprint: str | None = None
+    external_labels: list[str] = Field(default_factory=list)
 
 
 class ThreadUpsert(BaseModel):
