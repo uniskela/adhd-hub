@@ -36,13 +36,13 @@
 
 - `src/adhd_hub/ui/index.html` — semantic screen/layout structure, header theme menu, mobile bottom nav, My Work detail pane, Settings mobile index/back affordance.
 - `src/adhd_hub/ui/app.css` — semantic colour tokens, screen-specific widths/layouts, compact work rows, focus treatment, responsive/mobile rules, dialog/settings/docs-independent UI visuals.
-- `src/adhd_hub/ui/js/theme.js` — shared theme preference behaviour for header popover + Settings controls.
-- `src/adhd_hub/ui/js/screens.js` — destination current-state + heading focus only; no backend changes.
-- `src/adhd_hub/ui/js/state.js` — minimal selected-work-detail UI state if needed.
+- `src/adhd_hub/ui/js/theme.js` — existing shared theme preference behaviour; reuse its `[data-theme-toggle]` contract unless an implementation defect requires a focused fix.
+- `src/adhd_hub/ui/js/screens.js` — destination current-state + heading focus only; no backend changes expected.
+- `src/adhd_hub/ui/js/state.js` — minimal selected-work-detail UI state.
 - `src/adhd_hub/ui/js/work.js` — dense list rendering, selected task detail rendering, Back-to-list behaviour.
 - `src/adhd_hub/ui/js/settings.js` — desktop category selection plus mobile settings-index state.
-- `src/adhd_hub/ui/js/boot.js` — event wiring for new theme/menu/detail/settings UI controls.
-- `src/adhd_hub/ui/js/progress.js` — preserve data calculations; only compact milestone markup changes if required.
+- `src/adhd_hub/ui/js/boot.js` — event wiring for header/mobile navigation, detail, and settings controls.
+- `src/adhd_hub/ui/js/progress.js` — preserve data calculations; compact milestone container/markup only.
 
 ### Documentation
 
@@ -55,7 +55,7 @@
 ### Behaviour verification
 
 - `scripts/browser_smoke.py` — dashboard desktop/mobile flows and screenshots.
-- `scripts/docs_browser_smoke.py` — new focused docs build/render/screenshot smoke check.
+- `scripts/docs_browser_smoke.py` — focused docs build/render/screenshot smoke check.
 
 ---
 
@@ -64,12 +64,13 @@
 **Files:**
 - Modify: `src/adhd_hub/ui/index.html`
 - Modify: `src/adhd_hub/ui/app.css`
-- Modify: `src/adhd_hub/ui/js/theme.js`
+- Modify: `src/adhd_hub/ui/js/boot.js`
 - Modify: `scripts/browser_smoke.py`
 - Modify: `docs/brand-guide.md`
+- Read/verify only unless needed: `src/adhd_hub/ui/js/theme.js`
 
 **Interfaces:**
-- Consumes: existing `[data-theme-toggle]` / `[data-theme-value]` contract and `adhd_hub_theme` preference.
+- Consumes: existing `[data-theme-toggle]` / `[data-theme-value]` contract and `adhd_hub_theme` preference from `theme.js`.
 - Produces: one `.app-header`, desktop `#appearance-menu`, `.mobile-nav`, screen-specific width classes, and heading-specific `h1[tabindex="-1"]:focus-visible` styling used by later tasks.
 
 - [ ] **Step 1: Add failing browser-smoke assertions for the new shell contract**
@@ -134,7 +135,7 @@ At the top of `src/adhd_hub/ui/app.css`, replace the current glossy token set wi
   --radius-focus: 16px;
   --shadow-elevated: 0 18px 50px rgb(32 51 44 / 0.16);
 
-  /* compatibility aliases while rules are migrated */
+  /* compatibility aliases while existing selectors are migrated */
   --bg: var(--canvas);
   --card: var(--surface);
   --ink: var(--text);
@@ -218,7 +219,7 @@ Before the end of `#app-shell`, add the mobile destination nav. Use `data-screen
 </nav>
 ```
 
-- [ ] **Step 5: Make the generic destination handler initialize Settings regardless of which Settings button is used**
+- [ ] **Step 5: Make the generic destination handler initialize Settings regardless of which Settings control is used**
 
 Extract the current `#btn-settings` setup code in `boot.js` into one async initializer so both the desktop Settings button and mobile `data-screen="settings"` route get the same behaviour:
 
@@ -234,7 +235,8 @@ async function prepareSettings() {
   $("install-cmd").value = 'curl -fsSL "' + location.origin + '/install.sh" | sh -s -- .';
   $("install-cmd-win").value = 'irm "' + location.origin + '/install.ps1" | iex';
   $("settings-msg").textContent = "";
-  $("connect-agents-msg")?.replaceChildren();
+  const agentsMsg = $("connect-agents-msg");
+  if (agentsMsg) agentsMsg.textContent = "";
   api("/health").then((health) => {
     $("app-version").textContent = health.version ? `v${health.version}` : "Version unavailable";
   }).catch(() => { $("app-version").textContent = "Version unavailable"; });
@@ -256,7 +258,7 @@ if (state.activeScreen === "settings") {
 }
 ```
 
-Keep `#btn-settings` for the desktop header, but make its listener call `showScreen("settings")` + `prepareSettings()` rather than duplicate setup code.
+Keep `#btn-settings` for the desktop header, but make its listener call `showScreen("settings")`, `prepareSettings()`, and `selectSettingsTab("preferences")` rather than duplicating setup code.
 
 - [ ] **Step 6: Add flat shell, responsive nav, popover, and heading-focus CSS**
 
@@ -359,7 +361,7 @@ Run:
 ```bash
 graphify update .
 uv run pytest
-uv run ruff check src tests
+uv run ruff check src tests scripts
 uv run --with playwright python scripts/browser_smoke.py
 ```
 
@@ -368,7 +370,7 @@ Expected: all existing flows plus the new shell assertions pass.
 Commit:
 
 ```bash
-git add src/adhd_hub/ui/index.html src/adhd_hub/ui/app.css src/adhd_hub/ui/js/theme.js src/adhd_hub/ui/js/boot.js scripts/browser_smoke.py docs/brand-guide.md
+git add src/adhd_hub/ui/index.html src/adhd_hub/ui/app.css src/adhd_hub/ui/js/boot.js scripts/browser_smoke.py docs/brand-guide.md
 git commit -m "feat: establish calm ui shell and palette"
 ```
 
@@ -385,8 +387,8 @@ git commit -m "feat: establish calm ui shell and palette"
 - Modify: `scripts/browser_smoke.py`
 
 **Interfaces:**
-- Consumes: existing thread payloads, `chooseThread(thread_id)`, `copyReference(thread_id)`, `wireNotes(root)`, `formatWhen()`.
-- Produces: `state.inspectedThreadId`, `inspectThread(threadId)`, `closeThreadDetail()`, `renderThreadDetail(thread)`, one `#work-detail-pane` that is a right pane on desktop and a full-width work detail view below the responsive breakpoint.
+- Consumes: existing thread payloads (`resume_step`, `focus`, `progress_snippet`, forge URL/number), `chooseThread(thread_id)`, `copyReference(thread_id)`, `wireNotes(root)`, `formatWhen()`.
+- Produces: `state.inspectedThreadId`, `inspectThread(threadId)`, `closeThreadDetail()`, `renderThreadDetail(thread)`, and one `#work-detail-pane` that is a right pane on desktop and a full-width work detail view below the responsive breakpoint.
 
 - [ ] **Step 1: Add failing smoke assertions for compact list/detail behaviour**
 
@@ -401,9 +403,10 @@ expect(page.locator("#work-detail-empty")).to_be_visible()
 
 page.locator("#threads .thread-row").first.click()
 expect(page.locator("#work-detail-content")).to_be_visible()
-expect(page.locator("#work-detail-content")).to_contain_text("Write")
 expect(page.get_by_role("button", name="Bring to Now", exact=True)).to_be_visible()
 ```
+
+Place this assertion before the smoke test creates the extra quick-capture thread so the seeded open-thread count remains four.
 
 For the mobile page created in Task 1:
 
@@ -436,7 +439,7 @@ Keep `#focus-panel`, `#focus-title`, `#next-card`, `#focus-session`, and focus-a
       <p>Choose one task. Everything else can wait.</p>
     </div>
     <section class="focus-surface" id="focus-panel" aria-labelledby="focus-title">
-      <!-- existing focus toolbar/title/session/next-card IDs stay here -->
+      <!-- move the existing focus toolbar/title/session/next-card controls here unchanged -->
     </section>
     <section id="now-reminders" class="reminder-strip" hidden></section>
   </div>
@@ -471,10 +474,10 @@ Do not persist this to localStorage; a detail selection is transient UI state.
 
 - [ ] **Step 5: Replace card rendering with dense task rows**
 
-In `work.js`, keep the current filtering, project/source helpers, and thread count. Replace each large `<article class="thread">` with one button-like scannable row:
+In `work.js`, keep the current filtering, project/source helpers, and thread count. Replace each large `<article class="thread">` with one scannable row button:
 
 ```js
-const rowMarkup = (t, index) => {
+const rowMarkup = (t) => {
   const isChosen = t.id === state.chosenId;
   const isInspected = t.id === state.inspectedThreadId;
   const statusLabel = t.status === "done"
@@ -509,10 +512,10 @@ In `index.html`, make `.work-content` contain a list column plus one sibling det
 ```html
 <div class="work-browser">
   <section class="work-list-pane" aria-label="Work list">
-    <!-- existing filters/search/count/#threads -->
+    <!-- keep the existing filters/search/count/#threads inside this pane -->
   </section>
 
-  <aside id="work-detail-pane" class="work-detail-pane" aria-label="Selected work">
+  <aside id="work-detail-pane" class="work-detail-pane" aria-label="Selected work" tabindex="-1">
     <button type="button" class="text-button work-detail-back" id="btn-work-detail-back">Back to work list</button>
     <div id="work-detail-empty" class="work-detail-empty">
       <h2>Select a task</h2>
@@ -523,7 +526,7 @@ In `index.html`, make `.work-content` contain a list column plus one sibling det
 </div>
 ```
 
-Desktop CSS uses `grid-template-columns: minmax(0, 1fr) minmax(300px, 380px)`. Under the chosen medium breakpoint (use `960px` consistently), `.detail-open` hides the rail/list and makes the same detail pane full width.
+Desktop CSS uses `grid-template-columns: minmax(0, 1fr) minmax(300px, 380px)`. At `max-width: 960px`, `.detail-open` hides the project/list regions and makes the same detail pane full width.
 
 - [ ] **Step 7: Implement detail rendering and mobile Back behaviour**
 
@@ -552,6 +555,7 @@ export function renderThreadDetail(thread) {
       <h2>${escapeHtml(thread.summary)}</h2>
     </div>
     ${thread.focus ? `<section><h3>Focus</h3><p>${escapeHtml(thread.focus)}</p></section>` : ""}
+    ${thread.blocked_reason ? `<section><h3>Blocked</h3><p>${escapeHtml(thread.blocked_reason)}</p></section>` : ""}
     ${thread.resume_step ? `<section><h3>Resume here</h3><p>${escapeHtml(thread.resume_step)}</p></section>` : ""}
     <details class="progress-details" data-notes="${escapeHtml(thread.id)}">
       <summary>Notes &amp; context</summary>
@@ -588,8 +592,6 @@ export function closeThreadDetail() {
 }
 ```
 
-Give `#work-detail-pane` `tabindex="-1"` in HTML so mobile focus transfer is valid.
-
 When project/filter changes, clear `state.inspectedThreadId`, remove `.detail-open`, and call `renderThreadDetail(null)`.
 
 - [ ] **Step 8: Wire Back to list and ensure row selection survives list re-rendering**
@@ -600,7 +602,7 @@ In `boot.js` import `closeThreadDetail` and bind:
 $("btn-work-detail-back").addEventListener("click", closeThreadDetail);
 ```
 
-In `renderThreads()`, after replacing row markup, re-apply selected state from `state.inspectedThreadId` and call `renderThreadDetail()` with the cached selected thread if it still exists. If filtering removes it, clear selection and the detail pane.
+In `renderThreads()`, after replacing row markup, re-apply selected state from `state.inspectedThreadId` and call `renderThreadDetail()` with the cached selected thread if it still exists. If search/filtering removes the selected thread, clear `state.inspectedThreadId`, remove `.detail-open`, and render the empty detail state.
 
 - [ ] **Step 9: Add dense work-browser CSS**
 
@@ -651,7 +653,7 @@ Use flat rows with dividers, not cards:
 }
 ```
 
-Also collapse the projects rail to a compact project selector/drawer at `max-width: 960px`; do not allow it to consume a desktop-width sidebar on mobile.
+At the same `960px` breakpoint, replace the persistent project rail with a compact project/filter control using the existing project buttons inside a collapsible/drawer-style region; do not duplicate project state or add another project API.
 
 - [ ] **Step 10: Run Now/My Work tests and commit**
 
@@ -660,7 +662,7 @@ Run:
 ```bash
 graphify update .
 uv run pytest
-uv run ruff check src tests
+uv run ruff check src tests scripts
 uv run --with playwright python scripts/browser_smoke.py
 ```
 
@@ -682,8 +684,8 @@ git commit -m "feat: redesign now and work browsing"
 - Modify: `scripts/browser_smoke.py`
 
 **Interfaces:**
-- Consumes: current overview payload, `renderStats()`, `renderRewards()`, share-card dialog IDs.
-- Produces: activity-first Progress DOM, compact `.milestones` presentation, unchanged reward preference/share behaviour.
+- Consumes: current overview payload, `renderStats()`, `renderRewards()`, and share-card dialog/control IDs.
+- Produces: activity-first Progress DOM, compact `#milestones` presentation, unchanged reward preference/share behaviour.
 
 - [ ] **Step 1: Add failing smoke assertions for Progress hierarchy**
 
@@ -746,18 +748,20 @@ Use this hierarchy:
   </section>
 
   <section id="milestones" class="progress-section milestones" aria-labelledby="rewards-title" hidden>
-    <!-- retain rank-name, reward-level, rank-next, rank-progress, goal-count, daily-progress,
-         badge-count, badges, btn-share-progress and rewards-caption IDs -->
+    <!-- move the existing rank/goal/badge/share controls here and retain
+         rank-name, reward-level, rank-next, rank-progress, goal-count,
+         daily-progress, badge-count, badges, btn-share-progress and
+         rewards-caption IDs -->
   </section>
   <p id="rewards-off" class="hint"></p>
 </section>
 ```
 
-Keep IDs referenced by `progress.js` so calculations/preferences/share behaviour stay intact.
+Keep all IDs referenced by `progress.js` so calculations/preferences/share behaviour stay intact.
 
-- [ ] **Step 4: Update `renderRewards()` to target the compact milestone container**
+- [ ] **Step 4: Update `renderRewards()` and every old `#rewards-panel` reference consistently**
 
-Rename only the container lookup from `rewards-panel` to `milestones`; do not change the XP/badge model:
+Rename the container lookup from `rewards-panel` to `milestones`; do not change the XP/badge model:
 
 ```js
 export function renderRewards() {
@@ -765,9 +769,17 @@ export function renderRewards() {
   $("milestones").hidden = !enabled;
   $("rewards-off").hidden = enabled;
   $("daily-goal").disabled = !enabled;
-  // existing total/today/goal/rewards calculations remain unchanged
+  // keep the existing total/today/goal/rewards calculations below this point
 }
 ```
+
+Then search the branch for `rewards-panel` and update all remaining presentation/test references in this task, including:
+
+- `scripts/browser_smoke.py` hidden/visible assertions
+- `src/adhd_hub/ui/app.css` focus-mode selectors or legacy reward selectors
+- `src/adhd_hub/ui/index.html`
+
+Do not leave a compatibility duplicate `id="rewards-panel"`; one canonical container is easier to reason about.
 
 Keep `openSharePreview()` and its privacy constraints intact. Do not redesign share-card data semantics in this PR.
 
@@ -808,7 +820,7 @@ Run:
 ```bash
 graphify update .
 uv run pytest
-uv run ruff check src tests
+uv run ruff check src tests scripts
 uv run --with playwright python scripts/browser_smoke.py
 ```
 
@@ -831,7 +843,7 @@ git commit -m "feat: make progress activity first"
 - Modify: `scripts/browser_smoke.py`
 
 **Interfaces:**
-- Consumes: existing `[data-settings-tab]`, `aria-controls`, panel IDs, settings save/load functions, dialog IDs.
+- Consumes: existing `[data-settings-tab]`, `aria-controls`, panel IDs, settings save/load functions, and dialog IDs.
 - Produces: `showSettingsIndex()`, mobile Back-to-settings behaviour, constrained settings content column, unchanged desktop keyboard tab semantics.
 
 - [ ] **Step 1: Add failing browser-smoke assertions for the new Settings structure**
@@ -878,13 +890,13 @@ Use this shell:
 
   <div class="settings-shell">
     <nav class="settings-nav" aria-label="Settings categories" role="tablist" aria-orientation="vertical">
-      <!-- existing data-settings-tab buttons / aria-controls remain -->
+      <!-- move the existing data-settings-tab buttons / aria-controls here unchanged -->
     </nav>
 
     <div class="settings-content">
       <button type="button" class="text-button settings-mobile-back" id="btn-settings-index-back">Back to settings</button>
       <div class="settings-content-inner">
-        <!-- existing settings panels stay here -->
+        <!-- move the existing settings panels here unchanged -->
       </div>
     </div>
   </div>
@@ -903,23 +915,12 @@ export function showSettingsIndex() {
   view.classList.add("settings-index-open");
   document.querySelector("#settings-view h1")?.focus({ preventScroll: true });
 }
+```
 
-export function selectSettingsTab(name, focus = false) {
-  const tabs = [...document.querySelectorAll("[data-settings-tab]")];
-  const known = new Set(tabs.map((tab) => tab.dataset.settingsTab));
-  const next = known.has(name) ? name : "preferences";
-  tabs.forEach((tab) => {
-    const selected = tab.dataset.settingsTab === next;
-    tab.setAttribute("aria-selected", String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-    const panel = $(tab.getAttribute("aria-controls"));
-    if (panel) panel.hidden = !selected;
-    if (selected && focus) tab.focus();
-  });
-  $("settings-view")?.classList.remove("settings-index-open");
-  const content = document.querySelector("#settings-view .settings-content");
-  if (content) content.scrollTop = 0;
-}
+Keep the existing `selectSettingsTab()` selection/panel logic, but add this line once a valid tab is chosen:
+
+```js
+$("settings-view")?.classList.remove("settings-index-open");
 ```
 
 When Settings opens, use the index only at mobile width:
@@ -933,7 +934,7 @@ Bind `#btn-settings-index-back` to `showSettingsIndex()`.
 
 - [ ] **Step 5: Preserve Settings keyboard navigation on desktop**
 
-Keep the existing ArrowUp/ArrowDown/ArrowLeft/ArrowRight/Home/End handler. Add a guard so the desktop tablist keyboard contract remains active even though mobile presents the same buttons as a category index:
+Keep the existing ArrowUp/ArrowDown/ArrowLeft/ArrowRight/Home/End handler. Add a mobile guard before the arrow-key logic:
 
 ```js
 if (matchMedia("(max-width: 760px)").matches && event.key.startsWith("Arrow")) return;
@@ -998,7 +999,7 @@ dialog::backdrop { background: rgb(0 0 0 / .48); }
 }
 ```
 
-Adapt existing dialog wrappers/classes to `.dialog-body` / `.dialog-actions` where practical. Keep all current submit/cancel IDs and focus-return code.
+Adapt existing dialog wrappers/classes to `.dialog-body` / `.dialog-actions` where the markup already has a clear content/action split. Keep all current submit/cancel IDs and focus-return code.
 
 - [ ] **Step 8: Run Settings/dialog/mobile tests and commit**
 
@@ -1007,7 +1008,7 @@ Run:
 ```bash
 graphify update .
 uv run pytest
-uv run ruff check src tests
+uv run ruff check src tests scripts
 uv run --with playwright python scripts/browser_smoke.py
 ```
 
@@ -1105,7 +1106,7 @@ Do not create placeholder docs such as `reminders.md` solely to satisfy the conc
 
 - [ ] **Step 4: Rewrite `docs/index.md` into a concise start page**
 
-Use this structure and keep wording short:
+Use this exact content structure and keep wording short:
 
 ```markdown
 # ADHD Progress Hub
@@ -1213,7 +1214,6 @@ Create `scripts/docs_browser_smoke.py` that builds docs, serves `site/`, and cap
 ```python
 from __future__ import annotations
 
-import contextlib
 import http.server
 import os
 from pathlib import Path
@@ -1235,7 +1235,9 @@ def main() -> None:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
 
-    handler = lambda *args, **kwargs: http.server.SimpleHTTPRequestHandler(*args, directory=str(SITE), **kwargs)
+    def handler(*args, **kwargs):
+        return http.server.SimpleHTTPRequestHandler(*args, directory=str(SITE), **kwargs)
+
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -1263,8 +1265,6 @@ if __name__ == "__main__":
     main()
 ```
 
-Remove unused imports if Ruff flags them; the final script must pass Ruff.
-
 - [ ] **Step 7: Run docs tests/build/smoke and commit**
 
 Run:
@@ -1290,10 +1290,10 @@ git commit -m "feat: redesign documentation experience"
 
 **Files:**
 - Modify: `scripts/browser_smoke.py`
-- Modify: `src/adhd_hub/ui/app.css` only for verified defects
-- Modify: `src/adhd_hub/ui/index.html` / focused JS only for verified defects
-- Modify: `docs/stylesheets/extra.css` only for verified defects
-- Modify: `CHANGELOG.md` only if this repository's release process expects user-visible feature entries outside Release Please generated content; otherwise leave it alone.
+- Modify only for verified defects: `src/adhd_hub/ui/app.css`
+- Modify only for verified defects: `src/adhd_hub/ui/index.html`
+- Modify only for verified defects: focused files under `src/adhd_hub/ui/js/`
+- Modify only for verified defects: `docs/stylesheets/extra.css`
 
 **Interfaces:**
 - Consumes: all completed redesign surfaces.
@@ -1352,9 +1352,9 @@ On mobile, verify the final page content is not hidden beneath the fixed nav:
 assert mobile.evaluate("""
   () => {
     const nav = document.querySelector('.mobile-nav').getBoundingClientRect();
-    const shell = document.querySelector('#app-shell').getBoundingClientRect();
-    const paddingBottom = parseFloat(getComputedStyle(document.querySelector('.shell')).paddingBottom);
-    return paddingBottom >= nav.height && shell.bottom >= nav.top;
+    const shell = document.querySelector('.shell');
+    const paddingBottom = parseFloat(getComputedStyle(shell).paddingBottom);
+    return paddingBottom >= nav.height;
   }
 """)
 ```
@@ -1426,7 +1426,7 @@ Create a PR from `feat/ui-docs-redesign` to `main` with a title such as:
 feat: redesign dashboard and documentation UX
 ```
 
-PR body must state:
+PR body:
 
 ```markdown
 ## Summary
@@ -1465,5 +1465,6 @@ Before calling the implementation complete:
 - My Work detail selection is UI-only state and does not mutate a thread until the user explicitly chooses/acts.
 - Mobile Settings and My Work each have an explicit Back path.
 - Existing screen heading focus movement remains intact.
+- Every former `#rewards-panel` reference is migrated to the canonical `#milestones` container.
 - The full suite, dashboard smoke, docs build, and docs smoke all pass.
 - Generated screenshots were visually inspected rather than trusting CSS assertions alone.
