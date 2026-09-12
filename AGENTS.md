@@ -47,6 +47,10 @@ If `graphify-out/wiki/index.md` exists, prefer it for navigation. Use `graphify-
 
 See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphify/SKILL.md) and rule [`.cursor/rules/graphify.mdc`](.cursor/rules/graphify.mdc).
 
+## Docs / Wiki
+
+- On each new PR, audit and update wiki docs (`graphify-out/wiki/` when present) so they stay aligned with the change and do not drift.
+
 <!-- adhd-hub:project-agent:start -->
 <!-- adhd-hub:guidance-version:3 -->
 ## ADHD Hub continuity
