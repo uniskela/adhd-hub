@@ -170,13 +170,10 @@ def main():
                 expect(page.locator("#work-title")).to_have_text("Personal website")
                 page.locator("#threads [data-choose]").first.click()
                 expect(page.locator("#now-view")).to_be_visible()
-                page.locator("#next-card summary").click()
-                expect(
-                    page.locator("#next-card").get_by_role("heading", name="Next visit")
-                ).to_be_visible()
-                expect(page.locator("#next-card .markdown-body strong")).to_have_text(
-                    "Choose a photo"
-                )
+                notes = page.locator("#next-card .progress-details")
+                assert notes.evaluate("el => !el.open")
+                notes.locator("summary").click()
+                expect(notes.locator(".markdown-body")).to_contain_text("Personal website")
                 expect(page.locator("#next-card script")).to_have_count(0)
                 page.get_by_role("button", name="Start", exact=True).click()
                 page.get_by_role("button", name="Pause here", exact=True).click()
