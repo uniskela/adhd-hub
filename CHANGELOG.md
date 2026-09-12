@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.8.0](https://github.com/uniskela/adhd-hub/compare/v0.7.0...v0.8.0) (2026-09-12)
+
+
+### Features
+
+* **forge:** B2a inbound authority and stop Hub-primary mirroring ([22e1b57](https://github.com/uniskela/adhd-hub/commit/22e1b57c8a693b5ab4647f205349d8fbdce2b6f4))
+* **forge:** B2b remote-first mark_done, promote, and reconcile ([865569a](https://github.com/uniskela/adhd-hub/commit/865569aaf547ed71dfdb37f2f76f4724140511f9))
+* **forge:** Foundation B2a inbound authority ([#74](https://github.com/uniskela/adhd-hub/issues/74)) ([6894e08](https://github.com/uniskela/adhd-hub/commit/6894e0844c70abdb11b7f4bdb781373e48d17c10))
+* **forge:** Foundation B2b remote-first outbound + reconcile ([#80](https://github.com/uniskela/adhd-hub/issues/80)) ([631d998](https://github.com/uniskela/adhd-hub/commit/631d998bc35e71518ca6b6334acdec80381f4962))
+* redesign dashboard and documentation ([678c7b6](https://github.com/uniskela/adhd-hub/commit/678c7b6604d79a796b491254fa7c0f5a0aba4075))
+* **ui:** redesign dashboard and documentation experience ([2f9e00d](https://github.com/uniskela/adhd-hub/commit/2f9e00d950e0630174c34970ef2af78d73316b00))
+* **work:** add source-aware work identity and authority model ([#73](https://github.com/uniskela/adhd-hub/issues/73)) ([4a9db5d](https://github.com/uniskela/adhd-hub/commit/4a9db5d01217389eb3845ba0efba3658a534202b))
+
+
+### Bug Fixes
+
+* **ui:** restore project dialog cancel action ([892f63e](https://github.com/uniskela/adhd-hub/commit/892f63e952c10dc89ecc5a5f49291eee157039f3))
+
+
+### Documentation
+
+* add UI and docs redesign design spec ([f0ea1f8](https://github.com/uniskela/adhd-hub/commit/f0ea1f8ececbe23d03d3fe246ba50c95d22a94c8))
+* add ui redesign implementation plan ([4a842ec](https://github.com/uniskela/adhd-hub/commit/4a842ec149e7f934e656adf5bd2ea0aee12dc7bb))
+* fix connect navigation label and OAuth anchor ([dda703e](https://github.com/uniskela/adhd-hub/commit/dda703e704e2385d58a6f20ed64fa6a26876ec34))
+* lock UI redesign interaction decisions ([a338203](https://github.com/uniskela/adhd-hub/commit/a338203e0363abdca4b79de8cb7a92fc426fa97e))
+* lock ui redesign palette ([23a5580](https://github.com/uniskela/adhd-hub/commit/23a5580815689d44b52b762a14d2c600524688ff))
+* preserve setup guide while updating Settings paths ([cf0ea98](https://github.com/uniskela/adhd-hub/commit/cf0ea984b6428ae436add2f2a9bcfbb74fcf9953))
+* refine ui redesign implementation plan ([780be97](https://github.com/uniskela/adhd-hub/commit/780be977b54087589b44ec0117111c57eb383739))
+
 ## [0.7.0](https://github.com/uniskela/adhd-hub/compare/v0.6.0...v0.7.0) (2026-09-11)
 
 
