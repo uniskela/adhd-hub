@@ -19,24 +19,57 @@ irm http://127.0.0.1:8787/install.ps1 | iex
 adhd-hub doctor --project /path/to/project
 ```
 
-3. **Start** — the coding client calls Hub MCP `resolve_project` + `session_digest` and runs `check_overlap` before creating duplicate work. **Hub continuity is for meaningful multi-step work; trivial/read-only questions and tiny edits should skip Hub tools.**
-4. **Work** — when the task reaches a real checkpoint, the assistant calls `upsert_progress` on the existing thread with short **Goal / Focus / Next / Blocked / Resume** fields. For interruption-prone or multi-session work, save earlier rather than waiting for the end. Set `open_thread=false` for durable notes that should not create an open task.
-5. **Pause** — the assistant calls `pause_thread` or `upsert_progress` with a concrete resume cue before changing context.
-6. **Resume** — the next coding session calls `session_digest`; recent progress and resume cues are returned together.
-7. **Finish** — `mark_done` closes only the known finishable-outcome thread. The project remains available for the next outcome.
+3. **Skills (global)** if you skipped `--skills` on connect:
 
-The browser dashboard is optional: **Now** keeps one selected task visible, **My work** is the denser work browser, **Progress** shows activity and optional milestones, and **Settings** contains preferences/connections/data. The Hub still works through MCP/REST without the dashboard.
-
-## What belongs in a progress note
-
-Keep it short enough to scan after several days away:
-
-```text
-Goal: Ship the source-aware work model without changing sync semantics.
-Focus: Thread identity + authority fields and safe migration.
-Next: Add migration tests for legacy forge mappings.
-Blocked: None.
-Resume: Open store.py and continue from migrate_external_identity().
+```powershell
+# Install from GitHub (recommended):
+npx skills add uniskela/adhd-hub -g
+# Or, while developing an unreleased local checkout:
+cd Z:\Projects\adhd-hub
+npx skills add ./skills -g
 ```
 
-Do not put secrets, auth tokens, passwords, private infrastructure details, or raw chat transcripts in progress notes.
+4. **Optional coding companions** (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) — toggle under **Settings → Agents & install**, or see [Recommended coding companions](coding-companions.md).
+5. **Start a coding session** in any project — skip Hub tools for trivial/read-only questions and tiny edits. For substantial work: once per meaningful session `resolve_project` → `session_digest`. If resuming a known thread, reuse its `thread_id`; otherwise use `check_overlap` before potentially new/duplicate work and reuse only when the Goal matches. See [project agent setup](project-agent-setup.md).
+6. **Pause unfinished work** — checkpoint with `upsert_progress(thread_id=...)` using **goal**, **focus** (one action), ≤3 **next_steps**, **blocked_reason** only if blocked, and **resume_step**. When actually leaving mid-task, follow it with `pause_thread(thread_id, next_step=...)` so the Hub records a concrete paused/resume state. See [ADHD-friendly writing and planning](writing.md).
+7. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
+8. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
+
+## Optional OpenClaw check-in
+
+If OpenClaw is part of your setup, install the same skills there:
+
+```bash
+npx skills add uniskela/adhd-hub -g -a openclaw
+```
+
+Then pair from **Settings → OpenClaw** (recommended): **Start OpenClaw pairing**, paste the prompt into OpenClaw, and **Approve**. Manual webhook/token (and `.env`) remains available. Full steps: [OpenClaw connection and alerts](openclaw.md).
+
+## Local smoke (Windows)
+
+```powershell
+cd Z:\Projects\adhd-hub
+copy .env.example .env
+# Edit .env: ADHD_HUB_AUTH_TOKEN, optional ADHD_HUB_PUBLIC_URL
+# (and ADHD_HUB_OAUTH_ENABLED=false only if you need Bearer-only rollback)
+copy .cursor\mcp.json.example .cursor\mcp.json   # if present
+uv run adhd-hub serve --host 127.0.0.1 --port 8787
+```
+
+Or Docker:
+
+```powershell
+docker compose up -d --build
+```
+
+## Cursor hooks (optional)
+
+See [adapters/cursor-hooks.md](https://github.com/uniskela/adhd-hub/blob/main/adapters/cursor-hooks.md) — sessionStart/stop prompts that nudge digest + progress writes.
+
+## Deploy to lab
+
+```powershell
+.\scripts\sync-and-deploy.ps1 -HostName root@100.115.187.7 -RemoteDir /opt/adhd-hub
+```
+
+Then set MCP URL to `http://<tailscale-ip>:8787/mcp` and `ADHD_HUB_PUBLIC_URL` to that base for README → `/ui` links. See [Homelab deployment](deploy-homelab.md) for the full Proxmox/Tailscale flow.
