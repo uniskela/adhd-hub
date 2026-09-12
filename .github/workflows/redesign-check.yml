@@ -54,7 +54,6 @@ jobs:
         if: steps.apply.outputs.changed == 'false'
         run: >-
           uv run ruff check
-          scripts/apply_ui_docs_redesign.py
           scripts/browser_smoke.py
           scripts/docs_browser_smoke.py
           tests/test_documentation.py
