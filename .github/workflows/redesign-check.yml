@@ -27,10 +27,20 @@ jobs:
 
           path = Path("scripts/browser_smoke.py")
           text = path.read_text(encoding="utf-8")
-          old = '''                page.locator("#next-card summary").click()\n                expect(\n                    page.locator("#next-card").get_by_role("heading", name="Next visit")\n                ).to_be_visible()\n                expect(page.locator("#next-card .markdown-body strong")).to_have_text(\n                    "Choose a photo"\n                )\n                expect(page.locator("#next-card script")).to_have_count(0)\n'''
-          new = '''                notes = page.locator("#next-card .progress-details")\n                assert notes.evaluate("el => !el.open")\n                notes.locator("summary").click()\n                expect(notes.locator(".markdown-body")).to_contain_text("Personal website")\n                expect(page.locator("#next-card script")).to_have_count(0)\n'''
-          if old in text:
-              path.write_text(text.replace(old, new), encoding="utf-8")
+          replacements = [
+              (
+                  '''                page.locator("#next-card summary").click()\n                expect(\n                    page.locator("#next-card").get_by_role("heading", name="Next visit")\n                ).to_be_visible()\n                expect(page.locator("#next-card .markdown-body strong")).to_have_text(\n                    "Choose a photo"\n                )\n                expect(page.locator("#next-card script")).to_have_count(0)\n''',
+                  '''                notes = page.locator("#next-card .progress-details")\n                assert notes.evaluate("el => !el.open")\n                notes.locator("summary").click()\n                expect(notes.locator(".markdown-body")).to_contain_text("Personal website")\n                expect(page.locator("#next-card script")).to_have_count(0)\n''',
+              ),
+              (
+                  '''                page.get_by_role("tab", name="Connections", exact=True).click()\n                expect(page.locator("#install-cmd")).to_be_visible()\n                expect(page.get_by_role("button", name="Allow this CLI", exact=True)).to_be_visible()\n                page.get_by_text("Windows / MCP / skills", exact=False).click()\n                expect(page.locator("#mcp-url")).to_be_visible()\n                page.get_by_text("OpenClaw connection & gentle alerts", exact=False).click()\n''',
+                  '''                page.get_by_role("tab", name="Agents & install", exact=True).click()\n                expect(page.locator("#install-cmd")).to_be_visible()\n                expect(page.get_by_role("button", name="Allow this CLI", exact=True)).to_be_visible()\n                page.get_by_role("tab", name="Windows / MCP", exact=True).click()\n                expect(page.locator("#mcp-url")).to_be_visible()\n                page.get_by_role("tab", name="OpenClaw", exact=True).click()\n''',
+              ),
+          ]
+          for old, new in replacements:
+              if old in text:
+                  text = text.replace(old, new)
+          path.write_text(text, encoding="utf-8")
           PY
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
