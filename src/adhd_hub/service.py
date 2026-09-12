@@ -54,6 +54,222 @@ class HubService:
         self._forge = ForgeFacade(self)
         self._openclaw_ops = OpenClawFacade(self)
         self.store.migrate_work_identity(self._confident_forge_target)
+        self.migrate_forge_connection_profiles()
+
+    def migrate_forge_connection_profiles(self) -> dict:
+        """Ensure default profile exists; one-shot bind projects with matching forge evidence."""
+        from adhd_hub.forge.config import (
+            _PROFILES_MIGRATED_META,
+            DEFAULT_CONNECTION_PROFILE_ID,
+            host_from_repo_url,
+            profile_canonical_host,
+            profile_matches_identity_host,
+        )
+        from adhd_hub.work_identity import WorkSource, normalize_host, thread_has_external_identity
+
+        cfg = self.forge_config()
+        default = cfg.default_profile()
+        default_id = cfg.default_connection_profile_id or (
+            default.id if default else DEFAULT_CONNECTION_PROFILE_ID
+        )
+        already = self.store.get_meta(_PROFILES_MIGRATED_META) == "1"
+        bound = 0
+        if already or default is None or default.provider.value == "none":
+            if not already and default is not None:
+                self.store.set_meta(_PROFILES_MIGRATED_META, "1")
+            return {
+                "default_profile_id": default_id if default else None,
+                "bound": bound,
+                "skipped": already,
+            }
+
+        def repo_host_matches(repo_url: str | None) -> bool | None:
+            """True/False when host known; None when unknown."""
+            host = host_from_repo_url(repo_url)
+            if not host:
+                return None
+            try:
+                if default.provider.value == "github":
+                    return (
+                        normalize_host(WorkSource.github, host)
+                        == profile_canonical_host(default)
+                    )
+                return normalize_host(WorkSource.gitea, host) == profile_canonical_host(
+                    default
+                )
+            except ValueError:
+                return False
+
+        for proj in self.store.list_projects(limit=2000):
+            if proj.forge_connection_profile_id:
+                continue
+            linked = [
+                t
+                for t in self.store.list_externally_linked_threads(limit=500)
+                if t.project_slug == proj.slug and thread_has_external_identity(t)
+            ]
+            matching_pins = 0
+            conflicting_pins = 0
+            for thread in linked:
+                try:
+                    from adhd_hub.work_identity import normalize_external_identity
+
+                    identity = normalize_external_identity(
+                        thread.external_provider or WorkSource.github,
+                        thread.external_host,
+                        thread.external_owner or "",
+                        thread.external_repo or "",
+                        int(thread.external_issue_number or 0),
+                    )
+                except ValueError:
+                    conflicting_pins += 1
+                    continue
+                if profile_matches_identity_host(default, identity):
+                    matching_pins += 1
+                else:
+                    conflicting_pins += 1
+
+            if conflicting_pins and not matching_pins:
+                continue
+
+            forge_fields = any(
+                [
+                    (proj.forge_owner or "").strip(),
+                    (proj.forge_repo or "").strip(),
+                    (proj.forge_project_id or "").strip(),
+                    proj.forge_wiki_path is not None and str(proj.forge_wiki_path).strip() != "",
+                ]
+            )
+            url_match = repo_host_matches(proj.repo_url)
+            evidence = False
+            if forge_fields:
+                if url_match is False:
+                    continue
+                evidence = True
+            if url_match is True:
+                evidence = True
+            if matching_pins:
+                evidence = True
+            if not evidence:
+                continue
+            self.store.set_project_forge_connection_profile(proj.slug, default_id)
+            bound += 1
+
+        self.store.set_meta(_PROFILES_MIGRATED_META, "1")
+        return {"default_profile_id": default_id, "bound": bound, "skipped": False}
+
+    def suggest_forge_connection_profile_id(
+        self,
+        *,
+        repo_url: str | None,
+        current_profile_id: str | None,
+    ) -> str | None:
+        """Suggest a profile from repo URL only when current selection is empty."""
+        from adhd_hub.forge.config import host_from_repo_url, profile_canonical_host
+        from adhd_hub.work_identity import GITHUB_CANONICAL_HOST, WorkSource, normalize_host
+
+        if current_profile_id:
+            return None
+        host = host_from_repo_url(repo_url)
+        if not host:
+            return None
+        host_l = host.casefold()
+        cfg = self.forge_config()
+        matches: list[str] = []
+        for profile in cfg.connection_profiles:
+            if profile.provider.value == "none":
+                continue
+            if profile.provider.value == "github":
+                if host_l in (GITHUB_CANONICAL_HOST, "www.github.com"):
+                    matches.append(profile.id)
+                continue
+            ph = profile_canonical_host(profile)
+            try:
+                want = normalize_host(WorkSource.gitea, host)
+            except ValueError:
+                continue
+            if ph and ph == want:
+                matches.append(profile.id)
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def delete_forge_connection_profile(self, profile_id: str) -> dict:
+        from adhd_hub.forge.config import ForgeProvider
+
+        pid = (profile_id or "").strip()
+        if not pid:
+            raise ValueError("profile_id required")
+        cfg = self.forge_config()
+        if not cfg.profile_by_id(pid):
+            raise KeyError(pid)
+        in_use = self.store.count_projects_with_forge_connection_profile(pid)
+        if in_use:
+            raise ValueError(f"in_use:{in_use}")
+        profiles = [p for p in cfg.connection_profiles if p.id != pid]
+        updates: dict = {"connection_profiles": profiles}
+        if cfg.default_connection_profile_id == pid:
+            updates["default_connection_profile_id"] = profiles[0].id if profiles else None
+        if not profiles:
+            # Clear mirrored top-level credentials so ensure_connection_profiles
+            # does not synthesize a replacement default from leftovers.
+            updates.update(
+                {
+                    "provider": ForgeProvider.none,
+                    "token": "",
+                    "owner": "",
+                    "repo": "",
+                    "default_connection_profile_id": None,
+                }
+            )
+        saved = self.save_forge_config(cfg.model_copy(update=updates))
+        return {"deleted": pid, "default_connection_profile_id": saved.default_connection_profile_id}
+
+    def test_forge_connection_profile(self, profile_id: str) -> dict:
+        """Probe a profile endpoint; never echo the token."""
+        import httpx
+
+        from adhd_hub.forge.config import config_from_profile, profile_canonical_host
+        from adhd_hub.forge.repo_sync import _headers
+
+        cfg = self.forge_config()
+        profile = cfg.profile_by_id(profile_id)
+        if profile is None:
+            return {"ok": False, "error": "profile_not_found"}
+        if profile.provider.value == "none" or not profile.token:
+            return {"ok": False, "error": "credentials_missing"}
+        operational = config_from_profile(cfg, profile)
+        url = f"{operational.api_root()}/user"
+        try:
+            with httpx.Client(timeout=12.0) as client:
+                resp = client.get(url, headers=_headers(operational))
+            if resp.status_code >= 400:
+                return {
+                    "ok": False,
+                    "error": f"http_{resp.status_code}",
+                    "provider": profile.provider.value,
+                    "host": profile_canonical_host(profile),
+                }
+            login = None
+            try:
+                body = resp.json()
+                if isinstance(body, dict):
+                    login = body.get("login") or body.get("username")
+            except (ValueError, TypeError):
+                login = None
+            return {
+                "ok": True,
+                "provider": profile.provider.value,
+                "host": profile_canonical_host(profile),
+                "login": login,
+            }
+        except (httpx.HTTPError, OSError, ValueError) as exc:
+            return {
+                "ok": False,
+                "error": str(exc),
+                "provider": profile.provider.value,
+                "host": profile_canonical_host(profile),
+            }
 
     def _apply_openclaw_config(self, config: OpenClawConfig) -> None:
         self._openclaw_ops._apply_openclaw_config(config)
@@ -96,6 +312,9 @@ class HubService:
 
     def forge_config(self, project_slug: str | None = None) -> ForgeConfig:
         return self._forge.forge_config(project_slug)
+
+    def wiki_forge_config(self) -> ForgeConfig:
+        return self._forge.wiki_forge_config()
 
     def save_forge_config(self, config: ForgeConfig) -> ForgeConfig:
         return self._forge.save_forge_config(config)
@@ -155,9 +374,9 @@ class HubService:
             for t in self.store.list_threads(project_slug=safe, limit=100)
         ]
         open_threads = [t for t in threads if t.get("status") == "open"]
-        cfg = self.forge_config(safe)
+        wiki_cfg = self.wiki_forge_config()
         progress_rel = f"projects/{safe}/PROGRESS.md"
-        forge_folder = cfg.file_web_url(progress_rel)
+        forge_folder = wiki_cfg.file_web_url(progress_rel)
         data = (
             proj.model_dump(mode="json")
             if proj
@@ -175,10 +394,10 @@ class HubService:
         data["progress_path"] = progress_rel
         data["forge"] = {
             "folder_url": forge_folder,
-            "wiki_path": cfg.wiki_path,
-            "owner": cfg.owner,
-            "repo": cfg.repo,
-            "enabled": cfg.enabled(),
+            "wiki_path": wiki_cfg.wiki_path,
+            "owner": wiki_cfg.owner,
+            "repo": wiki_cfg.repo,
+            "enabled": wiki_cfg.enabled(),
         }
         return data
 
@@ -205,7 +424,7 @@ class HubService:
             raise
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         forge_out: dict = {"uploaded": [], "deleted": [], "errors": []}
-        cfg = self.forge_config(proj.slug)
+        cfg = self.wiki_forge_config()
         if cfg.enabled() and cfg.wiki_enabled:
             try:
                 content = self.wiki.read_progress(proj.slug) or ""
@@ -243,7 +462,7 @@ class HubService:
         if not self.store.get_project(safe):
             raise KeyError("not_found")
         forge_out: dict = {"deleted": [], "errors": []}
-        cfg = self.forge_config(safe)
+        cfg = self.wiki_forge_config()
         if delete_remote and cfg.enabled() and cfg.wiki_enabled:
             try:
                 rel = f"projects/{safe}/PROGRESS.md"
@@ -459,6 +678,50 @@ class HubService:
         if workspace_path:
             return slugify(workspace_basename(workspace_path) or "untitled")
         return slugify(summary_or_title or "untitled")
+
+    def thread_notes_context_html(self, thread: Thread) -> str:
+        """Readable Notes & context HTML: thread entries first, full wiki preserved."""
+        from html import escape
+
+        from adhd_hub.markdown import render_markdown
+
+        parts: list[str] = []
+        has_entries = False
+        if thread.project_slug:
+            notes = self.store.list_progress_notes(
+                thread.project_slug, limit=40, thread_id=thread.id
+            )
+            if notes:
+                has_entries = True
+                for note in notes:
+                    stamp = escape(note.get("created_at") or "")
+                    body = render_markdown(note.get("content") or "")
+                    parts.append(
+                        '<article class="notes-entry">'
+                        f'<time class="notes-entry-meta" datetime="{stamp}">{stamp}</time>'
+                        f'<div class="markdown-body">{body}</div>'
+                        "</article>"
+                    )
+            wiki = self.wiki.read_progress(thread.project_slug) or ""
+            if wiki.strip():
+                wiki_html = render_markdown(wiki)
+                # Open wiki by default when there are no thread-scoped entries so
+                # first expand is not an empty-looking shell.
+                open_attr = " open" if not has_entries else ""
+                if not has_entries:
+                    parts.append(
+                        '<p class="notes-empty-hint">No thread-scoped notes yet. '
+                        "Project wiki is shown below.</p>"
+                    )
+                parts.append(
+                    f'<details class="notes-wiki-details"{open_attr}>'
+                    "<summary>Project wiki / full progress</summary>"
+                    f'<div class="markdown-body">{wiki_html}</div>'
+                    "</details>"
+                )
+        if not parts:
+            return "<p>No saved notes yet.</p>"
+        return "".join(parts)
 
     def thread_public_dict(self, thread: Thread) -> dict:
         data = thread.model_dump(mode="json")
@@ -761,8 +1024,11 @@ class HubService:
     def _forge_after_thread(self, thread: Thread) -> dict:
         return self._forge._forge_after_thread(thread)
 
-    def sync_forge_now(self) -> dict:
-        return self._forge.sync_forge_now()
+    def sync_forge_now(self, project_slug: str | None = None) -> dict:
+        return self._forge.sync_forge_now(project_slug=project_slug)
+
+    def sync_forge_project(self, project_slug: str) -> dict:
+        return self._forge.sync_forge_now(project_slug=project_slug)
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         return self._forge.import_forge_inbox(limit=limit, close_imported=close_imported)
@@ -1168,7 +1434,7 @@ class HubService:
             forge = self._forge_after_thread(thread)
         else:
             try:
-                forge["wiki"] = WikiForgeSync(self.forge_config(slug)).push_wiki_tree(
+                forge["wiki"] = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
                     self.settings.wiki_dir
                 )
             except Exception as exc:  # noqa: BLE001

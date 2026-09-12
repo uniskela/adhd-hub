@@ -53,7 +53,8 @@
     </form>
   </div>
 
-  <div class="shell" id="app-shell" hidden>
+  <div id="app-shell" hidden>
+    <div class="shell">
     <header class="app-header">
       <div class="app-brand">
         <img class="brand-mark small" src="/ui/brand/icon.svg" alt="" width="32" height="32" />
@@ -81,7 +82,8 @@
       </div>
     </header>
     <main id="main-content" tabindex="-1">
-      <p id="msg" class="msg" role="status" aria-live="polite"></p>
+      <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
+      <p id="msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
       <section id="now-view" class="view now-view" aria-label="Now">
         <div class="view-heading"><p class="eyebrow">NOW</p><h1>One thing at a time.</h1></div>
         <section class="focus" id="focus-panel" aria-labelledby="focus-title">
@@ -124,11 +126,13 @@
           <button type="button" class="primary compact" id="btn-new-project">New</button>
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
-        <div id="project-list"></div>
-        <details class="archived-projects" id="archived-projects-wrap" hidden>
-          <summary>Archived projects</summary>
-          <div id="archived-project-list"></div>
-        </details>
+        <div class="rail-scroll">
+          <div id="project-list"></div>
+          <details class="archived-projects" id="archived-projects-wrap" hidden>
+            <summary>Archived projects</summary>
+            <div id="archived-project-list"></div>
+          </details>
+        </div>
       </aside>          <div class="work-content">
             <div class="work-heading">
               <div class="project-title-row">
@@ -201,7 +205,7 @@
                 <p class="hint">Preferences, connections and data — change only what you need.</p>
               </div>
             </div>
-            <p id="settings-msg" class="msg" role="status" aria-live="polite"></p>
+            <p id="settings-msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
             <div class="settings-content">
               <section id="settings-preferences" role="tabpanel" aria-labelledby="tab-preferences" tabindex="0">
                 <h2>Your space, your pace.</h2>
@@ -319,19 +323,22 @@
               </section>
               <section id="settings-forge" role="tabpanel" aria-labelledby="tab-forge" tabindex="0" hidden>
                 <h2>Forge mirror</h2>
-                <p class="hint">Primary memory repos sync at repo root: <code>projects/&lt;slug&gt;/PROGRESS.md</code>. After save/sync, missing remote projects can be imported.</p>
+                <p class="hint">Connection profiles hold credentials and import policy. Projects pick a profile (or stay local-only). Hub-wide wiki/inbox flags below apply to the default memory connection.</p>
+
+                <h3>Connection profiles</h3>
+                <div id="forge-profiles" class="forge-profiles"></div>
+                <div class="actions">
+                  <button type="button" class="ghost" id="btn-add-forge-profile">Add profile</button>
+                </div>
+                <label>Default profile (Hub wiki / memory)
+                  <select id="default_connection_profile_id"></select>
+                </label>
+
+                <div class="settings-divider">
+                  <h3>Hub-wide forge options</h3>
+                  <p class="hint">These apply to Hub memory sync and inbox mailbox behaviour, not per-project credentials.</p>
+                </div>
                 <div class="form-grid">
-                  <label>Provider
-                    <select id="provider">
-                      <option value="none">none</option>
-                      <option value="gitea">gitea</option>
-                      <option value="github">github</option>
-                    </select>
-                  </label>
-                  <label>API base URL <input id="base_url" /></label>
-                  <label>Owner <input id="owner" /></label>
-                  <label>Repo <input id="repo" /></label>
-                  <label>Token <input id="forge_token" type="password" /></label>
                   <label>Wiki path <input id="wiki_path" placeholder="blank = repo root" /></label>
                   <label>Wiki branch <input id="wiki_branch" /></label>
                   <label>Hub public URL <input id="hub_public_url" /></label>
@@ -344,7 +351,7 @@
                   <label><input type="checkbox" id="primary_memory_repo" /> Primary memory repo</label>
                 </div>
                 <label>Inbox authors (allowlist) <input id="board_inbox_authors" placeholder="your-login, bot-account" autocomplete="username" /></label>
-                <p class="hint">Inbox imports open issues from allowlisted forge usernames that have the hub label (<code>adhd-hub</code>) or a title starting with <code>[ADHD]</code> (fail closed: empty list imports nothing).</p>
+                <p class="hint">For <code>adhd_inbox</code> policy on a profile, inbox must be enabled and authors allowlisted (fail closed).</p>
                 <div class="actions">
                   <button type="button" class="primary" id="btn-save-forge">Save forge</button>
                   <button type="button" class="ghost" id="btn-sync-forge">Sync now</button>
@@ -381,6 +388,7 @@
         </div>
       </section>
     </main>
+    </div>
     <nav class="mobile-nav" aria-label="Main views">
       <button type="button" data-screen="now">Now</button>
       <button type="button" data-screen="work">My work</button>
@@ -396,6 +404,11 @@
         <label>Title <input id="p_title" required /></label>
         <label>Slug <input id="p_slug" placeholder="my-project" /></label>
         <label class="span2">Repository URL <input id="p_repo_url" type="url" placeholder="https://github.com/owner/repository" /></label>
+        <label class="span2">Forge connection
+          <select id="p_forge_connection_profile_id">
+            <option value="">None (local-only)</option>
+          </select>
+        </label>
         <label class="span2">Workspace path <input id="p_path" placeholder="Z:\Projects\…" /></label>
         <label class="span2">Description <textarea id="p_desc"></textarea></label>
       </div>
@@ -410,6 +423,7 @@
       </details>
       <div class="actions">
         <button type="submit" class="primary" id="btn-save-project">Save project</button>
+        <button type="button" class="ghost" id="btn-sync-project">Sync forge</button>
         <button type="button" class="ghost" id="btn-archive-project">Archive</button>
         <button type="button" class="ghost" id="btn-restore-project" hidden>Restore</button>
         <button type="button" class="ghost" id="btn-rename-project">Rename slug…</button>

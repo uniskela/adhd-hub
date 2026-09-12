@@ -9,8 +9,11 @@ from typing import TYPE_CHECKING
 from adhd_hub.forge.board_sync import BoardForgeSync
 from adhd_hub.forge.config import (
     ForgeConfig,
+    ForgeProvider,
+    config_from_profile,
     forge_from_settings,
     load_forge_config,
+    profile_matches_identity_host,
 )
 from adhd_hub.forge.config import (
     save_forge_config as persist_forge_config,
@@ -41,20 +44,80 @@ class ForgeFacade:
             "adhd-hub/wiki",
         ):
             data["wiki_path"] = ""
+            base = ForgeConfig.model_validate(data)
+        else:
+            base = ForgeConfig.model_validate(data)
         if not project_slug:
-            return ForgeConfig.model_validate(data)
+            return base
         proj = self._hub.store.get_project(project_slug)
         if not proj:
-            return ForgeConfig.model_validate(data)
+            return base
+        profile = base.profile_by_id(proj.forge_connection_profile_id)
+        if profile is None:
+            # Local-only / unbound: never leak default-profile credentials.
+            return base.model_copy(
+                update={
+                    "provider": ForgeProvider.none,
+                    "token": "",
+                    "owner": proj.forge_owner or "",
+                    "repo": proj.forge_repo or "",
+                    "project_id": proj.forge_project_id,
+                    "wiki_path": (
+                        proj.forge_wiki_path
+                        if proj.forge_wiki_path is not None
+                        else base.wiki_path
+                    ),
+                }
+            )
+        cfg = config_from_profile(base, profile)
+        updates: dict = {}
         if proj.forge_owner:
-            data["owner"] = proj.forge_owner
+            updates["owner"] = proj.forge_owner
         if proj.forge_repo:
-            data["repo"] = proj.forge_repo
+            updates["repo"] = proj.forge_repo
         if proj.forge_wiki_path is not None:
-            data["wiki_path"] = proj.forge_wiki_path
+            updates["wiki_path"] = proj.forge_wiki_path
         if proj.forge_project_id:
-            data["project_id"] = proj.forge_project_id
-        return ForgeConfig.model_validate(data)
+            updates["project_id"] = proj.forge_project_id
+        return cfg.model_copy(update=updates) if updates else cfg
+
+    def resolve_credentials_for_identity(self, identity) -> ForgeConfig | None:
+        """Return forge config whose token applies to the pinned identity host."""
+        from adhd_hub.work_identity import ExternalIdentity
+
+        if not isinstance(identity, ExternalIdentity):
+            return None
+        base = load_forge_config(
+            self._hub.settings.data_dir, env_defaults=forge_from_settings(self._hub.settings)
+        )
+        for profile in base.connection_profiles:
+            if profile_matches_identity_host(profile, identity):
+                return config_from_profile(base, profile)
+        return None
+
+    def operational_forge_config(self, project_slug: str | None = None) -> ForgeConfig:
+        """Config for intentional forge ops (link/promote/wiki board).
+
+        Bound projects use their profile. Unbound projects fall back to the
+        default Hub connection so explicit operator actions still work; discovery
+        remains gated on forge_connection_profile_id via forge_config().
+        """
+        if not project_slug:
+            return self.forge_config()
+        pcfg = self.forge_config(project_slug)
+        if pcfg.provider != ForgeProvider.none and pcfg.token:
+            return pcfg
+        return self.forge_config()
+
+    def wiki_forge_config(self) -> ForgeConfig:
+        """Hub primary-memory wiki target (global owner/repo).
+
+        Project ``forge_owner`` / ``forge_repo`` override the issue/code repo for
+        board sync and discovery — never the shared wiki tree. Always push
+        ``PROGRESS.md`` / ``INDEX.md`` to this config so code repos do not receive
+        ``projects/<slug>/…`` dumps.
+        """
+        return self.forge_config()
 
     def save_forge_config(self, config: ForgeConfig) -> ForgeConfig:
         # Persist empty wiki_path for primary memory instead of re-defaulting
@@ -65,7 +128,6 @@ class ForgeFacade:
 
     def confident_forge_target(self, project_slug: str | None) -> dict[str, str] | None:
         """Return provider/host/owner/repo only when offline evidence is unambiguous."""
-        from adhd_hub.forge.config import ForgeProvider
         from adhd_hub.work_identity import WorkSource, host_from_forge_browse_root
 
         base = load_forge_config(
@@ -79,15 +141,24 @@ class ForgeFacade:
             has_r = bool((proj.forge_repo or "").strip())
             if has_o ^ has_r:
                 return None
-            owner = (proj.forge_owner or "").strip() or base.owner
-            repo = (proj.forge_repo or "").strip() or base.repo
+            # Prefer bound profile host when set; else default (legacy global) profile.
+            bound = base.profile_by_id(proj.forge_connection_profile_id)
+            if bound is not None:
+                cfg = config_from_profile(base, bound)
+                owner = (proj.forge_owner or "").strip() or cfg.owner
+                repo = (proj.forge_repo or "").strip() or cfg.repo
+                provider = WorkSource(cfg.provider.value)
+                host = host_from_forge_browse_root(provider, cfg.web_browse_root())
+            else:
+                owner = (proj.forge_owner or "").strip() or base.owner
+                repo = (proj.forge_repo or "").strip() or base.repo
+                provider = WorkSource(base.provider.value)
+                host = host_from_forge_browse_root(provider, base.web_browse_root())
         else:
             owner, repo = base.owner, base.repo
-        if not (owner and repo):
-            return None
-        provider = WorkSource(base.provider.value)
-        host = host_from_forge_browse_root(provider, base.web_browse_root())
-        if not host:
+            provider = WorkSource(base.provider.value)
+            host = host_from_forge_browse_root(provider, base.web_browse_root())
+        if not (owner and repo and host):
             return None
         return {
             "provider": provider.value,
@@ -158,11 +229,12 @@ class ForgeFacade:
             self._hub.store.get_meta,
             self._meta_set_with_identity(cfg),
             progress_reader=self._hub.wiki.read_progress,
+            wiki_config=self.wiki_forge_config(),
         )
 
     def _refresh_forge_section(self, slug: str) -> None:
-        cfg = self.forge_config(slug)
-        progress_url = cfg.file_web_url(f"projects/{slug}/PROGRESS.md")
+        wiki_cfg = self.wiki_forge_config()
+        progress_url = wiki_cfg.file_web_url(f"projects/{slug}/PROGRESS.md")
         issue_links: list[tuple[str, str]] = []
         for t in self._hub.store.list_threads(
             status=ThreadStatus.open, project_slug=slug, limit=50
@@ -177,10 +249,11 @@ class ForgeFacade:
         )
 
     def _forge_after_thread(self, thread: Thread) -> dict:
-        cfg = self.forge_config(thread.project_slug)
+        board_cfg = self.forge_config(thread.project_slug)
+        wiki_cfg = self.wiki_forge_config()
         out: dict = {}
         try:
-            out["board"] = self._board(cfg).sync_thread(thread)
+            out["board"] = self._board(board_cfg).sync_thread(thread)
         except Exception as exc:
             log.exception("board sync failed")
             out["board"] = {"error": str(exc)}
@@ -190,16 +263,16 @@ class ForgeFacade:
             except Exception:
                 log.exception("forge section refresh failed")
         try:
-            # Global wiki tree still primary; per-project forge may point elsewhere
-            # for board, while wiki uses configured wiki_path on that forge target.
-            out["wiki"] = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+            # Shared wiki always uses Hub memory repo; project forge_repo is for issues.
+            out["wiki"] = WikiForgeSync(wiki_cfg).push_wiki_tree(
+                self._hub.settings.wiki_dir
+            )
         except Exception as exc:
             log.exception("wiki sync failed")
             out["wiki"] = {"error": str(exc)}
         return out
 
-    def sync_forge_now(self) -> dict:
-        cfg = self.forge_config()
+    def sync_forge_now(self, project_slug: str | None = None) -> dict:
         from adhd_hub.forge.repo_sync import (
             credentials_apply_to_pinned,
             discover_issue_payloads,
@@ -213,14 +286,54 @@ class ForgeFacade:
             thread_has_external_identity,
         )
 
-        scaffold = push_primary_scaffold(
-            cfg, hub_ui_url=self._hub.settings.resolve_public_url()
-        )
-        wiki = WikiForgeSync(cfg).push_wiki_tree(self._hub.settings.wiki_dir)
+        scope_slug = (project_slug or "").strip() or None
+        if scope_slug:
+            proj = self._hub.store.get_project(scope_slug)
+            if not proj:
+                raise KeyError(scope_slug)
+            if not proj.forge_connection_profile_id:
+                return {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "no_forge_connection",
+                    "project_slug": scope_slug,
+                    "hint": "Pick a Forge connection for this project, then Sync forge.",
+                }
+            cfg = self.forge_config(scope_slug)
+            if cfg.provider == ForgeProvider.none or not cfg.token:
+                return {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "no_forge_connection",
+                    "project_slug": scope_slug,
+                    "hint": "Pick a Forge connection for this project, then Sync forge.",
+                }
+            scaffold = {"skipped": True, "reason": "project_scoped"}
+            try:
+                wiki = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
+                    self._hub.settings.wiki_dir
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.exception("project wiki sync failed")
+                wiki = {"error": str(exc)}
+            try:
+                self._refresh_forge_section(scope_slug)
+            except Exception:  # noqa: BLE001
+                log.exception("forge section refresh failed for %s", scope_slug)
+        else:
+            cfg = self.forge_config()
+            scaffold = push_primary_scaffold(
+                cfg, hub_ui_url=self._hub.settings.resolve_public_url()
+            )
+            wiki = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
+                self._hub.settings.wiki_dir
+            )
 
-        # 1) Reconcile all linked threads from pinned identity (not project forge gate).
+        # 1) Reconcile linked threads (optionally scoped to one project).
         reconcile_results: list[dict] = []
         for thread in self._hub.store.list_externally_linked_threads(limit=500):
+            if scope_slug and thread.project_slug != scope_slug:
+                continue
             if not thread_has_external_identity(thread):
                 continue
             try:
@@ -241,10 +354,9 @@ class ForgeFacade:
                     }
                 )
                 continue
-            # Prefer credentials from thread project config when they apply; else global.
-            tcfg = self.forge_config(thread.project_slug)
-            cred_cfg = tcfg if credentials_apply_to_pinned(tcfg, identity) else cfg
-            if not credentials_apply_to_pinned(cred_cfg, identity):
+            # Prefer host-matched profile credentials; never send wrong-host tokens.
+            cred_cfg = self.resolve_credentials_for_identity(identity)
+            if cred_cfg is None or not credentials_apply_to_pinned(cred_cfg, identity):
                 reconcile_results.append(
                     {
                         "thread_id": thread.id,
@@ -270,15 +382,20 @@ class ForgeFacade:
                 {"thread_id": thread.id, "identity": identity.number, **applied}
             )
 
-        # 2) Separately: discovery for projects with resolvable forge targets.
+        # 2) Discovery for projects with a connection profile (plus default hub target),
+        # or only the scoped project when project sync was requested.
         discovery_results: list[dict] = []
         seen_targets: set[tuple[str, str, str]] = set()
         projects = list(self._hub.store.list_projects())
-        # Include global target as a pseudo entry
-        targets: list[tuple[str | None, ForgeConfig]] = [(None, cfg)]
-        for proj in projects:
-            pcfg = self.forge_config(proj.slug)
-            targets.append((proj.slug, pcfg))
+        if scope_slug:
+            targets: list[tuple[str | None, ForgeConfig]] = [(scope_slug, cfg)]
+        else:
+            targets = [(None, cfg)]
+            for proj in projects:
+                if not proj.forge_connection_profile_id:
+                    continue
+                pcfg = self.forge_config(proj.slug)
+                targets.append((proj.slug, pcfg))
         for slug, tcfg in targets:
             if not (tcfg.enabled() and tcfg.board_enabled and tcfg.owner and tcfg.repo):
                 continue
@@ -367,42 +484,45 @@ class ForgeFacade:
                         }
                     )
                     continue
-                claimants = [
-                    p
-                    for p in projects
-                    if (p.forge_owner or tcfg.owner).casefold() == snap.identity.owner
-                    and (p.forge_repo or tcfg.repo).casefold() == snap.identity.repo
-                ]
-                # Also count projects using global owner/repo without override
-                if slug is None and not claimants:
+                if scope_slug:
+                    project_slug = scope_slug
+                else:
                     claimants = [
                         p
                         for p in projects
-                        if not (p.forge_owner and p.forge_repo)
+                        if (p.forge_owner or tcfg.owner).casefold() == snap.identity.owner
+                        and (p.forge_repo or tcfg.repo).casefold() == snap.identity.repo
                     ]
-                project_slug = slug
-                if project_slug is None:
-                    if len(claimants) == 1:
-                        project_slug = claimants[0].slug
-                    elif len(claimants) > 1:
-                        skipped.append(
-                            {
-                                "number": snap.identity.number,
-                                "reason": "needs_project_disambiguation",
-                            }
-                        )
-                        self.record_sync_review(
-                            reason="needs_project_disambiguation",
-                            payload={
-                                "number": snap.identity.number,
-                                "owner": snap.identity.owner,
-                                "repo": snap.identity.repo,
-                                "claimants": [p.slug for p in claimants],
-                            },
-                        )
-                        continue
-                    else:
-                        project_slug = "inbox"
+                    # Also count projects using global owner/repo without override
+                    if slug is None and not claimants:
+                        claimants = [
+                            p
+                            for p in projects
+                            if not (p.forge_owner and p.forge_repo)
+                        ]
+                    project_slug = slug
+                    if project_slug is None:
+                        if len(claimants) == 1:
+                            project_slug = claimants[0].slug
+                        elif len(claimants) > 1:
+                            skipped.append(
+                                {
+                                    "number": snap.identity.number,
+                                    "reason": "needs_project_disambiguation",
+                                }
+                            )
+                            self.record_sync_review(
+                                reason="needs_project_disambiguation",
+                                payload={
+                                    "number": snap.identity.number,
+                                    "owner": snap.identity.owner,
+                                    "repo": snap.identity.repo,
+                                    "claimants": [p.slug for p in claimants],
+                                },
+                            )
+                            continue
+                        else:
+                            project_slug = "inbox"
                 assert project_slug is not None
                 self._hub.store.ensure_project_for_slug(project_slug, title=project_slug)
                 thread, created = self._hub.store.get_or_create_thread_for_external_identity(
@@ -441,6 +561,8 @@ class ForgeFacade:
         board_results = []
         if cfg.board_mirror_local:
             for thread in self._hub.list_open_threads(limit=200):
+                if scope_slug and thread.project_slug != scope_slug:
+                    continue
                 if thread_has_external_identity(thread):
                     continue
                 try:
@@ -449,28 +571,13 @@ class ForgeFacade:
                 except Exception as exc:  # noqa: BLE001
                     board_results.append({"error": str(exc), "thread_id": thread.id})
 
-        per_project_wiki: list[dict] = []
-        seen: set[tuple[str, str, str]] = set()
-        for proj in self._hub.store.list_projects():
-            if not (proj.forge_owner and proj.forge_repo):
-                continue
-            key = (proj.forge_owner, proj.forge_repo, proj.forge_wiki_path or "")
-            if key in seen:
-                continue
-            seen.add(key)
-            pcfg = self.forge_config(proj.slug)
-            try:
-                per_project_wiki.append(
-                    {
-                        "slug": proj.slug,
-                        "result": WikiForgeSync(pcfg).push_wiki_tree(
-                            self._hub.settings.wiki_dir
-                        ),
-                    }
-                )
-            except Exception as exc:  # noqa: BLE001
-                per_project_wiki.append({"slug": proj.slug, "error": str(exc)})
-        return {
+        # Wiki tree belongs only on the Hub memory repo (global forge owner/repo).
+        # Do not dual-write projects/*/PROGRESS.md into each project's code forge_repo.
+        per_project_wiki: list[dict] = [
+            {"slug": scope_slug or "_hub", "result": wiki, "target": "wiki_forge_config"}
+        ]
+        out = {
+            "ok": True,
             "scaffold": scaffold,
             "wiki": wiki,
             "reconcile": reconcile_results,
@@ -478,8 +585,12 @@ class ForgeFacade:
             "board": board_results,
             "per_project_wiki": per_project_wiki,
             "config": cfg.public_dict(),
-            "import_preview": self.preview_forge_import(),
         }
+        if scope_slug:
+            out["project_slug"] = scope_slug
+        else:
+            out["import_preview"] = self.preview_forge_import()
+        return out
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         """Pull cloud-agent forge issues into Hub threads (never deletes remote issues)."""
@@ -744,10 +855,13 @@ class ForgeFacade:
     def _credentials_for_identity(self, identity, project_slug: str | None):
         from adhd_hub.forge.repo_sync import credentials_apply_to_pinned
 
+        matched = self.resolve_credentials_for_identity(identity)
+        if matched is not None and credentials_apply_to_pinned(matched, identity):
+            return matched
         tcfg = self.forge_config(project_slug)
-        cfg = self.forge_config()
         if credentials_apply_to_pinned(tcfg, identity):
             return tcfg
+        cfg = self.forge_config()
         if credentials_apply_to_pinned(cfg, identity):
             return cfg
         return None
@@ -853,7 +967,7 @@ class ForgeFacade:
             raise KeyError(f"thread not found: {thread_id}")
         if thread_has_external_identity(thread):
             return {"ok": False, "error": "already_linked"}
-        cfg = self.forge_config(thread.project_slug)
+        cfg = self.operational_forge_config(thread.project_slug)
         body = ""
         if cfg.publish_hub_status_block:
             body = self._board(cfg).render_status_block(thread)
@@ -923,7 +1037,7 @@ class ForgeFacade:
             raise KeyError(f"thread not found: {thread_id}")
         if thread_has_external_identity(thread):
             return {"ok": False, "error": "already_linked"}
-        cfg = self.forge_config(thread.project_slug)
+        cfg = self.operational_forge_config(thread.project_slug)
         src = WorkSource(provider or cfg.provider.value)
         if src not in (WorkSource.github, WorkSource.gitea):
             return {"ok": False, "error": "invalid_provider"}

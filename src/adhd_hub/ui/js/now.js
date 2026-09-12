@@ -98,17 +98,35 @@ export async function pauseHere(event) {
   }
 export function wireNotes(root) {
     root.querySelectorAll("details[data-notes]").forEach((details) => {
+      if (details.dataset.notesWired) return;
+      details.dataset.notesWired = "true";
       details.addEventListener("toggle", async () => {
-        if (!details.open || details.dataset.loaded || details.dataset.loading) return;
+        if (!details.open) return;
+        // Fixed overlay: only one Notes panel at a time.
+        document.querySelectorAll("details[data-notes][open]").forEach((other) => {
+          if (other !== details) other.open = false;
+        });
+        if (details.dataset.loaded || details.dataset.loading) return;
         details.dataset.loading = "true";
-        const content = details.querySelector(".markdown-body");
+        const content =
+          details.querySelector(".notes-scroll") ||
+          details.querySelector(".markdown-body");
+        if (!content) {
+          delete details.dataset.loading;
+          return;
+        }
         content.textContent = "Loading notes…";
         try {
           const thread = await api("/threads/" + encodeURIComponent(details.dataset.notes));
           content.innerHTML = thread.progress_html || "<p>No saved notes yet.</p>";
           details.dataset.loaded = "true";
-        } catch (_) { content.textContent = "Could not load notes. Close and reopen to retry."; }
-        finally { delete details.dataset.loading; }
+          // Force layout after inject so flex scroll height resolves on first open.
+          void content.offsetHeight;
+        } catch (_) {
+          content.textContent = "Could not load notes. Close and reopen to retry.";
+        } finally {
+          delete details.dataset.loading;
+        }
       });
     });
   }

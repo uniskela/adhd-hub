@@ -6,9 +6,9 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 
 initRepoLinks();
 
@@ -153,6 +153,13 @@ $("btn-save-settings").addEventListener("click", (e) => {
 $("btn-save-forge").addEventListener("click", () =>
   saveForge().catch((e) => setMsg(String(e)))
 );
+$("btn-add-forge-profile")?.addEventListener("click", () => addForgeProfile());
+$("p_repo_url")?.addEventListener("change", () => {
+  suggestProjectForgeConnection().catch(() => {});
+});
+$("p_repo_url")?.addEventListener("blur", () => {
+  suggestProjectForgeConnection().catch(() => {});
+});
 $("btn-save-openclaw").addEventListener("click", () =>
   saveOpenClaw().catch((e) => { $("openclaw-msg").textContent = e.message; })
 );
@@ -197,6 +204,9 @@ $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.de
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
 $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));
+$("btn-sync-project")?.addEventListener("click", () =>
+  syncProjectForge().catch((e) => setMsg(String(e)))
+);
 $("btn-restore-project").addEventListener("click", () => restoreProject().catch((e) => setMsg(String(e))));
 $("btn-focus-mode").addEventListener("click", toggleFocusMode);
 $("focus-minutes").addEventListener("change", () => {
@@ -284,6 +294,13 @@ $("password-dialog").addEventListener("close", () => {
   $("password-error").textContent = "";
 });
 $("quick-capture").addEventListener("submit", captureStep);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const openNotes = document.querySelector("details[data-notes][open]");
+  if (!openNotes) return;
+  if (document.querySelector("dialog[open]")) return;
+  openNotes.open = false;
+});
 fillTimezoneSelect(state.currentTz);
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/ui/sw.js", { scope: "/ui/" }).catch(() => {});

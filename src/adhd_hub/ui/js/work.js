@@ -62,11 +62,75 @@ export function fillProjectForm(p) {
     $("p_forge_repo").value = p.forge_repo || "";
     $("p_forge_wiki").value = p.forge_wiki_path || "";
     $("p_forge_project_id").value = p.forge_project_id || "";
+    fillForgeConnectionSelect(p.forge_connection_profile_id || "");
     const archived = !!(p.archived || p.archived_at);
     $("btn-rename-project").hidden = !!p.unregistered;
     $("btn-delete-project").hidden = !!p.unregistered;
     $("btn-archive-project").hidden = !!p.unregistered || archived || p.slug === "unclassified";
     $("btn-restore-project").hidden = !!p.unregistered || !archived;
+    const syncBtn = $("btn-sync-project");
+    if (syncBtn) {
+      syncBtn.hidden = !!p.unregistered || p.slug === "unclassified";
+      syncBtn.disabled = false;
+    }
+  }
+
+function fillForgeConnectionSelect(selectedId) {
+    const sel = $("p_forge_connection_profile_id");
+    if (!sel) return;
+    const profiles = state.forgeConfigCache?.connection_profiles || [];
+    sel.innerHTML =
+      `<option value="">None (local-only)</option>` +
+      profiles
+        .map(
+          (p) =>
+            `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)}</option>`
+        )
+        .join("");
+    sel.value = selectedId || "";
+  }
+
+export async function suggestProjectForgeConnection() {
+    const sel = $("p_forge_connection_profile_id");
+    const repo = $("p_repo_url");
+    if (!sel || !repo) return;
+    if (sel.value) return; // never overwrite saved/current selection
+    if (!state.forgeConfigCache) {
+      try {
+        state.forgeConfigCache = await api("/forge/config");
+        fillForgeConnectionSelect("");
+      } catch (_e) {
+        return;
+      }
+    }
+    const url = repo.value.trim();
+    if (!url) return;
+    const profiles = state.forgeConfigCache.connection_profiles || [];
+    const host = (() => {
+      try {
+        return new URL(url).hostname.toLowerCase();
+      } catch (_e) {
+        return "";
+      }
+    })();
+    if (!host) return;
+    const matches = profiles.filter((p) => {
+      if (p.provider === "github") {
+        return host === "github.com" || host === "www.github.com";
+      }
+      if (p.provider === "gitea") {
+        try {
+          const web = (p.web_base_url || p.base_url || "").replace(/\/api\/v1\/?$/, "");
+          return web && new URL(web).hostname.toLowerCase() === host;
+        } catch (_e) {
+          return false;
+        }
+      }
+      return false;
+    });
+    if (matches.length === 1) {
+      sel.value = matches[0].id;
+    }
   }
 export function renderProjectHeader(p) {
     const edit = $("btn-edit-project");
@@ -87,9 +151,19 @@ export function renderProjectHeader(p) {
   }
 export function openProjectDialog(project) {
     if (!project) return;
-    fillProjectForm(project);
-    $("project-dialog").showModal();
-    $("p_title").focus();
+    const open = async () => {
+      if (!state.forgeConfigCache) {
+        try {
+          state.forgeConfigCache = await api("/forge/config");
+        } catch (_e) {
+          state.forgeConfigCache = { connection_profiles: [] };
+        }
+      }
+      fillProjectForm(project);
+      $("project-dialog").showModal();
+      $("p_title").focus();
+    };
+    open().catch((e) => setMsg(String(e)));
   }
 export function renderThreads(threads) {
     const query = $("thread-search").value.trim().toLowerCase();
@@ -132,7 +206,7 @@ export function renderThreads(threads) {
           </div>
           <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
           <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.updated_at))}</span></div>
-          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Notes &amp; context</summary><div class="markdown-body"></div></details>
+          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary><svg class="notes-affordance notes-affordance-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg><svg class="notes-affordance notes-affordance-close" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg><span>Notes &amp; context</span></summary><div class="notes-scroll"></div></details>
           <div class="actions thread-actions">
             ${
               t.status !== "done"
@@ -301,6 +375,44 @@ export async function restoreProject() {
       setMsg("Could not restore: " + e.message);
     }
   }
+export async function syncProjectForge() {
+    const slug = $("p_slug").value.trim();
+    if (!slug) {
+      setMsg("Save the project first, then Sync forge.");
+      return;
+    }
+    const btn = $("btn-sync-project");
+    if (btn) btn.disabled = true;
+    setMsg(`Syncing forge for ${slug}…`);
+    try {
+      const out = await api(`/projects/${encodeURIComponent(slug)}/forge/sync`, {
+        method: "POST",
+        body: "{}",
+      });
+      if (out.skipped && out.reason === "no_forge_connection") {
+        setMsg(
+          out.hint || "Pick a Forge connection for this project, then Sync forge.",
+          { variant: "warning" }
+        );
+        return;
+      }
+      const reconciled = Array.isArray(out.reconcile) ? out.reconcile.length : 0;
+      const discovered = Array.isArray(out.discovery)
+        ? out.discovery.reduce(
+            (n, d) => n + ((d.imported && d.imported.length) || 0),
+            0
+          )
+        : 0;
+      setMsg(
+        `Forge sync for ${slug}: ${reconciled} linked checked, ${discovered} imported.`
+      );
+      await loadAll();
+    } catch (e) {
+      setMsg("Project forge sync failed: " + e.message, { variant: "error" });
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
 export async function saveProject() {
     const title = $("p_title").value.trim();
     if (!title) {
@@ -315,6 +427,7 @@ export async function saveProject() {
         ? [$("p_path").value.trim()]
         : [],
       repo_url: $("p_repo_url").value.trim() || null,
+      forge_connection_profile_id: $("p_forge_connection_profile_id")?.value || null,
       forge_owner: $("p_forge_owner").value.trim() || null,
       forge_repo: $("p_forge_repo").value.trim() || null,
       forge_wiki_path: $("p_forge_wiki").value.trim() || null,

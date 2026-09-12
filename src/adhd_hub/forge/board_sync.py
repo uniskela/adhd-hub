@@ -37,6 +37,7 @@ class BoardForgeSync:
         meta_set,
         *,
         progress_reader=None,
+        wiki_config: ForgeConfig | None = None,
     ) -> None:
         self.config = config
         self._meta_get = meta_get
@@ -44,6 +45,8 @@ class BoardForgeSync:
         # Optional legacy hook (slug → markdown). No longer embedded into issues;
         # thread state is mirrored instead. Kept for call-site compatibility.
         self._progress_reader = progress_reader
+        # Shared Hub memory repo for PROGRESS.md links (not the issue/code repo).
+        self._wiki_config = wiki_config or config
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -333,7 +336,7 @@ class BoardForgeSync:
         if thread.source_tool or thread.origin:
             lines.append(f"- source: `{thread.source_tool or thread.origin}`")
         if thread.project_slug:
-            prog_url = self.config.file_web_url(
+            prog_url = self._wiki_config.file_web_url(
                 f"projects/{thread.project_slug}/PROGRESS.md"
             )
             if prog_url:
