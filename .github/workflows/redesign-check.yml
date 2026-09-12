@@ -25,37 +25,25 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          path = Path("scripts/browser_smoke.py")
-          text = path.read_text(encoding="utf-8")
-          replacements = [
-              (
-                  '''                page.locator("#next-card summary").click()\n                expect(\n                    page.locator("#next-card").get_by_role("heading", name="Next visit")\n                ).to_be_visible()\n                expect(page.locator("#next-card .markdown-body strong")).to_have_text(\n                    "Choose a photo"\n                )\n                expect(page.locator("#next-card script")).to_have_count(0)\n''',
-                  '''                notes = page.locator("#next-card .progress-details")\n                assert notes.evaluate("el => !el.open")\n                notes.locator("summary").click()\n                expect(notes.locator(".markdown-body")).to_contain_text("Personal website")\n                expect(page.locator("#next-card script")).to_have_count(0)\n''',
-              ),
-              (
-                  '''                page.get_by_role("tab", name="Connections", exact=True).click()\n                expect(page.locator("#install-cmd")).to_be_visible()\n                expect(page.get_by_role("button", name="Allow this CLI", exact=True)).to_be_visible()\n                page.get_by_text("Windows / MCP / skills", exact=False).click()\n                expect(page.locator("#mcp-url")).to_be_visible()\n                page.get_by_text("OpenClaw connection & gentle alerts", exact=False).click()\n''',
-                  '''                page.get_by_role("tab", name="Agents & install", exact=True).click()\n                expect(page.locator("#install-cmd")).to_be_visible()\n                expect(page.get_by_role("button", name="Allow this CLI", exact=True)).to_be_visible()\n                page.get_by_role("tab", name="Windows / MCP", exact=True).click()\n                expect(page.locator("#mcp-url")).to_be_visible()\n                page.get_by_role("tab", name="OpenClaw", exact=True).click()\n''',
-              ),
-              (
-                  '''                page.get_by_role("button", name="Settings", exact=True).click()\n                for name in ["Preferences", "Account", "Connections", "Data"]:\n                    page.get_by_role("tab", name=name, exact=True).click()\n                    assert page.locator("#settings-view").evaluate(\n                        "el => el.scrollWidth <= el.clientWidth"\n                    )\n                    expect(\n                        page.get_by_role("button", name="Close settings", exact=True)\n                    ).to_be_in_viewport()\n                page.get_by_role("tab", name="Preferences", exact=True).click()\n''',
-                  '''                page.get_by_role("button", name="Settings", exact=True).click()\n                for name in [\n                    "Preferences",\n                    "Account",\n                    "Agents & install",\n                    "Windows / MCP",\n                    "OpenClaw",\n                    "Forge",\n                    "Data",\n                ]:\n                    page.get_by_role("tab", name=name, exact=True).click()\n                    assert page.locator("#settings-view").evaluate(\n                        "el => el.scrollWidth <= el.clientWidth"\n                    )\n                    expect(page.locator("#btn-settings-index-back")).to_be_in_viewport()\n                    page.locator("#btn-settings-index-back").click()\n                page.get_by_role("tab", name="Preferences", exact=True).click()\n''',
-              ),
-          ]
-          for old, new in replacements:
-              if old in text:
-                  text = text.replace(old, new)
-          path.write_text(text, encoding="utf-8")
-
           index = Path("src/adhd_hub/ui/index.html")
           html = index.read_text(encoding="utf-8")
-          html = html.replace('class="chart-summary hint"', 'class="chart-summary visually-hidden"')
-          index.write_text(html, encoding="utf-8")
+          if 'id="btn-close-project"' not in html:
+              old = '        <button type="button" class="danger" id="btn-delete-project">Delete…</button>\n      </div>'
+              new = '        <button type="button" class="danger" id="btn-delete-project">Delete…</button>\n        <button type="button" class="ghost" id="btn-close-project">Cancel</button>\n      </div>'
+              if old not in html:
+                  raise RuntimeError("project dialog action block not found")
+              html = html.replace(old, new, 1)
+              index.write_text(html, encoding="utf-8")
 
-          dashboard = Path("docs/dashboard.md")
-          docs = dashboard.read_text(encoding="utf-8")
-          docs = docs.replace("choosing **Work on this** returns to Now", "choosing **Choose this step** returns to Now")
-          docs = docs.replace("**Preferences**, **Account**, **Connections**, **Windows / MCP**, **OpenClaw**, **Forge**, and **Data**", "**Preferences**, **Account**, **Agents & install**, **Windows / MCP**, **OpenClaw**, **Forge**, and **Data**")
-          dashboard.write_text(docs, encoding="utf-8")
+          boot = Path("src/adhd_hub/ui/js/boot.js")
+          js = boot.read_text(encoding="utf-8")
+          if '$("btn-close-project").addEventListener' not in js:
+              old = '$("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));'
+              new = '$("btn-close-project").addEventListener("click", () => $("project-dialog").close());\n' + old
+              if old not in js:
+                  raise RuntimeError("project edit binding not found")
+              js = js.replace(old, new, 1)
+              boot.write_text(js, encoding="utf-8")
           PY
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -63,7 +51,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/adhd_hub/ui docs zensical.toml scripts/browser_smoke.py scripts/docs_browser_smoke.py tests/test_documentation.py
-            git commit -m "test: align redesigned responsive flows"
+            git commit -m "fix(ui): restore project dialog cancel action"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
