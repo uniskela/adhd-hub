@@ -353,14 +353,21 @@ def main():
                     animations="disabled",
                 )
                 page.get_by_role("button", name="Settings", exact=True).click()
-                for name in ["Preferences", "Account", "Connections", "Data"]:
+                for name in [
+                    "Preferences",
+                    "Account",
+                    "Agents & install",
+                    "Windows / MCP",
+                    "OpenClaw",
+                    "Forge",
+                    "Data",
+                ]:
                     page.get_by_role("tab", name=name, exact=True).click()
                     assert page.locator("#settings-view").evaluate(
                         "el => el.scrollWidth <= el.clientWidth"
                     )
-                    expect(
-                        page.get_by_role("button", name="Close settings", exact=True)
-                    ).to_be_in_viewport()
+                    expect(page.locator("#btn-settings-index-back")).to_be_in_viewport()
+                    page.locator("#btn-settings-index-back").click()
                 page.get_by_role("tab", name="Preferences", exact=True).click()
                 page.locator("#rewards-enabled").check()
                 page.screenshot(path=str(screenshots / "settings-mobile.png"), full_page=True)
