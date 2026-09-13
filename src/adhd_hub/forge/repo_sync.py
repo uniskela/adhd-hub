@@ -304,8 +304,27 @@ def discover_issue_payloads(
             url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}/issues"
             resp = http.get(url, headers=_headers(cfg), params=params)
             if resp.status_code >= 400:
-                log.warning("discover issues failed: %s %s", resp.status_code, resp.text[:200])
-                resp.raise_for_status()
+                # Soft-fail: one missing/misconfigured repo must not 500 whole sync.
+                log.warning(
+                    "discover issues failed for %s/%s: %s %s",
+                    cfg.owner,
+                    cfg.repo,
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                return {
+                    "skipped": True,
+                    "reason": "discover_failed",
+                    "status_code": resp.status_code,
+                    "owner": cfg.owner,
+                    "repo": cfg.repo,
+                    "provider": cfg.provider.value,
+                    "hint": (
+                        "Forge returned an error listing issues for this target. "
+                        "Check the connection profile owner/repo (or remove a "
+                        "stale profile), then Sync forge again."
+                    ),
+                }
             items = resp.json()
             if not isinstance(items, list) or not items:
                 break
