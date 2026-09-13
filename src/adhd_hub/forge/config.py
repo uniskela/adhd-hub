@@ -319,8 +319,15 @@ def merge_forge_config_payload(current: ForgeConfig, payload: dict[str, Any]) ->
             elif not row.get("token") and prev:
                 row["token"] = prev.token
             row["id"] = pid  # immutable once set
+            no, nr = normalize_owner_repo(row.get("owner"), row.get("repo"))
+            row["owner"] = no
+            row["repo"] = nr
             merged_profiles.append(row)
         data["connection_profiles"] = merged_profiles
+    if "owner" in data or "repo" in data:
+        no, nr = normalize_owner_repo(data.get("owner"), data.get("repo"))
+        data["owner"] = no
+        data["repo"] = nr
     cfg = ForgeConfig.model_validate(data)
     return ensure_connection_profiles(cfg)
 
@@ -387,6 +394,72 @@ def host_from_repo_url(repo_url: str | None) -> str | None:
         return host or None
     except ValueError:
         return None
+
+
+def parse_owner_repo_from_url(value: str | None) -> tuple[str, str] | None:
+    """Extract (owner, repo) from a forge URL or owner/repo path. None if unusable.
+
+    Uses the first two path segments so browser paths like
+    ``/owner/repo/tree/main`` or ``/owner/repo/pull/1`` still resolve correctly.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    path = raw
+    try:
+        if "://" in raw:
+            parsed = urlparse(raw)
+            path = parsed.path or ""
+        elif raw.startswith("git@") and ":" in raw:
+            path = raw.split(":", 1)[1]
+        elif "/" in raw and " " not in raw:
+            path = raw if raw.startswith("/") else f"/{raw}"
+        else:
+            return None
+        parts = [p for p in path.strip("/").split("/") if p]
+        if len(parts) < 2:
+            return None
+        # Skip leading forge noise (e.g. /api/v1 is not an owner/repo pair).
+        if parts[0].lower() in {"api", "gitea", "src", "repos"} and len(parts) >= 4:
+            # e.g. /api/v1/repos/owner/repo → still prefer first owner/repo-shaped pair
+            for i in range(len(parts) - 1):
+                if parts[i].lower() in {"repos", "repositories"} and i + 2 < len(parts):
+                    parts = parts[i + 1 :]
+                    break
+        owner, repo = parts[0], parts[1]
+        repo = repo.removesuffix(".git")
+        if not owner or not repo or "://" in owner or "://" in repo:
+            return None
+        if owner.lower() in {"http", "https"}:
+            return None
+        return owner, repo
+    except ValueError:
+        return None
+
+
+def normalize_owner_repo(owner: str | None, repo: str | None) -> tuple[str, str]:
+    """Persist name fragments only — strip pasted full URLs from owner/repo fields."""
+    o = (owner or "").strip()
+    r = (repo or "").strip()
+    if r and ("://" in r or r.startswith("git@") or ("/" in r and not o)):
+        parsed = parse_owner_repo_from_url(r if ("://" in r or r.startswith("git@")) else f"https://example.invalid/{r}")
+        if parsed:
+            if not o:
+                o = parsed[0]
+            r = parsed[1]
+    if o and ("://" in o or "/" in o):
+        parsed = parse_owner_repo_from_url(o)
+        if parsed:
+            o = parsed[0]
+            if not r:
+                r = parsed[1]
+    if "://" in o:
+        o = ""
+    if "://" in r:
+        r = ""
+    o = o.strip().strip("/")
+    r = r.strip().strip("/").removesuffix(".git")
+    return o, r
 
 
 def _parse_inbox_authors(raw: Any) -> list[str]:

@@ -627,13 +627,29 @@ def test_format_hub_cli_command_prefers_path_binary(monkeypatch) -> None:
     assert "uvx" not in cmd
 
 
+def test_render_install_sh_offers_uv_bootstrap() -> None:
+    script = render_install_sh("http://example:8787")
+    assert "ADHD_HUB_INSTALL_UV" in script
+    assert "astral.sh/uv/install.sh" in script
+    assert "Install uv now using the official Astral installer" in script
+    assert "/dev/tty" in script
+
+
+def test_render_install_ps1_offers_uv_bootstrap() -> None:
+    script = render_install_ps1("http://example:8787")
+    assert "ADHD_HUB_INSTALL_UV" in script
+    assert "astral.sh/uv/install.ps1" in script
+    assert "Install uv now using the official Astral installer" in script
+
+
 def test_render_install_sh_uses_hub_wheel_with_git_fallback() -> None:
     script = render_install_sh("http://example:8787")
     assert "install/cli-wheel.url" in script
     assert "git+https://github.com/uniskela/adhd-hub.git" in script
     assert "uvx --refresh --from" in script
     assert "uvx --from adhd-hub " not in script
-    assert "uv tool install git+https://github.com/uniskela/adhd-hub.git" in script
+    assert "uv tool install" in script
+    assert 'uv tool install "$PKG_FROM"' in script or "uv tool install $PKG_FROM" in script
 
 
 def test_install_wheel_endpoint(tmp_path: Path, monkeypatch) -> None:

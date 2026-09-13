@@ -11,6 +11,43 @@ Use a **dedicated bot/machine user** token when you can. Prefer **least privileg
 
 ---
 
+## Default profile vs project forge repo
+
+| Setting | Owns |
+|---------|------|
+| **Default profile** (Settings → Forge) | Hub **memory**: wiki / `PROGRESS.md` / `INDEX.md` for **all** projects |
+| **Project → Forge owner / repo** | **Issues / board** for that project only |
+
+A project’s forge owner/repo never becomes the wiki target. Fill **owner** and **repo** as name fragments (`user123`, `my-repo`) — not full URLs. Put the clone URL in **Repository URL**; Hub can prefill blank owner/repo from it on blur/save.
+
+### Import policy (profile)
+
+| Policy | Sync behavior |
+|--------|----------------|
+| **Manual** (default) | Reconcile already-linked threads only — **0 new issues imported** |
+| **All open issues** | Import every open issue in the target owner/repo |
+| **Matching labels** | Import open issues with at least one listed label |
+| **Assigned to me** | Import open issues assigned to Account login (or the token’s `/user` login) |
+| **ADHD inbox** | Import allowlisted authors with an `[ADHD]` title and/or hub label; fail closed if inbox authors are empty |
+
+Changing a project’s forge connection does **not** migrate threads already pinned to another forge identity. Sync is not a repo-move tool.
+
+### Suggested setup order
+
+1. Add a connection profile → paste token → **Save forge**  
+2. Leave import policy on **Manual** until you want discovery; then pick a policy and Save again  
+3. On each project: pick the connection → set owner + **repo name** (or let Repository URL prefill) → Save project → **Sync forge**
+
+See also [Forge issue inbox](forge-issue-inbox.md) for the ADHD inbox policy.
+
+---
+
+## GitHub App vs PAT (FAQ)
+
+**Can I use a GitHub App instead of a PAT?** Not in ADHD Hub v0.9.x. A GitHub App *could* replace PATs later (installation tokens, clearer repo grants), but for a self-hosted Hub it adds more ops risk: App registration, private key handling, webhook/install lifecycle, and per-org installation. **Stay on fine-grained PATs for v0.9.x.** Classic PATs remain a fallback when fine-grained tokens are unavailable.
+
+---
+
 ## GitHub
 
 ### Fine-grained PAT (recommended)

@@ -729,16 +729,74 @@ if command -v adhd-hub >/dev/null 2>&1; then
   exit $?
 fi
 
-if command -v uv >/dev/null 2>&1; then
-  echo "adhd-hub not on PATH. Try: uv tool install {UV_PACKAGE_GIT}" >&2
+_adhd_print_manual_uv() {{
+  echo "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)." >&2
+  echo "Install uv from https://docs.astral.sh/uv/ , then:" >&2
+  echo "  uv tool install \\"$PKG_FROM\\"" >&2
+  echo "  curl -fsSL $HUB_URL/install.sh | sh -s -- $PROJECT" >&2
   echo "Or from a checkout: uv run adhd-hub connect \\"$PROJECT\\" --hub \\"$HUB_URL\\"" >&2
+  echo "Windows PowerShell: irm $HUB_URL/install.ps1 | iex" >&2
+  echo "Non-interactive automation: set ADHD_HUB_INSTALL_UV=1 to opt into installing uv + the CLI." >&2
+}}
+
+_adhd_ensure_uv_path() {{
+  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+}}
+
+_adhd_bootstrap_uv_and_cli() {{
+  echo "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)."
+  ANSWER=""
+  case "${{ADHD_HUB_INSTALL_UV:-}}" in
+    1|true|TRUE|yes|YES) ANSWER=y ;;
+  esac
+  if [ -z "$ANSWER" ]; then
+    if [ -r /dev/tty ]; then
+      printf "Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N] " >/dev/tty
+      IFS= read -r ANSWER </dev/tty || ANSWER=""
+    else
+      _adhd_print_manual_uv
+      exit 1
+    fi
+  fi
+  case "$ANSWER" in
+    y|Y|yes|YES) ;;
+    *)
+      _adhd_print_manual_uv
+      exit 1
+      ;;
+  esac
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Installing uv via https://astral.sh/uv/install.sh …"
+    curl -fsSL https://astral.sh/uv/install.sh | sh
+    _adhd_ensure_uv_path
+  fi
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "uv installed but not found on PATH. Add ~/.local/bin (and ~/.cargo/bin) to PATH, then re-run." >&2
+    exit 1
+  fi
+  echo "Installing ADHD Hub CLI (uv tool install)…"
+  uv tool install "$PKG_FROM"
+  _adhd_ensure_uv_path
+  if command -v adhd-hub >/dev/null 2>&1; then
+    adhd-hub "$@"
+    exit $?
+  fi
+  if command -v uvx >/dev/null 2>&1; then
+    uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
+    _adhd_after_connect $?
+  fi
+  echo "CLI install finished but adhd-hub/uvx still not on PATH. Re-open your shell or add uv's bin dir, then re-run." >&2
+  exit 1
+}}
+
+if command -v uv >/dev/null 2>&1; then
+  echo "adhd-hub not on PATH. Try: uv tool install \\"$PKG_FROM\\"" >&2
+  echo "Or from a checkout: uv run adhd-hub connect \\"$PROJECT\\" --hub \\"$HUB_URL\\"" >&2
+  echo "To install the CLI now interactively, re-run without uv on PATH, or: uv tool install \\"$PKG_FROM\\"" >&2
   exit 1
 fi
 
-echo "Install the ADHD Hub CLI first (uv tool install {UV_PACKAGE_GIT}), then re-run:" >&2
-echo "  curl -fsSL $HUB_URL/install.sh | sh -s -- $PROJECT" >&2
-echo "Windows PowerShell: irm $HUB_URL/install.ps1 | iex" >&2
-exit 1
+_adhd_bootstrap_uv_and_cli "$@"
 """
 
 
@@ -904,21 +962,78 @@ if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{
   return
 }}
 
-if (Get-Command uv -ErrorAction SilentlyContinue) {{
-  Write-Error "adhd-hub not on PATH. Try: uv tool install {UV_PACKAGE_GIT}"
-  Write-Error ("Or from a checkout: uv run adhd-hub connect `"{{0}}`" --hub `"{{1}}`"" -f $Project, $HubUrl)
-  Complete-AdhdInstall 1
-  return
-}}
-
-Write-Host @"
-Install the ADHD Hub CLI first (uv tool install {UV_PACKAGE_GIT}), then re-run:
+function Write-AdhdManualUv {{
+  Write-Host "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)." -ForegroundColor Yellow
+  Write-Host "Install uv from https://docs.astral.sh/uv/ , then:"
+  Write-Host ("  uv tool install `"{0}`"" -f $pkgFrom)
+  Write-Host @"
   irm $HubUrl/install.ps1 | iex
   # safer download-then-run:
   iwr $HubUrl/install.ps1 -OutFile $env:TEMP\\adhd-hub-install.ps1
   powershell -ExecutionPolicy Bypass -File $env:TEMP\\adhd-hub-install.ps1 -Project '$Project'
 macOS/Linux: curl -fsSL $HubUrl/install.sh | sh -s -- $Project
+Non-interactive automation: set ADHD_HUB_INSTALL_UV=1 to opt into installing uv + the CLI.
 "@
+}}
+
+function Ensure-AdhdUvPath {{
+  $env:Path = "$env:USERPROFILE\\.local\\bin;$env:USERPROFILE\\.cargo\\bin;$env:Path"
+}}
+
+if (Get-Command uv -ErrorAction SilentlyContinue) {{
+  Write-Error ("adhd-hub not on PATH. Try: uv tool install `"{0}`"" -f $pkgFrom)
+  Write-Error ("Or from a checkout: uv run adhd-hub connect `"{{0}}`" --hub `"{{1}}`"" -f $Project, $HubUrl)
+  Complete-AdhdInstall 1
+  return
+}}
+
+Write-Host "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)."
+$answer = ""
+switch -Regex ($env:ADHD_HUB_INSTALL_UV) {{
+  '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
+}}
+if (-not $answer) {{
+  if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+    $answer = Read-Host "Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N]"
+  }} else {{
+    Write-AdhdManualUv
+    Complete-AdhdInstall 1
+    return
+  }}
+}}
+if ($answer -notmatch '^(y|Y|yes|YES)$') {{
+  Write-AdhdManualUv
+  Complete-AdhdInstall 1
+  return
+}}
+
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {{
+  Write-Host "Installing uv via https://astral.sh/uv/install.ps1 …"
+  irm https://astral.sh/uv/install.ps1 | iex
+  Ensure-AdhdUvPath
+}}
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {{
+  Write-Error "uv installed but not found on PATH. Add uv's bin directory to PATH, then re-run."
+  Complete-AdhdInstall 1
+  return
+}}
+
+Write-Host "Installing ADHD Hub CLI (uv tool install)…"
+& uv tool install $pkgFrom
+Ensure-AdhdUvPath
+
+if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{
+  & adhd-hub @connectArgs
+  Complete-AdhdInstall $LASTEXITCODE
+  return
+}}
+if (Get-Command uvx -ErrorAction SilentlyContinue) {{
+  & uvx --refresh --from $pkgFrom adhd-hub @connectArgs
+  Complete-AdhdInstall $LASTEXITCODE
+  return
+}}
+
+Write-Error "CLI install finished but adhd-hub/uvx still not on PATH. Re-open your shell or add uv's bin dir, then re-run."
 Complete-AdhdInstall 1
 """
 

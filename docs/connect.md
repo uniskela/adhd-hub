@@ -27,13 +27,15 @@ One-liner (when `iex` is allowed):
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project'"
 ```
 
-If `adhd-hub` is not on `PATH`, the install scripts use:
+If `uvx` / `adhd-hub` / `uv` are already available, the scripts prefer `uvx --from <this Hub’s wheel URL>` (GitHub git fallback). (`adhd-hub` is not on PyPI yet.)
+
+If **none** of those tools are on `PATH`, the script explains that Hub connect needs the local **uv** toolchain + **adhd-hub** CLI (nothing remote is modified), then asks on a TTY:
 
 ```text
-uvx --from git+https://github.com/uniskela/adhd-hub.git adhd-hub …
+Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N]
 ```
 
-(`adhd-hub` is not on PyPI yet.)
+Answer `y` to install uv via Astral’s official installer, `uv tool install` the CLI, and continue connect. Answer `N` (default) to print manual steps and exit. Non-interactive runs (no `/dev/tty`, CI) never auto-install; set `ADHD_HUB_INSTALL_UV=1` to opt in for automation.
 
 What happens next:
 
@@ -108,7 +110,7 @@ That issues an opaque OAuth access token for MCP only. It is not the server acce
 
 ## CLI wire-up flags
 
-Both install scripts look for `uvx` first and install the CLI from **this Hub's** `/install/cli-wheel.url` (PEP 427 wheel matching the server), falling back to `git+https://github.com/uniskela/adhd-hub.git` if the wheel is missing. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
+Both install scripts look for `uvx` first and install the CLI from **this Hub's** `/install/cli-wheel.url` (PEP 427 wheel matching the server), falling back to `git+https://github.com/uniskela/adhd-hub.git` if the wheel is missing. If `uv` itself is missing, they offer an interactive Astral bootstrap (see above) or honor `ADHD_HUB_INSTALL_UV=1`. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
 
 `--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Agents & install**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
 
