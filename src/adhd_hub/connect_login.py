@@ -145,6 +145,9 @@ def _http_json(
     token: str | None = None,
     timeout: float = 10.0,
 ) -> tuple[int, dict[str, Any]]:
+    from adhd_hub.ssl_trust import annotate_connection_error, ensure_os_truststore
+
+    ensure_os_truststore()
     headers = {"Accept": "application/json"}
     data = None
     if payload is not None:
@@ -166,7 +169,7 @@ def _http_json(
             parsed = {"detail": body}
         return exc.code, parsed if isinstance(parsed, dict) else {"detail": body}
     except (URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise ConnectionError(str(exc)) from exc
+        raise annotate_connection_error(exc) from exc
 
 
 def _error_code(payload: dict[str, Any]) -> str | None:

@@ -50,6 +50,9 @@ def cli_on_path() -> bool:
 
 def resolve_uv_package_from(hub_url: str) -> str:
     """Prefer this Hub's wheel URL; fall back to the public git source."""
+    from adhd_hub.ssl_trust import ensure_os_truststore
+
+    ensure_os_truststore()
     base = normalize_hub_url(hub_url)
     try:
         with urlopen(Request(f"{base}/install/cli-wheel.url"), timeout=3) as resp:
@@ -245,6 +248,9 @@ def cursor_mcp_snippet(hub_url: str) -> dict[str, Any]:
 
 
 def _http_json(url: str, *, token: str | None = None, timeout: float = 8.0) -> dict[str, Any]:
+    from adhd_hub.ssl_trust import ensure_os_truststore
+
+    ensure_os_truststore()
     headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -258,11 +264,13 @@ def _http_json(url: str, *, token: str | None = None, timeout: float = 8.0) -> d
 
 
 def probe_hub(hub_url: str, *, token: str | None = None) -> tuple[bool, str]:
+    from adhd_hub.ssl_trust import format_tls_failure
+
     base = normalize_hub_url(hub_url)
     try:
         health = _http_json(f"{base}/api/health", token=token)
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
-        return False, f"unreachable ({exc})"
+        return False, f"unreachable ({format_tls_failure(exc)})"
     version = health.get("version") or health.get("status") or "ok"
     return True, f"health ok ({version})"
 
@@ -575,6 +583,9 @@ def find_candidate_projects(roots: list[Path], *, limit: int = 50) -> list[Path]
 
 
 def register_project(hub_url: str, project: Path, *, token: str) -> str:
+    from adhd_hub.ssl_trust import ensure_os_truststore
+
+    ensure_os_truststore()
     base = normalize_hub_url(hub_url)
     workspace = str(project.resolve())
     query = f"workspace_path={quote(workspace)}&create=true"

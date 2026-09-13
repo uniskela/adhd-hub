@@ -553,6 +553,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
+    # Prefer OS trust (Windows cert store) for Hub HTTPS before any urllib calls.
+    from adhd_hub.ssl_trust import ensure_os_truststore
+
+    ensure_os_truststore()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
