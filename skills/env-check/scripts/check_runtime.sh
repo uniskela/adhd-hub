@@ -6,6 +6,7 @@
 # - Do **not** treat `$USER=root` as cloud (false positives on local root / privileged shells).
 # - Generic Docker / Podman alone is LOCAL (local docker/localhost is expected there).
 # - Prefer Cursor Cloud / remote-sandbox markers when classifying CLOUD_AGENT.
+# - CLOUD_AGENT must not assume machine-installed local skill CLIs (e.g. graphify).
 
 set -eu
 
@@ -54,15 +55,10 @@ else
   echo "RUNTIME_SIGNALS: none"
 fi
 
-cli_status=()
-for cmd in graphify; do
-  if command -v "$cmd" >/dev/null 2>&1; then
-    cli_status+=("${cmd}=present")
-  else
-    cli_status+=("${cmd}=missing")
-  fi
-done
-IFS=','; echo "LOCAL_SKILL_CLIS: ${cli_status[*]}"; unset IFS
-
 echo "HUB_CONTINUITY_TRIGGER: MCP unavailable (runtime env is supporting context only)"
 echo "NOTE: \$USER=root is ignored as a sole cloud signal (false positives)"
+if [ "$cursor_cloud" -eq 1 ]; then
+  echo "LOCAL_SKILL_CLIS: do not assume (e.g. graphify may be missing); one-line notice then use repo tools / committed graphify-out; never fabricate graph/Hub state"
+else
+  echo "LOCAL_SKILL_CLIS: may be available on this machine"
+fi
