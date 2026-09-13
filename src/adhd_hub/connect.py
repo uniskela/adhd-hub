@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -82,9 +82,91 @@ def permanent_cli_install_hint(hub_url: str) -> str | None:
     if cli_on_path():
         return None
     pkg = resolve_uv_package_from(hub_url)
+    # --force overwrites a leftover ~/.local/bin/adhd-hub shim (common after
+    # removing uv and re-bootstrapping).
     if shutil.which("uv") or shutil.which("uv.exe"):
-        return f'uv tool install "{pkg}"'
-    return f'uv tool install "{UV_PACKAGE_GIT}"'
+        return f'uv tool install --force "{pkg}"'
+    return f'uv tool install --force "{UV_PACKAGE_GIT}"'
+
+
+def offer_permanent_cli_install(hub_url: str, *, stream: TextIO | None = None) -> bool:
+    """Optionally run ``uv tool install`` so ``adhd-hub`` lands on PATH.
+
+    Interactive TTY (or ``ADHD_HUB_INSTALL_CLI=1``) may install; otherwise print
+    the command and return False. Never installs without consent.
+    """
+    import os
+    import sys
+
+    out = stream or sys.stdout
+    # install.sh / install.ps1 set this before invoking connect so the wrapper
+    # owns the permanent-CLI prompt (child env vars do not propagate upward).
+    wrapper = (os.environ.get("ADHD_HUB_FROM_INSTALL_SCRIPT") or "").strip().lower()
+    if wrapper in {"1", "true", "yes"}:
+        return False
+    if cli_on_path():
+        return False
+    hint = permanent_cli_install_hint(hub_url)
+    if not hint:
+        return False
+    uv_bin = shutil.which("uv") or shutil.which("uv.exe")
+    if not uv_bin:
+        print(f"  - Optional (puts `adhd-hub` on PATH): {hint}", file=out)
+        return False
+
+    env_flag = (os.environ.get("ADHD_HUB_INSTALL_CLI") or "").strip().lower()
+    answer = "y" if env_flag in {"1", "true", "yes"} else ""
+    prompted = False
+    if not answer:
+        if sys.stdin.isatty():
+            try:
+                answer = input(
+                    "Install adhd-hub permanently on PATH with uv tool install? [y/N] "
+                ).strip()
+                prompted = True
+            except EOFError:
+                answer = ""
+        else:
+            print(f"  - Optional (puts `adhd-hub` on PATH): {hint}", file=out)
+            print("    Non-interactive opt-in: ADHD_HUB_INSTALL_CLI=1", file=out)
+            return False
+
+    if prompted:
+        # Best-effort marker when connect is not wrapped by install.* (same process).
+        os.environ["ADHD_HUB_CLI_INSTALL_PROMPTED"] = "1"
+
+    if answer.lower() not in {"y", "yes"}:
+        print(f"  - Skipped. Optional later: {hint}", file=out)
+        return False
+
+    pkg = resolve_uv_package_from(hub_url)
+    print(f"Installing ADHD Hub CLI ({hint})…", file=out)
+    try:
+        completed = subprocess.run(
+            [uv_bin, "tool", "install", "--force", pkg],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        print(f"  - Could not run uv tool install: {exc}", file=out)
+        print(f"    Manual: {hint}", file=out)
+        return False
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        print(f"  - uv tool install failed (exit {completed.returncode}).", file=out)
+        if detail:
+            print(f"    {detail.splitlines()[-1]}", file=out)
+        print(f"    Manual: {hint}", file=out)
+        return False
+    if cli_on_path():
+        print("  - adhd-hub is on PATH.", file=out)
+    else:
+        print(
+            "  - Install finished; reopen your shell (or add ~/.local/bin) if adhd-hub is not found yet.",
+            file=out,
+        )
+    return True
 
 def hub_cli_wheel_url(hub_url: str) -> str:
     """Stable alias; install scripts resolve the PEP 427 name via cli-wheel.url."""
@@ -111,6 +193,7 @@ class ConnectReport:
     hub_url: str
     steps: list[StepResult] = field(default_factory=list)
     continuity_text: str | None = None
+    dry_run: bool = False
 
     def add(self, name: str, status: str, detail: str) -> None:
         self.steps.append(StepResult(name, status, detail))
@@ -706,6 +789,31 @@ if [ -z "$PKG_FROM" ]; then
   PKG_FROM="{UV_PACKAGE_GIT}"
 fi
 
+# Parent install script owns permanent-CLI prompts after connect.
+export ADHD_HUB_FROM_INSTALL_SCRIPT=1
+
+_adhd_ensure_uv_path() {{
+  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+}}
+
+_adhd_refresh_existing_cli() {{
+  # Re-running install against this Hub should refresh a durable CLI already on PATH.
+  if [ "${{DRY_RUN:-0}}" -eq 1 ]; then
+    return 0
+  fi
+  if ! command -v uv >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! command -v adhd-hub >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "Updating existing adhd-hub CLI from this Hub…"
+  if ! uv tool install --force "$PKG_FROM"; then
+    echo "Warning: could not refresh adhd-hub CLI; continuing with the current binary." >&2
+  fi
+  _adhd_ensure_uv_path
+}}
+
 _adhd_after_connect() {{
   code="$1"
   if [ "$code" -eq 0 ] && ! command -v adhd-hub >/dev/null 2>&1; then
@@ -713,32 +821,171 @@ _adhd_after_connect() {{
       echo ""
       echo "Doctor (uvx — adhd-hub is not on PATH yet):"
       echo "  uvx --refresh --from \\"$PKG_FROM\\" adhd-hub doctor --hub \\"$HUB_URL\\" --project \\"$PROJECT\\""
-      echo "Optional permanent install: uv tool install \\"$PKG_FROM\\""
     fi
+    _adhd_offer_permanent_cli
   fi
   exit "$code"
 }}
+
+_adhd_offer_permanent_cli() {{
+  # After a successful uvx connect, optionally put adhd-hub on PATH.
+  if [ "${{DRY_RUN:-0}}" -eq 1 ]; then
+    return 0
+  fi
+  if command -v adhd-hub >/dev/null 2>&1; then
+    return 0
+  fi
+  # connect already asked (or installed) during Do next — do not prompt twice.
+  if [ "${{ADHD_HUB_CLI_INSTALL_PROMPTED:-}}" = "1" ]; then
+    return 0
+  fi
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Optional permanent install (puts adhd-hub on PATH): uv tool install --force \\"$PKG_FROM\\""
+    return 0
+  fi
+  ANSWER=""
+  case "${{ADHD_HUB_INSTALL_CLI:-}}" in
+    1|true|TRUE|yes|YES) ANSWER=y ;;
+  esac
+  if [ -z "$ANSWER" ]; then
+    if [ -r /dev/tty ]; then
+      printf "Install adhd-hub permanently on PATH with uv tool install? [y/N] " >/dev/tty
+      IFS= read -r ANSWER </dev/tty || ANSWER=""
+      export ADHD_HUB_CLI_INSTALL_PROMPTED=1
+    else
+      echo "Optional permanent install: uv tool install --force \\"$PKG_FROM\\""
+      echo "Non-interactive opt-in: ADHD_HUB_INSTALL_CLI=1"
+      return 0
+    fi
+  fi
+  case "$ANSWER" in
+    y|Y|yes|YES)
+      echo "Installing ADHD Hub CLI (uv tool install)…"
+      # --force: leftover ~/.local/bin/adhd-hub after removing uv blocks plain install.
+      uv tool install --force "$PKG_FROM"
+      _adhd_ensure_uv_path
+      if command -v adhd-hub >/dev/null 2>&1; then
+        echo "adhd-hub is on PATH. Try: adhd-hub doctor --hub \\"$HUB_URL\\" --project \\"$PROJECT\\""
+      else
+        echo "Install finished; reopen your shell (or add ~/.local/bin) if adhd-hub is not found yet."
+      fi
+      ;;
+    *)
+      echo "Skipped. Optional later: uv tool install --force \\"$PKG_FROM\\""
+      ;;
+  esac
+}}
+
+_adhd_refresh_existing_cli
+
+# Prefer a refreshed durable CLI; fall back to ephemeral uvx from this Hub's wheel.
+if command -v adhd-hub >/dev/null 2>&1; then
+  adhd-hub "$@"
+  exit $?
+fi
 
 if command -v uvx >/dev/null 2>&1; then
   uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
   _adhd_after_connect $?
 fi
 
-if command -v adhd-hub >/dev/null 2>&1; then
-  adhd-hub "$@"
-  exit $?
-fi
+_adhd_print_manual_uv() {{
+  echo "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)." >&2
+  echo "Install uv from https://docs.astral.sh/uv/ , then:" >&2
+  echo "  uv tool install --force \\"$PKG_FROM\\"" >&2
+  echo "  curl -fsSL $HUB_URL/install.sh | sh -s -- $PROJECT" >&2
+  echo "Or from a checkout: uv run adhd-hub connect \\"$PROJECT\\" --hub \\"$HUB_URL\\"" >&2
+  echo "Windows PowerShell: irm $HUB_URL/install.ps1 | iex" >&2
+  echo "Non-interactive automation: set ADHD_HUB_INSTALL_UV=1 to opt into installing uv + the CLI." >&2
+}}
+
+_adhd_bootstrap_uv_and_cli() {{
+  if [ "${{DRY_RUN:-0}}" -eq 1 ]; then
+    echo "Dry-run: uv/adhd-hub are not installed and will not be bootstrapped. Install them first, or re-run without --dry-run." >&2
+    exit 1
+  fi
+  echo "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)."
+  ANSWER=""
+  case "${{ADHD_HUB_INSTALL_UV:-}}" in
+    1|true|TRUE|yes|YES) ANSWER=y ;;
+  esac
+  if [ -z "$ANSWER" ]; then
+    if [ -r /dev/tty ]; then
+      printf "Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N] " >/dev/tty
+      IFS= read -r ANSWER </dev/tty || ANSWER=""
+    else
+      _adhd_print_manual_uv
+      exit 1
+    fi
+  fi
+  case "$ANSWER" in
+    y|Y|yes|YES) ;;
+    *)
+      _adhd_print_manual_uv
+      exit 1
+      ;;
+  esac
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Installing uv via https://astral.sh/uv/install.sh …"
+    curl -fsSL https://astral.sh/uv/install.sh | sh
+    _adhd_ensure_uv_path
+  fi
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "uv installed but not found on PATH. Add ~/.local/bin (and ~/.cargo/bin) to PATH, then re-run." >&2
+    exit 1
+  fi
+  echo "Installing ADHD Hub CLI (uv tool install)…"
+  # --force: leftover ~/.local/bin/adhd-hub after removing uv blocks plain install.
+  uv tool install --force "$PKG_FROM"
+  _adhd_ensure_uv_path
+  if command -v adhd-hub >/dev/null 2>&1; then
+    adhd-hub "$@"
+    exit $?
+  fi
+  if command -v uvx >/dev/null 2>&1; then
+    uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
+    _adhd_after_connect $?
+  fi
+  echo "CLI install finished but adhd-hub/uvx still not on PATH. Re-open your shell or add uv's bin dir, then re-run." >&2
+  exit 1
+}}
 
 if command -v uv >/dev/null 2>&1; then
-  echo "adhd-hub not on PATH. Try: uv tool install {UV_PACKAGE_GIT}" >&2
+  # uv present but no adhd-hub / uvx path taken — offer permanent CLI install then connect.
+  if [ "${{DRY_RUN:-0}}" -eq 1 ]; then
+    echo "Dry-run: adhd-hub is not on PATH and will not be installed. Use uvx or install the CLI, then re-run without --dry-run." >&2
+    exit 1
+  fi
+  ANSWER=""
+  case "${{ADHD_HUB_INSTALL_CLI:-}}" in
+    1|true|TRUE|yes|YES) ANSWER=y ;;
+  esac
+  if [ -z "$ANSWER" ]; then
+    if [ -r /dev/tty ]; then
+      printf "adhd-hub is not on PATH. Install it now with uv tool install? [y/N] " >/dev/tty
+      IFS= read -r ANSWER </dev/tty || ANSWER=""
+    fi
+  fi
+  case "$ANSWER" in
+    y|Y|yes|YES)
+      echo "Installing ADHD Hub CLI (uv tool install)…"
+      uv tool install --force "$PKG_FROM"
+      _adhd_ensure_uv_path
+      if command -v adhd-hub >/dev/null 2>&1; then
+        adhd-hub "$@"
+        exit $?
+      fi
+      echo "CLI install finished but adhd-hub still not on PATH. Reopen your shell or add ~/.local/bin, then re-run." >&2
+      exit 1
+      ;;
+  esac
+  echo "adhd-hub not on PATH. Try: uv tool install --force \\"$PKG_FROM\\"" >&2
   echo "Or from a checkout: uv run adhd-hub connect \\"$PROJECT\\" --hub \\"$HUB_URL\\"" >&2
+  echo "Non-interactive opt-in: ADHD_HUB_INSTALL_CLI=1" >&2
   exit 1
 fi
 
-echo "Install the ADHD Hub CLI first (uv tool install {UV_PACKAGE_GIT}), then re-run:" >&2
-echo "  curl -fsSL $HUB_URL/install.sh | sh -s -- $PROJECT" >&2
-echo "Windows PowerShell: irm $HUB_URL/install.ps1 | iex" >&2
-exit 1
+_adhd_bootstrap_uv_and_cli "$@"
 """
 
 
@@ -863,6 +1110,44 @@ if ($env:ADHD_HUB_CONNECT_FLAGS) {{
 
 # `exit` after `irm | iex` closes the whole interactive PowerShell window.
 # Only propagate exit codes when this script was run as a file (-File).
+function Offer-AdhdPermanentCli {{
+  if ($DryRun) {{ return }}
+  if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{ return }}
+  # connect already asked (or installed) during Do next — do not prompt twice.
+  if ($env:ADHD_HUB_CLI_INSTALL_PROMPTED -eq "1") {{ return }}
+  if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {{
+    Write-Host ("Optional permanent install (puts adhd-hub on PATH): uv tool install --force `"{0}`"" -f $pkgFrom)
+    return
+  }}
+  $answer = ""
+  switch -Regex ($env:ADHD_HUB_INSTALL_CLI) {{
+    '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
+  }}
+  if (-not $answer) {{
+    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+      $answer = Read-Host "Install adhd-hub permanently on PATH with uv tool install? [y/N]"
+      $env:ADHD_HUB_CLI_INSTALL_PROMPTED = "1"
+    }} else {{
+      Write-Host ("Optional permanent install: uv tool install --force `"{0}`"" -f $pkgFrom)
+      Write-Host "Non-interactive opt-in: ADHD_HUB_INSTALL_CLI=1"
+      return
+    }}
+  }}
+  if ($answer -notmatch '^(y|Y|yes|YES)$') {{
+    Write-Host ("Skipped. Optional later: uv tool install --force `"{0}`"" -f $pkgFrom)
+    return
+  }}
+  Write-Host "Installing ADHD Hub CLI (uv tool install)…"
+  # --force: leftover shim after removing uv blocks plain install.
+  & uv tool install --force $pkgFrom
+  Ensure-AdhdUvPath
+  if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{
+    Write-Host ("adhd-hub is on PATH. Try: adhd-hub doctor --hub `"{0}`" --project `"{1}`"" -f $HubUrl, $Project)
+  }} else {{
+    Write-Host "Install finished; reopen your shell (or add uv's bin dir) if adhd-hub is not found yet."
+  }}
+}}
+
 function Complete-AdhdInstall([int]$Code) {{
   if ($Code -ne 0) {{
     Write-Host ""
@@ -876,8 +1161,8 @@ function Complete-AdhdInstall([int]$Code) {{
         Write-Host ""
         Write-Host "Doctor (uvx — adhd-hub is not on PATH yet):" -ForegroundColor Cyan
         Write-Host ("  uvx --refresh --from `"$pkgFrom`" adhd-hub doctor --hub `"$HubUrl`" --project `"$Project`"")
-        Write-Host "Optional permanent install: uv tool install `"$pkgFrom`""
       }}
+      Offer-AdhdPermanentCli
     }}
   }}
   if ($PSCommandPath) {{ exit $Code }}
@@ -892,33 +1177,144 @@ try {{
   $pkgFrom = "{UV_PACKAGE_GIT}"
 }}
 
-if (Get-Command uvx -ErrorAction SilentlyContinue) {{
-  & uvx --refresh --from $pkgFrom adhd-hub @connectArgs
-  Complete-AdhdInstall $LASTEXITCODE
-  return
+# Parent install script owns permanent-CLI prompts after connect.
+$env:ADHD_HUB_FROM_INSTALL_SCRIPT = "1"
+
+function Ensure-AdhdUvPath {{
+  $env:Path = "$env:USERPROFILE/.local/bin;$env:USERPROFILE/.cargo/bin;$env:Path"
 }}
 
+function Update-AdhdExistingCli {{
+  # Re-running install against this Hub should refresh a durable CLI already on PATH.
+  if ($DryRun) {{ return }}
+  if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {{ return }}
+  if (-not (Get-Command adhd-hub -ErrorAction SilentlyContinue)) {{ return }}
+  Write-Host "Updating existing adhd-hub CLI from this Hub…"
+  & uv tool install --force $pkgFrom
+  if ($LASTEXITCODE -ne 0) {{
+    Write-Warning "Could not refresh adhd-hub CLI; continuing with the current binary."
+  }}
+  Ensure-AdhdUvPath
+}}
+
+Update-AdhdExistingCli
+
+# Prefer a refreshed durable CLI; fall back to ephemeral uvx from this Hub's wheel.
 if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{
   & adhd-hub @connectArgs
   Complete-AdhdInstall $LASTEXITCODE
   return
 }}
 
-if (Get-Command uv -ErrorAction SilentlyContinue) {{
-  Write-Error "adhd-hub not on PATH. Try: uv tool install {UV_PACKAGE_GIT}"
-  Write-Error ("Or from a checkout: uv run adhd-hub connect `"{{0}}`" --hub `"{{1}}`"" -f $Project, $HubUrl)
-  Complete-AdhdInstall 1
+if (Get-Command uvx -ErrorAction SilentlyContinue) {{
+  & uvx --refresh --from $pkgFrom adhd-hub @connectArgs
+  Complete-AdhdInstall $LASTEXITCODE
   return
 }}
 
-Write-Host @"
-Install the ADHD Hub CLI first (uv tool install {UV_PACKAGE_GIT}), then re-run:
+function Write-AdhdManualUv {{
+  Write-Host "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)." -ForegroundColor Yellow
+  Write-Host "Install uv from https://docs.astral.sh/uv/ , then:"
+  Write-Host ("  uv tool install --force `"{0}`"" -f $pkgFrom)
+  Write-Host @"
   irm $HubUrl/install.ps1 | iex
   # safer download-then-run:
   iwr $HubUrl/install.ps1 -OutFile $env:TEMP\\adhd-hub-install.ps1
   powershell -ExecutionPolicy Bypass -File $env:TEMP\\adhd-hub-install.ps1 -Project '$Project'
 macOS/Linux: curl -fsSL $HubUrl/install.sh | sh -s -- $Project
+Non-interactive automation: set ADHD_HUB_INSTALL_UV=1 to opt into installing uv + the CLI.
 "@
+}}
+
+if (Get-Command uv -ErrorAction SilentlyContinue) {{
+  # uv present but no adhd-hub / uvx — offer permanent CLI install then connect.
+  if ($DryRun) {{
+    Write-Error "Dry-run: adhd-hub is not on PATH and will not be installed. Use uvx or install the CLI, then re-run without -DryRun."
+    Complete-AdhdInstall 1
+    return
+  }}
+  $answer = ""
+  switch -Regex ($env:ADHD_HUB_INSTALL_CLI) {{
+    '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
+  }}
+  if (-not $answer) {{
+    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+      $answer = Read-Host "adhd-hub is not on PATH. Install it now with uv tool install? [y/N]"
+    }}
+  }}
+  if ($answer -match '^(y|Y|yes|YES)$') {{
+    Write-Host "Installing ADHD Hub CLI (uv tool install)…"
+    & uv tool install --force $pkgFrom
+    Ensure-AdhdUvPath
+    if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{
+      & adhd-hub @connectArgs
+      Complete-AdhdInstall $LASTEXITCODE
+      return
+    }}
+    Write-Error "CLI install finished but adhd-hub still not on PATH. Reopen your shell or add uv's bin dir, then re-run."
+    Complete-AdhdInstall 1
+    return
+  }}
+  Write-Error ("adhd-hub not on PATH. Try: uv tool install --force `"{0}`"" -f $pkgFrom)
+  Write-Error ("Or from a checkout: uv run adhd-hub connect `"{{0}}`" --hub `"{{1}}`"" -f $Project, $HubUrl)
+  Write-Error "Non-interactive opt-in: ADHD_HUB_INSTALL_CLI=1"
+  Complete-AdhdInstall 1
+  return
+}}
+
+if ($DryRun) {{
+  Write-Error "Dry-run: uv/adhd-hub are not installed and will not be bootstrapped. Install them first, or re-run without -DryRun."
+  Complete-AdhdInstall 1
+  return
+}}
+
+Write-Host "Hub connect needs the uv toolchain and the adhd-hub CLI (local tools only; nothing remote is modified)."
+$answer = ""
+switch -Regex ($env:ADHD_HUB_INSTALL_UV) {{
+  '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
+}}
+if (-not $answer) {{
+  if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+    $answer = Read-Host "Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N]"
+  }} else {{
+    Write-AdhdManualUv
+    Complete-AdhdInstall 1
+    return
+  }}
+}}
+if ($answer -notmatch '^(y|Y|yes|YES)$') {{
+  Write-AdhdManualUv
+  Complete-AdhdInstall 1
+  return
+}}
+
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {{
+  Write-Host "Installing uv via https://astral.sh/uv/install.ps1 …"
+  irm https://astral.sh/uv/install.ps1 | iex
+  Ensure-AdhdUvPath
+}}
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {{
+  Write-Error "uv installed but not found on PATH. Add uv's bin directory to PATH, then re-run."
+  Complete-AdhdInstall 1
+  return
+}}
+
+Write-Host "Installing ADHD Hub CLI (uv tool install)…"
+& uv tool install --force $pkgFrom
+Ensure-AdhdUvPath
+
+if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {{
+  & adhd-hub @connectArgs
+  Complete-AdhdInstall $LASTEXITCODE
+  return
+}}
+if (Get-Command uvx -ErrorAction SilentlyContinue) {{
+  & uvx --refresh --from $pkgFrom adhd-hub @connectArgs
+  Complete-AdhdInstall $LASTEXITCODE
+  return
+}}
+
+Write-Error "CLI install finished but adhd-hub/uvx still not on PATH. Re-open your shell or add uv's bin dir, then re-run."
 Complete-AdhdInstall 1
 """
 
@@ -946,7 +1342,7 @@ def run_connect(
     with_serena: bool = False,
 ) -> ConnectReport:
     hub_url = normalize_hub_url(hub_url)
-    report = ConnectReport(hub_url=hub_url)
+    report = ConnectReport(hub_url=hub_url, dry_run=dry_run)
     project = project.expanduser().resolve()
     if dry_run:
         report.add("mode", "ok", "dry-run (no files or remote writes)")
@@ -1285,7 +1681,7 @@ def run_doctor(
     agents: list[str] | None = None,
 ) -> ConnectReport:
     hub_url = normalize_hub_url(hub_url)
-    report = ConnectReport(hub_url=hub_url)
+    report = ConnectReport(hub_url=hub_url, dry_run=False)
     ok, detail = probe_hub(hub_url, token=token)
     report.add("hub", "ok" if ok else "error", detail)
 
@@ -1456,7 +1852,7 @@ def run_use_hub(
     ``login`` calls without ``--hub`` use this URL instead of localhost.
     """
     hub_url = normalize_hub_url(hub_url)
-    report = ConnectReport(hub_url=hub_url)
+    report = ConnectReport(hub_url=hub_url, dry_run=dry_run)
     if dry_run:
         report.add("mode", "ok", "dry-run (no files or remote writes)")
 
@@ -1583,11 +1979,10 @@ def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
                 doctor_part = setup.detail.split("run:", 1)[1].strip()
                 print(f"  - Verify anytime: {doctor_part}")
             install_hint = permanent_cli_install_hint(report.hub_url)
-            if install_hint:
-                print(
-                    "  - Optional (puts `adhd-hub` on PATH): "
-                    f"{install_hint}"
-                )
+            if install_hint and not report.dry_run:
+                # Ask on TTY (or ADHD_HUB_INSTALL_CLI=1); otherwise print the command.
+                # Skip during --dry-run; install.sh/ps1 set ADHD_HUB_FROM_INSTALL_SCRIPT.
+                offer_permanent_cli_install(report.hub_url)
         if any(s.name.startswith("companion ") for s in report.steps):
             print(
                 "  - Optional companions (pick what fits — see guide): "

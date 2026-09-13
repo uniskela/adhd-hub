@@ -364,3 +364,64 @@ def test_profile_test_connection_success_and_error(tmp_path: Path) -> None:
     assert bad["ok"] is False
     assert "token" not in bad
     assert "secret" not in str(bad)
+
+
+def test_draft_profile_test_connection_without_save(tmp_path: Path) -> None:
+    svc = _svc(tmp_path)
+    # No profiles saved — draft-only probe must work.
+    with patch("httpx.Client") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"login": "draft-user"}
+        client.get.return_value = resp
+        ok = svc.test_forge_connection_profile(
+            "unsaved-1",
+            draft={
+                "name": "Draft GitHub",
+                "provider": "github",
+                "token": "ghp_draft_token",
+                "base_url": "https://api.github.com",
+                "web_base_url": "https://github.com",
+                "owner": "user123",
+                "repo": "my-repo",
+            },
+        )
+    assert ok["ok"] is True
+    assert ok["login"] == "draft-user"
+    assert "token" not in ok
+    assert "ghp_" not in str(ok)
+    # Still nothing persisted.
+    cfg = load_forge_config(svc.settings.data_dir)
+    assert not any(p.id == "unsaved-1" for p in cfg.connection_profiles)
+
+
+def test_draft_profile_test_missing_credentials_hint(tmp_path: Path) -> None:
+    svc = _svc(tmp_path)
+    missing = svc.test_forge_connection_profile(
+        "ghost",
+        draft={"name": "Empty", "provider": "github", "token": ""},
+    )
+    assert missing["ok"] is False
+    assert missing["error"] == "credentials_missing"
+    assert "hint" in missing
+
+
+def test_normalize_owner_repo_strips_urls() -> None:
+    from adhd_hub.forge.config import normalize_owner_repo, parse_owner_repo_from_url
+
+    assert normalize_owner_repo("", "https://github.com/user123/my-repo.git") == (
+        "user123",
+        "my-repo",
+    )
+    assert normalize_owner_repo("user123", "https://github.com/user123/my-repo") == (
+        "user123",
+        "my-repo",
+    )
+    assert normalize_owner_repo("user123", "my-repo") == ("user123", "my-repo")
+    assert parse_owner_repo_from_url(
+        "https://github.com/user123/my-repo/tree/main"
+    ) == ("user123", "my-repo")
+    assert parse_owner_repo_from_url(
+        "https://github.com/user123/my-repo/pull/42"
+    ) == ("user123", "my-repo")

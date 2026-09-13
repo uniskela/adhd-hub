@@ -142,10 +142,44 @@ export function renderStats(o) {
       .map((d) => {
         const a = Math.round(((d.added || 0) / max) * 100);
         const f = Math.round(((d.finished || 0) / max) * 100);
-        return `<div class="col" title="${escapeHtml(d.date)}: +${d.added || 0} / ✓${d.finished || 0}">
+        const added = d.added || 0;
+        const finished = d.finished || 0;
+        return `<div class="col" tabindex="0" data-date="${escapeHtml(d.date)}" data-added="${added}" data-finished="${finished}">
           <div class="bar add" style="height:${a}%"></div>
           <div class="bar done" style="height:${f}%"></div>
         </div>`;
       })
       .join("");
+    wireChartDayTips(chart);
+  }
+
+function wireChartDayTips(chart) {
+    const tip = $("chart-day-tip");
+    if (!chart || !tip) return;
+    const hide = () => {
+      tip.hidden = true;
+      tip.textContent = "";
+    };
+    const showFor = (col) => {
+      if (!col) return;
+      const date = col.dataset.date || "";
+      const added = Number(col.dataset.added || 0);
+      const finished = Number(col.dataset.finished || 0);
+      tip.innerHTML = `<strong>${escapeHtml(date)}</strong><br><span class="added">${added} added</span> · <span class="finished">${finished} finished</span>`;
+      tip.hidden = false;
+      const wrap = chart.closest(".chart-wrap") || chart;
+      const wrapRect = wrap.getBoundingClientRect();
+      const colRect = col.getBoundingClientRect();
+      const left = colRect.left - wrapRect.left + colRect.width / 2;
+      const top = colRect.top - wrapRect.top;
+      tip.style.left = `${Math.max(48, Math.min(left, wrapRect.width - 48))}px`;
+      tip.style.top = `${Math.max(8, top)}px`;
+    };
+    chart.querySelectorAll(".col").forEach((col) => {
+      col.addEventListener("mouseenter", () => showFor(col));
+      col.addEventListener("mouseleave", hide);
+      col.addEventListener("focus", () => showFor(col));
+      col.addEventListener("blur", hide);
+      col.addEventListener("click", () => showFor(col));
+    });
   }

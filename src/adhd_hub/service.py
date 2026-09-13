@@ -225,19 +225,57 @@ class HubService:
         saved = self.save_forge_config(cfg.model_copy(update=updates))
         return {"deleted": pid, "default_connection_profile_id": saved.default_connection_profile_id}
 
-    def test_forge_connection_profile(self, profile_id: str) -> dict:
-        """Probe a profile endpoint; never echo the token."""
+    def test_forge_connection_profile(
+        self, profile_id: str, draft: dict | None = None
+    ) -> dict:
+        """Probe a profile endpoint; never echo the token.
+
+        Optional ``draft`` lets the UI test unsaved card fields before Save forge.
+        Draft values overlay a saved profile when both exist (so token edits work).
+        """
         import httpx
 
-        from adhd_hub.forge.config import config_from_profile, profile_canonical_host
+        from adhd_hub.forge.config import (
+            ForgeConnectionProfile,
+            ForgeProvider,
+            config_from_profile,
+            normalize_owner_repo,
+            profile_canonical_host,
+        )
         from adhd_hub.forge.repo_sync import _headers
 
         cfg = self.forge_config()
-        profile = cfg.profile_by_id(profile_id)
+        saved = cfg.profile_by_id(profile_id)
+        profile: ForgeConnectionProfile | None = saved
+        if isinstance(draft, dict) and draft:
+            base = saved.model_dump() if saved else {"id": profile_id, "name": "draft"}
+            overlay = {k: v for k, v in draft.items() if v is not None}
+            token = overlay.get("token")
+            if isinstance(token, str) and (not token.strip() or token.startswith("***")):
+                overlay.pop("token", None)
+            base.update(overlay)
+            base["id"] = profile_id or str(base.get("id") or "draft")
+            no, nr = normalize_owner_repo(base.get("owner"), base.get("repo"))
+            base["owner"] = no
+            base["repo"] = nr
+            try:
+                if "provider" in base and not isinstance(base["provider"], ForgeProvider):
+                    base["provider"] = ForgeProvider(str(base["provider"] or "none"))
+                profile = ForgeConnectionProfile.model_validate(base)
+            except (ValueError, TypeError):
+                return {"ok": False, "error": "invalid_draft_profile"}
         if profile is None:
-            return {"ok": False, "error": "profile_not_found"}
-        if profile.provider.value == "none" or not profile.token:
-            return {"ok": False, "error": "credentials_missing"}
+            return {
+                "ok": False,
+                "error": "profile_not_found",
+                "hint": "Fill provider and token on the card, or Save forge first.",
+            }
+        if profile.provider.value == "none" or not (profile.token or "").strip():
+            return {
+                "ok": False,
+                "error": "credentials_missing",
+                "hint": "Choose a provider and paste a token, then Test again.",
+            }
         operational = config_from_profile(cfg, profile)
         url = f"{operational.api_root()}/user"
         try:
@@ -359,6 +397,16 @@ class HubService:
         return None
 
     def upsert_project(self, payload: ProjectUpsert) -> Project:
+        from adhd_hub.forge.config import normalize_owner_repo
+
+        owner, repo = normalize_owner_repo(payload.forge_owner, payload.forge_repo)
+        if owner != (payload.forge_owner or "") or repo != (payload.forge_repo or ""):
+            payload = payload.model_copy(
+                update={
+                    "forge_owner": owner or None,
+                    "forge_repo": repo or None,
+                }
+            )
         return self.store.upsert_project(payload)
 
     def get_project_detail(self, slug: str) -> dict | None:

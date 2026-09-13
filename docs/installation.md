@@ -12,6 +12,8 @@ ADHD Progress Hub is a self-hosted server. For a persistent home server or VPS, 
 | Source + `uv` | Development or non-container server | Pull source, `uv sync`, restart |
 | `uv tool install` | Client CLI only | Re-run with `--upgrade` |
 
+Client machines that only need `connect` can also run the Hub’s `/install.sh` or `/install.ps1`. If `uv` is missing, those scripts ask before using Astral’s official installer (or honor `ADHD_HUB_INSTALL_UV=1` for non-interactive opt-in). See [Connect](connect.md).
+
 ADHD Hub requires a persistent data directory. In the container image that directory is `/data`; do not run the server without a persistent volume if you care about its threads, wiki, preferences, sessions, and local configuration.
 
 ## Docker Compose with a published image

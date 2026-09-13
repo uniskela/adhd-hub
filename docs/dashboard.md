@@ -39,7 +39,7 @@ Switching projects clears the previous project’s actions while the new one loa
 
 ## Settings and sharing
 
-Settings is a full application destination with categories for **Preferences**, **Account**, **Agents & install**, **Windows / MCP**, **OpenClaw**, **Forge**, and **Data**. Desktop uses the left category navigation; mobile opens a simple Settings index and each category has a Back to settings action. Appearance and rewards save automatically in this browser; timezone uses **Save**. Password controls are under Account.
+Settings is a full application destination with categories for **Preferences**, **Account**, **Agents & install**, **Windows / MCP**, **OpenClaw**, **Forge**, and **Data**. Desktop uses the left category navigation; mobile opens a simple Settings index and each category has a Back to settings action. Appearance and rewards save automatically in this browser; timezone uses **Save**. Password controls are under Account. Forge setup (Default profile vs project repos, import policies, PATs) is documented in [Forge permissions](forge-permissions.md).
 
 With rewards enabled, Progress shows the hub's current rank, upcoming rank, and six completion badges. Use **Share progress** to preview the exact export, then download a PNG or copy the text. Compatible devices also offer a share sheet. Nothing is posted automatically. The preview excludes task titles, project names, notes, and connection details. Ranks represent this hub's records; there is no public leaderboard yet.
 

@@ -165,6 +165,7 @@
             <p id="chart-summary" class="chart-summary visually-hidden"></p>
             <p class="eyebrow">Last 14 days · gold: added · teal: finished</p>
             <div class="chart" id="chart" role="img" aria-label="Activity over the last 14 days"></div>
+            <div id="chart-day-tip" class="chart-day-tip" role="tooltip" hidden></div>
           </div></details>        </details>
         <section id="rewards-panel" class="milestones" aria-labelledby="rewards-title" hidden>
           <div class="rank-hero">
@@ -323,7 +324,15 @@
               </section>
               <section id="settings-forge" role="tabpanel" aria-labelledby="tab-forge" tabindex="0" hidden>
                 <h2>Forge mirror</h2>
-                <p class="hint">Connection profiles hold credentials and import policy. Projects pick a profile (or stay local-only). Hub-wide wiki/inbox flags below apply to the default memory connection.</p>
+                <p class="hint">Connection profiles hold credentials and import policy. Projects pick a profile (or stay local-only). Hub-wide wiki/inbox flags below apply to the default memory connection. <a class="forge-learn-more" href="https://uniskela.github.io/adhd-hub/forge-permissions/" target="_blank" rel="noopener">Learn more</a></p>
+                <div class="forge-setup-steps">
+                  <strong>Setup order</strong>
+                  <ol>
+                    <li>Add a profile → paste token → <strong>Save forge</strong> (Test works on drafts; Save keeps it).</li>
+                    <li>Set <strong>Import policy</strong> away from Manual if you want Sync to import new issues.</li>
+                    <li>On the project: pick the connection → set owner + <strong>repo name</strong> (not a URL) → Save → Sync.</li>
+                  </ol>
+                </div>
 
                 <h3>Connection profiles</h3>
                 <div id="forge-profiles" class="forge-profiles"></div>
@@ -340,9 +349,9 @@
                 </div>
                 <div class="form-grid">
                   <label>Wiki path <input id="wiki_path" placeholder="blank = repo root" /></label>
-                  <label>Wiki branch <input id="wiki_branch" /></label>
-                  <label>Hub public URL <input id="hub_public_url" /></label>
-                  <label>Gitea project id <input id="project_id" /></label>
+                  <label>Wiki branch <input id="wiki_branch" placeholder="main" /></label>
+                  <label>Hub public URL <input id="hub_public_url" placeholder="https://hub.example.com" /></label>
+                  <label>Gitea project id <input id="project_id" placeholder="42" /></label>
                 </div>
                 <div class="checks">
                   <label><input type="checkbox" id="wiki_enabled" /> Wiki sync</label>
@@ -350,7 +359,7 @@
                   <label><input type="checkbox" id="board_inbox_enabled" /> Import cloud-agent issues (inbox)</label>
                   <label><input type="checkbox" id="primary_memory_repo" /> Primary memory repo</label>
                 </div>
-                <label>Inbox authors (allowlist) <input id="board_inbox_authors" placeholder="your-login, bot-account" autocomplete="username" /></label>
+                <label>Inbox authors (allowlist) <input id="board_inbox_authors" placeholder="user123, automation-bot" autocomplete="username" /></label>
                 <p class="hint">For <code>adhd_inbox</code> policy on a profile, inbox must be enabled and authors allowlisted (fail closed).</p>
                 <div class="actions">
                   <button type="button" class="primary" id="btn-save-forge">Save forge</button>
@@ -409,16 +418,18 @@
             <option value="">None (local-only)</option>
           </select>
         </label>
+        <p id="p_effective_import_policy" class="effective-import-policy hint span2" hidden></p>
         <label class="span2">Workspace path <input id="p_path" placeholder="Z:\Projects\…" /></label>
         <label class="span2">Description <textarea id="p_desc"></textarea></label>
       </div>
       <details class="advanced">
         <summary>Advanced forge overrides</summary>
+        <p class="hint">Owner and repo are <strong>name fragments only</strong> (issues/board). Full URLs go in Repository URL above. Wiki/PROGRESS still uses the Hub Default profile.</p>
         <div class="form-grid">
-          <label>Forge owner <input id="p_forge_owner" /></label>
-          <label>Forge repo <input id="p_forge_repo" /></label>
+          <label>Forge owner <input id="p_forge_owner" placeholder="user123" /></label>
+          <label>Forge repo <input id="p_forge_repo" placeholder="my-repo" /></label>
           <label>Wiki path <input id="p_forge_wiki" placeholder="(blank = repo root)" /></label>
-          <label>Project board id <input id="p_forge_project_id" placeholder="Gitea project id" /></label>
+          <label>Project board id <input id="p_forge_project_id" placeholder="42" /></label>
         </div>
       </details>
       <div class="actions">

@@ -3,6 +3,13 @@ import { api } from './api.js';
 import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink } from './dom.js';
 import { loadAll } from './load.js';
 import { chooseThread, wireNotes } from './now.js';
+import {
+  IMPORT_POLICY_HINTS,
+  IMPORT_POLICY_LABELS,
+  attachTip,
+  normalizeForgeOwnerRepo,
+  parseOwnerRepoFromUrl,
+} from './help.js';
 
 export function renderProjects(projects) {
     const list = $("project-list");
@@ -73,6 +80,9 @@ export function fillProjectForm(p) {
       syncBtn.hidden = !!p.unregistered || p.slug === "unclassified";
       syncBtn.disabled = false;
     }
+    attachProjectForgeTips();
+    maybePrefillForgeOwnerRepoFromUrl();
+    updateEffectiveImportPolicy();
   }
 
 function fillForgeConnectionSelect(selectedId) {
@@ -88,7 +98,87 @@ function fillForgeConnectionSelect(selectedId) {
         )
         .join("");
     sel.value = selectedId || "";
+    updateEffectiveImportPolicy();
   }
+
+function updateEffectiveImportPolicy() {
+    const el = $("p_effective_import_policy");
+    const sel = $("p_forge_connection_profile_id");
+    if (!el || !sel) return;
+    const id = sel.value || "";
+    if (!id) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    const profiles = state.forgeConfigCache?.connection_profiles || [];
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    const policy = profile.issue_import_policy || "manual";
+    const label = IMPORT_POLICY_LABELS[policy] || policy;
+    const detail = IMPORT_POLICY_HINTS[policy] || "";
+    el.hidden = false;
+    el.textContent = `Import policy: ${label}. ${detail}`;
+  }
+
+function maybePrefillForgeOwnerRepoFromUrl() {
+    const ownerEl = $("p_forge_owner");
+    const repoEl = $("p_forge_repo");
+    const urlEl = $("p_repo_url");
+    if (!ownerEl || !repoEl || !urlEl) return;
+    if ((ownerEl.value || "").trim() || (repoEl.value || "").trim()) return;
+    const parsed = parseOwnerRepoFromUrl(urlEl.value.trim());
+    if (!parsed) return;
+    ownerEl.value = parsed.owner;
+    repoEl.value = parsed.repo;
+  }
+
+function attachProjectForgeTips() {
+    const tips = [
+      [
+        "p_forge_connection_profile_id",
+        "Which forge profile’s credentials and import policy this project uses for issues/board sync.",
+      ],
+      [
+        "p_forge_owner",
+        "Forge owner/org name only (user123). Overrides the profile default for issues/board — not the Hub wiki memory repo.",
+      ],
+      [
+        "p_forge_repo",
+        "Repository name only (my-repo), never a full URL. Full URLs belong in Repository URL above.",
+      ],
+      [
+        "p_forge_wiki",
+        "Optional wiki path override for this project’s forge target. Blank = repo root. Hub PROGRESS.md still uses the Default profile.",
+      ],
+      ["p_forge_project_id", "Optional Gitea/Forgejo project board id for this project."],
+      [
+        "p_repo_url",
+        "Full repository URL for display/open-repo. When Advanced forge owner/repo are blank, owner/repo are derived from this URL on blur.",
+      ],
+    ];
+    for (const [id, tip] of tips) {
+      const el = $(id);
+      const label = el?.closest("label");
+      if (label) attachTip(label, tip);
+    }
+    const sel = $("p_forge_connection_profile_id");
+    if (sel && !sel.dataset.policyBound) {
+      sel.dataset.policyBound = "1";
+      sel.addEventListener("change", () => updateEffectiveImportPolicy());
+    }
+    const url = $("p_repo_url");
+    if (url && !url.dataset.prefillBound) {
+      url.dataset.prefillBound = "1";
+      url.addEventListener("blur", () => maybePrefillForgeOwnerRepoFromUrl());
+      url.addEventListener("change", () => maybePrefillForgeOwnerRepoFromUrl());
+    }
+  }
+
 
 export async function suggestProjectForgeConnection() {
     const sel = $("p_forge_connection_profile_id");
@@ -403,8 +493,19 @@ export async function syncProjectForge() {
             0
           )
         : 0;
+      const sel = $("p_forge_connection_profile_id");
+      const profiles = state.forgeConfigCache?.connection_profiles || [];
+      const profile = profiles.find((p) => p.id === (sel?.value || ""));
+      const policy = profile?.issue_import_policy || "manual";
+      let extra = "";
+      if (discovered === 0 && policy === "manual") {
+        extra =
+          " (import policy: manual — Sync will not import new issues; change the policy on the forge profile to import)";
+      } else if (discovered === 0 && profile) {
+        extra = ` (import policy: ${IMPORT_POLICY_LABELS[policy] || policy})`;
+      }
       setMsg(
-        `Forge sync for ${slug}: ${reconciled} linked checked, ${discovered} imported.`
+        `Forge sync for ${slug}: ${reconciled} linked checked, ${discovered} imported.${extra}`
       );
       await loadAll();
     } catch (e) {
@@ -419,6 +520,12 @@ export async function saveProject() {
       setMsg("Title is required.");
       return;
     }
+    maybePrefillForgeOwnerRepoFromUrl();
+    const rawOwner = $("p_forge_owner").value.trim();
+    const rawRepo = $("p_forge_repo").value.trim();
+    const { owner, repo } = normalizeForgeOwnerRepo(rawOwner, rawRepo);
+    if ($("p_forge_owner")) $("p_forge_owner").value = owner;
+    if ($("p_forge_repo")) $("p_forge_repo").value = repo;
     const payload = {
       title,
       slug: $("p_slug").value.trim() || null,
@@ -428,8 +535,8 @@ export async function saveProject() {
         : [],
       repo_url: $("p_repo_url").value.trim() || null,
       forge_connection_profile_id: $("p_forge_connection_profile_id")?.value || null,
-      forge_owner: $("p_forge_owner").value.trim() || null,
-      forge_repo: $("p_forge_repo").value.trim() || null,
+      forge_owner: owner || null,
+      forge_repo: repo || null,
       forge_wiki_path: $("p_forge_wiki").value.trim() || null,
       forge_project_id: $("p_forge_project_id").value.trim() || null,
     };

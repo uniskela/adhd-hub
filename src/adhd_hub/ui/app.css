@@ -646,6 +646,131 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 }
 .forge-profile-card .actions { margin-top: .65rem; }
 .forge-profile-test { margin: .4rem 0 0; }
+.forge-profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .65rem;
+}
+.unsaved-badge {
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  border-radius: 999px;
+  padding: .15rem .55rem;
+}
+/* Plain text "?" — must beat global `button { min-height: 44px }` or it becomes a tall oval. */
+button.field-tip,
+.field-tip {
+  position: relative;
+  display: inline;
+  align-items: unset;
+  justify-content: unset;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0 !important;
+  margin: 0 .1rem 0 .3rem;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--muted);
+  font-size: .85em;
+  font-weight: 700;
+  line-height: inherit;
+  cursor: pointer;
+  vertical-align: baseline;
+  box-shadow: none;
+  gap: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+button.field-tip:hover,
+button.field-tip:focus-visible,
+.field-tip:hover,
+.field-tip:focus-visible {
+  color: var(--ink);
+  filter: none;
+  background: transparent !important;
+}
+.field-tip-panel {
+  display: none;
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  top: calc(100% + .35rem);
+  transform: none;
+  width: min(18rem, 70vw);
+  padding: .55rem .7rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: .75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+.field-tip.open .field-tip-panel[hidden] { display: block; }
+.field-tip.open .field-tip-panel { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .field-tip-panel { transition: none; }
+}
+.forge-example-ghosts input::placeholder,
+#settings-forge input::placeholder,
+#project-dialog input::placeholder {
+  color: var(--muted);
+  opacity: .72;
+}
+.import-policy-hint { margin: -.25rem 0 .35rem; }
+.forge-setup-steps {
+  margin: .75rem 0 1rem;
+  padding: .75rem .9rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: .8rem;
+  line-height: 1.45;
+}
+.forge-setup-steps ol { margin: .35rem 0 0 1.1rem; padding: 0; }
+.forge-learn-more { font-size: .85rem; }
+.effective-import-policy {
+  margin: .35rem 0 .75rem;
+  font-size: .8rem;
+  color: var(--muted);
+}
+.chart-wrap { position: relative; }
+.chart-day-tip {
+  position: absolute;
+  z-index: 20;
+  min-width: 8rem;
+  padding: .45rem .6rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: .75rem;
+  line-height: 1.35;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - .4rem));
+}
+.chart-day-tip[hidden] { display: none; }
+.chart-day-tip .added { color: var(--warn); font-weight: 600; }
+.chart-day-tip .finished { color: var(--ok); font-weight: 600; }
+.chart .col {
+  cursor: pointer;
+  outline: none;
+}
+.chart .col:focus-visible {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 4px;
+}
 #settings-msg:not(:empty) { margin: 0 1.5rem .8rem; padding: .6rem .8rem; background: var(--accent-soft); color: var(--ink); border-radius: 10px; }
 .settings-content .setup-banner { background: var(--accent-soft); border-radius: 12px; padding: 1rem; margin: 1rem 0; }
 .settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1.5rem; border-top: 1px solid var(--line); flex-shrink: 0; }

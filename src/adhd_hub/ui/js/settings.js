@@ -4,6 +4,14 @@ import { logout, showLogin } from './auth.js';
 import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { saveRewardPreferences } from './progress.js';
+import {
+  IMPORT_POLICY_HINTS,
+  IMPORT_POLICY_LABELS,
+  tipHtml,
+  attachTip,
+  wireFieldTips,
+  normalizeForgeOwnerRepo,
+} from './help.js';
 
 export function showSettingsIndex() {
   const view = $("settings-view");
@@ -151,6 +159,7 @@ export async function loadForge() {
         ? c.board_inbox_authors.join(", ")
         : c.board_inbox_authors || "";
       $("primary_memory_repo").checked = !!c.primary_memory_repo;
+      attachHubForgeTips();
     } catch (_e) {
       /* forge optional */
     }
@@ -169,39 +178,54 @@ function profileCardHtml(p, idx) {
     const labels = Array.isArray(p.issue_import_labels)
       ? p.issue_import_labels.join(", ")
       : "";
-    return `<article class="forge-profile-card" data-profile-idx="${idx}" data-profile-id="${id}">
+    const unsaved = p._unsaved ? ' data-unsaved="1"' : "";
+    const badge = p._unsaved
+      ? '<span class="unsaved-badge" title="Not saved yet">Unsaved</span>'
+      : "";
+    const policyOptions = ["manual", "all_open", "labels", "assigned_to_me", "adhd_inbox"]
+      .map((v) => {
+        const label = IMPORT_POLICY_LABELS[v] || v;
+        return `<option value="${v}"${policy === v ? " selected" : ""}>${escapeHtml(label)}</option>`;
+      })
+      .join("");
+    return `<article class="forge-profile-card" data-profile-idx="${idx}" data-profile-id="${id}"${unsaved}>
+      <div class="forge-profile-head"><strong>${escapeHtml(p.name || "Connection")}</strong>${badge}</div>
       <div class="form-grid">
-        <label>Name <input data-f="name" value="${escapeHtml(p.name || "")}" /></label>
-        <label>Provider
+        <label>Name ${tipHtml("Friendly label for this connection (shown in project pickers).")}
+          <input data-f="name" value="${escapeHtml(p.name || "")}" placeholder="Github personal" /></label>
+        <label>Provider ${tipHtml("GitHub or Gitea/Forgejo API dialect for this token.")}
           <select data-f="provider">
             <option value="none"${p.provider === "none" ? " selected" : ""}>none</option>
             <option value="gitea"${p.provider === "gitea" ? " selected" : ""}>gitea</option>
             <option value="github"${p.provider === "github" ? " selected" : ""}>github</option>
           </select>
         </label>
-        <label>API base URL <input data-f="base_url" value="${escapeHtml(p.base_url || "")}" /></label>
-        <label>Web base URL <input data-f="web_base_url" value="${escapeHtml(p.web_base_url || "")}" /></label>
-        <label>Owner <input data-f="owner" value="${escapeHtml(p.owner || "")}" /></label>
-        <label>Repo <input data-f="repo" value="${escapeHtml(p.repo || "")}" /></label>
-        <label class="span2">Token <input data-f="token" type="password" value="${escapeHtml(p.token || "")}" autocomplete="off" /></label>
-        <label>Import policy
-          <select data-f="issue_import_policy">
-            <option value="manual"${policy === "manual" ? " selected" : ""}>manual</option>
-            <option value="all_open"${policy === "all_open" ? " selected" : ""}>all_open</option>
-            <option value="labels"${policy === "labels" ? " selected" : ""}>labels</option>
-            <option value="assigned_to_me"${policy === "assigned_to_me" ? " selected" : ""}>assigned_to_me</option>
-            <option value="adhd_inbox"${policy === "adhd_inbox" ? " selected" : ""}>adhd_inbox</option>
-          </select>
+        <label>API base URL ${tipHtml("REST API root. GitHub.com: https://api.github.com — Gitea often ends with /api/v1.")}
+          <input data-f="base_url" value="${escapeHtml(p.base_url || "")}" placeholder="https://api.github.com" /></label>
+        <label>Web base URL ${tipHtml("Browser base for issue links (https://github.com or your Gitea host).")}
+          <input data-f="web_base_url" value="${escapeHtml(p.web_base_url || "")}" placeholder="https://github.com" /></label>
+        <label>Owner ${tipHtml("Account or org name only — not a URL. Example: user123")}
+          <input data-f="owner" value="${escapeHtml(p.owner || "")}" placeholder="user123" /></label>
+        <label>Repo ${tipHtml("Repository name only (my-repo), never a full https:// URL. Full URLs belong in a project Repository URL.")}
+          <input data-f="repo" value="${escapeHtml(p.repo || "")}" placeholder="my-repo" /></label>
+        <label class="span2">Token ${tipHtml("Personal access token for this provider. Never paste tokens into project fields.")}
+          <input data-f="token" type="password" value="${escapeHtml(p.token || "")}" autocomplete="off" placeholder="ghp_… or gitea_…" /></label>
+        <label class="span2">Import policy ${tipHtml("Controls whether Sync imports new issues. Default manual only reconciles already-linked threads (0 imported).")}
+          <select data-f="issue_import_policy">${policyOptions}</select>
         </label>
-        <label>Import labels <input data-f="issue_import_labels" value="${escapeHtml(labels)}" placeholder="label-one, label-two" /></label>
-        <label>Account login <input data-f="forge_account_login" value="${escapeHtml(p.forge_account_login || "")}" placeholder="for assigned_to_me" /></label>
-        <label class="check-row span2"><input type="checkbox" data-f="publish_hub_status_block"${p.publish_hub_status_block ? " checked" : ""} /> Publish Hub status block on forge issues</label>
+        <p class="hint import-policy-hint span2" data-policy-hint>${escapeHtml(IMPORT_POLICY_HINTS[policy] || IMPORT_POLICY_HINTS.manual)}</p>
+        <label>Import labels ${tipHtml("Comma-separated labels used when Import policy is Matching labels.")}
+          <input data-f="issue_import_labels" value="${escapeHtml(labels)}" placeholder="label-one, label-two" /></label>
+        <label>Account login ${tipHtml("Forge username for Assigned to me. Leave blank to use the token’s /user login.")}
+          <input data-f="forge_account_login" value="${escapeHtml(p.forge_account_login || "")}" placeholder="user123" /></label>
+        <label class="check-row span2"><input type="checkbox" data-f="publish_hub_status_block"${p.publish_hub_status_block ? " checked" : ""} /> Publish Hub status block on forge issues ${tipHtml("When on, Hub writes a status block into mirrored forge issue bodies.")}</label>
       </div>
       <div class="actions">
         <button type="button" class="ghost" data-test-profile>Test connection</button>
         <button type="button" class="danger" data-delete-profile>Delete</button>
       </div>
       <p class="hint forge-profile-test" data-test-msg hidden></p>
+      <p class="hint">Test uses this card’s current fields (including unsaved drafts). Save forge to keep the profile.</p>
     </article>`;
   }
 
@@ -236,20 +260,34 @@ export function renderForgeProfiles(cfg) {
         if (pid) deleteForgeProfile(pid).catch((e) => setMsg(String(e)));
       });
     });
+    root.querySelectorAll('[data-f="issue_import_policy"]').forEach((sel) => {
+      const hint = sel.closest(".forge-profile-card")?.querySelector("[data-policy-hint]");
+      const sync = () => {
+        if (hint) hint.textContent = IMPORT_POLICY_HINTS[sel.value] || IMPORT_POLICY_HINTS.manual;
+      };
+      sel.addEventListener("change", sync);
+      sync();
+    });
+    wireFieldTips(root);
   }
 
 function collectForgeProfilesFromDom() {
     return [...document.querySelectorAll(".forge-profile-card")].map((card) => {
       const get = (name) => card.querySelector(`[data-f="${name}"]`);
       const labelsRaw = get("issue_import_labels")?.value || "";
+      const rawOwner = get("owner")?.value?.trim() || "";
+      const rawRepo = get("repo")?.value?.trim() || "";
+      const { owner, repo } = normalizeForgeOwnerRepo(rawOwner, rawRepo);
+      if (get("owner") && owner !== rawOwner) get("owner").value = owner;
+      if (get("repo") && repo !== rawRepo) get("repo").value = repo;
       return {
         id: card.dataset.profileId,
         name: get("name")?.value?.trim() || "",
         provider: get("provider")?.value || "none",
         base_url: get("base_url")?.value?.trim() || "",
         web_base_url: get("web_base_url")?.value?.trim() || "",
-        owner: get("owner")?.value?.trim() || "",
-        repo: get("repo")?.value?.trim() || "",
+        owner,
+        repo,
         token: get("token")?.value?.trim() || "",
         issue_import_policy: get("issue_import_policy")?.value || "manual",
         issue_import_labels: labelsRaw
@@ -258,6 +296,7 @@ function collectForgeProfilesFromDom() {
           .filter(Boolean),
         forge_account_login: get("forge_account_login")?.value?.trim() || "",
         publish_hub_status_block: !!get("publish_hub_status_block")?.checked,
+        _unsaved: card.dataset.unsaved === "1",
       };
     });
   }
@@ -278,10 +317,20 @@ export function addForgeProfile() {
       issue_import_labels: [],
       forge_account_login: "",
       publish_hub_status_block: false,
+      _unsaved: true,
     });
     const next = { ...cfg, connection_profiles: profiles };
     state.forgeConfigCache = next;
     renderForgeProfiles(next);
+  }
+
+function draftFromForgeCard(card) {
+    if (!card) return null;
+    const id = card.dataset.profileId;
+    const row = collectForgeProfilesFromDom().find((p) => p.id === id);
+    if (!row) return null;
+    const { _unsaved, ...draft } = row;
+    return draft;
   }
 
 async function testForgeProfile(profile_id, card) {
@@ -290,18 +339,32 @@ async function testForgeProfile(profile_id, card) {
       msg.hidden = false;
       msg.textContent = "Testing…";
     }
+    const draft = draftFromForgeCard(card);
     const out = await api(`/forge/profiles/${encodeURIComponent(profile_id)}/test`, {
       method: "POST",
-      body: "{}",
+      body: JSON.stringify(draft || {}),
     });
-    const text = out.ok
+    const textOut = out.ok
       ? `Connected${out.login ? ` as ${out.login}` : ""} (${out.provider || ""} @ ${out.host || ""})`
-      : `Failed: ${out.error || "unknown"}`;
-    if (msg) msg.textContent = text;
-    setMsg(text, { variant: out.ok ? "success" : "error" });
+      : `Failed: ${out.error || "unknown"}${out.hint ? ` — ${out.hint}` : ""}`;
+    if (msg) msg.textContent = textOut;
+    setMsg(textOut, { variant: out.ok ? "success" : "error" });
   }
 
 async function deleteForgeProfile(profile_id) {
+    const card = document.querySelector(
+      `.forge-profile-card[data-profile-id="${CSS.escape(profile_id)}"]`
+    );
+    if (card?.dataset.unsaved === "1") {
+      card.remove();
+      const cfg = state.forgeConfigCache || { connection_profiles: [] };
+      state.forgeConfigCache = {
+        ...cfg,
+        connection_profiles: collectForgeProfilesFromDom().map(({ _unsaved, ...p }) => p),
+      };
+      setMsg("Unsaved profile discarded.");
+      return;
+    }
     const result = await confirmDialog({
       title: "Delete connection profile?",
       body: "Projects using this profile must be reassigned first.",
@@ -616,8 +679,52 @@ export async function saveSettings() {
       setMsg("Could not save settings: " + e.message);
     }
   }
+function attachHubForgeTips() {
+    const tips = [
+      [
+        "default_connection_profile_id",
+        "Default profile is the Hub memory connection for all wiki / PROGRESS.md / INDEX.md pushes. A project’s own forge repo only affects issues/board — never the progress wiki target.",
+      ],
+      [
+        "wiki_path",
+        "Path inside the Hub memory repo for wiki files. Blank = repository root (primary memory layout).",
+      ],
+      ["wiki_branch", "Branch used for wiki Contents API writes (usually main)."],
+      [
+        "hub_public_url",
+        "Public Hub URL written into forge status links (https://hub.example.com).",
+      ],
+      ["project_id", "Optional Gitea/Forgejo project board id for board attach."],
+      [
+        "wiki_enabled",
+        "Push PROGRESS.md / INDEX.md to the Default profile memory repo.",
+      ],
+      [
+        "board_enabled",
+        "Create/update forge issues for Hub threads on the project’s forge target.",
+      ],
+      [
+        "board_inbox_enabled",
+        "Poll allowlisted authors for cloud-agent ADHD inbox issues.",
+      ],
+      [
+        "primary_memory_repo",
+        "Treat Default profile owner/repo as the Hub primary memory tree (projects/<slug>/PROGRESS.md at repo root).",
+      ],
+      [
+        "board_inbox_authors",
+        "Comma-separated forge logins allowed to open inbox issues. Empty allowlist imports nothing (fail closed).",
+      ],
+    ];
+    for (const [id, tip] of tips) {
+      const el = $(id);
+      const label = el?.closest("label");
+      if (label) attachTip(label, tip);
+    }
+  }
+
 export async function saveForge() {
-    const profiles = collectForgeProfilesFromDom();
+    const profiles = collectForgeProfilesFromDom().map(({ _unsaved, ...p }) => p);
     const payload = {
       connection_profiles: profiles,
       default_connection_profile_id: $("default_connection_profile_id").value || null,
@@ -637,7 +744,11 @@ export async function saveForge() {
     await api("/forge/config", { method: "PUT", body: JSON.stringify(payload) });
     setMsg("Forge settings saved.");
     await loadForge();
-    await scanForgeImport().catch(() => {});
+    try {
+      await scanForgeImport();
+    } catch (e) {
+      setMsg(`Forge settings saved. Import scan: ${e.message || e}`, { variant: "error" });
+    }
   }
 export async function syncForge() {
     setMsg("Syncing forge…");

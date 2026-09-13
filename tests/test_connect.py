@@ -627,13 +627,64 @@ def test_format_hub_cli_command_prefers_path_binary(monkeypatch) -> None:
     assert "uvx" not in cmd
 
 
+def test_render_install_sh_offers_uv_bootstrap() -> None:
+    script = render_install_sh("http://example:8787")
+    assert "ADHD_HUB_INSTALL_UV" in script
+    assert "astral.sh/uv/install.sh" in script
+    assert "Install uv now using the official Astral installer" in script
+    assert "/dev/tty" in script
+
+
+def test_render_install_ps1_offers_uv_bootstrap() -> None:
+    script = render_install_ps1("http://example:8787")
+    assert "ADHD_HUB_INSTALL_UV" in script
+    assert "astral.sh/uv/install.ps1" in script
+    assert "Install uv now using the official Astral installer" in script
+
+
 def test_render_install_sh_uses_hub_wheel_with_git_fallback() -> None:
     script = render_install_sh("http://example:8787")
     assert "install/cli-wheel.url" in script
     assert "git+https://github.com/uniskela/adhd-hub.git" in script
     assert "uvx --refresh --from" in script
     assert "uvx --from adhd-hub " not in script
-    assert "uv tool install git+https://github.com/uniskela/adhd-hub.git" in script
+    assert "uv tool install" in script
+    assert 'uv tool install --force "$PKG_FROM"' in script
+    assert "Executable already exists" not in script  # we use --force instead
+    assert "Updating existing adhd-hub CLI from this Hub" in script
+    assert "ADHD_HUB_FROM_INSTALL_SCRIPT" in script
+    # Durable CLI (after refresh) is preferred over ephemeral uvx.
+    refresh_at = script.index("_adhd_refresh_existing_cli\n")
+    hub_at = script.index('if command -v adhd-hub >/dev/null 2>&1; then\n  adhd-hub "$@"')
+    uvx_at = script.index('if command -v uvx >/dev/null 2>&1; then\n  uvx --refresh --from "$PKG_FROM" adhd-hub "$@"')
+    assert refresh_at < hub_at < uvx_at
+
+
+def test_render_install_ps1_uses_force_for_cli_install() -> None:
+    script = render_install_ps1("http://example:8787")
+    assert "uv tool install --force" in script
+    assert "ADHD_HUB_INSTALL_CLI" in script
+    assert "ADHD_HUB_CLI_INSTALL_PROMPTED" in script
+    assert "Updating existing adhd-hub CLI from this Hub" in script
+    assert "ADHD_HUB_FROM_INSTALL_SCRIPT" in script
+    assert "Update-AdhdExistingCli" in script
+    refresh_at = script.index("Update-AdhdExistingCli\n")
+    hub_at = script.index("if (Get-Command adhd-hub -ErrorAction SilentlyContinue) {\n  & adhd-hub @connectArgs")
+    uvx_at = script.index("if (Get-Command uvx -ErrorAction SilentlyContinue) {\n  & uvx --refresh --from $pkgFrom adhd-hub @connectArgs")
+    assert refresh_at < hub_at < uvx_at
+
+
+def test_permanent_cli_install_hint_uses_force(monkeypatch) -> None:
+    from adhd_hub import connect as connect_mod
+
+    monkeypatch.setattr(
+        connect_mod.shutil,
+        "which",
+        lambda name: "/usr/bin/uv" if name in {"uv", "uv.exe"} else None,
+    )
+    monkeypatch.setattr(connect_mod, "resolve_uv_package_from", lambda _url: "http://hub/wheel.whl")
+    hint = connect_mod.permanent_cli_install_hint("http://hub:8787")
+    assert hint == 'uv tool install --force "http://hub/wheel.whl"'
 
 
 def test_install_wheel_endpoint(tmp_path: Path, monkeypatch) -> None:

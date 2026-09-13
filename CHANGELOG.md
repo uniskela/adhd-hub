@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.1](https://github.com/uniskela/adhd-hub/compare/v0.9.0...v0.9.1) (2026-09-13)
+
+### Features
+
+* **ui:** forge field tips, example ghosts, effective import policy, Progress day hover
+* **install:** interactive Astral `uv` + CLI bootstrap (TTY / `ADHD_HUB_INSTALL_UV=1`)
+* **docs:** Default profile vs project repo, import policies, GitHub App vs PAT FAQ
+
+### Bug Fixes
+
+* **install:** re-running `install.sh` / `install.ps1` refreshes an existing `adhd-hub` CLI from this Hub’s wheel
+* **install:** `uv tool install --force` so leftover `adhd-hub` shims do not block re-bootstrap
+* **forge:** Test connection accepts draft/unsaved profiles (probe only)
+* **forge:** normalize owner/repo URLs on save; honest Sync toast when policy is manual
+
 ## [0.9.0](https://github.com/uniskela/adhd-hub/compare/v0.8.0...v0.9.0) (2026-09-12)
 
 

@@ -458,8 +458,12 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         return cfg.public_dict()
 
     @router.post("/forge/profiles/{profile_id}/test", dependencies=[Depends(auth_dep)])
-    def test_forge_profile(profile_id: str):
-        return service.test_forge_connection_profile(profile_id)
+    def test_forge_profile(profile_id: str, payload: dict | None = None):
+        body = payload if isinstance(payload, dict) else {}
+        draft = body.get("draft") if isinstance(body.get("draft"), dict) else body or None
+        if draft is not None and not draft:
+            draft = None
+        return service.test_forge_connection_profile(profile_id, draft=draft)
 
     @router.delete("/forge/profiles/{profile_id}", dependencies=[Depends(auth_dep)])
     def delete_forge_profile(profile_id: str):
