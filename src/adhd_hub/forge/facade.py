@@ -385,6 +385,7 @@ class ForgeFacade:
         # 2) Discovery for projects with a connection profile (plus default hub target),
         # or only the scoped project when project sync was requested.
         discovery_results: list[dict] = []
+        sync_warnings: list[str] = []
         seen_targets: set[tuple[str, str, str]] = set()
         projects = list(self._hub.store.list_projects())
         if scope_slug:
@@ -403,9 +404,35 @@ class ForgeFacade:
             if key in seen_targets:
                 continue
             seen_targets.add(key)
-            discovered = discover_issue_payloads(tcfg, limit=50)
+            try:
+                discovered = discover_issue_payloads(tcfg, limit=50)
+            except Exception as exc:  # noqa: BLE001
+                log.exception(
+                    "discover issues crashed for %s/%s", tcfg.owner, tcfg.repo
+                )
+                discovered = {
+                    "skipped": True,
+                    "reason": "discover_failed",
+                    "error": str(exc),
+                    "owner": tcfg.owner,
+                    "repo": tcfg.repo,
+                    "provider": tcfg.provider.value,
+                }
             if isinstance(discovered, dict):
                 discovery_results.append({"project_slug": slug, **discovered})
+                if discovered.get("reason") == "discover_failed":
+                    status = discovered.get("status_code")
+                    detail = (
+                        f"HTTP {status}" if status is not None else discovered.get("error", "error")
+                    )
+                    provider = discovered.get("provider") or tcfg.provider.value
+                    hint = discovered.get("hint") or (
+                        "Check GitHub vs Gitea profile kind and owner/repo."
+                    )
+                    sync_warnings.append(
+                        f"Skipped issue discovery for {tcfg.owner}/{tcfg.repo} "
+                        f"({provider}): {detail}. {hint}"
+                    )
                 continue
             imported: list[dict] = []
             skipped: list[dict] = []
@@ -585,6 +612,7 @@ class ForgeFacade:
             "board": board_results,
             "per_project_wiki": per_project_wiki,
             "config": cfg.public_dict(),
+            "warnings": sync_warnings,
         }
         if scope_slug:
             out["project_slug"] = scope_slug

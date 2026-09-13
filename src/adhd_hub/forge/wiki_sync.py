@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 class WikiForgeSync:
-    """Push/pull markdown wiki files via GitHub or Gitea Contents API."""
+    """Push/pull markdown wiki files via GitHub or Gitea Contents / Git Data APIs."""
 
     def __init__(self, config: ForgeConfig) -> None:
         self.config = config
@@ -29,14 +29,20 @@ class WikiForgeSync:
             headers["X-GitHub-Api-Version"] = "2022-11-28"
         return headers
 
-    def _contents_url(self, rel_path: str, *, at_repo_root: bool = False) -> str:
+    def _repo_api(self, suffix: str) -> str:
         owner, repo = self.config.owner, self.config.repo
+        return f"{self.config.api_root()}/repos/{owner}/{repo}/{suffix.lstrip('/')}"
+
+    def _full_path(self, rel_path: str, *, at_repo_root: bool = False) -> str:
+        rel = rel_path.lstrip("/")
         if at_repo_root:
-            full = rel_path.lstrip("/")
-        else:
-            prefix = self.config.wiki_path.strip("/")
-            full = f"{prefix}/{rel_path.lstrip('/')}" if prefix else rel_path.lstrip("/")
-        return f"{self.config.api_root()}/repos/{owner}/{repo}/contents/{full}"
+            return rel
+        prefix = self.config.wiki_path.strip("/")
+        return f"{prefix}/{rel}" if prefix else rel
+
+    def _contents_url(self, rel_path: str, *, at_repo_root: bool = False) -> str:
+        full = self._full_path(rel_path, at_repo_root=at_repo_root)
+        return self._repo_api(f"contents/{full}")
 
     def _get_file(
         self, client: httpx.Client, rel_path: str, *, at_repo_root: bool = False
@@ -50,6 +56,18 @@ class WikiForgeSync:
         resp.raise_for_status()
         data = resp.json()
         return data if isinstance(data, dict) else None
+
+    def _decode_content(self, existing: dict[str, Any] | None) -> str | None:
+        if not existing or existing.get("type") != "file":
+            return None
+        encoded = existing.get("content")
+        if not isinstance(encoded, str):
+            return None
+        raw = "".join(encoded.split())
+        try:
+            return base64.b64decode(raw).decode("utf-8")
+        except Exception:  # noqa: BLE001
+            return None
 
     def _put_contents(
         self,
@@ -136,37 +154,251 @@ class WikiForgeSync:
         )
         return {"put": put, "deleted": deleted, "from": old_rel, "to": new_rel}
 
-    def push_wiki_tree(self, wiki_dir: Path) -> dict[str, Any]:
-        if not (self.config.enabled() and self.config.wiki_enabled):
-            return {"skipped": True, "reason": "wiki_sync_disabled"}
-        uploaded: list[str] = []
-        errors: list[str] = []
+    def _collect_wiki_files(self, wiki_dir: Path) -> list[tuple[str, str]]:
+        files: list[tuple[str, str]] = []
         index = wiki_dir / "INDEX.md"
         if index.is_file():
-            try:
-                self.put_file(
-                    "INDEX.md",
-                    index.read_text(encoding="utf-8"),
-                    "adhd-hub: update INDEX.md",
-                )
-                uploaded.append("INDEX.md")
-            except Exception as exc:  # noqa: BLE001 — collect per-file sync errors
-                errors.append(f"INDEX.md: {exc}")
+            files.append(("INDEX.md", index.read_text(encoding="utf-8")))
         projects = wiki_dir / "projects"
         if projects.is_dir():
-            for progress in projects.glob("*/PROGRESS.md"):
+            for progress in sorted(projects.glob("*/PROGRESS.md")):
                 slug = progress.parent.name
                 rel = f"projects/{slug}/PROGRESS.md"
-                try:
-                    self.put_file(
-                        rel,
-                        progress.read_text(encoding="utf-8"),
-                        f"adhd-hub: update {rel}",
-                    )
-                    uploaded.append(rel)
-                except Exception as exc:  # noqa: BLE001
-                    errors.append(f"{rel}: {exc}")
-        return {"uploaded": uploaded, "errors": errors}
+                files.append((rel, progress.read_text(encoding="utf-8")))
+        return files
+
+    def _changed_files(
+        self, client: httpx.Client, files: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
+        changed: list[tuple[str, str]] = []
+        for rel, content in files:
+            existing = self._get_file(client, rel, at_repo_root=False)
+            remote = self._decode_content(existing)
+            if remote == content:
+                continue
+            changed.append((rel, content))
+        return changed
+
+    def _branch_head(self, client: httpx.Client) -> tuple[str, str]:
+        """Return (commit_sha, tree_sha) for wiki_branch."""
+        branch = self.config.wiki_branch or "main"
+        resp = client.get(
+            self._repo_api(f"branches/{branch}"),
+            headers=self._headers(),
+        )
+        if resp.status_code == 404:
+            for suffix in (f"git/ref/heads/{branch}", f"git/refs/heads/{branch}"):
+                alt = client.get(self._repo_api(suffix), headers=self._headers())
+                if alt.status_code >= 400:
+                    continue
+                data = alt.json()
+                if isinstance(data, list) and data:
+                    data = data[0]
+                if isinstance(data, dict):
+                    obj = data.get("object") if isinstance(data.get("object"), dict) else data
+                    sha = (obj or {}).get("sha")
+                    if isinstance(sha, str) and sha:
+                        commit = client.get(
+                            self._repo_api(f"git/commits/{sha}"),
+                            headers=self._headers(),
+                        )
+                        commit.raise_for_status()
+                        cdata = commit.json()
+                        tree = (cdata.get("tree") or {}).get("sha")
+                        if isinstance(tree, str) and tree:
+                            return sha, tree
+            resp.raise_for_status()
+        resp.raise_for_status()
+        data = resp.json()
+        commit = data.get("commit") if isinstance(data, dict) else None
+        if not isinstance(commit, dict):
+            raise RuntimeError(f"unexpected branch payload for {branch}")
+        commit_sha = commit.get("sha")
+        nested = commit.get("commit") if isinstance(commit.get("commit"), dict) else {}
+        tree = nested.get("tree") if isinstance(nested, dict) else None
+        if tree is None:
+            tree = commit.get("tree")
+        tree_sha = tree.get("sha") if isinstance(tree, dict) else None
+        if not (isinstance(commit_sha, str) and isinstance(tree_sha, str)):
+            detail = client.get(
+                self._repo_api(f"git/commits/{commit_sha}"),
+                headers=self._headers(),
+            )
+            detail.raise_for_status()
+            cdata = detail.json()
+            tree_sha = (cdata.get("tree") or {}).get("sha")
+            commit_sha = cdata.get("sha") or commit_sha
+        if not (isinstance(commit_sha, str) and isinstance(tree_sha, str)):
+            raise RuntimeError(f"could not resolve head for branch {branch}")
+        return commit_sha, tree_sha
+
+    def _commit_files_batch(
+        self,
+        client: httpx.Client,
+        files: list[tuple[str, str]],
+        message: str,
+    ) -> dict[str, Any]:
+        """One Git commit for many wiki files (Git Data API — GitHub + Gitea)."""
+        parent_sha, base_tree = self._branch_head(client)
+        tree_items: list[dict[str, Any]] = []
+        for rel, content in files:
+            blob_resp = client.post(
+                self._repo_api("git/blobs"),
+                headers=self._headers(),
+                json={
+                    "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+                    "encoding": "base64",
+                },
+            )
+            if blob_resp.status_code >= 400:
+                log.warning(
+                    "wiki blob create failed %s: %s",
+                    blob_resp.status_code,
+                    blob_resp.text[:300],
+                )
+                blob_resp.raise_for_status()
+            blob = blob_resp.json()
+            blob_sha = blob.get("sha")
+            if not isinstance(blob_sha, str):
+                raise RuntimeError(f"blob create missing sha for {rel}")
+            tree_items.append(
+                {
+                    "path": self._full_path(rel, at_repo_root=False),
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": blob_sha,
+                }
+            )
+
+        tree_resp = client.post(
+            self._repo_api("git/trees"),
+            headers=self._headers(),
+            json={"base_tree": base_tree, "tree": tree_items},
+        )
+        if tree_resp.status_code >= 400:
+            log.warning(
+                "wiki tree create failed %s: %s",
+                tree_resp.status_code,
+                tree_resp.text[:300],
+            )
+            tree_resp.raise_for_status()
+        new_tree = tree_resp.json().get("sha")
+        if not isinstance(new_tree, str):
+            raise RuntimeError("tree create missing sha")
+
+        commit_resp = client.post(
+            self._repo_api("git/commits"),
+            headers=self._headers(),
+            json={
+                "message": message,
+                "tree": new_tree,
+                "parents": [parent_sha],
+            },
+        )
+        if commit_resp.status_code >= 400:
+            log.warning(
+                "wiki commit create failed %s: %s",
+                commit_resp.status_code,
+                commit_resp.text[:300],
+            )
+            commit_resp.raise_for_status()
+        new_commit = commit_resp.json().get("sha")
+        if not isinstance(new_commit, str):
+            raise RuntimeError("commit create missing sha")
+
+        branch = self.config.wiki_branch or "main"
+        ref_payload = {"sha": new_commit, "force": False}
+        ref_resp = client.patch(
+            self._repo_api(f"git/refs/heads/{branch}"),
+            headers=self._headers(),
+            json=ref_payload,
+        )
+        if ref_resp.status_code == 404:
+            ref_resp = client.post(
+                self._repo_api("git/refs"),
+                headers=self._headers(),
+                json={"ref": f"refs/heads/{branch}", "sha": new_commit},
+            )
+        if ref_resp.status_code >= 400:
+            log.warning(
+                "wiki ref update failed %s: %s",
+                ref_resp.status_code,
+                ref_resp.text[:300],
+            )
+            ref_resp.raise_for_status()
+        return {
+            "commit_sha": new_commit,
+            "uploaded": [rel for rel, _ in files],
+            "batched": True,
+            "message": message,
+        }
+
+    def _push_files_sequential(
+        self, files: list[tuple[str, str]]
+    ) -> dict[str, Any]:
+        uploaded: list[str] = []
+        errors: list[str] = []
+        for rel, content in files:
+            try:
+                self.put_file(rel, content, f"adhd-hub: update {rel}")
+                uploaded.append(rel)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{rel}: {exc}")
+        return {"uploaded": uploaded, "errors": errors, "batched": False}
+
+    def push_wiki_tree(self, wiki_dir: Path) -> dict[str, Any]:
+        """Push INDEX.md + projects/*/PROGRESS.md in one forge commit when possible."""
+        if not (self.config.enabled() and self.config.wiki_enabled):
+            return {"skipped": True, "reason": "wiki_sync_disabled"}
+        files = self._collect_wiki_files(wiki_dir)
+        if not files:
+            return {"uploaded": [], "errors": [], "batched": True, "unchanged": True}
+
+        with httpx.Client(timeout=60.0) as client:
+            try:
+                changed = self._changed_files(client, files)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("wiki change detection failed; pushing all: %s", exc)
+                changed = files
+
+            if not changed:
+                return {
+                    "uploaded": [],
+                    "errors": [],
+                    "batched": True,
+                    "unchanged": True,
+                    "checked": len(files),
+                }
+
+            n_progress = sum(1 for rel, _ in changed if rel.endswith("/PROGRESS.md"))
+            has_index = any(rel == "INDEX.md" for rel, _ in changed)
+            parts: list[str] = []
+            if has_index:
+                parts.append("INDEX.md")
+            if n_progress:
+                parts.append(
+                    f"{n_progress} PROGRESS.md"
+                    if n_progress != 1
+                    else "1 PROGRESS.md"
+                )
+            if not parts:
+                parts.append(f"{len(changed)} file(s)")
+            message = f"adhd-hub: sync wiki ({', '.join(parts)})"
+
+            try:
+                result = self._commit_files_batch(client, changed, message)
+                result["errors"] = []
+                result["checked"] = len(files)
+                return result
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "batched wiki commit failed (%s); falling back to per-file Contents API",
+                    exc,
+                )
+
+        sequential = self._push_files_sequential(changed)
+        sequential["fallback_reason"] = "batch_commit_failed"
+        return sequential
 
     def _list_dir(
         self, client: httpx.Client, rel_path: str
@@ -202,17 +434,7 @@ class WikiForgeSync:
             return None
         with httpx.Client(timeout=30.0) as client:
             existing = self._get_file(client, rel_path, at_repo_root=False)
-            if not existing or existing.get("type") != "file":
-                return None
-            encoded = existing.get("content")
-            if not isinstance(encoded, str):
-                return None
-            raw = "".join(encoded.split())
-            try:
-                return base64.b64decode(raw).decode("utf-8")
-            except Exception:  # noqa: BLE001
-                log.warning("failed to decode forge file %s", rel_path)
-                return None
+            return self._decode_content(existing)
 
     def list_remote_project_slugs(self) -> dict[str, Any]:
         """Scan forge for projects/*/ directories that look like hub wiki pages."""

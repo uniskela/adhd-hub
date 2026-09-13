@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "tomli-w>=1.2.0",
+    "truststore>=0.10.4",
     "tzdata>=2025.1",
     "uvicorn[standard]>=0.52.4",
 ]

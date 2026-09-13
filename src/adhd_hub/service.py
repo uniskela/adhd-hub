@@ -8,6 +8,7 @@ from datetime import UTC
 from adhd_hub.config import Settings
 from adhd_hub.forge import ForgeFacade, WikiForgeSync
 from adhd_hub.forge.config import ForgeConfig
+from adhd_hub.forge.jobs import ForgeJob, ForgeJobQueue
 from adhd_hub.models import (
     EnergyLevel,
     OverlapResult,
@@ -53,6 +54,7 @@ class HubService:
         self.wiki = Wiki(settings.wiki_dir, timezone=self._prefs.timezone)
         self._forge = ForgeFacade(self)
         self._openclaw_ops = OpenClawFacade(self)
+        self._forge_jobs = ForgeJobQueue(self._run_forge_job)
         self.store.migrate_work_identity(self._confident_forge_target)
         self.migrate_forge_connection_profiles()
 
@@ -1080,6 +1082,68 @@ class HubService:
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         return self._forge.import_forge_inbox(limit=limit, close_imported=close_imported)
+
+    def _run_forge_job(self, job: ForgeJob) -> dict:
+        kind = job.kind
+        payload = job.payload or {}
+        if kind == "sync":
+            return self.sync_forge_now()
+        if kind == "project_sync":
+            slug = str(payload.get("project_slug") or "").strip()
+            if not slug:
+                raise ValueError("project_slug required")
+            return self.sync_forge_project(slug)
+        if kind == "import":
+            slugs = payload.get("slugs")
+            if slugs is not None and not isinstance(slugs, list):
+                raise ValueError("slugs must be a list of strings")
+            return self.import_from_forge(
+                slugs=slugs,
+                overwrite_local=bool(payload.get("overwrite_local")),
+            )
+        if kind == "inbox_import":
+            limit = int(payload.get("limit") or 50)
+            close = payload.get("close_imported")
+            close_imported = None if close is None else bool(close)
+            return self.import_forge_inbox(limit=limit, close_imported=close_imported)
+        raise ValueError(f"unknown forge job kind: {kind}")
+
+    def enqueue_forge_job(
+        self,
+        kind: str,
+        *,
+        project_slug: str | None = None,
+        payload: dict | None = None,
+        label: str | None = None,
+    ) -> dict:
+        return self._forge_jobs.enqueue(
+            kind, project_slug=project_slug, payload=payload, label=label
+        )
+
+    def get_forge_job(self, job_id: str) -> dict | None:
+        return self._forge_jobs.get(job_id)
+
+    def list_forge_jobs(self, limit: int = 20) -> list[dict]:
+        return self._forge_jobs.list_jobs(limit=limit)
+
+    def wait_forge_job(self, job_id: str, *, timeout: float | None = 600.0) -> dict:
+        return self._forge_jobs.wait(job_id, timeout=timeout)
+
+    def enqueue_forge_sync_and_wait(
+        self, project_slug: str | None = None, *, timeout: float | None = 600.0
+    ) -> dict:
+        """Scheduler path: queue behind UI jobs, then return the sync result."""
+        if project_slug:
+            job = self.enqueue_forge_job(
+                "project_sync", project_slug=project_slug
+            )
+        else:
+            job = self.enqueue_forge_job("sync")
+        done = self.wait_forge_job(job["job_id"], timeout=timeout)
+        if done.get("status") == "failed":
+            raise RuntimeError(done.get("error") or "forge job failed")
+        result = done.get("result")
+        return result if isinstance(result, dict) else {"ok": True, "job": done}
 
     @staticmethod
     def _title_from_progress(content: str | None, slug: str) -> str:

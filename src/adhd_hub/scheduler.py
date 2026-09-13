@@ -44,8 +44,13 @@ def start_scheduler(service: HubService) -> AsyncIOScheduler:
             cfg = service.forge_config()
             if not (cfg.enabled() and cfg.board_enabled and cfg.board_inbox_enabled):
                 return
-            result = service.import_forge_inbox()
-            log.info("forge inbox job: %s", result.get("count", result))
+            result = service.enqueue_forge_job("inbox_import")
+            done = service.wait_forge_job(result["job_id"], timeout=600.0)
+            payload = done.get("result") if done.get("status") == "done" else done
+            log.info(
+                "forge inbox job: %s",
+                (payload or {}).get("count", payload) if isinstance(payload, dict) else payload,
+            )
         except Exception:
             log.exception("forge inbox job failed")
 
@@ -62,7 +67,7 @@ def start_scheduler(service: HubService) -> AsyncIOScheduler:
             cfg = service.forge_config()
             if not (cfg.enabled() and cfg.board_enabled):
                 return
-            result = service.sync_forge_now()
+            result = service.enqueue_forge_sync_and_wait()
             log.info(
                 "forge reconcile job: reconcile=%s discovery=%s",
                 len(result.get("reconcile") or []),

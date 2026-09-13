@@ -8,6 +8,7 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -23,6 +24,82 @@ from adhd_hub.work_identity import (
 log = logging.getLogger(__name__)
 
 _USER_LOGIN_CACHE: dict[str, str] = {}
+_GITHUB_API_HOSTS = frozenset({"api.github.com"})
+_GITHUB_WEB_HOSTS = frozenset({"github.com", "www.github.com"})
+
+
+def _forge_api_hostname(base_url: str) -> str:
+    """Return the hostname of a forge API base URL (exact host match only)."""
+    raw = (base_url or "").strip()
+    if not raw:
+        return ""
+    if "://" not in raw:
+        raw = f"https://{raw}"
+    return (urlsplit(raw).hostname or "").lower()
+
+
+def _is_github_api_host(hostname: str) -> bool:
+    return hostname in _GITHUB_API_HOSTS
+
+
+def _is_github_web_host(hostname: str) -> bool:
+    return hostname in _GITHUB_WEB_HOSTS
+
+
+def _discover_failure_hint(cfg: ForgeConfig, status_code: int, body: str) -> str:
+    """Operator-facing guidance for soft-failed issue discovery."""
+    provider = cfg.provider.value
+    base = (cfg.base_url or "").strip()
+    host = _forge_api_hostname(base)
+    path = urlsplit(base if "://" in base else f"https://{base}").path.casefold() if base else ""
+    looks_github_host = _is_github_api_host(host) or _is_github_web_host(host)
+    looks_gitea_host = "/api/v1" in path or (bool(host) and not looks_github_host)
+    body_l = (body or "").casefold()
+    github_pat_denied = "resource not accessible by personal access token" in body_l
+
+    kind_mismatch = False
+    if cfg.provider == ForgeProvider.github and looks_gitea_host and not _is_github_api_host(host):
+        kind_mismatch = True
+    if cfg.provider == ForgeProvider.gitea and looks_github_host:
+        kind_mismatch = True
+
+    if status_code == 404:
+        return (
+            "Repo not found for this profile (404). Check owner/repo spelling, or "
+            f"switch profile kind if this is not a {provider} repo, then Sync again. "
+            "Remove stale connection profiles that point at deleted repos."
+        )
+    if status_code == 403:
+        if cfg.provider == ForgeProvider.github or github_pat_denied:
+            return (
+                "GitHub returned 403 listing issues — the PAT is missing Issues "
+                "(and usually Contents/Metadata) scope, the token cannot see this "
+                "repo, or a Gitea/Forgejo token was pasted into a GitHub profile. "
+                "Create a classic/fine-grained PAT with Issues: Read, fix profile "
+                "kind, then Sync again."
+            )
+        return (
+            "Forge returned 403 listing issues — token lacks repo/issues permission, "
+            "or the wrong forge kind is selected (GitHub PAT on a Gitea profile). "
+            "Update the profile token/scopes or provider, then Sync again."
+        )
+    if status_code == 401:
+        return (
+            "Unauthorized (401). Re-paste a valid PAT on the connection profile "
+            "(Save forge), confirm provider kind matches the host, then Sync again."
+        )
+    if kind_mismatch:
+        return (
+            "Forge kind / host mismatch is likely. GitHub repos need a GitHub "
+            "connection profile (api.github.com); Gitea/Forgejo needs a Gitea "
+            "profile with /api/v1. Fix kind + owner/repo, then Sync again."
+        )
+    return (
+        "Forge returned an error listing issues for this target. Common fix: "
+        "GitHub repos need a GitHub connection profile (not Gitea), and "
+        "owner/repo must exist with a PAT that can read Issues. Check profile "
+        "kind + scopes + owner/repo (or remove a stale profile), then Sync again."
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,8 +381,24 @@ def discover_issue_payloads(
             url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}/issues"
             resp = http.get(url, headers=_headers(cfg), params=params)
             if resp.status_code >= 400:
-                log.warning("discover issues failed: %s %s", resp.status_code, resp.text[:200])
-                resp.raise_for_status()
+                # Soft-fail: one missing/misconfigured repo must not 500 whole sync
+                # (404 missing repo, 403 missing Issues scope, wrong forge kind, etc.).
+                log.warning(
+                    "discover issues failed for %s/%s: %s %s",
+                    cfg.owner,
+                    cfg.repo,
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                return {
+                    "skipped": True,
+                    "reason": "discover_failed",
+                    "status_code": resp.status_code,
+                    "owner": cfg.owner,
+                    "repo": cfg.repo,
+                    "provider": cfg.provider.value,
+                    "hint": _discover_failure_hint(cfg, resp.status_code, resp.text),
+                }
             items = resp.json()
             if not isinstance(items, list) or not items:
                 break

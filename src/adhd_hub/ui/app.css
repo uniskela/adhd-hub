@@ -317,6 +317,47 @@ progress::-moz-progress-bar { background: var(--ok); border-radius: 10px; }
 .stage > .setup-banner { padding: 1rem 1.25rem; background: var(--accent-soft); }
 .setup-banner p { color: var(--muted); margin: .25rem 0 0; font-size: .8rem; }
 .pending-banner h2 { font-size: 1rem; }
+.forge-jobs {
+  margin-top: 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 92%, var(--bg));
+}
+.forge-jobs-heading {
+  margin: 0 0 .55rem;
+  font-size: .92rem;
+  font-weight: 650;
+}
+.forge-jobs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+}
+.forge-jobs-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .45rem .65rem;
+  align-items: baseline;
+  font-size: .82rem;
+  color: var(--ink);
+}
+.forge-job-status {
+  font-weight: 700;
+  font-size: .68rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-width: 4.2rem;
+}
+.forge-job-status.is-queued { color: color-mix(in srgb, #c9a227 70%, var(--muted)); }
+.forge-job-status.is-running { color: var(--accent, #3d6bf3); }
+.forge-job-status.is-done { color: var(--ok); }
+.forge-job-status.is-failed { color: var(--danger, #c44); }
+.forge-job-msg { color: var(--muted); overflow-wrap: anywhere; }
 .pending-item { border-top: 1px solid var(--line); padding: .75rem 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; }
 dialog {
   width: min(580px, calc(100vw - 2rem));

@@ -43,6 +43,16 @@ What happens next:
 2. Press **Allow this CLI** (or type the code under **Settings → Windows / MCP**).
 3. The CLI saves a **CLI session** under `~/.config/adhd-hub/credentials.json` (mode `0600`). That file is local to this computer.
 
+### Windows TLS note
+
+On Windows, `adhd-hub` uses the **OS certificate store** (via `truststore`) for Hub HTTPS — closer to the browser than Python’s bundled CAs alone. That matters for private/internal CAs and some intermediate chains. If `adhd-hub login` still fails with `certificate has expired` while Debian works:
+
+1. Confirm Windows date/time is correct.
+2. Open the Hub URL in a browser — if the padlock shows expired, renew the Hub certificate.
+3. If you use a private CA, install it into **Trusted Root Certification Authorities**.
+
+Debian/LXC often already works because system Python trusts `/etc/ssl/certs`.
+
 You can run the handshake alone:
 
 ```bash

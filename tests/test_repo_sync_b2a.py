@@ -524,6 +524,178 @@ def test_adhd_inbox_discovery_respects_inbox_disabled() -> None:
     assert out["reason"] == "board_inbox_disabled"
 
 
+def test_discover_issue_payloads_soft_fails_on_404() -> None:
+    """Missing/misconfigured forge repo must not raise — sync skips that target."""
+    cfg = ForgeConfig(
+        provider=ForgeProvider.gitea,
+        token="t",
+        base_url="https://git.example/api/v1",
+        owner="uniskela",
+        repo="ajpdigitalservices",
+        board_enabled=True,
+        issue_import_policy=IssueImportPolicy.all_open,
+    )
+    with patch("httpx.Client") as client_cls:
+        client = client_cls.return_value
+        resp = MagicMock()
+        resp.status_code = 404
+        resp.text = "Not Found"
+        resp.raise_for_status.side_effect = AssertionError(
+            "discover_issue_payloads must not raise_for_status on client errors"
+        )
+        client.get.return_value = resp
+        out = discover_issue_payloads(cfg)
+    assert isinstance(out, dict)
+    assert out["skipped"] is True
+    assert out["reason"] == "discover_failed"
+    assert out["status_code"] == 404
+    assert out["owner"] == "uniskela"
+    assert out["repo"] == "ajpdigitalservices"
+    assert "owner/repo" in (out.get("hint") or "").lower()
+    resp.raise_for_status.assert_not_called()
+
+
+def test_forge_api_hostname_rejects_github_substring_spoof() -> None:
+    """Host detection must use URL hostname equality, not substring match."""
+    from adhd_hub.forge.repo_sync import (
+        _discover_failure_hint,
+        _forge_api_hostname,
+        _is_github_api_host,
+        _is_github_web_host,
+    )
+
+    assert _forge_api_hostname("https://evil.example/github.com/path") == "evil.example"
+    assert _forge_api_hostname("https://api.github.com") == "api.github.com"
+    assert _is_github_api_host("api.github.com")
+    assert not _is_github_api_host("evil.example")
+    assert not _is_github_api_host("notapi.github.com.evil")
+    assert _is_github_web_host("github.com")
+    assert not _is_github_web_host("notgithub.com")
+
+    gitea_cfg = ForgeConfig(
+        provider=ForgeProvider.gitea,
+        token="t",
+        base_url="https://api.github.com",
+        owner="o",
+        repo="r",
+        board_enabled=True,
+        issue_import_policy=IssueImportPolicy.all_open,
+    )
+    hint = _discover_failure_hint(gitea_cfg, 500, "boom")
+    assert "mismatch" in hint.lower() or "GitHub" in hint
+
+
+def test_discover_issue_payloads_soft_fails_on_403_with_pat_hint() -> None:
+    """Missing GitHub Issues scope must soft-fail with PAT/scope guidance."""
+    cfg = ForgeConfig(
+        provider=ForgeProvider.github,
+        token="ghp_no_issues",
+        base_url="https://api.github.com",
+        owner="uniskela",
+        repo="adhd-hub",
+        board_enabled=True,
+        issue_import_policy=IssueImportPolicy.all_open,
+    )
+    with patch("httpx.Client") as client_cls:
+        client = client_cls.return_value
+        resp = MagicMock()
+        resp.status_code = 403
+        resp.text = "Resource not accessible by personal access token"
+        resp.raise_for_status.side_effect = AssertionError("must not raise_for_status")
+        client.get.return_value = resp
+        out = discover_issue_payloads(cfg)
+    assert out["skipped"] is True
+    assert out["reason"] == "discover_failed"
+    assert out["status_code"] == 403
+    hint = out.get("hint") or ""
+    assert "Issues" in hint or "PAT" in hint
+    assert "scope" in hint.lower() or "PAT" in hint
+    resp.raise_for_status.assert_not_called()
+
+
+def test_sync_forge_now_continues_when_one_target_discover_404s(tmp_path: Path) -> None:
+    """One profile 404 during discovery must not 500 the whole /api/forge/sync."""
+    svc = _service(tmp_path)
+    from adhd_hub.forge.config import ForgeConnectionProfile
+
+    save_forge_config(
+        svc.settings.data_dir,
+        ForgeConfig(
+            provider=ForgeProvider.gitea,
+            token="tok",
+            base_url="https://git.example/api/v1",
+            owner="ok-owner",
+            repo="ok-repo",
+            board_enabled=True,
+            wiki_enabled=False,
+            issue_import_policy=IssueImportPolicy.all_open,
+            connection_profiles=[
+                ForgeConnectionProfile(
+                    id="default",
+                    name="Gitea ok",
+                    provider=ForgeProvider.gitea,
+                    token="tok",
+                    base_url="https://git.example/api/v1",
+                    owner="ok-owner",
+                    repo="ok-repo",
+                    issue_import_policy=IssueImportPolicy.all_open,
+                ),
+                ForgeConnectionProfile(
+                    id="dead",
+                    name="Missing repo",
+                    provider=ForgeProvider.gitea,
+                    token="tok",
+                    base_url="https://git.example/api/v1",
+                    owner="uniskela",
+                    repo="ajpdigitalservices",
+                    issue_import_policy=IssueImportPolicy.all_open,
+                ),
+            ],
+            default_connection_profile_id="default",
+        ),
+    )
+    proj = svc.store.upsert_project(
+        ProjectUpsert(
+            title="Dead target project",
+            forge_connection_profile_id="dead",
+            forge_owner="uniskela",
+            forge_repo="ajpdigitalservices",
+        )
+    )
+    assert proj.slug
+
+    def fake_discover(cfg, *, limit=50, client=None):
+        if cfg.repo == "ajpdigitalservices":
+            return {
+                "skipped": True,
+                "reason": "discover_failed",
+                "status_code": 404,
+                "owner": cfg.owner,
+                "repo": cfg.repo,
+                "provider": cfg.provider.value,
+            }
+        return []
+
+    with (
+        patch("adhd_hub.forge.scaffold.push_primary_scaffold", return_value={}),
+        patch.object(svc._forge, "preview_forge_import", return_value={}),
+        patch("adhd_hub.forge.wiki_sync.WikiForgeSync.push_wiki_tree", return_value={}),
+        patch(
+            "adhd_hub.forge.repo_sync.discover_issue_payloads",
+            side_effect=fake_discover,
+        ),
+    ):
+        result = svc.sync_forge_now()
+
+    assert result["ok"] is True
+    assert any(
+        d.get("reason") == "discover_failed" and d.get("status_code") == 404
+        for d in result["discovery"]
+    )
+    assert result.get("warnings")
+    assert any("ajpdigitalservices" in w for w in result["warnings"])
+
+
 def test_mark_done_unlinked_github_project_default_stays_local(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     proj = svc.store.upsert_project(
