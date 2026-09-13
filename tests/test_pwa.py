@@ -40,7 +40,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'id="chart-summary"' in home.content
         assert b'aria-live="polite"' in home.content
         assert b"<title>ADHD Progress Hub</title>" in home.content
-        assert b"[ADHD]" in home.content
+        assert b'id="chart-day-tip"' in home.content
         assert b'name="mobile-web-app-capable"' in home.content
         assert b'name="apple-mobile-web-app-capable"' in home.content
 
