@@ -555,6 +555,36 @@ def test_discover_issue_payloads_soft_fails_on_404() -> None:
     resp.raise_for_status.assert_not_called()
 
 
+def test_forge_api_hostname_rejects_github_substring_spoof() -> None:
+    """Host detection must use URL hostname equality, not substring match."""
+    from adhd_hub.forge.repo_sync import (
+        _discover_failure_hint,
+        _forge_api_hostname,
+        _is_github_api_host,
+        _is_github_web_host,
+    )
+
+    assert _forge_api_hostname("https://evil.example/github.com/path") == "evil.example"
+    assert _forge_api_hostname("https://api.github.com") == "api.github.com"
+    assert _is_github_api_host("api.github.com")
+    assert not _is_github_api_host("evil.example")
+    assert not _is_github_api_host("notapi.github.com.evil")
+    assert _is_github_web_host("github.com")
+    assert not _is_github_web_host("notgithub.com")
+
+    gitea_cfg = ForgeConfig(
+        provider=ForgeProvider.gitea,
+        token="t",
+        base_url="https://api.github.com",
+        owner="o",
+        repo="r",
+        board_enabled=True,
+        issue_import_policy=IssueImportPolicy.all_open,
+    )
+    hint = _discover_failure_hint(gitea_cfg, 500, "boom")
+    assert "mismatch" in hint.lower() or "GitHub" in hint
+
+
 def test_discover_issue_payloads_soft_fails_on_403_with_pat_hint() -> None:
     """Missing GitHub Issues scope must soft-fail with PAT/scope guidance."""
     cfg = ForgeConfig(

@@ -12,6 +12,20 @@ from adhd_hub.work_identity import ExternalIdentity, WorkSource, normalize_host
 
 DEFAULT_CONNECTION_PROFILE_ID = "default"
 _PROFILES_MIGRATED_META = "forge_connection_profiles_migrated_v1"
+_GITHUB_WEB_HOSTS = frozenset({"github.com", "www.github.com"})
+
+
+def _url_hostname(raw: str) -> str:
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = f"https://{text}"
+    return (urlparse(text).hostname or "").lower()
+
+
+def _is_github_web_hostname(hostname: str) -> bool:
+    return hostname in _GITHUB_WEB_HOSTS
 
 
 class ForgeProvider(StrEnum):
@@ -103,7 +117,7 @@ class ForgeConfig(BaseModel):
         """Human-facing forge host for issue links (not the API root)."""
         if self.provider == ForgeProvider.gitea:
             web = (self.web_base_url or "").rstrip("/")
-            if web and "github.com" not in web:
+            if web and not _is_github_web_hostname(_url_hostname(web)):
                 return web
             root = self.base_url.rstrip("/").removesuffix("/api/v1")
             return root.rstrip("/")
@@ -177,7 +191,7 @@ def profile_canonical_host(profile: ForgeConnectionProfile) -> str | None:
     browse = profile.web_base_url or profile.base_url
     if profile.provider == ForgeProvider.gitea:
         web = (profile.web_base_url or "").rstrip("/")
-        if web and "github.com" not in web:
+        if web and not _is_github_web_hostname(_url_hostname(web)):
             browse = web
         else:
             browse = profile.base_url.rstrip("/").removesuffix("/api/v1")

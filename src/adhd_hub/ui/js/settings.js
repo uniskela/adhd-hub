@@ -281,19 +281,40 @@ export function renderForgeProfiles(cfg) {
         const v = sel.value;
         const baseVal = (base?.value || "").trim();
         const webVal = (web?.value || "").trim();
+        const hostnameOf = (raw) => {
+          const s = String(raw || "").trim();
+          if (!s) return "";
+          try {
+            return new URL(s.includes("://") ? s : `https://${s}`).hostname.toLowerCase();
+          } catch (_e) {
+            return "";
+          }
+        };
+        const baseHost = hostnameOf(baseVal);
+        const webHost = hostnameOf(webVal);
+        const isGithubApiHost = (h) => h === "api.github.com";
+        const isGithubWebHost = (h) => h === "github.com" || h === "www.github.com";
+        const looksGiteaBase =
+          /\/api\/v1\/?$/i.test(baseVal) ||
+          /(^|\.)gitea\./i.test(baseHost) ||
+          baseHost.endsWith(".gitea.io");
         if (v === "github") {
-          if (!baseVal || baseVal.includes("/api/v1") || baseVal.includes("gitea")) {
+          if (!baseVal || looksGiteaBase) {
             if (base) base.value = "https://api.github.com";
           }
-          if (!webVal || webVal.includes("gitea") || (!webVal.includes("github.com") && baseVal.includes("/api/v1"))) {
+          if (
+            !webVal ||
+            looksGiteaBase ||
+            (webHost && !isGithubWebHost(webHost) && /\/api\/v1\/?$/i.test(baseVal))
+          ) {
             if (web) web.value = "https://github.com";
           }
         } else if (v === "gitea") {
-          if (baseVal === "https://api.github.com" || baseVal.includes("api.github.com")) {
+          if (isGithubApiHost(baseHost)) {
             if (base) base.value = "";
             base?.setAttribute("placeholder", "https://git.example/api/v1");
           }
-          if (webVal === "https://github.com" || webVal.includes("github.com")) {
+          if (isGithubWebHost(webHost)) {
             if (web) web.value = "";
             web?.setAttribute("placeholder", "https://git.example");
           }

@@ -1,5 +1,5 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
-const CACHE = "adhd-hub-shell-v11";
+const CACHE = "adhd-hub-shell-v12";
 const PRECACHE = [
   "/ui/",
   "/ui/app.css",
@@ -20,6 +20,7 @@ const PRECACHE = [
   "/ui/js/progress.js",
   "/ui/js/settings.js",
   "/ui/js/help.js",
+  "/ui/js/forge-jobs.js",
 ];
 
 self.addEventListener("install", (event) => {

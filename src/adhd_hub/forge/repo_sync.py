@@ -8,6 +8,7 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -23,18 +24,41 @@ from adhd_hub.work_identity import (
 log = logging.getLogger(__name__)
 
 _USER_LOGIN_CACHE: dict[str, str] = {}
+_GITHUB_API_HOSTS = frozenset({"api.github.com"})
+_GITHUB_WEB_HOSTS = frozenset({"github.com", "www.github.com"})
+
+
+def _forge_api_hostname(base_url: str) -> str:
+    """Return the hostname of a forge API base URL (exact host match only)."""
+    raw = (base_url or "").strip()
+    if not raw:
+        return ""
+    if "://" not in raw:
+        raw = f"https://{raw}"
+    return (urlsplit(raw).hostname or "").lower()
+
+
+def _is_github_api_host(hostname: str) -> bool:
+    return hostname in _GITHUB_API_HOSTS
+
+
+def _is_github_web_host(hostname: str) -> bool:
+    return hostname in _GITHUB_WEB_HOSTS
 
 
 def _discover_failure_hint(cfg: ForgeConfig, status_code: int, body: str) -> str:
     """Operator-facing guidance for soft-failed issue discovery."""
     provider = cfg.provider.value
-    host = (cfg.base_url or "").casefold()
+    base = (cfg.base_url or "").strip()
+    host = _forge_api_hostname(base)
+    path = urlsplit(base if "://" in base else f"https://{base}").path.casefold() if base else ""
+    looks_github_host = _is_github_api_host(host) or _is_github_web_host(host)
+    looks_gitea_host = "/api/v1" in path or (bool(host) and not looks_github_host)
     body_l = (body or "").casefold()
-    looks_github_host = "api.github.com" in host or "github.com" in host
-    looks_gitea_host = "/api/v1" in host or ("github.com" not in host and bool(host))
+    github_pat_denied = "resource not accessible by personal access token" in body_l
 
     kind_mismatch = False
-    if cfg.provider == ForgeProvider.github and looks_gitea_host and "api.github.com" not in host:
+    if cfg.provider == ForgeProvider.github and looks_gitea_host and not _is_github_api_host(host):
         kind_mismatch = True
     if cfg.provider == ForgeProvider.gitea and looks_github_host:
         kind_mismatch = True
@@ -46,7 +70,7 @@ def _discover_failure_hint(cfg: ForgeConfig, status_code: int, body: str) -> str
             "Remove stale connection profiles that point at deleted repos."
         )
     if status_code == 403:
-        if cfg.provider == ForgeProvider.github:
+        if cfg.provider == ForgeProvider.github or github_pat_denied:
             return (
                 "GitHub returned 403 listing issues — the PAT is missing Issues "
                 "(and usually Contents/Metadata) scope, the token cannot see this "
@@ -64,7 +88,7 @@ def _discover_failure_hint(cfg: ForgeConfig, status_code: int, body: str) -> str
             "Unauthorized (401). Re-paste a valid PAT on the connection profile "
             "(Save forge), confirm provider kind matches the host, then Sync again."
         )
-    if kind_mismatch or "api.github.com" in body_l and cfg.provider == ForgeProvider.gitea:
+    if kind_mismatch:
         return (
             "Forge kind / host mismatch is likely. GitHub repos need a GitHub "
             "connection profile (api.github.com); Gitea/Forgejo needs a Gitea "
