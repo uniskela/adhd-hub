@@ -217,10 +217,9 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/projects/{slug}/forge/sync", dependencies=[Depends(auth_dep)])
     def sync_project_forge(slug: str):
-        try:
-            return service.sync_forge_project(slug)
-        except KeyError:
-            raise HTTPException(404, "Project not found") from None
+        if not service.store.get_project(slug):
+            raise HTTPException(404, "Project not found")
+        return service.enqueue_forge_job("project_sync", project_slug=slug)
 
     @router.get("/pending-actions", dependencies=[Depends(auth_dep)])
     def list_pending_actions():
@@ -478,7 +477,18 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/forge/sync", dependencies=[Depends(auth_dep)])
     def forge_sync():
-        return service.sync_forge_now()
+        return service.enqueue_forge_job("sync")
+
+    @router.get("/forge/jobs", dependencies=[Depends(auth_dep)])
+    def list_forge_jobs(limit: int = 20):
+        return {"jobs": service.list_forge_jobs(limit=limit)}
+
+    @router.get("/forge/jobs/{job_id}", dependencies=[Depends(auth_dep)])
+    def get_forge_job(job_id: str):
+        job = service.get_forge_job(job_id)
+        if not job:
+            raise HTTPException(404, "Forge job not found")
+        return job
 
     @router.get("/forge/import/preview", dependencies=[Depends(auth_dep)])
     def forge_import_preview():
@@ -490,9 +500,12 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         slugs = body.get("slugs")
         if slugs is not None and not isinstance(slugs, list):
             raise HTTPException(400, "slugs must be a list of strings")
-        return service.import_from_forge(
-            slugs=slugs,
-            overwrite_local=bool(body.get("overwrite_local")),
+        return service.enqueue_forge_job(
+            "import",
+            payload={
+                "slugs": slugs,
+                "overwrite_local": bool(body.get("overwrite_local")),
+            },
         )
 
     @router.post("/forge/inbox/import", dependencies=[Depends(auth_dep)])
@@ -510,9 +523,9 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             close = None
         else:
             close = bool(close_imported)
-        return service.import_forge_inbox(
-            limit=limit_i,
-            close_imported=close,
+        return service.enqueue_forge_job(
+            "inbox_import",
+            payload={"limit": limit_i, "close_imported": close},
         )
 
     @router.get("/admin/export", dependencies=[Depends(auth_dep)])

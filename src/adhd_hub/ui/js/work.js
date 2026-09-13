@@ -10,6 +10,7 @@ import {
   normalizeForgeOwnerRepo,
   parseOwnerRepoFromUrl,
 } from './help.js';
+import { enqueueForgeJob } from './forge-jobs.js';
 
 export function renderProjects(projects) {
     const list = $("project-list");
@@ -473,12 +474,12 @@ export async function syncProjectForge() {
     }
     const btn = $("btn-sync-project");
     if (btn) btn.disabled = true;
-    setMsg(`Syncing forge for ${slug}…`);
     try {
-      const out = await api(`/projects/${encodeURIComponent(slug)}/forge/sync`, {
-        method: "POST",
-        body: "{}",
-      });
+      const { result: out } = await enqueueForgeJob(
+        `/projects/${encodeURIComponent(slug)}/forge/sync`,
+        {},
+        { pendingLabel: `Sync forge (${slug})` }
+      );
       if (out.skipped && out.reason === "no_forge_connection") {
         setMsg(
           out.hint || "Pick a Forge connection for this project, then Sync forge.",
@@ -493,6 +494,7 @@ export async function syncProjectForge() {
             0
           )
         : 0;
+      const warnings = Array.isArray(out.warnings) ? out.warnings : [];
       const sel = $("p_forge_connection_profile_id");
       const profiles = state.forgeConfigCache?.connection_profiles || [];
       const profile = profiles.find((p) => p.id === (sel?.value || ""));
@@ -504,8 +506,12 @@ export async function syncProjectForge() {
       } else if (discovered === 0 && profile) {
         extra = ` (import policy: ${IMPORT_POLICY_LABELS[policy] || policy})`;
       }
+      if (warnings.length) {
+        extra += ` — ${warnings[0]}`;
+      }
       setMsg(
-        `Forge sync for ${slug}: ${reconciled} linked checked, ${discovered} imported.${extra}`
+        `Forge sync for ${slug}: ${reconciled} linked checked, ${discovered} imported.${extra}`,
+        { variant: warnings.length ? "warning" : undefined }
       );
       await loadAll();
     } catch (e) {

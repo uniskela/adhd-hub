@@ -20,6 +20,7 @@ UI_JS_MODULES = {
     "work.js",
     "progress.js",
     "settings.js",
+    "forge-jobs.js",
     "help.js",
     "load.js",
     "boot.js",

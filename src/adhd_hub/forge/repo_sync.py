@@ -25,6 +25,59 @@ log = logging.getLogger(__name__)
 _USER_LOGIN_CACHE: dict[str, str] = {}
 
 
+def _discover_failure_hint(cfg: ForgeConfig, status_code: int, body: str) -> str:
+    """Operator-facing guidance for soft-failed issue discovery."""
+    provider = cfg.provider.value
+    host = (cfg.base_url or "").casefold()
+    body_l = (body or "").casefold()
+    looks_github_host = "api.github.com" in host or "github.com" in host
+    looks_gitea_host = "/api/v1" in host or ("github.com" not in host and bool(host))
+
+    kind_mismatch = False
+    if cfg.provider == ForgeProvider.github and looks_gitea_host and "api.github.com" not in host:
+        kind_mismatch = True
+    if cfg.provider == ForgeProvider.gitea and looks_github_host:
+        kind_mismatch = True
+
+    if status_code == 404:
+        return (
+            "Repo not found for this profile (404). Check owner/repo spelling, or "
+            f"switch profile kind if this is not a {provider} repo, then Sync again. "
+            "Remove stale connection profiles that point at deleted repos."
+        )
+    if status_code == 403:
+        if cfg.provider == ForgeProvider.github:
+            return (
+                "GitHub returned 403 listing issues — the PAT is missing Issues "
+                "(and usually Contents/Metadata) scope, the token cannot see this "
+                "repo, or a Gitea/Forgejo token was pasted into a GitHub profile. "
+                "Create a classic/fine-grained PAT with Issues: Read, fix profile "
+                "kind, then Sync again."
+            )
+        return (
+            "Forge returned 403 listing issues — token lacks repo/issues permission, "
+            "or the wrong forge kind is selected (GitHub PAT on a Gitea profile). "
+            "Update the profile token/scopes or provider, then Sync again."
+        )
+    if status_code == 401:
+        return (
+            "Unauthorized (401). Re-paste a valid PAT on the connection profile "
+            "(Save forge), confirm provider kind matches the host, then Sync again."
+        )
+    if kind_mismatch or "api.github.com" in body_l and cfg.provider == ForgeProvider.gitea:
+        return (
+            "Forge kind / host mismatch is likely. GitHub repos need a GitHub "
+            "connection profile (api.github.com); Gitea/Forgejo needs a Gitea "
+            "profile with /api/v1. Fix kind + owner/repo, then Sync again."
+        )
+    return (
+        "Forge returned an error listing issues for this target. Common fix: "
+        "GitHub repos need a GitHub connection profile (not Gitea), and "
+        "owner/repo must exist with a PAT that can read Issues. Check profile "
+        "kind + scopes + owner/repo (or remove a stale profile), then Sync again."
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class IssueSnapshot:
     identity: ExternalIdentity
@@ -304,7 +357,8 @@ def discover_issue_payloads(
             url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}/issues"
             resp = http.get(url, headers=_headers(cfg), params=params)
             if resp.status_code >= 400:
-                # Soft-fail: one missing/misconfigured repo must not 500 whole sync.
+                # Soft-fail: one missing/misconfigured repo must not 500 whole sync
+                # (404 missing repo, 403 missing Issues scope, wrong forge kind, etc.).
                 log.warning(
                     "discover issues failed for %s/%s: %s %s",
                     cfg.owner,
@@ -319,11 +373,7 @@ def discover_issue_payloads(
                     "owner": cfg.owner,
                     "repo": cfg.repo,
                     "provider": cfg.provider.value,
-                    "hint": (
-                        "Forge returned an error listing issues for this target. "
-                        "Check the connection profile owner/repo (or remove a "
-                        "stale profile), then Sync forge again."
-                    ),
+                    "hint": _discover_failure_hint(cfg, resp.status_code, resp.text),
                 }
             items = resp.json()
             if not isinstance(items, list) or not items:
