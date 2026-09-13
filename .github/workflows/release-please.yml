@@ -4,6 +4,12 @@ name: Release Please
 # Please then opens a release PR; it never merges that PR itself. When uniskela
 # manually merges the release PR, Release Please creates the immutable tag and
 # this run publishes the matching container image.
+#
+# Do not hand-edit .release-please-manifest.json / package versions / CHANGELOG
+# release headers in feature PRs. If the manifest version has no matching
+# `vX.Y.Z` tag, Release Please walks the whole git history and can open a
+# nonsense downgrade PR (e.g. 0.9.1 → 0.4.0). Version bumps belong only on the
+# Release Please PR (or create the missing tag immediately after a manual bump).
 on:
   push:
     branches: [main]
