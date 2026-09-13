@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.10.0](https://github.com/uniskela/adhd-hub/compare/v0.9.1...v0.10.0) (2026-09-13)
+
+
+### Features
+
+* **forge:** queue sync jobs, batch wiki commits, clarify 403 soft-fail ([22d1b35](https://github.com/uniskela/adhd-hub/commit/22d1b3530912edbd8efd3b5dfd14f06f9e923b74))
+
+
+### Bug Fixes
+
+* **agents:** stabilize env-check guidance under worktree races ([1ad57db](https://github.com/uniskela/adhd-hub/commit/1ad57db68401aa7333ae7df7c5a4cf007af17db7))
+* **cli:** use OS truststore for Hub HTTPS on Windows ([0b64a01](https://github.com/uniskela/adhd-hub/commit/0b64a016c9b5ab712f0b80db159a46d908d4e519))
+* **env-check:** report local skill CLIs and graphify cloud caveat ([64dde44](https://github.com/uniskela/adhd-hub/commit/64dde44b0cfa30a76db353a1c9fd29574b684fb7))
+* **forge:** parse forge hostnames instead of URL substring checks ([d9b8b53](https://github.com/uniskela/adhd-hub/commit/d9b8b5372301ba41bc99fb79270fbbfb525c88df))
+* **forge:** soft-fail issue discovery on per-repo 404 ([01509d1](https://github.com/uniskela/adhd-hub/commit/01509d1ac3d4400d35c555cf47304eeadd88d77f))
+* **release:** restore Release Please after missing v0.9.1 tag ([e7a57bf](https://github.com/uniskela/adhd-hub/commit/e7a57bf6883f2a5bb0a56b120b726c829e193ed3))
+* **skills:** restore env-check cloud local-CLI guidance ([4193328](https://github.com/uniskela/adhd-hub/commit/4193328b9eb5812033e03a51f054372ef1d12fc8))
+* **ui:** reset non-GitHub web URL when switching provider to GitHub ([b82a079](https://github.com/uniskela/adhd-hub/commit/b82a079b6d8f44e7791c55351b8dfdaa8e452fc1))
+
+
+### Documentation
+
+* **agents:** env-check skill + cloud local-CLI caveats ([bf4c589](https://github.com/uniskela/adhd-hub/commit/bf4c5898193c989a587ac43f9e1a2db1fbc2e86f))
+* **graphify:** revert Hub/cloud caveats from skill and rule ([b39301c](https://github.com/uniskela/adhd-hub/commit/b39301c02b0b83942edbcac1de87cffeaa22ff03))
+* **skills:** align projects skill with env-check Hub fallback ([d9198e4](https://github.com/uniskela/adhd-hub/commit/d9198e4cd9f1150be133618328f0c6fe9581d03a))
+
 ## [0.9.1](https://github.com/uniskela/adhd-hub/compare/v0.9.0...v0.9.1) (2026-09-13)
 
 ### Features
