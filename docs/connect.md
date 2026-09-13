@@ -120,7 +120,7 @@ iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents 'cursor,codex,cla
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents '*'"
 ```
 
-`--skill *` in the skills CLI means “both Hub skills” (projects + session), not “every coding agent.”
+`--skill *` in the skills CLI means “Hub skills (session, projects, env-check)” (projects + session), not “every coding agent.”
 
 Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
 

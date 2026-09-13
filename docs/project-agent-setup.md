@@ -14,10 +14,11 @@ adhd-hub setup /path/to/my-project
 - If resuming a known thread, reuse its `thread_id`. Otherwise `check_overlap` only before potentially new/duplicate work; reuse a candidate only when its Goal matches.
 - When leaving mid-task: checkpoint with `upsert_progress`, then `pause_thread(thread_id, next_step=...)` with one concrete resume action.
 - On genuine completion: `mark_done` only for that known thread; never close unrelated overlap results.
-- If Hub MCP is unavailable, warn on the first substantial Hub-worthy turn after detecting the outage. Repeat only when Hub status changes, another persistence attempt fails, or silence could imply that continuity was saved.
+- If Hub MCP is unavailable, warn on the first substantial Hub-worthy turn after detecting the outage. Repeat only when Hub status changes, another persistence attempt fails, or silence could imply that continuity was saved. Never invent Hub continuity/progress/thread state or claim a Hub write succeeded.
+- Detect unavailability by checking MCP tools (missing / errored / unauthorized / auth failure) — do not invent “I'm in cloud.” Optional hints: `CURSOR_AGENT`, Cursor Cloud / remote-sandbox markers. Use `env-check` for CLOUD_AGENT vs LOCAL_WORKSPACE. CLOUD_AGENT must not assume local skill CLIs like `graphify` exist (one-line notice if missing; continue via repo tools / committed `graphify-out/`). When MCP is unreachable and forge issue-write access exists (identity on Hub Inbox authors), open/update a GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume cue (optional labels `adhd-hub`, `project:<slug>`, `source:cursor` when allowed). See [forge issue inbox](forge-issue-inbox.md).
 - Drift: `adhd-hub doctor --project .` reports outdated Hub-managed AGENTS.md / Cursor rule / Hub skills; repair with `adhd-hub setup . --refresh` (and `--install-skills` when opting into global Hub skill updates). Setup `--check` is dry-run only.
 
-The block also reminds the agent to send summaries only and to keep secrets, credentials, env files, transcripts, private Hub URLs, internal hosts/IPs, and absolute machine paths out of public artifacts.
+The block also reminds the agent to send summaries only and to keep secrets, credentials, env files, transcripts, private Hub URLs, internal hosts/IPs, and absolute machine paths out of public artifacts. Prefer short repository-relative summaries in forge issues.
 
 The command is safe to repeat. Re-running `adhd-hub setup` or `adhd-hub connect` refreshes only the section between these markers and preserves the rest of `AGENTS.md`:
 
@@ -41,7 +42,7 @@ adhd-hub setup /path/to/my-project \
   --install-skills --skills-source /path/to/adhd-hub/skills
 ```
 
-`setup --install-skills` installs both Hub skills for every skills.sh agent (`npx skills add <source> -g -y --skill '*' --agent '*'`). It runs the command as an argument list without a shell, so paths and arguments are not interpolated as commands. If you want to target selected agents instead, use `adhd-hub connect ... --skills --agents cursor,codex,claude`.
+`setup --install-skills` installs Hub skills (`adhd-hub-session`, `adhd-hub-projects`, `env-check`) for every skills.sh agent (`npx skills add <source> -g -y --skill '*' --agent '*'`). It runs the command as an argument list without a shell, so paths and arguments are not interpolated as commands. If you want to target selected agents instead, use `adhd-hub connect ... --skills --agents cursor,codex,claude`.
 
 Review the skill source and keep MCP credentials outside project guidance. The generated block itself contains no operator-specific Hub URL, token, internal hostname, or machine path. At runtime, the agent may send the current workspace path and short progress metadata to the operator's configured Hub; do not copy that path, internal URLs, or private Hub responses into public commits, issues, or notes.
 

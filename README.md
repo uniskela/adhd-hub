@@ -185,7 +185,7 @@ Install a reversible, project-local `AGENTS.md` section that keeps coding-agent 
 adhd-hub setup /path/to/project
 ```
 
-Add `--install-skills` to install both Hub skills globally for every skills.sh agent, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes global skill directories. Use `connect --skills --agents ...` when you want selected agent targets. See [project agent setup](docs/project-agent-setup.md).
+Add `--install-skills` to install Hub skills (session, projects, env-check) globally for every skills.sh agent, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes global skill directories. Use `connect --skills --agents ...` when you want selected agent targets. See [project agent setup](docs/project-agent-setup.md).
 
 ## Connect (one-liner)
 
