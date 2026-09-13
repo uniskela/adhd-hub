@@ -10,6 +10,8 @@
 
 ### Bug Fixes
 
+* **install:** re-running `install.sh` / `install.ps1` refreshes an existing `adhd-hub` CLI from this Hub’s wheel
+* **install:** `uv tool install --force` so leftover `adhd-hub` shims do not block re-bootstrap
 * **forge:** Test connection accepts draft/unsaved profiles (probe only)
 * **forge:** normalize owner/repo URLs on save; honest Sync toast when policy is manual
 
