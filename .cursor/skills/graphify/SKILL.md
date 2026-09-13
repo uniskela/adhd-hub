@@ -12,8 +12,6 @@ description: >-
 
 Local knowledge graph for this repo lives in `graphify-out/`.
 
-**CLOUD_AGENT:** do not assume this CLI is installed. If `graphify` is missing: one-line notice, continue via repo tools / committed `graphify-out/` when present; never fabricate graph output. **LOCAL_WORKSPACE** may have the binary. Hub MCP down still uses the `[ADHD]` forge mailbox when allowed.
-
 CLI (Windows): `%USERPROFILE%\.local\bin\graphify.exe` — ensure that dir is on `PATH`, or invoke it by full path.
 
 ## When to use
@@ -27,9 +25,9 @@ CLI (Windows): `%USERPROFILE%\.local\bin\graphify.exe` — ensure that dir is on
 | Core hubs | `graphify god-nodes` |
 | After editing code | `graphify update .` |
 
-**Before** broad exploration with Read/Grep/Glob/Bash, run `query` / `path` / `explain` first when the CLI is available (same rule as `.cursor/rules/graphify.mdc`). If the CLI is missing, one-line notice and continue. Pass this requirement into subagent prompts that explore code.
+**Before** broad exploration with Read/Grep/Glob/Bash, run `query` / `path` / `explain` first (same rule as `.cursor/rules/graphify.mdc`). Pass this requirement into subagent prompts that explore code.
 
-**After** modifying code files, when the CLI is available always run:
+**After** modifying code files, always run:
 
 ```bash
 graphify update .
