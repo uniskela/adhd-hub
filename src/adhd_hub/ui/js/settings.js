@@ -9,6 +9,7 @@ import {
   IMPORT_POLICY_LABELS,
   tipHtml,
   attachTip,
+  wireFieldTips,
   normalizeForgeOwnerRepo,
 } from './help.js';
 
@@ -267,13 +268,7 @@ export function renderForgeProfiles(cfg) {
       sel.addEventListener("change", sync);
       sync();
     });
-    root.querySelectorAll(".field-tip").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        btn.classList.toggle("open");
-      });
-    });
+    wireFieldTips(root);
   }
 
 function collectForgeProfilesFromDom() {

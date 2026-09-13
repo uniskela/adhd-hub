@@ -29,7 +29,52 @@ export function tipHtml(text, { id } = {}) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-  return `<button type="button" class="field-tip" aria-describedby="${tipId}" aria-label="More info">?<span id="${tipId}" class="field-tip-panel" role="tooltip">${safe}</span></button>`;
+  return `<button type="button" class="field-tip" aria-expanded="false" aria-controls="${tipId}" aria-label="More info">?<span id="${tipId}" class="field-tip-panel" role="tooltip" hidden>${safe}</span></button>`;
+}
+
+let _tipsDocBound = false;
+
+function closeAllFieldTips(except) {
+  document.querySelectorAll(".field-tip.open").forEach((btn) => {
+    if (except && btn === except) return;
+    btn.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+    const panel = btn.querySelector(".field-tip-panel");
+    if (panel) panel.hidden = true;
+  });
+}
+
+function ensureTipsDocumentClose() {
+  if (_tipsDocBound) return;
+  _tipsDocBound = true;
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".field-tip")) return;
+    closeAllFieldTips();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAllFieldTips();
+  });
+}
+
+function bindFieldTipButton(tip) {
+  if (!tip || tip.dataset.tipBound === "1") return;
+  tip.dataset.tipBound = "1";
+  tip.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const opening = !tip.classList.contains("open");
+    closeAllFieldTips(opening ? tip : null);
+    tip.classList.toggle("open", opening);
+    tip.setAttribute("aria-expanded", opening ? "true" : "false");
+    const panel = tip.querySelector(".field-tip-panel");
+    if (panel) panel.hidden = !opening;
+  });
+}
+
+/** Bind click-to-toggle tips under root (and document outside-click close). */
+export function wireFieldTips(root = document) {
+  ensureTipsDocumentClose();
+  root.querySelectorAll(".field-tip").forEach(bindFieldTipButton);
 }
 
 /** Wrap an existing <label> element: insert tip before the first control. */
@@ -39,21 +84,20 @@ export function attachTip(labelEl, text) {
   tip.type = "button";
   tip.className = "field-tip";
   tip.setAttribute("aria-label", "More info");
+  tip.setAttribute("aria-expanded", "false");
   const panel = document.createElement("span");
   panel.className = "field-tip-panel";
   panel.setAttribute("role", "tooltip");
   panel.id = `tip-${Math.random().toString(36).slice(2, 9)}`;
+  panel.hidden = true;
   panel.textContent = text;
-  tip.setAttribute("aria-describedby", panel.id);
+  tip.setAttribute("aria-controls", panel.id);
   tip.appendChild(panel);
-  tip.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    tip.classList.toggle("open");
-  });
   const control = labelEl.querySelector("input, select, textarea");
   if (control) labelEl.insertBefore(tip, control);
   else labelEl.appendChild(tip);
+  ensureTipsDocumentClose();
+  bindFieldTipButton(tip);
 }
 
 /** Parse https://host/owner/repo[.git] → { owner, repo } or null.

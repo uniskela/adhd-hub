@@ -661,31 +661,48 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   border-radius: 999px;
   padding: .15rem .55rem;
 }
+/* Plain text "?" — must beat global `button { min-height: 44px }` or it becomes a tall oval. */
+button.field-tip,
 .field-tip {
   position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 1.15rem;
-  height: 1.15rem;
-  margin: 0 .25rem;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface, var(--card));
+  display: inline;
+  align-items: unset;
+  justify-content: unset;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0 !important;
+  margin: 0 .1rem 0 .3rem;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   color: var(--muted);
-  font-size: .7rem;
+  font-size: .85em;
   font-weight: 700;
-  line-height: 1;
-  cursor: help;
-  vertical-align: middle;
+  line-height: inherit;
+  cursor: pointer;
+  vertical-align: baseline;
+  box-shadow: none;
+  gap: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+button.field-tip:hover,
+button.field-tip:focus-visible,
+.field-tip:hover,
+.field-tip:focus-visible {
+  color: var(--ink);
+  filter: none;
+  background: transparent !important;
 }
 .field-tip-panel {
   display: none;
   position: absolute;
   z-index: 30;
-  left: 50%;
+  left: 0;
   top: calc(100% + .35rem);
-  transform: translateX(-50%);
+  transform: none;
   width: min(18rem, 70vw);
   padding: .55rem .7rem;
   border-radius: 8px;
@@ -699,10 +716,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   text-align: left;
   white-space: normal;
 }
-.field-tip:hover .field-tip-panel,
-.field-tip:focus .field-tip-panel,
-.field-tip.open .field-tip-panel,
-.field-tip:focus-within .field-tip-panel { display: block; }
+.field-tip.open .field-tip-panel[hidden] { display: block; }
+.field-tip.open .field-tip-panel { display: block; }
 @media (prefers-reduced-motion: reduce) {
   .field-tip-panel { transition: none; }
 }
