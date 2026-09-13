@@ -1,12 +1,20 @@
 name: Publish container images
 
-# This workflow intentionally has no push, PR, or manual trigger. It is called
-# only after Release Please creates a tag from a release PR merged by uniskela.
+# Called after Release Please creates a tag from a release PR merged by
+# uniskela. workflow_dispatch is for rare catch-up publishes when a Git tag /
+# GitHub Release already exists but images were never pushed (e.g. a hand-bumped
+# version that skipped Release Please's release_created path).
 on:
   workflow_call:
     inputs:
       tag:
         description: Immutable release tag created by Release Please (vX.Y.Z).
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to (re)publish (vX.Y.Z).
         required: true
         type: string
 
@@ -21,25 +29,36 @@ jobs:
   publish:
     # Defence in depth: do not publish if this workflow is called outside the
     # canonical repository or from a main push not made by the maintainer.
+    # Manual dispatch is also restricted to uniskela. Tag shape is validated
+    # in a failing step (not job `if`) so a bad dispatch input fails loudly.
     if: >-
       github.repository == 'uniskela/adhd-hub' &&
-      github.actor == 'uniskela' &&
-      startsWith(inputs.tag, 'v')
+      github.actor == 'uniskela'
     runs-on: ubuntu-latest
     steps:
+      - name: Validate release tag shape
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected a vX.Y.Z tag (with leading v), got: ${TAG:-<empty>}"
+            exit 1
+          fi
+
       - name: Check out the release tag
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
 
-      - name: Validate release tag
+      - name: Confirm release tag exists
         env:
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Expected a vX.Y.Z tag, got: $TAG" >&2
+          if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag not found in this repository: $TAG"
             exit 1
           fi
 
