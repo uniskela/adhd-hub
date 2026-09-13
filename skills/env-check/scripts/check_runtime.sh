@@ -21,12 +21,10 @@ cursor_cloud=0
 case "${CURSOR_AGENT:-}" in
   1|true|TRUE|yes|YES) cursor_cloud=1 ;;
 esac
-# Supporting Cursor Cloud / remote sandbox signals (any one is enough with care).
 if [ -n "${__CURSOR_SANDBOX_ENV_RESTORE:-}" ]; then
   cursor_cloud=1
 fi
 if [ -n "${CURSOR_AGENT_SOCKET:-}" ] || [ -n "${CURSOR_CONVERSATION_ID:-}" ]; then
-  # Present on Cursor agent hosts; pair with container/sandbox cues when possible.
   if [ "$is_container" -eq 1 ] || [ -d /tmp/cursor/cloud-agent-transcripts ] || [ -d /exec-daemon ]; then
     cursor_cloud=1
   fi
@@ -55,6 +53,16 @@ if [ "${#signals[@]}" -gt 0 ]; then
 else
   echo "RUNTIME_SIGNALS: none"
 fi
+
+cli_status=()
+for cmd in graphify; do
+  if command -v "$cmd" >/dev/null 2>&1; then
+    cli_status+=("${cmd}=present")
+  else
+    cli_status+=("${cmd}=missing")
+  fi
+done
+IFS=','; echo "LOCAL_SKILL_CLIS: ${cli_status[*]}"; unset IFS
 
 echo "HUB_CONTINUITY_TRIGGER: MCP unavailable (runtime env is supporting context only)"
 echo "NOTE: \$USER=root is ignored as a sole cloud signal (false positives)"

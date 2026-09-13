@@ -77,7 +77,7 @@ For substantial work in this project:
   GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume
   cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip
   labels if the token cannot set them. Prefer short repository-relative
-  summaries; never invent Hub continuity after a forge-only write.
+  summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
 - CLOUD_AGENT: do not assume machine-installed local skill CLIs (e.g.
   `graphify`) exist. If missing: one-line notice, continue via repo tools /
   committed `graphify-out/` when present; never fabricate graph or Hub state.
