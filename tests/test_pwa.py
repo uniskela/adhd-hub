@@ -64,6 +64,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "work.js",
             "progress.js",
             "settings.js",
+            "forge-jobs.js",
             "help.js",
             "forge-jobs.js",
             "load.js",
