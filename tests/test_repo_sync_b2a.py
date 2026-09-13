@@ -551,6 +551,35 @@ def test_discover_issue_payloads_soft_fails_on_404() -> None:
     assert out["status_code"] == 404
     assert out["owner"] == "uniskela"
     assert out["repo"] == "ajpdigitalservices"
+    assert "owner/repo" in (out.get("hint") or "").lower()
+    resp.raise_for_status.assert_not_called()
+
+
+def test_discover_issue_payloads_soft_fails_on_403_with_pat_hint() -> None:
+    """Missing GitHub Issues scope must soft-fail with PAT/scope guidance."""
+    cfg = ForgeConfig(
+        provider=ForgeProvider.github,
+        token="ghp_no_issues",
+        base_url="https://api.github.com",
+        owner="uniskela",
+        repo="adhd-hub",
+        board_enabled=True,
+        issue_import_policy=IssueImportPolicy.all_open,
+    )
+    with patch("httpx.Client") as client_cls:
+        client = client_cls.return_value
+        resp = MagicMock()
+        resp.status_code = 403
+        resp.text = "Resource not accessible by personal access token"
+        resp.raise_for_status.side_effect = AssertionError("must not raise_for_status")
+        client.get.return_value = resp
+        out = discover_issue_payloads(cfg)
+    assert out["skipped"] is True
+    assert out["reason"] == "discover_failed"
+    assert out["status_code"] == 403
+    hint = out.get("hint") or ""
+    assert "Issues" in hint or "PAT" in hint
+    assert "scope" in hint.lower() or "PAT" in hint
     resp.raise_for_status.assert_not_called()
 
 

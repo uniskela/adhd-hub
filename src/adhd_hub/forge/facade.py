@@ -425,8 +425,13 @@ class ForgeFacade:
                     detail = (
                         f"HTTP {status}" if status is not None else discovered.get("error", "error")
                     )
+                    provider = discovered.get("provider") or tcfg.provider.value
+                    hint = discovered.get("hint") or (
+                        "Check GitHub vs Gitea profile kind and owner/repo."
+                    )
                     sync_warnings.append(
-                        f"Skipped issue discovery for {tcfg.owner}/{tcfg.repo}: {detail}"
+                        f"Skipped issue discovery for {tcfg.owner}/{tcfg.repo} "
+                        f"({provider}): {detail}. {hint}"
                     )
                 continue
             imported: list[dict] = []

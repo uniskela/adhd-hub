@@ -425,3 +425,59 @@ def test_normalize_owner_repo_strips_urls() -> None:
     assert parse_owner_repo_from_url(
         "https://github.com/user123/my-repo/pull/42"
     ) == ("user123", "my-repo")
+
+def test_profile_kind_owner_repo_roundtrip_keeps_token(tmp_path: Path) -> None:
+    """UI save with blank token field must keep PAT while kind/owner/repo update."""
+    data = tmp_path / "data"
+    data.mkdir()
+    original = ForgeConfig(
+        provider=ForgeProvider.gitea,
+        token="keep-me-secret",
+        owner="old-owner",
+        repo="old-repo",
+        base_url="https://git.example/api/v1",
+        web_base_url="https://git.example",
+        connection_profiles=[
+            ForgeConnectionProfile(
+                id="default",
+                name="Gitea",
+                provider=ForgeProvider.gitea,
+                token="keep-me-secret",
+                base_url="https://git.example/api/v1",
+                web_base_url="https://git.example",
+                owner="old-owner",
+                repo="old-repo",
+            )
+        ],
+        default_connection_profile_id="default",
+    )
+    save_forge_config(data, original)
+    current = load_forge_config(data)
+    from adhd_hub.forge.config import merge_forge_config_payload
+
+    payload = {
+        "connection_profiles": [
+            {
+                "id": "default",
+                "name": "GitHub personal",
+                "provider": "github",
+                "token": "",
+                "base_url": "https://api.github.com",
+                "web_base_url": "https://github.com",
+                "owner": "uniskela",
+                "repo": "adhd-hub",
+            }
+        ],
+        "default_connection_profile_id": "default",
+    }
+    merged = merge_forge_config_payload(current, payload)
+    save_forge_config(data, merged)
+    loaded = load_forge_config(data)
+    prof = loaded.connection_profiles[0]
+    assert prof.provider == ForgeProvider.github
+    assert prof.owner == "uniskela"
+    assert prof.repo == "adhd-hub"
+    assert prof.token == "keep-me-secret"
+    assert loaded.provider == ForgeProvider.github
+    assert loaded.token == "keep-me-secret"
+

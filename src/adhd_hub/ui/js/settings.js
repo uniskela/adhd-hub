@@ -12,6 +12,7 @@ import {
   wireFieldTips,
   normalizeForgeOwnerRepo,
 } from './help.js';
+import { enqueueForgeJob, refreshForgeJobs } from './forge-jobs.js';
 
 export function showSettingsIndex() {
   const view = $("settings-view");
@@ -160,6 +161,7 @@ export async function loadForge() {
         : c.board_inbox_authors || "";
       $("primary_memory_repo").checked = !!c.primary_memory_repo;
       attachHubForgeTips();
+      await refreshForgeJobs().catch(() => {});
     } catch (_e) {
       /* forge optional */
     }
@@ -208,8 +210,10 @@ function profileCardHtml(p, idx) {
           <input data-f="owner" value="${escapeHtml(p.owner || "")}" placeholder="user123" /></label>
         <label>Repo ${tipHtml("Repository name only (my-repo), never a full https:// URL. Full URLs belong in a project Repository URL.")}
           <input data-f="repo" value="${escapeHtml(p.repo || "")}" placeholder="my-repo" /></label>
-        <label class="span2">Token ${tipHtml("Personal access token for this provider. Never paste tokens into project fields.")}
-          <input data-f="token" type="password" value="${escapeHtml(p.token || "")}" autocomplete="off" placeholder="ghp_… or gitea_…" /></label>
+        <label class="span2">Token ${tipHtml("Personal access token for this provider. Leave blank to keep the saved token. Never paste tokens into project fields.")}
+          <input data-f="token" type="password" value="" autocomplete="off" placeholder="${p.token ? "Saved — paste only to replace" : "ghp_… or gitea_…"}" />
+          <span class="hint" data-token-status>${p.token ? "A token is saved for this profile. Leave blank on Save to keep it." : "No token saved yet."}</span>
+        </label>
         <label class="span2">Import policy ${tipHtml("Controls whether Sync imports new issues. Default manual only reconciles already-linked threads (0 imported).")}
           <select data-f="issue_import_policy">${policyOptions}</select>
         </label>
@@ -267,6 +271,34 @@ export function renderForgeProfiles(cfg) {
       };
       sel.addEventListener("change", sync);
       sync();
+    });
+    root.querySelectorAll('[data-f="provider"]').forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const card = sel.closest(".forge-profile-card");
+        if (!card) return;
+        const base = card.querySelector('[data-f="base_url"]');
+        const web = card.querySelector('[data-f="web_base_url"]');
+        const v = sel.value;
+        const baseVal = (base?.value || "").trim();
+        const webVal = (web?.value || "").trim();
+        if (v === "github") {
+          if (!baseVal || baseVal.includes("/api/v1") || baseVal.includes("gitea")) {
+            if (base) base.value = "https://api.github.com";
+          }
+          if (!webVal || webVal.includes("gitea") || (!webVal.includes("github.com") && baseVal.includes("/api/v1"))) {
+            if (web) web.value = "https://github.com";
+          }
+        } else if (v === "gitea") {
+          if (baseVal === "https://api.github.com" || baseVal.includes("api.github.com")) {
+            if (base) base.value = "";
+            base?.setAttribute("placeholder", "https://git.example/api/v1");
+          }
+          if (webVal === "https://github.com" || webVal.includes("github.com")) {
+            if (web) web.value = "";
+            web?.setAttribute("placeholder", "https://git.example");
+          }
+        }
+      });
     });
     wireFieldTips(root);
   }
@@ -587,6 +619,7 @@ export function renderImportBanner(preview) {
       el.innerHTML = "";
     };
   }
+
 export async function scanForgeImport() {
     const preview = await api("/forge/import/preview");
     renderImportBanner(preview);
@@ -606,13 +639,11 @@ export async function runForgeImport() {
       extraHtml: `<label><input type="checkbox" id="overwrite_local" /> Overwrite local PROGRESS.md when it already exists</label>`,
     });
     if (!result.ok) return;
-    setMsg("Importing from forge…");
-    const out = await api("/forge/import", {
-      method: "POST",
-      body: JSON.stringify({
-        overwrite_local: !!result.data.overwrite_local,
-      }),
-    });
+    const { result: out } = await enqueueForgeJob(
+      "/forge/import",
+      { overwrite_local: !!result.data.overwrite_local },
+      { pendingLabel: "Import from forge" }
+    );
     const n = (out.imported || []).length;
     setMsg(`Imported ${n} project(s) from forge.`);
     $("import-banner").hidden = true;
@@ -751,16 +782,25 @@ export async function saveForge() {
     }
   }
 export async function syncForge() {
-    setMsg("Syncing forge…");
-    const out = await api("/forge/sync", { method: "POST", body: "{}" });
+    const { result: out } = await enqueueForgeJob("/forge/sync", {}, { pendingLabel: "Sync forge" });
     const uploaded = out.wiki?.uploaded?.length || 0;
-    setMsg(`Forge sync done (${uploaded} wiki files).`);
+    const warnings = Array.isArray(out.warnings) ? out.warnings : [];
+    let msg = `Forge sync done (${uploaded} wiki files).`;
+    if (warnings.length) {
+      msg += ` ${warnings[0]}`;
+      setMsg(msg, { variant: "warning" });
+    } else {
+      setMsg(msg);
+    }
     if (out.import_preview) renderImportBanner(out.import_preview);
     else await scanForgeImport().catch(() => {});
   }
 export async function importForgeInbox() {
-    setMsg("Importing forge issue inbox…");
-    const out = await api("/forge/inbox/import", { method: "POST", body: "{}" });
+    const { result: out } = await enqueueForgeJob(
+      "/forge/inbox/import",
+      {},
+      { pendingLabel: "Import issue inbox" }
+    );
     if (out.skipped) {
       if (out.reason === "board_inbox_authors_required") {
         setMsg(
