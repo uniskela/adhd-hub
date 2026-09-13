@@ -299,14 +299,11 @@ export function renderForgeProfiles(cfg) {
           /(^|\.)gitea\./i.test(baseHost) ||
           baseHost.endsWith(".gitea.io");
         if (v === "github") {
-          if (!baseVal || looksGiteaBase) {
+          // Provider "github" means github.com — reset non-GitHub hosts (incl. prior Gitea web URLs).
+          if (!baseVal || looksGiteaBase || (baseHost && !isGithubApiHost(baseHost))) {
             if (base) base.value = "https://api.github.com";
           }
-          if (
-            !webVal ||
-            looksGiteaBase ||
-            (webHost && !isGithubWebHost(webHost) && /\/api\/v1\/?$/i.test(baseVal))
-          ) {
+          if (!webVal || looksGiteaBase || (webHost && !isGithubWebHost(webHost))) {
             if (web) web.value = "https://github.com";
           }
         } else if (v === "gitea") {
