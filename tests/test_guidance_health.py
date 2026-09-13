@@ -8,6 +8,7 @@ from adhd_hub.guidance_health import (
     BEGIN_MARKER,
     END_MARKER,
     HUB_OWNED_SKILLS,
+    SESSION_SKILL_VERSION,
     GuidanceStatus,
     inspect_agents_md,
     inspect_hub_skill,
@@ -93,7 +94,7 @@ def test_hub_skill_current_and_stale(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     # Force home-based search by using empty project without local skills
     (skills_root / "SKILL.md").write_text(
-        "---\nname: adhd-hub-session\nhub_skill_version: 2\n---\n\n# ok\n",
+        f"---\nname: adhd-hub-session\nhub_skill_version: {SESSION_SKILL_VERSION}\n---\n\n# ok\n",
         encoding="utf-8",
     )
     healthy = inspect_hub_skill(
@@ -117,6 +118,7 @@ def test_hub_skill_current_and_stale(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_unrelated_skill_not_in_hub_owned(tmp_path: Path) -> None:
+    assert "env-check" in HUB_OWNED_SKILLS
     assert "graphify" not in HUB_OWNED_SKILLS
     assert "superpowers" not in HUB_OWNED_SKILLS
     foreign = tmp_path / "skills" / "graphify"

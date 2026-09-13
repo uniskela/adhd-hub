@@ -11,10 +11,11 @@ from pathlib import Path
 
 # Independent from package release version (pyproject). Bump only when Hub-owned
 # generated guidance or Hub-owned skill contracts change meaningfully.
-AGENT_GUIDANCE_VERSION = 3  # outage policy + explicit pause/public-artifact safety
-SESSION_SKILL_VERSION = 2
-PROJECTS_SKILL_VERSION = 2
-CURSOR_RULE_VERSION = 3  # conditional overlap + pause/outage policy
+AGENT_GUIDANCE_VERSION = 4  # env-check + MCP-down forge mailbox + cloud local-CLI caveats
+SESSION_SKILL_VERSION = 3  # points at env-check; MCP-down is continuity trigger
+PROJECTS_SKILL_VERSION = 3
+ENV_CHECK_SKILL_VERSION = 1
+CURSOR_RULE_VERSION = 4  # env-check + MCP-unavailable forge mailbox + local CLIs
 
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"
@@ -32,6 +33,7 @@ HUB_RULE_VERSION_RE = re.compile(
 HUB_OWNED_SKILLS: dict[str, int] = {
     "adhd-hub-session": SESSION_SKILL_VERSION,
     "adhd-hub-projects": PROJECTS_SKILL_VERSION,
+    "env-check": ENV_CHECK_SKILL_VERSION,
 }
 
 
@@ -405,6 +407,7 @@ def expected_versions_payload() -> dict[str, int]:
         "agent_guidance_version": AGENT_GUIDANCE_VERSION,
         "session_skill_version": SESSION_SKILL_VERSION,
         "projects_skill_version": PROJECTS_SKILL_VERSION,
+        "env_check_skill_version": ENV_CHECK_SKILL_VERSION,
         "cursor_rule_version": CURSOR_RULE_VERSION,
     }
 

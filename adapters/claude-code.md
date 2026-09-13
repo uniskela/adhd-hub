@@ -31,4 +31,8 @@ Habits: `resolve_project` → `session_digest` → work → `upsert_progress` / 
 
 ## When MCP is unreachable (Claude remote / cloud)
 
-Use the [forge issue inbox](../docs/forge-issue-inbox.md): issue title `[ADHD] …` (sufficient for allowlisted authors), optional labels `adhd-hub` + `project:<slug>` + `source:claude` or `source:claude-code`, short progress body. Skip labels if the token cannot set them. The creating account must be on the Hub **Inbox authors** allowlist. The Hub imports and closes with `adhd-hub-synced` (never deletes).
+**Primary signal:** Hub MCP tools missing, errored, unauthorized, or auth failure — check that; do not invent “I'm in cloud.” On the first substantial Hub-worthy turn, say Hub MCP is unavailable (short `/mcp` + `ADHD_HUB_AUTH_TOKEN` + restart hint). Never invent Hub continuity/progress/thread state or claim a Hub write succeeded.
+
+CLOUD_AGENT: do not assume local skill CLIs like `graphify` exist; one-line notice if missing, then repo tools / committed `graphify-out/`. LOCAL_WORKSPACE may have them. See `env-check`.
+
+Use the [forge issue inbox](../docs/forge-issue-inbox.md): issue title `[ADHD] …` (sufficient for allowlisted authors), optional labels `adhd-hub` + `project:<slug>` + `source:claude` or `source:claude-code`, short Goal/Focus/Next/Resume body (repository-relative summaries only; no secrets/private URLs/absolute machine paths). Skip labels if the token cannot set them. The creating account must be on the Hub **Inbox authors** allowlist. The Hub imports and closes with `adhd-hub-synced` (never deletes).

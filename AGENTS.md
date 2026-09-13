@@ -5,7 +5,8 @@ Guidance for coding agents working in this repository.
 ## ADHD Progress Hub
 
 - Prefer MCP tools from `adhd-hub` (`resolve_project`, `session_digest`, `check_overlap`, `upsert_progress`, `mark_done`, `set_reminder`) when starting, pausing, or finishing work that could be abandoned.
-- Install skills globally when possible: `npx skills add ./skills -g` (or `uniskela/adhd-hub` once public).
+- Install skills globally when possible: `npx skills add ./skills -g` (or `uniskela/adhd-hub` once public). Skills include `adhd-hub-session`, `adhd-hub-projects`, and `env-check`.
+- Use `env-check` (`skills/env-check/scripts/check_runtime.sh`) for CLOUD_AGENT vs LOCAL_WORKSPACE; **MCP unavailable** triggers forge `[ADHD]` fallback — never invent Hub state.
 - Do not invent hub state — only report what the tools return.
 - Prefer summaries; never dump full chat transcripts into the hub.
 
@@ -13,9 +14,11 @@ Guidance for coding agents working in this repository.
 
 This project keeps a knowledge graph under `graphify-out/`.
 
+**CLOUD_AGENT:** do not assume the `graphify` CLI (or other machine-installed local skill binaries) exists. If missing: one-line notice, continue via repo tools and committed `graphify-out/` when present; never fabricate graph output. **LOCAL_WORKSPACE** may have those tools. Hub MCP down still uses the `[ADHD]` forge mailbox when allowed (see continuity block / `env-check`).
+
 ### Before exploring code
 
-Orient with graphify **before** broad Read/Grep/Glob exploration:
+When the `graphify` CLI is available, orient with it **before** broad Read/Grep/Glob exploration:
 
 ```bash
 graphify query "<question>"
@@ -23,11 +26,11 @@ graphify path "<A>" "<B>"
 graphify explain "<concept>"
 ```
 
-Use Read/Grep/Glob after orientation when you need exact lines to edit or debug. If `graphify-out/graph.json` is missing, build/update the graph first.
+Use Read/Grep/Glob after orientation when you need exact lines to edit or debug. If the CLI is missing, say so in one line and continue with repo tools / committed `graphify-out/` — do not invent graph state. If `graphify-out/graph.json` is missing and the CLI is available, build/update the graph first.
 
 ### After modifying code
 
-Always refresh the graph (AST-only, no LLM / API cost):
+When the CLI is available, always refresh the graph after code edits (AST-only, no LLM / API cost):
 
 ```bash
 graphify update .
@@ -52,7 +55,7 @@ See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphif
 - On each new PR, audit and update wiki docs (`graphify-out/wiki/` when present) so they stay aligned with the change and do not drift.
 
 <!-- adhd-hub:project-agent:start -->
-<!-- adhd-hub:guidance-version:3 -->
+<!-- adhd-hub:guidance-version:4 -->
 ## ADHD Hub continuity
 
 For substantial work in this project:
@@ -65,6 +68,23 @@ For substantial work in this project:
   only if Hub status changes, a persistence attempt fails again, or the reply
   could otherwise imply continuity was saved. Then continue the authorized
   work. Never invent Hub state or claim a Hub write succeeded.
+- **MCP unavailable** is the Hub continuity trigger (not runtime alone). Use
+  the `env-check` skill / `skills/env-check/scripts/check_runtime.sh` for
+  CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context (`CURSOR_AGENT`,
+  container cues — never `$USER=root` alone). When Hub MCP is unreachable,
+  use the forge issue mailbox only when issue-write access is available and
+  the authenticated identity is accepted by Hub Inbox authors. Open/update a
+  GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume
+  cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip
+  labels if the token cannot set them. Prefer short repository-relative
+  summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
+- CLOUD_AGENT: do not assume machine-installed local skill CLIs (e.g.
+  `graphify`) exist. If missing: one-line notice, continue via repo tools /
+  committed `graphify-out/` when present; never fabricate graph or Hub state.
+  Prefer headless tests and injected env/OIDC over `.env.local`; no native
+  browser/macOS-Windows binaries. Hub MCP down still uses the `[ADHD]` forge
+  mailbox when allowed. LOCAL_WORKSPACE: those local CLIs may be available;
+  local docker / localhost OK; prefer Hub MCP when up.
 - Skip Hub for trivial/read-only/tiny work.
 - Once per meaningful session: `resolve_project`, then `session_digest` with
   the task query. Reuse resolved context where possible.

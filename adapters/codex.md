@@ -20,11 +20,15 @@ Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart 
 
 ## When MCP is unreachable (Codex / ChatGPT cloud)
 
+**Primary signal:** Hub MCP tools missing, errored, unauthorized, or auth failure — check that; do not invent “I'm in cloud.” On the first substantial Hub-worthy turn, say Hub MCP is unavailable (short `/mcp` + `ADHD_HUB_AUTH_TOKEN` + restart hint). Never invent Hub continuity/progress/thread state or claim a Hub write succeeded.
+
+CLOUD_AGENT: do not assume local skill CLIs like `graphify` exist; one-line notice if missing, then repo tools / committed `graphify-out/`. LOCAL_WORKSPACE may have them. See `env-check`.
+
 Use the [forge issue inbox](../docs/forge-issue-inbox.md):
 
 1. Open a GitHub/Gitea issue titled `[ADHD] <summary>` as a user on the Hub **Inbox authors** allowlist. Title prefix is enough; the `adhd-hub` label is optional.
 2. Optional labels when the token can set them: `adhd-hub`, `project:<slug>`, `source:codex` (or `source:chatgpt`).
-3. Body: Now / Done / Next / Return cue only — no secrets.
+3. Body: short Goal/Focus/Next/Resume (or Now / Done / Next / Return) — repository-relative summaries only; no secrets, private URLs, or absolute machine paths.
 4. Hub imports on poll or **Import issue inbox**, then closes with `adhd-hub-synced`.
 
 ## Agent instructions (drop into AGENTS.md)
