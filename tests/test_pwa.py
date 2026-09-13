@@ -62,6 +62,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "work.js",
             "progress.js",
             "settings.js",
+            "help.js",
             "load.js",
             "boot.js",
         ):
