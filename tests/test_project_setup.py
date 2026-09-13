@@ -27,7 +27,25 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "later substantial Hub-worthy turns while still down" not in text
     assert "pause_thread" in text
     assert "absolute machine paths" in text
-    assert "adhd-hub:guidance-version:3" in text
+    assert "adhd-hub:guidance-version:4" in text
+    assert "env-check" in text
+    assert "CLOUD_AGENT" in text
+    assert "graphify" in text
+    assert "[ADHD]" in text
+
+
+def test_env_check_skill_documents_cloud_local_cli_caveat() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    text = (repo_root / "skills/env-check/SKILL.md").read_text(encoding="utf-8")
+    assert "CLOUD_AGENT" in text
+    assert "LOCAL_WORKSPACE" in text
+    assert "graphify" in text
+    assert "one-line notice" in text
+    assert "[ADHD]" in text
+    assert "never invent" in text.lower() or "Never invent" in text
+    script = (repo_root / "skills/env-check/scripts/check_runtime.sh").read_text(encoding="utf-8")
+    assert "LOCAL_SKILL_CLIS" in script
+    assert "USER=root" in script or "$USER=root" in script
 
 
 def test_session_skill_requires_loud_mcp_down() -> None:
@@ -41,6 +59,10 @@ def test_session_skill_requires_loud_mcp_down() -> None:
     assert "One thread = one independently finishable outcome" in text
     assert "force_new_thread" in text
     assert "Use the forge mailbox only when forge issue-write access is available" in text
+    assert "Primary signal" in text
+    assert "CURSOR_AGENT" in text
+    assert "env-check" in text
+    assert "graphify" in text
     assert "safe for the repository's visibility" in text
     assert "absolute local workspace paths" in text
     assert "thread_id" in text
