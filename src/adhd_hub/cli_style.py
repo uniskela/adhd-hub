@@ -36,7 +36,7 @@ def color_enabled(stream: TextIO | None = None) -> bool:
     target = stream if stream is not None else sys.stdout
     try:
         return bool(target.isatty())
-    except Exception:
+    except (AttributeError, OSError, ValueError):
         return False
 
 

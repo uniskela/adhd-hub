@@ -449,6 +449,20 @@ def test_dcr_register_loopback_and_rejects_remote_http(tmp_path: Path) -> None:
         assert bad.json().get("error") == "invalid_redirect_uri"
 
 
+@pytest.mark.parametrize("body", [b"{", b'"\xff"', b"[]"])
+@pytest.mark.parametrize(
+    ("endpoint", "error"),
+    [("token", "invalid_request"), ("register", "invalid_client_metadata")],
+)
+def test_oauth_rejects_invalid_json(tmp_path: Path, endpoint: str, error: str, body: bytes) -> None:
+    with TestClient(create_app(_oauth_settings(tmp_path)), base_url="http://testserver") as client:
+        response = client.post(
+            f"/api/oauth/{endpoint}", content=body, headers={"Content-Type": "application/json"}
+        )
+    assert response.status_code == 400
+    assert response.json()["error"] == error
+
+
 def test_oauth_disabled_hides_oauth_api_routes(tmp_path: Path) -> None:
     settings = _oauth_settings(tmp_path, oauth_enabled=False)
     with TestClient(create_app(settings)) as client:
@@ -640,7 +654,7 @@ def test_full_oauth_flow_mcp_only_and_deny_replay(tmp_path: Path) -> None:
         assert replay.json().get("error")
 
         # Deny → access_denied
-        verifier2, challenge2 = generate_pkce()
+        _verifier2, challenge2 = generate_pkce()
         params2 = _authorize_query(
             client_id=client_id, challenge=challenge2, state="deny-me"
         )

@@ -189,7 +189,7 @@ class ForgeJobQueue:
 
             try:
                 result = self._runner(job)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.exception("forge job failed id=%s kind=%s", job.id, job.kind)
                 with self._lock:
                     job.status = "failed"

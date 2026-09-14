@@ -57,7 +57,7 @@ def resolve_uv_package_from(hub_url: str) -> str:
     try:
         with urlopen(Request(f"{base}/install/cli-wheel.url"), timeout=3) as resp:
             text = resp.read().decode("utf-8", errors="replace").strip()
-        if text.startswith("http://") or text.startswith("https://"):
+        if text.startswith(("http://", "https://")):
             return text.splitlines()[0].strip()
     except (HTTPError, URLError, TimeoutError, OSError, ValueError):
         pass
@@ -1847,13 +1847,7 @@ _GROUP_ORDER = ("Hub", "Agents", "Companions", "Other")
 def classify_step_group(name: str) -> str:
     if name in _HUB_NAMES or name.startswith("hub "):
         return "Hub"
-    if (
-        name in _AGENT_NAMES
-        or name.startswith("cursor ")
-        or name.startswith("codex ")
-        or name.startswith("claude ")
-        or name.startswith("openclaw")
-    ):
+    if name in _AGENT_NAMES or name.startswith(("cursor ", "codex ", "claude ", "openclaw")):
         return "Agents"
     if any(name.startswith(p) for p in _COMPANION_PREFIXES):
         return "Companions"

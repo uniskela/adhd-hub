@@ -4,6 +4,8 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
 from adhd_hub.timeutil import format_timestamp
 from adhd_hub.wiki import Wiki
@@ -53,7 +55,7 @@ def test_prefs_accepts_new_opt_in_companions(tmp_path: Path) -> None:
 def test_prefs_rejects_unknown_companion() -> None:
     import pytest
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError, match="Unknown connect companion"):
         HubPrefs(connect_companions=["not-a-real-tool"])
 
 

@@ -238,13 +238,15 @@ def test_resolve_graphify_bin_uses_local_bin(tmp_path: Path, monkeypatch) -> Non
     from adhd_hub.companions import resolve_graphify_bin
 
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("adhd_hub.companions._which", return_value=None):
-        with patch("adhd_hub.companions._uv_tool_bin_dir", return_value=None):
-            assert resolve_graphify_bin() is None
-            shim = tmp_path / ".local" / "bin" / ("graphify.exe" if sys.platform == "win32" else "graphify")
-            shim.parent.mkdir(parents=True)
-            shim.write_text("", encoding="utf-8")
-            assert resolve_graphify_bin() == str(shim.resolve())
+    with (
+        patch("adhd_hub.companions._which", return_value=None),
+        patch("adhd_hub.companions._uv_tool_bin_dir", return_value=None),
+    ):
+        assert resolve_graphify_bin() is None
+        shim = tmp_path / ".local" / "bin" / ("graphify.exe" if sys.platform == "win32" else "graphify")
+        shim.parent.mkdir(parents=True)
+        shim.write_text("", encoding="utf-8")
+        assert resolve_graphify_bin() == str(shim.resolve())
 
 
 def test_optional_iha_failure_is_warn_not_error(monkeypatch) -> None:
@@ -284,7 +286,7 @@ def test_run_prints_arrow_running(monkeypatch, capsys) -> None:
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.setattr(companions, "_which", lambda *a, **k: "echo")
     monkeypatch.setattr(companions.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 0})())
-    status, detail = companions._run(["echo", "hi"], dry_run=False)
+    status, _detail = companions._run(["echo", "hi"], dry_run=False)
     err = capsys.readouterr().err
     assert status == "ok"
     assert "→ Running  echo hi" in err
@@ -384,4 +386,3 @@ def test_context7_codex_only_skips_false_warn() -> None:
     details = " | ".join(s.detail for s in steps)
     assert "no Cursor/Claude" not in details
     assert any(s.name == "install context7" and "codex" in s.detail for s in steps)
-

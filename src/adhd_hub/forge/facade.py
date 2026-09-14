@@ -313,12 +313,12 @@ class ForgeFacade:
                 wiki = WikiForgeSync(self.wiki_forge_config()).push_wiki_tree(
                     self._hub.settings.wiki_dir
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.exception("project wiki sync failed")
                 wiki = {"error": str(exc)}
             try:
                 self._refresh_forge_section(scope_slug)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("forge section refresh failed for %s", scope_slug)
         else:
             cfg = self.forge_config()
@@ -406,7 +406,7 @@ class ForgeFacade:
             seen_targets.add(key)
             try:
                 discovered = discover_issue_payloads(tcfg, limit=50)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.exception(
                     "discover issues crashed for %s/%s", tcfg.owner, tcfg.repo
                 )

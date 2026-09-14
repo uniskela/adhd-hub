@@ -461,9 +461,7 @@ def bearer_authorized(
 
     if token_matches(settings, value) or store.valid_session(value):
         return True
-    if oauth_store is not None and oauth_store.valid_access_token(value):
-        return True
-    return False
+    return oauth_store is not None and oauth_store.valid_access_token(value)
 
 
 class StartConnectRequest(BaseModel):

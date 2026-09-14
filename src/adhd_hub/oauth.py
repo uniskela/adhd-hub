@@ -151,9 +151,7 @@ def is_safe_oauth_return_path(value: str | None) -> bool:
             return False
         if parsed.path != "/api/oauth/authorize":
             return False
-        if ".." in parsed.path:
-            return False
-        return True
+        return ".." not in parsed.path
     except ValueError:
         return False
 
@@ -925,7 +923,7 @@ def build_oauth_router(
         elif "application/json" in content_type:
             try:
                 payload = await request.json()
-            except Exception:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return _oauth_error(400, "invalid_request")
             if not isinstance(payload, dict):
                 return _oauth_error(400, "invalid_request")
@@ -983,7 +981,7 @@ def build_oauth_router(
         throttle.check(client_key(request))
         try:
             payload = await request.json()
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return _oauth_error(400, "invalid_client_metadata")
         if not isinstance(payload, dict):
             return _oauth_error(400, "invalid_client_metadata")
