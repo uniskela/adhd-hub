@@ -6,6 +6,8 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
+import httpx
+
 from adhd_hub.forge.board_sync import BoardForgeSync
 from adhd_hub.forge.config import (
     ForgeConfig,
@@ -18,9 +20,10 @@ from adhd_hub.forge.config import (
 from adhd_hub.forge.config import (
     save_forge_config as persist_forge_config,
 )
+from adhd_hub.forge.thread_refresh import SOURCE_FIELDS, content_hash, issue_snapshot, plan_refresh
 from adhd_hub.forge.wiki_sync import WikiForgeSync
 from adhd_hub.models import Thread, ThreadStatus, ThreadUpsert
-from adhd_hub.store import item_id
+from adhd_hub.store import item_id, utcnow
 from adhd_hub.work_identity import thread_has_external_identity
 
 if TYPE_CHECKING:
@@ -620,6 +623,194 @@ class ForgeFacade:
             out["import_preview"] = self.preview_forge_import()
         return out
 
+    @staticmethod
+    def _hub_source_values(thread: Thread) -> dict:
+        return {
+            "summary": thread.summary,
+            "goal": thread.goal,
+            "focus": thread.focus,
+            "next_steps": thread.next_steps,
+            "resume_step": thread.resume_step,
+        }
+
+    @staticmethod
+    def _source_url(cfg: ForgeConfig, issue: dict, number: int) -> str:
+        return str(cfg.issue_web_url(number) or issue.get("html_url") or issue.get("url") or "")
+
+    def _apply_issue_refresh(
+        self,
+        thread: Thread,
+        issue: dict,
+        cfg: ForgeConfig,
+        *,
+        resolutions: dict[str, str] | None = None,
+        manual_values: dict[str, object] | None = None,
+        preview_only: bool = False,
+    ) -> dict:
+        incoming = issue_snapshot(issue)
+        body_hash = content_hash(str(issue.get("body") or ""))
+        previous = thread.source_snapshot or {}
+        current = self._hub_source_values(thread)
+        plan = plan_refresh(
+            previous,
+            current,
+            incoming,
+            title_derived=thread.source_title_derived,
+        )
+        changes = dict(plan.changes)
+        unresolved = dict(plan.conflicts)
+        title_derived = thread.source_title_derived
+        resolutions = resolutions or {}
+        manual_values = manual_values or {}
+        for field, conflict in list(unresolved.items()):
+            action = resolutions.get(field)
+            if action == "forge":
+                changes[field] = conflict["forge"]
+                unresolved.pop(field)
+            elif action == "hub":
+                if field == "summary":
+                    title_derived = False
+                unresolved.pop(field)
+            elif action == "manual" and field in manual_values:
+                value = manual_values[field]
+                if field == "next_steps":
+                    if not isinstance(value, list):
+                        raise ValueError("manual next_steps must be a list")
+                    value = [str(item).strip() for item in value if str(item).strip()][:3]
+                elif value is not None and not isinstance(value, str):
+                    raise ValueError(f"manual {field} must be text or null")
+                elif isinstance(value, str):
+                    value = value.strip() or None
+                if field == "summary" and not value:
+                    raise ValueError("manual summary cannot be empty")
+                changes[field] = value
+                if field == "summary":
+                    title_derived = False
+                unresolved.pop(field)
+
+        preview = {
+            "thread_id": thread.id,
+            "issue_number": thread.external_issue_number,
+            "source_issue_url": self._source_url(
+                cfg, issue, int(thread.external_issue_number or issue.get("number") or 0)
+            ),
+            "last_imported_at": thread.source_imported_at,
+            "source_state": str(issue.get("state") or "open"),
+            "changes": changes,
+            "conflicts": unresolved,
+            "incoming": incoming,
+        }
+        if preview_only:
+            changed = bool(changes or unresolved)
+            state = "conflicted" if unresolved else "refresh_available" if changed else "current"
+            self._hub.store.set_forge_source_state(thread.id, state, conflicts=unresolved)
+            return {"preview": True, **preview}
+        if unresolved:
+            self._hub.store.update_forge_source(
+                thread.id,
+                issue_url=preview["source_issue_url"],
+                imported_at=thread.source_imported_at,
+                content_hash=thread.source_content_hash,
+                snapshot=previous,
+                sync_state="conflicted",
+                conflicts=unresolved,
+                title_derived=title_derived,
+            )
+            fields = ", ".join(sorted(unresolved))
+            if thread.source_sync_state != "conflicted" or thread.source_conflicts != unresolved:
+                self._hub.store.add_progress_note(
+                    thread.project_slug or "unclassified",
+                    f"Forge source refresh conflict detected for: {fields}.",
+                    thread_id=thread.id,
+                )
+            return {"applied": False, "needs_review": True, **preview, "conflicts": unresolved}
+
+        now = utcnow().isoformat()
+        updated = self._hub.store.update_forge_source(
+            thread.id,
+            issue_url=preview["source_issue_url"],
+            imported_at=now,
+            content_hash=body_hash,
+            snapshot=incoming,
+            sync_state="current",
+            conflicts={},
+            title_derived=title_derived,
+            changes=changes,
+        )
+        if not any(field in incoming for field in SOURCE_FIELDS):
+            source_note = str(issue.get("body") or "").strip()
+            if source_note:
+                if len(source_note) > 8000:
+                    source_note = source_note[:8000].rstrip() + "\n\n…(truncated from forge issue)"
+                self._hub.store.add_progress_note(
+                    updated.project_slug or "unclassified", source_note, thread_id=updated.id
+                )
+        if changes:
+            labels = {
+                "summary": "Title",
+                "goal": "Goal",
+                "focus": "Focus",
+                "next_steps": "Next",
+                "resume_step": "Resume cue",
+            }
+            changed = ", ".join(labels[name] for name in changes)
+            provider = (thread.external_provider.value if thread.external_provider else cfg.provider.value).title()
+            audit = (
+                f"Refreshed from {provider} issue "
+                f"{thread.external_owner or cfg.owner}/{thread.external_repo or cfg.repo}"
+                f"#{thread.external_issue_number} at {now}:\n{changed} updated."
+            )
+            self._hub.store.add_progress_note(
+                updated.project_slug or "unclassified", audit, thread_id=updated.id
+            )
+            self._hub._sync_project_progress(
+                updated.project_slug or "unclassified",
+                title=updated.summary,
+                history_note=audit,
+                thread=updated,
+            )
+            self._hub.wiki.rebuild_index(
+                self._hub.store.list_threads(status=ThreadStatus.open, limit=500)
+            )
+        return {"applied": True, "updated_fields": list(changes), **preview}
+
+    def refresh_thread_from_source(
+        self,
+        thread_id: str,
+        *,
+        preview_only: bool = False,
+        resolutions: dict[str, str] | None = None,
+        manual_values: dict[str, object] | None = None,
+    ) -> dict:
+        thread = self._hub.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError("thread_not_found")
+        if not (thread.external_issue_number and thread.source_issue_url):
+            raise ValueError("thread_has_no_forge_source")
+        cfg = self.forge_config(thread.project_slug)
+        if cfg.provider == ForgeProvider.none:
+            cfg = self.forge_config()
+        if (
+            cfg.provider.value != (thread.external_provider.value if thread.external_provider else "")
+            or cfg.owner.casefold() != (thread.external_owner or "").casefold()
+            or cfg.repo.casefold() != (thread.external_repo or "").casefold()
+        ):
+            self._hub.store.mark_forge_source_unavailable(thread.id)
+            return {"applied": False, "source_state": "unavailable", "error": "source_credentials_unavailable"}
+        try:
+            issue = self._board(cfg).get_issue(thread.external_issue_number)
+        except (httpx.HTTPError, ValueError) as exc:
+            self._hub.store.mark_forge_source_unavailable(thread.id)
+            return {"applied": False, "source_state": "unavailable", "error": str(exc)}
+        return self._apply_issue_refresh(
+            thread,
+            issue,
+            cfg,
+            resolutions=resolutions,
+            manual_values=manual_values,
+            preview_only=preview_only,
+        )
+
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         """Pull cloud-agent forge issues into Hub threads (never deletes remote issues)."""
         cfg = self.forge_config()
@@ -651,6 +842,9 @@ class ForgeFacade:
             for key, value in self._hub.store.list_meta_prefix("forge_issue:").items()
         }
         imported: list[dict] = []
+        refreshed: list[dict] = []
+        unchanged: list[dict] = []
+        conflicts: list[dict] = []
         skipped: list[dict] = []
         try:
             issues = board.list_inbox_issues(limit=limit)
@@ -673,23 +867,34 @@ class ForgeFacade:
                 )
             except ValueError:
                 linked = None
+            legacy_thread_id = mapped_numbers.get(str(number))
+            if linked is None and legacy_thread_id:
+                self._meta_set_with_identity(cfg)(f"forge_issue:{legacy_thread_id}", str(number))
+                linked = self._hub.store.get_thread(legacy_thread_id)
             if linked:
-                skipped.append(
-                    {
-                        "number": number,
-                        "reason": "already_mapped",
-                        "thread_id": linked.id,
-                    }
+                if not linked.source_issue_url and linked.origin not in {"forge-inbox", "forge-import"}:
+                    skipped.append(
+                        {"number": number, "reason": "already_mapped", "thread_id": linked.id}
+                    )
+                    continue
+                incoming = issue_snapshot(issue)
+                changed = (
+                    linked.source_content_hash != content_hash(str(issue.get("body") or ""))
+                    or linked.source_snapshot.get("summary") != incoming.get("summary")
                 )
-                continue
-            if str(number) in mapped_numbers:
-                skipped.append(
-                    {
-                        "number": number,
-                        "reason": "already_mapped",
-                        "thread_id": mapped_numbers[str(number)],
-                    }
-                )
+                if not changed:
+                    item = {"number": number, "thread_id": linked.id}
+                    if linked.source_sync_state == "conflicted":
+                        conflicts.append(item)
+                    else:
+                        unchanged.append(item)
+                    continue
+                result = self._apply_issue_refresh(linked, issue, cfg)
+                item = {"number": number, "thread_id": linked.id, **result}
+                if result.get("needs_review"):
+                    conflicts.append(item)
+                else:
+                    refreshed.append(item)
                 continue
             body = issue.get("body") or ""
             existing = re.search(r"\*\*ADHD Hub thread\*\*\s+`([^`]+)`", body)
@@ -748,14 +953,18 @@ class ForgeFacade:
             payload = ThreadUpsert(
                 # Stable per forge issue so same titles do not collide into one thread.
                 id=item_id(
-                    f"forge-issue:{number}",
-                    f"{cfg.owner}/{cfg.repo}",
+                    f"forge-issue:{cfg.provider.value}:{number}",
+                    f"{cfg.web_browse_root()}:{cfg.owner}/{cfg.repo}",
                 ),
                 summary=summary[:500],
                 project_slug=project_slug,
                 source_tool=source_tool,
                 origin="forge-inbox",
                 chat_ref=f"forge-issue:{number}",
+                goal=issue_snapshot(issue).get("goal"),
+                focus=issue_snapshot(issue).get("focus"),
+                next_steps=issue_snapshot(issue).get("next_steps"),
+                resume_step=issue_snapshot(issue).get("resume_step"),
             )
             slug = self._hub._resolve_slug_for_write(
                 project_slug=payload.project_slug,
@@ -769,6 +978,17 @@ class ForgeFacade:
             thread = self._hub.store.upsert_thread(payload)
             # Map before any outbound board sync so we update issue #N instead of creating another.
             self._meta_set_with_identity(cfg)(f"forge_issue:{thread.id}", str(number))
+            snapshot = issue_snapshot(issue)
+            thread = self._hub.store.update_forge_source(
+                thread.id,
+                issue_url=self._source_url(cfg, issue, number),
+                imported_at=utcnow().isoformat(),
+                content_hash=content_hash(body),
+                snapshot=snapshot,
+                sync_state="current",
+                conflicts={},
+                title_derived=True,
+            )
             note_import = f"Imported from forge issue #{number}: {thread.summary}"
             self._hub.store.add_progress_note(
                 thread.project_slug or slug, note_import, thread_id=thread.id
@@ -821,8 +1041,14 @@ class ForgeFacade:
             )
         return {
             "imported": imported,
+            "refreshed": refreshed,
+            "unchanged": unchanged,
+            "conflicts": conflicts,
             "skipped_issues": skipped,
             "count": len(imported),
+            "refreshed_count": len(refreshed),
+            "unchanged_count": len(unchanged),
+            "conflict_count": len(conflicts),
             "config": {
                 "board_inbox_enabled": cfg.board_inbox_enabled,
                 "synced_label": cfg.board_inbox_synced_label,

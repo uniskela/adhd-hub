@@ -12,8 +12,9 @@ Inbox import is **fail closed**:
 
 1. Only issues whose **author forge login** is in **Inbox authors** are imported.
 2. If the allowlist is empty, the Hub imports **nothing** (even when inbox is enabled).
-3. PRs are never imported. Issues already labeled `adhd-hub-synced` are skipped.
-4. After a successful import, Hub **closes** the issue and adds `adhd-hub-synced` — it never deletes forge content.
+3. PRs are never imported. Open issues labeled `adhd-hub-synced` are still checked when
+   they are linked to an existing imported thread, so a reopened and edited issue can refresh it.
+4. When close-on-import is enabled, Hub **closes** the issue and adds `adhd-hub-synced` — it never deletes forge content.
 
 Random collaborators (or anyone who can open issues on a public repo) cannot inject Hub threads unless you add their username.
 
@@ -39,12 +40,53 @@ Match GitHub `user.login` / Gitea username (case-insensitive).
    - `adhd-hub` — belt-and-suspenders if the agent *can* apply labels
    - `project:<slug>`
    - `source:codex` | `source:chatgpt` | `source:cursor` | `source:claude` | `source:claude-code`
-3. Body: short Now / Done / Next / Return cue (no secrets).
-4. After import, Hub **closes** the issue and adds `adhd-hub-synced` (never deletes).
+3. Body: use the structured Goal / Focus / Next / Resume cue format below (no secrets).
+4. Depending on the operator's close-on-import setting, Hub may close the issue and add
+   `adhd-hub-synced` after import (it never deletes the issue).
 
 **Title `[ADHD]` is sufficient** for allowlisted authors. The hub label is not required. Cursor Cloud agents often cannot set labels (`Resource not accessible by integration`); they should still open a title-prefixed issue and skip the label.
 
 An issue with the hub label but no title prefix is still imported (label-only path).
+
+## Structured source and refresh
+
+The forge issue is the editable source for imported task structure:
+
+```md
+## Goal
+Ship the outcome
+
+## Focus
+Do the next concrete action
+
+## Next
+- [ ] First follow-up
+- [ ] Second follow-up
+
+## Resume cue
+Open the relevant file and continue here
+```
+
+The legacy `## Current state` / `## Tasks` headings are also accepted as Focus / Next.
+Unstructured bodies are retained as source notes; the Hub does not infer structured fields from
+arbitrary prose.
+
+Each import stores the provider, host/repository identity, issue number and canonical URL, body
+hash, successful-import timestamp, and the structured values used as the three-way merge base.
+Running **Import issue inbox** again reports imported, refreshed, unchanged, and needs-review
+counts. A changed linked issue updates only Goal, Focus, Next, Resume cue, and a title still derived
+from the issue. Thread status, Hub progress notes, reminders, links, completion notes, and operator
+annotations are preserved.
+
+When both the Hub and forge changed a source-controlled field from its previously imported value,
+the thread enters **Source conflict** instead of overwriting either side. Use **Refresh from source
+issue** on the thread to preview the previous, Hub, and forge values and choose **Use forge
+version**, **Keep Hub version**, or **Merge/edit manually**.
+
+Initial import may still close the issue and add `adhd-hub-synced`, depending on configuration.
+Routine polling considers open issues only. A closed linked issue is not polled, but the per-thread
+refresh action can fetch and refresh it explicitly. Refresh never deletes, reopens, or closes the
+source issue, and source edits never reopen or close the Hub thread.
 
 ## How listing works
 

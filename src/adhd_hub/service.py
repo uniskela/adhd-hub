@@ -56,6 +56,7 @@ class HubService:
         self._openclaw_ops = OpenClawFacade(self)
         self._forge_jobs = ForgeJobQueue(self._run_forge_job)
         self.store.migrate_work_identity(self._confident_forge_target)
+        self.store.migrate_forge_source_metadata()
         self.migrate_forge_connection_profiles()
 
     def migrate_forge_connection_profiles(self) -> dict:
@@ -1098,6 +1099,21 @@ class HubService:
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         return self._forge.import_forge_inbox(limit=limit, close_imported=close_imported)
+
+    def refresh_thread_from_source(
+        self,
+        thread_id: str,
+        *,
+        preview_only: bool = False,
+        resolutions: dict[str, str] | None = None,
+        manual_values: dict[str, object] | None = None,
+    ) -> dict:
+        return self._forge.refresh_thread_from_source(
+            thread_id,
+            preview_only=preview_only,
+            resolutions=resolutions,
+            manual_values=manual_values,
+        )
 
     def _run_forge_job(self, job: ForgeJob) -> dict:
         kind = job.kind

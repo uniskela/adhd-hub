@@ -84,6 +84,18 @@ def _parse_external_labels(raw: Any) -> list[str]:
     return []
 
 
+def _parse_json_object(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw:
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        return value if isinstance(value, dict) else {}
+    return {}
+
+
 def item_id(summary: str, key: str = "") -> str:
     raw = f"{summary.strip().lower()}::{key}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
@@ -217,11 +229,21 @@ class Store:
                 "external_updated_at",
                 "external_fingerprint",
                 "external_labels",
+                "source_issue_url",
+                "source_imported_at",
+                "source_content_hash",
+                "source_snapshot",
+                "source_sync_state",
+                "source_conflicts",
             ):
                 if column not in thread_cols:
                     conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
             if "external_issue_number" not in thread_cols:
                 conn.execute("ALTER TABLE threads ADD COLUMN external_issue_number INTEGER")
+            if "source_title_derived" not in thread_cols:
+                conn.execute(
+                    "ALTER TABLE threads ADD COLUMN source_title_derived INTEGER NOT NULL DEFAULT 0"
+                )
 
             conn.execute(
                 """
@@ -316,6 +338,19 @@ class Store:
             ),
             external_labels=_parse_external_labels(
                 row["external_labels"] if "external_labels" in keys else None
+            ),
+            source_issue_url=row["source_issue_url"] if "source_issue_url" in keys else None,
+            source_imported_at=(row["source_imported_at"] if "source_imported_at" in keys else None),
+            source_content_hash=(row["source_content_hash"] if "source_content_hash" in keys else None),
+            source_snapshot=_parse_json_object(
+                row["source_snapshot"] if "source_snapshot" in keys else None
+            ),
+            source_sync_state=(row["source_sync_state"] if "source_sync_state" in keys else None),
+            source_conflicts=_parse_json_object(
+                row["source_conflicts"] if "source_conflicts" in keys else None
+            ),
+            source_title_derived=bool(
+                row["source_title_derived"] if "source_title_derived" in keys else False
             ),
         )
 
@@ -1008,6 +1043,108 @@ class Store:
                 ),
             )
         return {"applied": True, "thread_id": thread_id}
+
+    def update_forge_source(
+        self,
+        thread_id: str,
+        *,
+        issue_url: str,
+        imported_at: str | None,
+        content_hash: str | None,
+        snapshot: dict[str, Any],
+        sync_state: str,
+        conflicts: dict[str, Any] | None = None,
+        title_derived: bool | None = None,
+        changes: dict[str, Any] | None = None,
+    ) -> Thread:
+        """Atomically apply allowlisted source fields and save the three-way base."""
+        current = self.get_thread(thread_id)
+        if not current:
+            raise KeyError("thread_not_found")
+        changes = changes or {}
+        allowed = {"summary", "goal", "focus", "next_steps", "resume_step"}
+        unknown = set(changes) - allowed
+        if unknown:
+            raise ValueError(f"unsupported source fields: {sorted(unknown)}")
+        assignments = [
+            "source_issue_url = ?",
+            "source_imported_at = ?",
+            "source_content_hash = ?",
+            "source_snapshot = ?",
+            "source_sync_state = ?",
+            "source_conflicts = ?",
+        ]
+        args: list[Any] = [
+            issue_url,
+            imported_at,
+            content_hash,
+            json.dumps(snapshot, sort_keys=True),
+            sync_state,
+            json.dumps(conflicts or {}, sort_keys=True),
+        ]
+        if title_derived is not None:
+            assignments.append("source_title_derived = ?")
+            args.append(1 if title_derived else 0)
+        for field, value in changes.items():
+            assignments.append(f"{field} = ?")
+            args.append(json.dumps(value) if field == "next_steps" else value)
+        assignments.append("updated_at = ?")
+        args.append(utcnow().isoformat())
+        args.append(thread_id)
+        with self._conn() as conn:
+            conn.execute(
+                f"UPDATE threads SET {', '.join(assignments)} WHERE id = ?",
+                args,
+            )
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+        assert row is not None
+        return self._row_thread(row)
+
+    def mark_forge_source_unavailable(self, thread_id: str) -> Thread:
+        return self.set_forge_source_state(thread_id, "unavailable")
+
+    def set_forge_source_state(
+        self, thread_id: str, state: str, *, conflicts: dict[str, Any] | None = None
+    ) -> Thread:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE threads SET source_sync_state = ?, source_conflicts = ? WHERE id = ?",
+                (state, json.dumps(conflicts or {}, sort_keys=True), thread_id),
+            )
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+        if not row:
+            raise KeyError("thread_not_found")
+        return self._row_thread(row)
+
+    def migrate_forge_source_metadata(self) -> int:
+        """Add refresh eligibility only where a stable external identity already exists."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, external_provider, external_host, external_owner,
+                       external_repo, external_issue_number
+                FROM threads
+                WHERE source_issue_url IS NULL
+                  AND external_provider IN ('github', 'gitea')
+                  AND external_host IS NOT NULL
+                  AND external_owner IS NOT NULL
+                  AND external_repo IS NOT NULL
+                  AND external_issue_number IS NOT NULL
+                  AND origin IN ('forge-inbox', 'forge-import')
+                """
+            ).fetchall()
+            for row in rows:
+                host = "github.com" if row["external_provider"] == "github" else row["external_host"]
+                url = (
+                    f"https://{host}/{row['external_owner']}/{row['external_repo']}"
+                    f"/issues/{row['external_issue_number']}"
+                )
+                conn.execute(
+                    "UPDATE threads SET source_issue_url = ?, source_sync_state = 'untracked' "
+                    "WHERE id = ?",
+                    (url, row["id"]),
+                )
+        return len(rows)
 
     def list_externally_linked_threads(self, *, limit: int = 500) -> list[Thread]:
         with self._conn() as conn:

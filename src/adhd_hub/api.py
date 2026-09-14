@@ -58,6 +58,36 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         data["resume_step_html"] = render_markdown(thread.resume_step or "")
         return data
 
+    @router.get("/threads/{thread_id}/source-refresh", dependencies=[Depends(auth_dep)])
+    def preview_thread_source_refresh(thread_id: str):
+        try:
+            return service.refresh_thread_from_source(thread_id, preview_only=True)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.post("/threads/{thread_id}/source-refresh", dependencies=[Depends(auth_dep)])
+    def apply_thread_source_refresh(thread_id: str, payload: dict | None = None):
+        body = payload or {}
+        resolutions = body.get("resolutions") or {}
+        manual_values = body.get("manual_values") or {}
+        if not isinstance(resolutions, dict) or not isinstance(manual_values, dict):
+            raise HTTPException(400, "resolutions and manual_values must be objects")
+        allowed_actions = {"forge", "hub", "manual"}
+        if any(action not in allowed_actions for action in resolutions.values()):
+            raise HTTPException(400, "resolution must be forge, hub, or manual")
+        try:
+            return service.refresh_thread_from_source(
+                thread_id,
+                resolutions={str(k): str(v) for k, v in resolutions.items()},
+                manual_values={str(k): v for k, v in manual_values.items()},
+            )
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
     @router.post("/threads/{thread_id}/pause", dependencies=[Depends(auth_dep)])
     def pause_thread(thread_id: str, payload: PauseRequest):
         try:
