@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/uniskela/adhd-hub/compare/v0.10.1...v0.11.0) (2026-09-14)
+
+
+### Features
+
+* refresh imported forge threads ([4c4fbc3](https://github.com/uniskela/adhd-hub/commit/4c4fbc3c5211fc6d5f38b041aff7f708b611d4e8))
+* refresh imported forge threads ([da194fe](https://github.com/uniskela/adhd-hub/commit/da194fe17e1ae2efe08237bbe6907b6f8d30c3c8))
+
+
+### Bug Fixes
+
+* **oauth:** complete browser consent redirect ([f237c46](https://github.com/uniskela/adhd-hub/commit/f237c46dffe57a5cb55a93c7cf4f6774caae479f))
+* **oauth:** complete browser consent redirect ([42c354c](https://github.com/uniskela/adhd-hub/commit/42c354c1199f24d01a542e3a2f2b824e4542e2b9))
+
 ## [0.10.1](https://github.com/uniskela/adhd-hub/compare/v0.10.0...v0.10.1) (2026-09-14)
 
 
