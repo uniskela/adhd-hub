@@ -796,15 +796,6 @@ set -- connect "$PROJECT" --hub "$HUB_URL" --agents "$AGENTS" --scope "$SCOPE"
 # shellcheck disable=SC2086
 [ -n "$EXTRA_FLAGS" ] && set -- "$@" $EXTRA_FLAGS
 
-# Prefer this Hub's PEP 427-named wheel URL. Fall back to GitHub on failure.
-PKG_FROM=$(curl -fsS "$HUB_URL/install/cli-wheel.url" 2>/dev/null | tr -d '\r\n' || true)
-if [ -z "$PKG_FROM" ]; then
-  PKG_FROM="{UV_PACKAGE_GIT}"
-fi
-
-# Parent install script owns permanent-CLI prompts after connect.
-export ADHD_HUB_FROM_INSTALL_SCRIPT=1
-
 _adhd_ensure_uv_path() {{
   export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 }}
@@ -818,6 +809,15 @@ _adhd_run_child() {{
     "$@" </dev/null
   fi
 }}
+
+# Prefer this Hub's PEP 427-named wheel URL. Fall back to GitHub on failure.
+PKG_FROM=$(_adhd_run_child curl -fsS "$HUB_URL/install/cli-wheel.url" 2>/dev/null | tr -d '\r\n' || true)
+if [ -z "$PKG_FROM" ]; then
+  PKG_FROM="{UV_PACKAGE_GIT}"
+fi
+
+# Parent install script owns permanent-CLI prompts after connect.
+export ADHD_HUB_FROM_INSTALL_SCRIPT=1
 
 _adhd_refresh_existing_cli() {{
   # Re-running install against this Hub should refresh a durable CLI already on PATH.
@@ -950,7 +950,7 @@ _adhd_bootstrap_uv_and_cli() {{
   esac
   if ! command -v uv >/dev/null 2>&1; then
     echo "Installing uv via https://astral.sh/uv/install.sh …"
-    curl -fsSL https://astral.sh/uv/install.sh | sh
+    _adhd_run_child curl -fsSL https://astral.sh/uv/install.sh | sh
     _adhd_ensure_uv_path
   fi
   if ! command -v uv >/dev/null 2>&1; then

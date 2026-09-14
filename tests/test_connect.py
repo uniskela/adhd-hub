@@ -465,6 +465,224 @@ def test_render_install_sh_preserves_child_exit_and_quoted_project(
     assert "UNREAD_AFTER_FAILURE" not in result.stdout
 
 
+def test_render_install_sh_isolates_uvx_and_wheel_lookup_stdin(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "stub.log"
+    curl = bin_dir / "curl"
+    curl.write_text(
+        "#!/bin/sh\n"
+        "value=EOF\n"
+        "IFS= read -r value || true\n"
+        "printf 'curl-stdin=<%s>\\n' \"$value\" >>\"$STUB_LOG\"\n"
+        "printf 'https://example/adhd-hub.whl\\n'\n",
+        encoding="utf-8",
+    )
+    uvx = bin_dir / "uvx"
+    uvx.write_text(
+        "#!/bin/sh\n"
+        "value=EOF\n"
+        "IFS= read -r value || true\n"
+        "printf 'uvx-stdin=<%s>\\n' \"$value\" >>\"$STUB_LOG\"\n"
+        "printf 'UVX_FINISHED\\n'\n",
+        encoding="utf-8",
+    )
+    for stub in (curl, uvx):
+        stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+
+    script = render_install_sh("http://example:8787")
+    script += "\n# UVX_UNREAD_INSTALLER_SOURCE\n" * 2000
+    result = subprocess.run(
+        ["sh", "-s", "--", "."],
+        input=script,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "STUB_LOG": str(log),
+            "ADHD_HUB_CLI_INSTALL_PROMPTED": "1",
+        },
+        check=False,
+        start_new_session=True,
+    )
+
+    assert result.returncode == 0
+    assert "UVX_FINISHED" in result.stdout
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "curl-stdin=<>",
+        "uvx-stdin=<>",
+    ]
+    assert "UVX_UNREAD_INSTALLER_SOURCE" not in result.stdout
+
+
+def test_render_install_sh_isolates_uv_bootstrap_and_install_stdin(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    log = tmp_path / "stub.log"
+    bootstrap_capture = tmp_path / "bootstrap-stdin.log"
+    curl = bin_dir / "curl"
+    curl.write_text(
+        """#!/bin/sh
+value=EOF
+IFS= read -r value || true
+case "$*" in
+  *cli-wheel.url*)
+    printf 'wheel-curl-stdin=<%s>\n' "$value" >>"$STUB_LOG"
+    printf 'https://example/adhd-hub.whl\n'
+    ;;
+  *)
+    printf 'bootstrap-curl-stdin=<%s>\n' "$value" >>"$STUB_LOG"
+    cat <<'BOOTSTRAP'
+mkdir -p "$HOME/.local/bin"
+cat >"$HOME/.local/bin/uv" <<'UV'
+#!/bin/sh
+value=EOF
+IFS= read -r value || true
+printf 'uv-install-stdin=<%s>\n' "$value" >>"$STUB_LOG"
+cat >"$HOME/.local/bin/adhd-hub" <<'CLI'
+#!/bin/sh
+value=EOF
+IFS= read -r value || true
+printf 'installed-cli-stdin=<%s>\n' "$value" >>"$STUB_LOG"
+printf 'BOOTSTRAP_CLI_FINISHED\n'
+CLI
+chmod +x "$HOME/.local/bin/adhd-hub"
+UV
+chmod +x "$HOME/.local/bin/uv"
+cat >"$BOOTSTRAP_CAPTURE"
+exit 0
+BOOTSTRAP
+    i=0
+    while [ "$i" -lt 5000 ]; do
+      printf '# bootstrap pipeline padding %s\n' "$i"
+      i=$((i + 1))
+    done
+    printf 'BOOTSTRAP_PIPE_PAYLOAD\n'
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    curl.chmod(curl.stat().st_mode | stat.S_IXUSR)
+
+    script = render_install_sh("http://example:8787")
+    script += "\n# BOOTSTRAP_UNREAD_INSTALLER_SOURCE\n" * 2000
+    result = subprocess.run(
+        ["sh", "-s", "--", "."],
+        input=script,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "STUB_LOG": str(log),
+            "BOOTSTRAP_CAPTURE": str(bootstrap_capture),
+            "ADHD_HUB_INSTALL_UV": "1",
+        },
+        check=False,
+        start_new_session=True,
+    )
+
+    assert result.returncode == 0
+    assert "BOOTSTRAP_CLI_FINISHED" in result.stdout
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "wheel-curl-stdin=<>",
+        "bootstrap-curl-stdin=<>",
+        "uv-install-stdin=<>",
+        "installed-cli-stdin=<>",
+    ]
+    assert "BOOTSTRAP_PIPE_PAYLOAD" in bootstrap_capture.read_text(encoding="utf-8")
+    assert "BOOTSTRAP_UNREAD_INSTALLER_SOURCE" not in result.stdout
+
+
+def test_render_install_sh_uses_controlling_terminal_for_prompt_and_children(
+    tmp_path: Path,
+) -> None:
+    import fcntl
+    import pty
+    import termios
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    curl = bin_dir / "curl"
+    curl.write_text(
+        "#!/bin/sh\nprintf 'https://example/adhd-hub.whl\\n'\n",
+        encoding="utf-8",
+    )
+    uv = bin_dir / "uv"
+    uv.write_text(
+        """#!/bin/sh
+IFS= read -r value
+printf 'UV_TTY=<%s>\n' "$value"
+mkdir -p "$HOME/.local/bin"
+cat >"$HOME/.local/bin/adhd-hub" <<'CLI'
+#!/bin/sh
+IFS= read -r value
+printf 'CLI_TTY=<%s>\n' "$value"
+printf 'PROJECT=<%s>\n' "$2"
+CLI
+chmod +x "$HOME/.local/bin/adhd-hub"
+""",
+        encoding="utf-8",
+    )
+    for stub in (curl, uv):
+        stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+
+    master_fd, slave_fd = pty.openpty()
+
+    def claim_controlling_terminal() -> None:
+        os.setsid()
+        fcntl.ioctl(slave_fd, termios.TIOCSCTTY, 0)
+
+    script = render_install_sh("http://example:8787")
+    script += "\n# PTY_UNREAD_INSTALLER_SOURCE\n" * 2000
+    os.write(master_fd, b"y\nuv-terminal-input\ncli-terminal-input\n")
+    process = subprocess.Popen(
+        ["sh", "-s", "--", "project with spaces"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+        },
+        pass_fds=(slave_fd,),
+        preexec_fn=claim_controlling_terminal,  # noqa: PLW1509 - child-only PTY setup
+    )
+    os.close(slave_fd)
+    stdout, stderr = process.communicate(script, timeout=20)
+    os.set_blocking(master_fd, False)
+    terminal_output = b""
+    while True:
+        try:
+            chunk = os.read(master_fd, 4096)
+        except (BlockingIOError, OSError):
+            break
+        if not chunk:
+            break
+        terminal_output += chunk
+    os.close(master_fd)
+
+    assert process.returncode == 0, stderr
+    assert "Install it now with uv tool install?" in terminal_output.decode(errors="replace")
+    assert "UV_TTY=<uv-terminal-input>" in stdout
+    assert "CLI_TTY=<cli-terminal-input>" in stdout
+    assert "PROJECT=<project with spaces>" in stdout
+    assert "PTY_UNREAD_INSTALLER_SOURCE" not in stdout
+
+
 def test_render_install_sh_supports_flags() -> None:
     script = render_install_sh("http://example:8787")
     assert "--register" in script
@@ -731,8 +949,8 @@ def test_render_install_sh_uses_hub_wheel_with_git_fallback() -> None:
     assert "ADHD_HUB_FROM_INSTALL_SCRIPT" in script
     # Durable CLI (after refresh) is preferred over ephemeral uvx.
     refresh_at = script.index("_adhd_refresh_existing_cli\n")
-    hub_at = script.index('if command -v adhd-hub >/dev/null 2>&1; then\n  adhd-hub "$@"')
-    uvx_at = script.index('if command -v uvx >/dev/null 2>&1; then\n  uvx --refresh --from "$PKG_FROM" adhd-hub "$@"')
+    hub_at = script.index('if command -v adhd-hub >/dev/null 2>&1; then\n  _adhd_run_child adhd-hub "$@"')
+    uvx_at = script.index('if command -v uvx >/dev/null 2>&1; then\n  _adhd_run_child uvx --refresh --from "$PKG_FROM" adhd-hub "$@"')
     assert refresh_at < hub_at < uvx_at
 
 
