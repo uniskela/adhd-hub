@@ -28,7 +28,7 @@ shared-state assignments across all current modules.
 ## Design notes
 
 - **Hub owns truth** (SQLite + markdown wiki). OpenClaw is optional for nudges/memory.
-- **MCP + REST** share `HubService` — add tools in `mcp_app.py` and routes in `api.py`.
+- **MCP transports (Streamable HTTP + local stdio) + REST** share `HubService` — add tools in `mcp_app.py` and routes in `api.py`.
 - **Indexer** posts summaries only; never ship raw transcripts by default.
 - Keep files focused; prefer small modules over growing `service.py` forever.
 

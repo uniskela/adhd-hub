@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+import os
+import sys
+
+import pytest
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+from adhd_hub import cli
+
+
+def test_cli_exposes_mcp_stdio_command() -> None:
+    args = cli.build_parser().parse_args(["mcp-stdio"])
+
+    assert args.command == "mcp-stdio"
+    assert args.func is cli.cmd_mcp_stdio
+
+
+@pytest.mark.asyncio
+async def test_mcp_stdio_lists_existing_tool_catalog(tmp_path) -> None:
+    env = os.environ.copy()
+    env["ADHD_HUB_DATA_DIR"] = str(tmp_path / "data")
+    env["ADHD_HUB_AUTH_TOKEN"] = "stdio-test-token"
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "adhd_hub.cli", "mcp-stdio"],
+        env=env,
+    )
+
+    async with (
+        stdio_client(params) as (read_stream, write_stream),
+        ClientSession(read_stream, write_stream) as session,
+    ):
+        await session.initialize()
+        result = await session.list_tools()
+
+    names = {tool.name for tool in result.tools}
+    assert {"resolve_project", "session_digest", "check_overlap", "upsert_progress"} <= names

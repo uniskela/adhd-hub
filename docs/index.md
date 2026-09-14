@@ -4,7 +4,7 @@ Keep enough context to resume unfinished work without reconstructing your last s
 
 [Install](installation.md) · [Connect an agent](connect.md) · [View on GitHub](https://github.com/uniskela/adhd-hub)
 
-**Self-hosted · MCP + REST · Cursor / Codex / Claude Code · GitHub/Gitea optional**
+**Self-hosted · MCP (Streamable HTTP + local stdio) + REST · Cursor / Codex / Claude Code · GitHub/Gitea optional**
 
 ## The loop
 
@@ -32,6 +32,7 @@ The project is designed to be useful without streaks, competitive pressure, or a
 - [Homelab deployment](deploy-homelab.md)
 - [Authentication](authentication.md)
 - [Environment variables](environment-variables.md)
+- [MCP transports: HTTP and local stdio](connect.md#local-stdio-transport-optional)
 - [Forge permissions](forge-permissions.md)
 - [OpenClaw](openclaw.md)
 

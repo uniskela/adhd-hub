@@ -25,6 +25,23 @@ npx skills add /path/to/adhd-hub/skills -g -a claude-code
 }
 ```
 
+### Local stdio alternative
+
+For a local Claude Code process with local Hub data:
+
+```json
+{
+  "mcpServers": {
+    "adhd-hub": {
+      "command": "adhd-hub",
+      "args": ["mcp-stdio"]
+    }
+  }
+}
+```
+
+Stdio uses the configured `ADHD_HUB_DATA_DIR` and needs no bearer header. It does not start the dashboard, REST API, OAuth endpoints, or background scheduler; prefer the HTTP configuration above for a persistent/shared Hub.
+
 Optional: run `adhd-hub index` on a machine that has `~/.claude/projects` transcripts so unfinished phrases / pending replies are posted as **summaries** to the hub (never auto-completes).
 
 Habits: `resolve_project` → `session_digest` → work → `upsert_progress` / `mark_done`.

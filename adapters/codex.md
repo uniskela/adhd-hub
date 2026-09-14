@@ -18,6 +18,18 @@ bearer_token_env_var = "ADHD_HUB_AUTH_TOKEN"
 
 Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart it. Keep the token out of checked-in configuration. Use HTTPS for connections outside localhost. Verify the server with `uv run python scripts/probe_mcp.py` (set `ADHD_HUB_MCP_URL` for a remote hub).
 
+### Local stdio alternative
+
+When Codex and the Hub data intentionally live on the same machine, Codex can launch the MCP server directly:
+
+```toml
+[mcp_servers.adhd-hub]
+command = "adhd-hub"
+args = ["mcp-stdio"]
+```
+
+Stdio uses the configured `ADHD_HUB_DATA_DIR` and needs no bearer header. It does not start the dashboard, REST API, OAuth endpoints, or background scheduler; prefer the HTTP configuration above for a persistent/shared Hub.
+
 ## When MCP is unreachable (Codex / ChatGPT cloud)
 
 **Primary signal:** Hub MCP tools missing, errored, unauthorized, or auth failure — check that; do not invent “I'm in cloud.” On the first substantial Hub-worthy turn, say Hub MCP is unavailable (short `/mcp` + `ADHD_HUB_AUTH_TOKEN` + restart hint). Never invent Hub continuity/progress/thread state or claim a Hub write succeeded.

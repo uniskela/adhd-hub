@@ -10,6 +10,7 @@ ADHD Progress Hub is a self-hosted server. For a persistent home server or VPS, 
 | Docker Compose + local build | Developing an unreleased checkout | Rebuild from the checkout |
 | `docker run` | Small/simple container deployments | Pull and recreate the container |
 | Source + `uv` | Development or non-container server | Pull source, `uv sync`, restart |
+| `adhd-hub mcp-stdio` | Local subprocess MCP clients / inspectors | Update the installed CLI or source checkout |
 | `uv tool install` | Client CLI only | Re-run with `--upgrade` |
 
 Client machines that only need `connect` can also run the Hub’s `/install.sh` or `/install.ps1`. If `uv` is missing, those scripts ask before using Astral’s official installer (or honor `ADHD_HUB_INSTALL_UV=1` for non-interactive opt-in). See [Connect](connect.md).
@@ -134,6 +135,18 @@ uv run adhd-hub serve --host 127.0.0.1 --port 8787
 ```
 
 Use `127.0.0.1` for a local-only server. If you deliberately bind outside loopback, set a strong token first and use a trusted private network or HTTPS reverse proxy.
+
+## Optional local stdio MCP process
+
+If the coding agent or MCP inspector can launch a local subprocess, run the Hub tool catalog directly over stdio:
+
+```bash
+adhd-hub mcp-stdio
+```
+
+This loads the normal Hub settings and `ADHD_HUB_DATA_DIR`, so tools persist to the same kind of SQLite/Markdown store as the HTTP server. Stdio does **not** start the REST API, dashboard, OAuth endpoints, or background scheduler, and it does not use an HTTP bearer header. Treat it as a local single-process alternative, not a replacement for the persistent Docker/`serve` deployment when you need remote access, UI, scheduled reminders, or OpenClaw jobs.
+
+See [Connect](connect.md#local-stdio-transport-optional) for MCP client snippets.
 
 ## Install only the client CLI
 

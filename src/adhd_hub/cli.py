@@ -35,6 +35,19 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp_stdio(args: argparse.Namespace) -> int:
+    """Run the Hub MCP tool catalog over stdio for local MCP clients."""
+    settings = load_settings(Path(args.config) if args.config else None)
+    _configure_logging(args.verbose)
+
+    from adhd_hub.mcp_app import build_mcp
+    from adhd_hub.service import HubService
+
+    mcp = build_mcp(HubService(settings))
+    mcp.run(transport="stdio")
+    return 0
+
+
 def cmd_index(args: argparse.Namespace) -> int:
     settings = load_settings(Path(args.config) if args.config else None)
     _configure_logging(args.verbose)
@@ -261,6 +274,12 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default=None)
     serve.add_argument("--port", type=int, default=None)
     serve.set_defaults(func=cmd_serve)
+
+    mcp_stdio = sub.add_parser(
+        "mcp-stdio",
+        help="Run MCP over stdio for local clients and MCP proxies",
+    )
+    mcp_stdio.set_defaults(func=cmd_mcp_stdio)
 
     index = sub.add_parser("index", help="Scan local transcripts and POST summaries to hub")
     index.add_argument("--dry-run", action="store_true")
