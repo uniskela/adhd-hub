@@ -31,16 +31,37 @@ If OpenClaw cannot securely provision `hooks.token`, the generated pairing promp
 
 The token is encrypted using the Hub's server access token before it is stored in `openclaw.json`. The API returns only whether a token is configured, never the token or a fragment of it. If you rotate `ADHD_HUB_AUTH_TOKEN`, enter the OpenClaw token again.
 
+### Use an HTTPS domain
+
+The URL in this screen is an **outbound URL from ADHD Hub to the OpenClaw gateway**. It is not the Hub's URL and it does not create a reverse proxy route. If the Hub container cannot resolve or reach the hostname, the alert test will fail even when the URL works in your browser.
+
+If your reverse proxy publishes the OpenClaw hook endpoints at the domain root, enter:
+
+```text
+Webhook URL: https://openclaw.example.com/hooks/wake
+Agent URL:   https://openclaw.example.com/hooks/agent
+```
+
+Use the `Agent URL` only when you want the richer agent-run path; the required minimum is the `Webhook URL`. The proxy must:
+
+1. terminate TLS and forward `POST` requests to the OpenClaw gateway;
+2. preserve the `/hooks/wake` and `/hooks/agent` paths and JSON request bodies; and
+3. allow the Hub server's network egress while keeping the gateway hook token enabled.
+
+Do not put the bearer token in the URL, query string, repository, `.env` committed to Git, or an MCP/agent prompt. The Hub sends it as an authentication header. The public hostname is safe to use only if the reverse proxy and OpenClaw hook authentication are already configured; otherwise prefer a Docker-network, LAN, or Tailscale hostname.
+
+If the proxy uses a subpath rather than the domain root, include that prefix in both URLs, for example `https://example.com/openclaw/hooks/wake`. The final path must still reach OpenClaw's `/hooks/wake` or `/hooks/agent` endpoint.
+
 For initial provisioning, you can still use an untracked `.env` file on the **Hub server**:
 
 ```env
-ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
+ADHD_HUB_OPENCLAW_WEBHOOK_URL=https://openclaw.example.com/hooks/wake
 ADHD_HUB_OPENCLAW_TOKEN=<OpenClaw hook bearer token>
 # Optional: lets OpenClaw turn the reminder into a friendly short message.
-# ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent
+# ADHD_HUB_OPENCLAW_AGENT_URL=https://openclaw.example.com/hooks/agent
 ```
 
-Restart the Hub after changing `.env`; changes saved in the web UI apply immediately. Keep the gateway on your LAN or Tailscale. The webhook token belongs only in the Hub server environment or encrypted Hub configuration — never in an MCP client, skill file, or committed configuration.
+Restart the Hub after changing `.env`; changes saved in the web UI apply immediately. For a public HTTPS hostname, keep the gateway hook endpoints protected by their bearer token and restrict proxy access to the Hub or your private network where possible. The webhook token belongs only in the Hub server environment or encrypted Hub configuration — never in an MCP client, skill file, or committed configuration.
 
 ## 3. Choose the alert rhythm
 
