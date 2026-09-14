@@ -2,6 +2,10 @@
 
 Use this optional connection only when OpenClaw is part of your private setup. It gives OpenClaw the ADHD Hub skills and lets the Hub send a short, gentle reminder when work has been left open.
 
+For **OpenClaw → Hub MCP OAuth login**, including a browser on a different machine
+from the gateway, use the [MCP OAuth callback guide](openclaw-mcp-oauth.md). The
+reminder-hook pairing below is a separate connection in the opposite direction.
+
 ## 1. Add the ADHD Hub skills to OpenClaw
 
 Run this where OpenClaw is installed:
@@ -78,6 +82,6 @@ curl -sS \
 
 Treat the token as a secret and limit network access to trusted devices.
 
-## Why there is no OAuth callback
+## Why reminder hooks have no OAuth callback
 
 The supported OpenClaw hook interface uses bearer authentication and does not provide an OAuth authorization contract for ADHD Hub to complete. **Settings → OpenClaw** therefore uses the same private, token-authenticated hook flow rather than presenting a callback that cannot be verified.

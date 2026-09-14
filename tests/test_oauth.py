@@ -439,6 +439,8 @@ async def test_authorize_browser_request_returns_callback_url(
         )
 
     assert allow.status_code == 200
+    assert allow.headers.get("cache-control") == "no-store"
+    assert allow.headers.get("referrer-policy") == "no-referrer"
     redirect = allow.json()["redirect"]
     assert redirect.startswith(LOOPBACK_REDIRECT)
     query = parse_qs(urlparse(redirect).query)
@@ -446,6 +448,72 @@ async def test_authorize_browser_request_returns_callback_url(
     assert query["state"] == ["xyz"]
     if decision == "deny":
         assert query["error"] == ["access_denied"]
+
+
+@pytest.mark.parametrize("state", [" session +/% value ", "", "opaque-session"])
+async def test_authorize_preserves_opaque_state(tmp_path: Path, state: str) -> None:
+    app = create_app(_oauth_settings(tmp_path))
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="https://hub.example"
+    ) as client:
+        reg = (
+            await client.post(
+                "/api/oauth/register",
+                json={
+                    "redirect_uris": [LOOPBACK_REDIRECT],
+                },
+            )
+        ).json()
+        await client.post("/api/auth/login", headers=BROWSER, json={"token": "secret"})
+        _, challenge = generate_pkce()
+        params = _authorize_query(client_id=reg["client_id"], challenge=challenge, state=state)
+        consent = await client.get("/api/oauth/authorize", params=params)
+        assert consent.status_code == 200
+        result = await client.post(
+            "/api/oauth/authorize", headers=BROWSER, data={**params, "decision": "allow"}
+        )
+        query = parse_qs(urlparse(result.json()["redirect"]).query, keep_blank_values=True)
+        assert query.get("state", [""]) == [state]
+
+
+@pytest.mark.parametrize(
+    "redirect_uri,loopback",
+    [
+        ("http://127.0.0.1:8989/oauth/callback", True),
+        ("http://[::1]:8989/oauth/callback", True),
+        ("https://gateway.example/oauth/callback", False),
+    ],
+)
+async def test_consent_explains_loopback_before_approval(
+    tmp_path: Path, redirect_uri: str, loopback: bool
+) -> None:
+    app = create_app(_oauth_settings(tmp_path))
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="https://hub.example"
+    ) as client:
+        reg = (
+            await client.post(
+                "/api/oauth/register",
+                json={
+                    "redirect_uris": [redirect_uri],
+                },
+            )
+        ).json()
+        await client.post("/api/auth/login", headers=BROWSER, json={"token": "secret"})
+        _, challenge = generate_pkce()
+        response = await client.get(
+            "/api/oauth/authorize",
+            params=_authorize_query(
+                client_id=reg["client_id"],
+                challenge=challenge,
+                redirect_uri=redirect_uri,
+            ),
+        )
+        assert response.status_code == 200
+        assert ('id="remote-callback-help"' in response.text) is loopback
+        if loopback:
+            assert "SSH" in response.text
+            assert "browser" in response.text
 
 
 def test_is_allowed_redirect_uri_policy() -> None:
