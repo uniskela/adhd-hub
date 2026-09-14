@@ -5,7 +5,7 @@
 
 Self-hosted **source of truth** for half-finished plans, migrations, and setups — so coding agents (Cursor, Codex, Claude Code, …) can check overlap, save progress, and nudge you later.
 
-Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP + REST hub, optional OpenClaw notifications, optional local transcript indexer (summaries only).
+Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP over Streamable HTTP (plus an optional local stdio transport) + REST, optional OpenClaw notifications, and an optional local transcript indexer (summaries only).
 
 ## Why
 
@@ -40,6 +40,29 @@ cp .env.example .env   # set ADHD_HUB_AUTH_TOKEN
 uv sync
 uv run adhd-hub serve --host 127.0.0.1 --port 8787
 ```
+
+### Local MCP over stdio
+
+For MCP clients that launch a local subprocess, the same Hub tool catalog can run over stdio:
+
+```bash
+adhd-hub mcp-stdio
+```
+
+Generic MCP config:
+
+```json
+{
+  "mcpServers": {
+    "adhd-hub": {
+      "command": "adhd-hub",
+      "args": ["mcp-stdio"]
+    }
+  }
+}
+```
+
+Stdio is an **optional local mode**: it uses the configured Hub data directory and the same MCP tools, but it does not start the REST API, dashboard, or background scheduler. It has no bearer header because the MCP connection is the local child process itself. For a persistent/shared Hub, remote agents, OAuth, dashboard access, and scheduled reminders, keep using `adhd-hub serve`/Docker and the Streamable HTTP `/mcp` endpoint.
 
 Published images (only after a manual release-PR merge by `uniskela`):
 
@@ -78,9 +101,10 @@ For calm, resumable project notes and plans, use the [ADHD-friendly writing guid
 
 **Documentation site:** enable **Settings → Pages → GitHub Actions** to publish [the public docs portal](https://uniskela.github.io/adhd-hub/) (built with [Zensical](https://zensical.org/)). Preview locally with `uv sync --extra dev && uv run zensical serve`. The workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.
 
-MCP endpoint: `http://<host>:8787/mcp`  
-REST docs: `http://<host>:8787/docs`  
-UI: `http://<host>:8787/ui/`
+- MCP (recommended persistent/shared transport): `http://<host>:8787/mcp`
+- MCP (optional local subprocess transport): `adhd-hub mcp-stdio`
+- REST docs: `http://<host>:8787/docs`
+- UI: `http://<host>:8787/ui/`
 
 ## MCP tools
 

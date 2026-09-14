@@ -96,6 +96,25 @@ The CLI session is accepted as Bearer for REST and MCP. It is **not** the server
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
 
+## Local stdio transport (optional)
+
+Local MCP clients that can spawn a subprocess can use the same Hub tool catalog without an HTTP connection:
+
+```json
+{
+  "mcpServers": {
+    "adhd-hub": {
+      "command": "adhd-hub",
+      "args": ["mcp-stdio"]
+    }
+  }
+}
+```
+
+The equivalent command is `adhd-hub mcp-stdio`. It loads normal Hub settings (`.env`, config TOML, and `ADHD_HUB_*` environment variables) and persists through the configured `ADHD_HUB_DATA_DIR`. Because stdio is a local child-process transport, it does not use an HTTP bearer header.
+
+Use this when the agent and Hub data are intentionally local to the same machine, or when an MCP inspector/proxy such as Glama needs a stdio child process. It does **not** start the REST API, dashboard, OAuth endpoints, or background scheduler. If you already run a persistent Hub server, or need multiple machines/remote agents, keep the Streamable HTTP `/mcp` configuration above. `adhd-hub connect` continues to wire the HTTP transport by default.
+
 ## MCP Auth / Authenticate (OAuth)
 
 MCP clients that offer an **Auth** / **Authenticate** control can obtain a Hub Bearer for `/mcp` via Hub OAuth when the **Hub server** has:
