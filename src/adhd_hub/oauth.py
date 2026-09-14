@@ -244,7 +244,7 @@ def _consent_headers() -> dict[str, str]:
     return {
         "Content-Security-Policy": (
             "default-src 'none'; style-src 'unsafe-inline'; "
-            "script-src 'unsafe-inline'; form-action 'self'; "
+            "script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; "
             "base-uri 'none'; frame-ancestors 'none'"
         ),
         "X-Content-Type-Options": "nosniff",
@@ -332,16 +332,8 @@ def _render_consent_page(
         "X-Hub-Request": "1"
       }},
       body: body.toString(),
-      redirect: "manual",
       credentials: "same-origin"
     }}).then(function (res) {{
-      var loc = res.headers.get("Location");
-      if (loc) {{ window.location = loc; return; }}
-      if (res.status >= 300 && res.status < 400) {{
-        err.textContent = "Redirect missing from response.";
-        err.style.display = "block";
-        return;
-      }}
       return res.json().then(function (data) {{
         if (data && data.redirect) {{ window.location = data.redirect; return; }}
         err.textContent = (data && (data.error || data.detail)) || ("Request failed (" + res.status + ")");
@@ -891,7 +883,7 @@ def build_oauth_router(
                 redirect_uri,
                 {"error": "access_denied", **({"state": state} if state else {})},
             )
-            return RedirectResponse(url=target, status_code=302)
+            return JSONResponse({"redirect": target})
 
         if decision != "allow":
             return JSONResponse({"error": "invalid_request"}, status_code=400)
@@ -911,7 +903,7 @@ def build_oauth_router(
             redirect_uri,
             {"code": code, **({"state": state} if state else {})},
         )
-        return RedirectResponse(url=target, status_code=302)
+        return JSONResponse({"redirect": target})
 
     @router.post("/api/oauth/token")
     async def token_post(request: Request) -> Response:
