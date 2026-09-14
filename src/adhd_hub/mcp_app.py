@@ -43,7 +43,12 @@ def build_mcp(service: HubService) -> MCPServer:
         query: Annotated[str, Field(min_length=2, max_length=2000)],
         limit: Annotated[int, Field(ge=1, le=50)] = 5,
     ) -> dict[str, Any]:
-        """Find open threads that overlap with what you are about to work on."""
+        """Find open threads that may overlap a planned task.
+
+        Use before starting potentially new work. The query should describe the
+        intended task, and the result is read-only; compare likely matches before
+        creating another thread.
+        """
         result = service.check_overlap(query, limit=limit)
         return result.model_dump(mode="json")
 
@@ -53,14 +58,24 @@ def build_mcp(service: HubService) -> MCPServer:
         project_slug: str | None = None,
         limit: Annotated[int, Field(ge=1, le=500)] = 50,
     ) -> list[dict[str, Any]]:
-        """List open (unfinished) threads in the hub."""
+        """List unfinished threads without changing them.
+
+        Filter by project or energy when narrowing existing work. Use
+        session_digest when you want a session-start summary with reminders and
+        resume context instead of the raw thread list.
+        """
         e = EnergyLevel(energy) if energy else None
         threads = service.list_open_threads(energy=e, project_slug=project_slug, limit=limit)
         return [t.model_dump(mode="json") for t in threads]
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_projects(limit: Annotated[int, Field(ge=1, le=500)] = 100) -> list[dict[str, Any]]:
-        """List registered projects with open/done counts."""
+        """List registered Hub projects with open/done thread counts.
+
+        Use for project discovery or navigation. This is read-only; use
+        resolve_project or upsert_project when a project needs to be resolved or
+        changed.
+        """
         return service.list_projects(limit=limit)
 
     @mcp.tool()
@@ -70,7 +85,13 @@ def build_mcp(service: HubService) -> MCPServer:
         create_if_missing: bool = True,
         title: str | None = None,
     ) -> dict[str, Any]:
-        """Resolve or create a project from workspace path and/or slug."""
+        """Resolve the current Hub project from a workspace path or slug.
+
+        Use at session start before session_digest. With create_if_missing=true,
+        this may create a local project registry entry; set it false when lookup
+        must be read-only. Use upsert_project for explicit metadata or forge
+        configuration changes.
+        """
         proj = service.resolve_project(
             workspace_path=workspace_path,
             project_slug=project_slug,
@@ -94,7 +115,12 @@ def build_mcp(service: HubService) -> MCPServer:
         forge_project_id: str | None = None,
         energy: EnergyLevel = EnergyLevel.unknown,
     ) -> dict[str, Any]:
-        """Create or update a project registry entry (paths + optional forge target)."""
+        """Create or update a project registry entry and its explicit metadata.
+
+        Use when setting title, workspace path, repository, energy, or forge
+        targeting. This persists local Hub project configuration; it does not by
+        itself create, rename, or delete a remote forge repository.
+        """
         paths = [workspace_path] if workspace_path else []
         proj = service.upsert_project(
             ProjectUpsert(
@@ -119,7 +145,11 @@ def build_mcp(service: HubService) -> MCPServer:
         title: str | None = None,
         reason: str | None = None,
     ) -> dict[str, Any]:
-        """Request a project rename — queues for confirmation in /ui (not applied yet)."""
+        """Queue a project rename for human confirmation in /ui.
+
+        Use when the project identity should change. This request does not apply
+        the rename immediately; list_pending_actions shows queued confirmations.
+        """
         try:
             return service.request_rename_project(
                 slug,
@@ -140,7 +170,12 @@ def build_mcp(service: HubService) -> MCPServer:
         delete_remote: bool = False,
         reason: str | None = None,
     ) -> dict[str, Any]:
-        """Request project deletion — queues for confirmation in /ui (not deleted yet)."""
+        """Queue project deletion for human confirmation in /ui.
+
+        Nothing is deleted immediately. The flags describe what the confirmed
+        action should remove; use list_pending_actions to inspect the queued
+        request before confirmation.
+        """
         try:
             return service.request_delete_project(
                 slug,
@@ -154,7 +189,11 @@ def build_mcp(service: HubService) -> MCPServer:
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_pending_actions() -> list[dict[str, Any]]:
-        """List project delete/rename requests waiting for /ui confirmation."""
+        """List project rename/delete requests waiting for /ui confirmation.
+
+        This is read-only and is useful after rename_project or delete_project to
+        show the operator exactly what remains pending.
+        """
         return service.list_pending_actions()
 
     @mcp.tool()
@@ -174,7 +213,13 @@ def build_mcp(service: HubService) -> MCPServer:
         blocked_reason: str | None = None,
         resume_step: str | None = None,
     ) -> dict[str, Any]:
-        """Create or update an unfinished-work thread (one finishable outcome)."""
+        """Create a new finishable work thread or explicitly update one.
+
+        One thread should represent one independently finishable outcome, not a
+        whole project. Pass thread_id when updating a known thread. For routine
+        checkpoints on active work, prefer upsert_progress so progress notes and
+        PROGRESS.md stay in sync.
+        """
         thread = service.upsert_thread(
             ThreadUpsert(
                 id=thread_id,
@@ -212,7 +257,13 @@ def build_mcp(service: HubService) -> MCPServer:
         blocked_reason: str | None = None,
         resume_step: str | None = None,
     ) -> dict[str, Any]:
-        """Update thread active state and project PROGRESS.md (target thread_id when known)."""
+        """Save a checkpoint to active thread state and project PROGRESS.md.
+
+        Prefer a known thread_id so the checkpoint cannot land on the wrong
+        thread. If selection is ambiguous the tool can request a thread_id;
+        force_new_thread explicitly starts another outcome. Depending on
+        create_thread_if_missing, a missing thread may be created as a side effect.
+        """
         try:
             return service.upsert_progress(
                 ProgressUpsert(
@@ -238,7 +289,13 @@ def build_mcp(service: HubService) -> MCPServer:
 
     @mcp.tool()
     def mark_done(thread_id: str, note: str | None = None) -> dict[str, Any]:
-        """Mark a thread done."""
+        """Close a specific thread when its finishable outcome is complete.
+
+        Use only with a known thread_id after the work is actually finished.
+        Use pause_thread for unfinished work that will resume later, or
+        dismiss_thread when intentionally abandoning it. note is an optional
+        completion note.
+        """
         try:
             thread = service.mark_done(thread_id, note)
         except ValueError as exc:
@@ -252,7 +309,12 @@ def build_mcp(service: HubService) -> MCPServer:
         thread_id: str,
         next_step: Annotated[str, Field(min_length=1, max_length=2000)],
     ) -> dict[str, Any]:
-        """Pause a thread and leave a next tiny step for when you return."""
+        """Pause unfinished work and save the concrete next action to resume it.
+
+        Use when the thread will continue later. This updates its pause/resume
+        state; use mark_done for completed work or dismiss_thread for work being
+        intentionally abandoned. Requires the exact thread_id and next_step.
+        """
         step = next_step.strip()
         if not step:
             return {"error": "next_step required", "id": thread_id}
@@ -266,7 +328,12 @@ def build_mcp(service: HubService) -> MCPServer:
 
     @mcp.tool()
     def dismiss_thread(thread_id: str, note: str | None = None) -> dict[str, Any]:
-        """Dismiss a thread without marking it done (soft close)."""
+        """Soft-close a thread that should stop without being marked complete.
+
+        Use for abandoned, superseded, or no-longer-relevant work. Use mark_done
+        when the intended outcome was completed, or pause_thread when it will be
+        resumed later.
+        """
         thread = service.mark_dismissed(thread_id, note)
         if not thread:
             return {"error": "not_found", "id": thread_id}
@@ -277,7 +344,12 @@ def build_mcp(service: HubService) -> MCPServer:
         due_only: bool = False,
         include_handled: bool = False,
     ) -> list[dict[str, Any]]:
-        """List reminders. Prefer due_only=true at session start."""
+        """List persisted Hub reminders without changing them.
+
+        Prefer due_only=true at session start to surface only reminders that need
+        attention now. Set include_handled=true only when historical handled
+        reminders are relevant.
+        """
         if due_only:
             items = service.store.due_reminders()
         else:
@@ -286,7 +358,11 @@ def build_mcp(service: HubService) -> MCPServer:
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def get_overview() -> dict[str, Any]:
-        """Compact hub overview for agents (counts, next_up, due reminders)."""
+        """Return a compact, read-only Hub overview for agents.
+
+        Includes counts, next-up work, and due reminders. Use session_digest when
+        you also need project-specific resume context or the progress wiki snippet.
+        """
         return service.agent_overview()
 
     @mcp.tool()
@@ -297,7 +373,13 @@ def build_mcp(service: HubService) -> MCPServer:
         summary: str | None = None,
         source_tool: str | None = "mcp",
     ) -> dict[str, Any]:
-        """One-click: register a folder as a Hub project (optional default open thread)."""
+        """Register a local folder as a Hub project in one operation.
+
+        Side effect: this persists the workspace/project mapping and, when
+        create_open_thread=true, also creates a default open thread. Use
+        resolve_project when you only need to resolve an already-known workspace
+        or want optional lookup-with-create behavior.
+        """
         try:
             return service.register_workspace(
                 workspace_path,
@@ -318,10 +400,11 @@ def build_mcp(service: HubService) -> MCPServer:
         cursor_rule_version: int | None = None,
         source: str = "agent",
     ) -> dict[str, Any]:
-        """Record that a client with local filesystem access verified Hub guidance versions.
+        """Record versions of Hub guidance a local client actually verified.
 
-        The Hub does not read the client's checkout. Only call this after a local
-        inspect (doctor/setup --check or reading managed markers).
+        Call only after the client itself inspected managed markers or ran a
+        local doctor/setup check. The Hub cannot inspect the client's checkout;
+        this tool records the verification result supplied by that client.
         """
         try:
             return service.record_guidance_verification(
@@ -341,7 +424,12 @@ def build_mcp(service: HubService) -> MCPServer:
         kind: ReminderKind = ReminderKind.once,
         due_at_iso: str | None = None,
     ) -> dict[str, Any]:
-        """Set a reminder (once | session | daily | random). due_at_iso for once."""
+        """Create and persist a Hub reminder.
+
+        kind selects once, session, daily, or random scheduling. due_at_iso is an
+        ISO datetime used for a once reminder when a specific due time is known.
+        Use list_reminders to read existing reminders without creating one.
+        """
         due = datetime.fromisoformat(due_at_iso) if due_at_iso else None
         rem = service.set_reminder(
             ReminderCreate(message=message, kind=ReminderKind(kind), due_at=due)
@@ -354,7 +442,12 @@ def build_mcp(service: HubService) -> MCPServer:
         query: str | None = None,
         energy: EnergyLevel | None = None,
     ) -> dict[str, Any]:
-        """Session-start digest: stale/open threads + due reminders + wiki snippet."""
+        """Build the session-start resume digest for the current work context.
+
+        Use after resolve_project. It combines relevant stale/open threads, due
+        reminders, and the progress wiki snippet; query narrows overlap relevance
+        and energy can filter work to the operator's current capacity.
+        """
         e = EnergyLevel(energy) if energy else None
         digest = service.session_digest(workspace_path=workspace_path, query=query, energy=e)
         return digest.model_dump(mode="json")
@@ -364,7 +457,12 @@ def build_mcp(service: HubService) -> MCPServer:
         project_slug: str | None = None,
         note: str | None = None,
     ) -> dict[str, Any]:
-        """Push a short Hub digest into OpenClaw memory (no raw chats; best-effort)."""
+        """Best-effort push of a short Hub digest into configured OpenClaw memory.
+
+        This has an external side effect and depends on the operator's OpenClaw
+        integration being configured. It sends a compact Hub-generated digest,
+        not raw chats; project_slug narrows it and note adds short context.
+        """
         return service.push_openclaw_memory_sync(project_slug=project_slug, note=note)
 
     return mcp
