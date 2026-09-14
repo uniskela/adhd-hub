@@ -18,7 +18,7 @@ def test_cli_exposes_mcp_stdio_command() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mcp_stdio_lists_existing_tool_catalog(tmp_path) -> None:
+async def test_mcp_stdio_lists_and_calls_existing_tool_catalog(tmp_path) -> None:
     env = os.environ.copy()
     env["ADHD_HUB_DATA_DIR"] = str(tmp_path / "data")
     env["ADHD_HUB_AUTH_TOKEN"] = "stdio-test-token"
@@ -32,8 +32,19 @@ async def test_mcp_stdio_lists_existing_tool_catalog(tmp_path) -> None:
         stdio_client(params) as (read_stream, write_stream),
         ClientSession(read_stream, write_stream) as session,
     ):
-        await session.initialize()
-        result = await session.list_tools()
+        initialized = await session.initialize()
+        assert initialized.instructions
+        assert "resolve_project" in initialized.instructions
+        assert "upsert_progress" in initialized.instructions
 
-    names = {tool.name for tool in result.tools}
-    assert {"resolve_project", "session_digest", "check_overlap", "upsert_progress"} <= names
+        listed = await session.list_tools()
+        names = {tool.name for tool in listed.tools}
+        assert {"resolve_project", "session_digest", "check_overlap", "upsert_progress"} <= names
+
+        overlap = await session.call_tool("check_overlap", {"query": "test"})
+        reminders = await session.call_tool("list_reminders", {"due_only": True})
+        overview = await session.call_tool("get_overview", {})
+
+        assert overlap.isError is not True
+        assert reminders.isError is not True
+        assert overview.isError is not True
