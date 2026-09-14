@@ -13,7 +13,7 @@ from adhd_hub.forge.config import (
     ForgeProvider,
     save_forge_config,
 )
-from adhd_hub.models import ProjectUpsert, ProgressUpsert
+from adhd_hub.models import ProgressUpsert, ProjectUpsert
 from adhd_hub.service import HubService
 
 

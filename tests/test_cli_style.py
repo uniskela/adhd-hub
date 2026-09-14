@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import io
-import os
+
+import pytest
 
 from adhd_hub import cli_style
 
@@ -19,6 +20,19 @@ def test_color_disabled_when_not_tty(monkeypatch) -> None:
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.delenv("ADHD_HUB_NO_COLOR", raising=False)
     stream = io.StringIO()
+    assert cli_style.color_enabled(stream) is False
+
+
+@pytest.mark.parametrize("error", [AttributeError, OSError, ValueError])
+def test_color_disabled_when_tty_probe_unavailable(monkeypatch, error) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("ADHD_HUB_NO_COLOR", raising=False)
+    stream = io.StringIO()
+
+    def unavailable():
+        raise error("TTY probe unavailable")
+
+    monkeypatch.setattr(stream, "isatty", unavailable)
     assert cli_style.color_enabled(stream) is False
 
 

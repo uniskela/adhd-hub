@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Split src/adhd_hub/ui/app.js IIFE into ES modules under ui/js.
+"""Historical IIFE splitter; writing generated modules is retired.
+
+The maintained UI lives in src/adhd_hub/ui/js and has evolved beyond app.js.
+Use --check for a read-only focus-timer mutability check of the current modules.
+Pure rendering helpers remain for migration regression tests only.
 
 Mutable app state must live on a plain `state` object. Imported `let`
 bindings are read-only in other modules (Assignment to constant variable).
@@ -13,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_PATH = ROOT / "src/adhd_hub/ui/app.js"
 OUT = ROOT / "src/adhd_hub/ui/js"
 
-# Exact names from current app.js
+# Exact names from the historical app.js migration input.
 MODULE_MAP: dict[str, list[str]] = {
     "dom": [
         "copyReference",
@@ -550,6 +554,7 @@ BARE_FOCUS_ENDS_AT = re.compile(r"(?<![\w.])focusEndsAt\s*=")
 
 
 def render_all() -> dict[str, str]:
+    """Render the historical migration in memory, never the maintained UI."""
     body = strip_iife(APP_PATH.read_text())
     load_end = find_load_all_end(body)
     funcs_region = body[:load_end]
@@ -573,10 +578,12 @@ def render_all() -> dict[str, str]:
 
 
 def assert_no_mutable_regressions(files: dict[str, str]) -> None:
-    now = files.get("now.js", "")
+    if "now.js" not in files:
+        raise SystemExit("Missing now.js: cannot check focus timer mutability")
+    now = files["now.js"]
     if BARE_FOCUS_ENDS_AT.search(now):
         raise SystemExit(
-            "Refusing to write now.js: bare focusEndsAt assignment would undo module mutability"
+            "now.js: bare focusEndsAt assignment would undo module mutability"
         )
 
 
@@ -587,31 +594,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Fail without writing if generated modules differ or regress mutability.",
+        help="Check maintained modules for focus-timer mutability regressions without writing.",
     )
     args = parser.parse_args(argv)
 
-    files = render_all()
+    if not args.check:
+        parser.error(
+            "UI generation is retired; edit src/adhd_hub/ui/js directly. "
+            "Use --check for a read-only mutability check."
+        )
+
+    files = {p.name: p.read_text() for p in OUT.glob("*.js")}
     assert_no_mutable_regressions(files)
-
-    if args.check:
-        drift: list[str] = []
-        existing = {p.name: p.read_text() for p in OUT.glob("*.js")}
-        names = sorted(set(files) | set(existing))
-        for name in names:
-            if files.get(name) != existing.get(name):
-                drift.append(name)
-        if drift:
-            raise SystemExit("Generated UI modules would change: " + ", ".join(drift))
-        print(f"OK: {len(files)} modules match {OUT}")
-        return
-
-    OUT.mkdir(parents=True, exist_ok=True)
-    for stale in OUT.glob("*.js"):
-        stale.unlink()
-    for name, text in files.items():
-        (OUT / name).write_text(text)
-    print(f"Wrote {len(files)} modules to {OUT}")
+    print("OK: maintained now.js has no bare focusEndsAt assignments (read-only check)")
 
 
 if __name__ == "__main__":

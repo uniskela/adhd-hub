@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
+
+import pytest
 
 UI_JS = Path(__file__).resolve().parents[1] / "src" / "adhd_hub" / "ui" / "js"
 
@@ -109,11 +112,47 @@ def test_qualify_mutable_refs_ignores_comment_periods():
     assert "foo.focusEndsAt = 1" in out
 
 
-def test_splitter_check_does_not_dirty_now_js():
+def test_legacy_renderer_preserves_focus_timer_mutability():
     splitter = _load_splitter()
     files = splitter.render_all()
     splitter.assert_no_mutable_regressions(files)
-    committed = (UI_JS / "now.js").read_text()
-    assert files["now.js"] == committed
     assert re.search(r"(?<![\w.])focusEndsAt\s*=", files["now.js"]) is None
-    splitter.main(["--check"])
+
+
+@pytest.mark.parametrize("args", [[], ["--check"]])
+def test_splitter_does_not_modify_maintained_ui(tmp_path: Path, monkeypatch, args):
+    splitter = _load_splitter()
+    ui = tmp_path / "ui"
+    shutil.copytree(UI_JS.parent, ui)
+    monkeypatch.setattr(splitter, "OUT", ui / "js")
+    # Neither CLI mode may read the obsolete migration input.
+    monkeypatch.setattr(splitter, "APP_PATH", tmp_path / "missing-app.js")
+    before = {p.relative_to(ui): p.read_bytes() for p in ui.rglob("*") if p.is_file()}
+    assert Path("js/forge-jobs.js") in before
+    if args:
+        splitter.main(args)
+    else:
+        with pytest.raises(SystemExit) as exc:
+            splitter.main(args)
+        assert exc.value.code == 2
+    after = {p.relative_to(ui): p.read_bytes() for p in ui.rglob("*") if p.is_file()}
+    assert after == before
+
+
+def test_splitter_check_rejects_mutability_regression_without_writing(tmp_path: Path, monkeypatch):
+    splitter = _load_splitter()
+    monkeypatch.setattr(splitter, "OUT", tmp_path)
+    now = tmp_path / "now.js"
+    broken = (UI_JS / "now.js").read_text().replace("state.focusEndsAt = 0", "focusEndsAt = 0")
+    now.write_text(broken)
+    with pytest.raises(SystemExit, match="bare focusEndsAt assignment"):
+        splitter.main(["--check"])
+    assert now.read_text() == broken
+
+
+def test_splitter_check_rejects_missing_now_module(tmp_path: Path, monkeypatch):
+    splitter = _load_splitter()
+    monkeypatch.setattr(splitter, "OUT", tmp_path)
+    with pytest.raises(SystemExit, match="Missing now.js"):
+        splitter.main(["--check"])
+    assert list(tmp_path.iterdir()) == []

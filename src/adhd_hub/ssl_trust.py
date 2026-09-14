@@ -8,8 +8,10 @@ current intermediates). ``truststore`` bridges that gap for ``urllib``/``ssl``.
 
 from __future__ import annotations
 
+import logging
 import ssl
 
+log = logging.getLogger(__name__)
 _injected = False
 
 
@@ -25,6 +27,9 @@ def ensure_os_truststore() -> bool:
     try:
         truststore.inject_into_ssl()
     except Exception:
+        # Optional integration: platform and third-party SSL patches can fail.
+        # Keep the CLI usable, but make the failed initialization diagnosable.
+        log.debug("OS truststore injection failed", exc_info=True)
         return False
     _injected = True
     return True

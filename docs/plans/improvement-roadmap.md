@@ -1,159 +1,213 @@
 # ADHD Progress Hub — improvement roadmap (2026-09)
 
-Approved planning snapshot for sequenced delivery after **v0.3.4**. This is the source of truth for upcoming waves; README “Roadmap” bullets should stay aligned with Wave status below.
+Current product roadmap for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the tracking parent; [`next-waves.md`](next-waves.md) is the compact sequence.
 
-## Current state (evidence)
+Reviewed against **current `main` on 2026-09-14** (package version v0.10.0; v0.10.1 fixes are merged but not yet released).
 
-Self-hosted FastAPI hub: SQLite + markdown wiki, MCP (`/mcp`), REST (`/api`), calm `/ui` (Now / My work / Progress), forge sync, OpenClaw nudges, rewards, backup/import, `adhd-hub setup` / `connect`, agent skills, coding companions, Pages docs.
+## Current state
 
-Shipped through **0.4.1**: Waves 0–4, connect pairing + install wheel (0.4.0), coding companions + ADHD-friendly connect reports (0.4.1).
+ADHD Hub is a self-hosted FastAPI application with SQLite + markdown wiki storage, MCP (`/mcp`), REST (`/api`), the `/ui` dashboard, GitHub/Gitea integration, OpenClaw integration, backup/import, project guidance, coding companions, OAuth-enabled MCP auth, and Pages documentation.
 
-Largest complexity remains UI modules under `src/adhd_hub/ui/`, plus `service.py` / `store.py`. MCP is close to REST parity for core continuity tools. Browser sessions can be durable. Rewards prefs remain browser-local.
+Shipped foundations now include:
 
-## Product principles (do not violate)
+- Waves 0–4;
+- the one-thread-one-outcome continuity model (Foundation A / PR #65);
+- source-aware local/external work identity (Foundation B1 / #73);
+- repo-primary GitHub/Gitea reconciliation (Foundation B2 / #74);
+- later v0.9.x/v0.10.0 reliability and forge operational improvements, including queued/running/done/failed Forge job visibility.
 
-- Calm, resumable, non-punitive ADHD UX (brand guide + writing guide).
-- Summaries only — never raw transcripts or secrets in hub payloads or generated docs.
-- Public/committed artifacts never embed Hub URL, tokens, or machine paths.
-- Soft defaults; destructive actions need explicit human confirmation (pending actions pattern).
-- Opt-in for global side effects (skills, OpenClaw, forge, remote AI).
+**The current product focus is Foundation B3 (#75), not Wave 6 yet.** B3 adds the durable event/history and live-state layer that later features should consume rather than recreating independently.
 
-## Wave 0 — Client wire-up one-liner
+## Product principles
 
-**Status:** shipped in **0.3.5**.
+- Calm, resumable, non-punitive ADHD UX.
+- Summaries only — never raw transcripts or secrets in Hub payloads or generated docs.
+- Public/committed artifacts never embed private Hub URLs, tokens, or machine-specific paths.
+- Soft defaults; destructive actions require explicit human confirmation.
+- Opt-in for global side effects such as skills, OpenClaw, forge writes, and remote AI.
+- Local/non-repo work remains first-class and must not require a forge.
+- Repo-backed task fields are forge-authoritative; Hub continuity fields are Hub-authoritative.
+- Do not use generic last-write-wins or silently publish private continuity to public issues.
 
-Hub-backed `/install.sh` + `/install.ps1`, `adhd-hub connect` / `doctor`, MCP/rules/AGENTS merge, optional skills and OpenClaw skill install. See historical detail in git history if needed; operator docs live in [connect.md](../connect.md).
+## Shipped waves
 
-## Wave 1 — ADHD UX depth
+### Wave 0 — client wire-up ✅
 
-**Status:** shipped in **0.3.6** (PR #22 / issue #16).
+Shipped in v0.3.5: Hub-backed `/install.sh` + `/install.ps1`, `adhd-hub connect` / `doctor`, MCP/rules/AGENTS merge, optional skills and OpenClaw skill install.
 
-1. Reminders in `/ui` — due reminders beside pending actions; create/snooze from My work.
-2. Soft-archive projects — hide without deleting threads/wiki; restore path.
-3. Focus mode — timed Now session + drift policy (“only this project”); honour reduced-motion.
-4. Quick capture → thread — Save a thought already exists; wire optional auto-thread create.
-5. Pause/resume polish — surface `resume_step` more prominently after doctor-style “where was I?”.
+### Wave 1 — ADHD UX depth ✅
 
-## Wave 2 — Agent / MCP parity
+Shipped in v0.3.6 via #16 / PR #22: reminders, soft archive, focus mode, quick capture and resume polish.
 
-**Status:** shipped in **0.3.6** (PR #24 / issue #17).
+### Wave 2 — Agent / MCP parity ✅
 
-1. MCP tools: `pause_thread`, `dismiss_thread`, `list_reminders`, `get_overview` (read-only).
-2. One-click workspace add from MCP — complements `connect --register`.
-3. Richer OpenClaw memory round-trips (short digest in / short ack out; still no raw chats).
-4. Keep skills/AGENTS aligned with new tools; skills.sh listing after publish.
+Shipped in v0.3.6 via #17 / PR #24: pause/dismiss/reminder/overview MCP parity, workspace registration and richer OpenClaw continuity support.
 
-## Wave 3 — Homelab ops & trust
+### Wave 3 — homelab ops & trust ✅
 
-**Status:** shipped in **0.3.7** (PR #26 / issue #18).
+Shipped in v0.3.7 via #18 / PR #26: durable browser sessions, reverse-proxy guidance, wiki-path migration tooling, encrypted backup support, doctor remote checks and installable PWA.
 
-1. Durable browser sessions (sqlite/redis-backed) for multi-worker / restart survival.
-2. Tailscale / reverse-proxy cookbook polish (trusted headers, HTTPS cookie Secure).
-3. Forge legacy path cleanup helper (`adhd-hub/wiki/**` → root `projects/`).
-4. Backup schedule docs + optional encrypted backup passphrase.
-5. `doctor` remote checks: forge reachability, OpenClaw test hook, indexer last run.
-6. Installable PWA for `/ui` (manifest + shell-only service worker).
+### Wave 4 — design system & maintainability ✅
 
-## Wave 4 — Design system & maintainability
+Shipped in v0.3.8 via #19 / PR #28: split UI modules, service facades, accessibility improvements and calmer motion defaults.
 
-**Status:** shipped in **0.3.8** (PR #28 / issue #19).
+## Foundation A — deterministic continuity ✅
 
-1. Split `app.js` by screen (now / work / progress / settings / share).
-2. Facades for forge/openclaw out of `HubService` without behaviour change.
-3. A11y pass: focus order, live regions for save confirmations, chart alternatives.
-4. Prefer calm motion only; no streak guilt or competitive UI.
+PR #65 established one thread = one independently finishable outcome, explicit thread targeting, structured Goal / Focus / Next / Blocked / Resume state, thread-scoped history, guidance drift detection and thread-scoped forge status.
 
-## Wave 5 — Optional integrations (explicit opt-in)
+This foundation is complete. Later waves build on it; they must not reimplement it.
 
-**Status:** upcoming — issue [#20](https://github.com/uniskela/adhd-hub/issues/20). Only after core clarity work feels stable.
+## Foundation B — source-aware work sync, live state & reconciliation
 
-| Integration | Fit | Constraint |
-|-------------|-----|------------|
-| Slack / Discord | Gentle stale nudge parallel to OpenClaw | Same anti-nag policy |
-| Linear / GitHub Projects already partial | Import issues as threads | Never auto-close remote |
-| Calendar | Reminder due → calendar block | Local-first; no public calendars by default |
-| Public leaderboard | See [rewards-roadmap.md](../rewards-roadmap.md) | Separate identity + ledger review |
+Tracking umbrella: [#71](https://github.com/uniskela/adhd-hub/issues/71).
+
+### B1 — source-aware work identity & authority ✅
+
+[#73](https://github.com/uniskela/adhd-hub/issues/73), shipped in v0.8.0 via PR #76.
+
+- Local work remains Hub-owned.
+- Repo-backed work has durable provider/host/repository/issue identity.
+- External task state is distinct from Hub continuity status.
+- Project default source plus per-thread override/linking is supported.
+- Legacy forge mappings migrate fail-safe without inventing uncertain links.
+
+### B2 — repo-primary issue sync & reconciliation ✅
+
+[#74](https://github.com/uniskela/adhd-hub/issues/74), shipped in v0.8.0 via PRs #79 and #80.
+
+- Ordinary GitHub/Gitea issues can remain canonical repo-backed tasks.
+- Import scope is configurable and pull requests are excluded.
+- Remote close/reopen reconciles without overwriting Hub continuity state.
+- Explicit Hub close/reopen actions are remote-first.
+- Local Hub work can be deliberately promoted/linked without dumping private continuity into the issue.
+- Scheduled reconciliation is the correctness fallback and avoids overlapping runs.
+
+### B3 — activity ledger, live UI & sync health 🔄 **NOW**
+
+[#75](https://github.com/uniskela/adhd-hub/issues/75).
+
+The v0.10.0 Forge job queue is useful operational state, but it is not the durable history model required here.
+
+Scope:
+
+1. **Durable structured event ledger**
+   - meaningful thread/work/session/forge events;
+   - publish only after the underlying mutation is committed/confirmed;
+   - no raw transcripts or secrets;
+   - idempotency/dedupe for reconciliation echoes.
+2. **Live UI invalidation**
+   - authenticated same-origin SSE first;
+   - small invalidation hints, not full private payloads;
+   - normal API refetch remains displayed truth;
+   - safe reconnect/catch-up and ordinary request-driven fallback.
+3. **Sync/connection health**
+   - last success/failure;
+   - provider/configured-source status;
+   - Needs review conflicts;
+   - useful current Forge job state where relevant;
+   - compact human-readable change history.
+4. **History substrate for statistics**
+   - provide trustworthy events/session data for #72 rather than reconstructing history from current rows or commit timestamps.
+
+Foundation B is complete only when B3 is shipped and the UI can show current sync/history state without reading server logs.
+
+## Wave 5 — optional integrations
+
+[#20](https://github.com/uniskela/adhd-hub/issues/20) — **deferred / opt-in**.
+
+Potential scoped integrations: Slack/Discord nudges, private calendar reminder blocks, and later sharing/leaderboard work only after separate privacy/identity review.
+
+Do not make this the default next wave. Pull a single integration forward only when a concrete need justifies it.
 
 ## Wave 6 — AI clarity & project organisation
 
-**Status:** next product focus — issue [#52](https://github.com/uniskela/adhd-hub/issues/52).
+[#52](https://github.com/uniskela/adhd-hub/issues/52) — **next after B3**.
 
-Reduce information overload without abandoning the wiki/thread source of truth.
+1. Short AI or heuristic task/thread summaries using structured continuity.
+2. Cleaner project list with tags/categories, filters, open count and last-touch cues.
+3. Optional AI sorter/organiser that only applies suggestions after human confirmation.
 
-### 6a — AI task / thread summaries
+Remote AI remains explicit opt-in; local/heuristic fallback is required. Generated summaries must not contain secrets, private Hub URLs, machine paths or raw transcripts.
 
-- Default thread/progress views show a short AI (or heuristic) summary: **Now / Done / Next / Waiting / Return cue**.
-- Full description remains one expand/tap away — never delete detail.
-- Agents and MCP should prefer posting structured short fields; Hub may compress verbose agent dumps into a summary + raw appendix.
-- Provider: opt-in local LLM first (homelab); remote APIs only with explicit config. Offline/heuristic fallback when AI is off.
-- Never put secrets, tokens, Hub URLs, or machine paths into generated summaries.
+## Wave 7 — continuity intelligence
 
-### 6b — Cleaner project list (tags / categories)
+[#54](https://github.com/uniskela/adhd-hub/issues/54) — after Wave 6.
 
-- Lighter project list density: title, one-line status, open-thread count, last touch.
-- Manual **tags** and/or **categories** (e.g. Homelab, App, Docs, Parked) with filter chips.
-- Soft-archive already exists — keep archive out of the default list.
-- Search/filter by tag, stale age, and open vs idle.
+1. Soft stale-thread triage.
+2. Calm cross-project Next-up ranking.
+3. Merge/dedupe suggestions based on overlap; human merges only.
+4. Advisory return-cue quality nudges.
 
-### 6c — Optional AI sorter / organiser
+Reuse #75 history/events where useful; do not create parallel telemetry.
 
-- Suggest tags, categories, and “park vs active” groupings from titles + recent progress.
-- Apply only after human confirmation (pending-actions pattern) — no surprise reorganisation.
-- Optional “tidy suggestions” digest once per session, not a nag stream.
+## Wave 8 — find & capture
 
-## Wave 7 — Continuity intelligence
+[#55](https://github.com/uniskela/adhd-hub/issues/55) — after Wave 7.
 
-**Status:** planned after Wave 6 — issue [#54](https://github.com/uniskela/adhd-hub/issues/54).
+1. Reversible progress-wiki compaction.
+2. Local-first global search across projects/threads/wiki snippets.
+3. Mobile/share capture into quick thought → thread.
+4. Energy/context modes without productivity guilt.
 
-1. **Stale-thread triage** — soft “still relevant?” pass for old open threads; confirm or snooze; never auto-dismiss.
-2. **Cross-project Next-up ranking** — one calm “what now?” across projects when focus mode is off; honour drift policy.
-3. **Thread merge / dedupe cues** — surface `check_overlap` as UI suggestions; human merges only.
-4. **Return-cue quality nudges** — advisory coaching toward concrete return cues; never blocking.
+## Activity insights & statistics
 
-## Wave 8 — Find & capture
+[#72](https://github.com/uniskela/adhd-hub/issues/72) — after the core clarity/findability work, before or alongside later Wave 9 work.
 
-**Status:** planned after Wave 7 — issue [#55](https://github.com/uniskela/adhd-hub/issues/55).
+Build on #75 durable history plus persisted focus sessions:
 
-1. **Progress wiki compaction** — rolling summary + older sections collapsed; full markdown recoverable.
-2. **Global search** — find threads/projects/wiki snippets fast; local-first; no external index required.
-3. **Capture share target / mobile PWA** — phone capture into quick thought → thread; keep offline-friendly.
-4. **Energy / context modes** — short vs deep return views; prefs local; no gamified energy guilt.
+- daily/weekly/monthly completions and activity;
+- trustworthy tracked focus time;
+- project/activity trends;
+- optional contribution-style heatmap;
+- timezone-correct aggregation;
+- neutral treatment of zero-activity days.
 
-## Wave 9 — Shared surfaces & discoverability
+This is reflection tooling, not employee surveillance or productivity scoring. Do not infer coding hours from Git commit timestamps.
 
-**Status:** planned after Waves 6–8 feel stable — issue [#56](https://github.com/uniskela/adhd-hub/issues/56).
+## Wave 9 — shared surfaces & discoverability
 
-1. **Related-work map** — optional light graph of overlapping projects/threads; list remains the default.
-2. **Household multi-profile (soft)** — shared hub with separate Now surfaces; no public leaderboard by default.
-3. **skills.sh listing** — discoverability after package publish (ops/marketing; not UX-critical).
+[#56](https://github.com/uniskela/adhd-hub/issues/56) — later, after Waves 6–8 are stable.
 
-Do **not** prioritise competitive social features, auto-closing remote issues, or dumping full chat transcripts into the hub.
+1. Optional related-work map; list remains the default.
+2. Soft household multi-profile with separate Now surfaces.
+3. skills.sh discoverability after packaging/distribution is ready.
+
+Do not prioritise competitive social features, auto-closing remote issues, or transcript-sharing surfaces.
+
+## Independent repository maintenance
+
+Security and CI maintenance may land whenever needed without changing the product-wave order:
+
+- [#101](https://github.com/uniskela/adhd-hub/issues/101) — Gitleaks, Node-24-era GitHub Actions audit, pinned Action dependency upkeep.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — restore a clean full pytest/Ruff baseline and add a normal read-only PR quality gate.
 
 ## Verification per wave
 
-- `uv run pytest` + `uv run ruff check src tests`
-- `scripts/browser_smoke.py` for UI waves
-- `scripts/probe_mcp.py` for MCP waves
-- Manual: `curl …/install.sh` + `adhd-hub doctor` on a clean temp home
+- `uv run pytest`
+- `uv run ruff check src tests`
+- UI work: `scripts/browser_smoke.py`
+- MCP work: `scripts/probe_mcp.py`
+- Installation changes: streamed install regression tests plus clean-temp-home/manual smoke where appropriate
 
-## Rollback
+## Rollback and safety
 
-- Wire-up writes are idempotent and scoped; uninstall via `adhd-hub setup --uninstall` and documented MCP key removal.
-- Feature flags / prefs stay opt-in; forge, OpenClaw, and AI providers remain disableable in Settings.
+- Setup/connect writes stay scoped and reversible.
+- Feature flags/preferences remain opt-in where they cause external side effects.
+- Forge, OpenClaw and remote AI providers remain disableable.
+- Live UI/events must degrade safely to normal API-driven behaviour.
 
-## Status
+## Current sequence summary
 
-| Wave | Status |
-|------|--------|
-| 0 Client wire-up | Shipped in 0.3.5 |
-| 1 ADHD UX depth | Shipped in 0.3.6 (PR #22 / issue #16) |
-| 2 MCP parity | Shipped in 0.3.6 (PR #24 / issue #17) |
-| 3 Homelab ops + PWA | Shipped in 0.3.7 (PR #26 / issue #18) |
-| 4 Maintainability | Shipped in 0.3.8 (PR #28 / issue #19) |
-| 5 Optional integrations | Upcoming / opt-in — issue #20 |
-| 6 AI clarity + project list | Next — issue #52 |
-| 7 Continuity intelligence | After Wave 6 — issue #54 |
-| 8 Find & capture | After Wave 7 — issue #55 |
-| 9 Shared surfaces & discoverability | After 6–8 stable — issue #56 |
-
-Wave 1 + Wave 2 shipped together in **0.3.6**. Prefer Wave 6 → 7 → 8 (clarity and findability) before expanding Wave 5 integrations or Wave 9 shared surfaces, unless a specific need is urgent.
+| Priority | Work | Status |
+|---|---|---|
+| Done | Waves 0–4 | Shipped |
+| Done | Foundation A | Shipped |
+| Done | Foundation B1 #73 | Shipped in v0.8.0 |
+| Done | Foundation B2 #74 | Shipped in v0.8.0 |
+| **Now** | **Foundation B3 #75** | Event ledger / live UI / sync health |
+| Next | Wave 6 #52 | AI clarity + project organisation |
+| Then | Wave 7 #54 | Continuity intelligence |
+| Then | Wave 8 #55 | Find & capture |
+| Later | Activity insights #72 | Uses #75 history |
+| Later | Wave 9 #56 | Shared surfaces/discoverability |
+| Opt-in | Wave 5 #20 | Integrations only when justified |

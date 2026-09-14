@@ -45,3 +45,18 @@ def test_ensure_os_truststore_idempotent() -> None:
     second = ssl_trust.ensure_os_truststore()
     assert first is True
     assert second is True
+
+
+def test_failed_truststore_injection_is_logged_and_can_retry(monkeypatch, caplog) -> None:
+    import truststore
+
+    def fail():
+        raise RuntimeError("third-party SSL patch failed")
+
+    monkeypatch.setattr(truststore, "inject_into_ssl", fail)
+    with caplog.at_level("DEBUG", logger="adhd_hub.ssl_trust"):
+        assert ssl_trust.ensure_os_truststore() is False
+    assert "OS truststore injection failed" in caplog.text
+    assert caplog.records[-1].exc_info is not None
+    monkeypatch.setattr(truststore, "inject_into_ssl", lambda: None)
+    assert ssl_trust.ensure_os_truststore() is True

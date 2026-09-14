@@ -18,11 +18,7 @@ def _is_external_href(href: str) -> bool:
     github.com and other forges are always external under this rule.
     """
     value = (href or "").strip().lower()
-    return (
-        value.startswith("https://")
-        or value.startswith("http://")
-        or value.startswith("//")
-    )
+    return value.startswith(("https://", "http://", "//"))
 
 
 def _link_open(tokens, idx, options, env):

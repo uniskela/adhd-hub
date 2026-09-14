@@ -1,81 +1,90 @@
-# Next waves (post forge-inbox + connect)
+# Next waves
 
-Tracking plan for ADHD Progress Hub after the connect one-liner (PR #13) and forge issue inbox (PR #14). Detailed wave notes live in [`improvement-roadmap.md`](improvement-roadmap.md).
+Current sequencing for ADHD Progress Hub. Detailed notes live in [`improvement-roadmap.md`](improvement-roadmap.md); GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the tracking parent.
+
+Reviewed against **current `main` on 2026-09-14** (package version v0.10.0; v0.10.1 fixes are merged but not yet released).
 
 ## GitHub tracking
 
-| Item | Issue |
-|------|-------|
-| Parent epic | [#15](https://github.com/uniskela/adhd-hub/issues/15) |
-| Wave 1 — UX | [#16](https://github.com/uniskela/adhd-hub/issues/16) |
-| Wave 2 — MCP | [#17](https://github.com/uniskela/adhd-hub/issues/17) |
-| Wave 3 — Ops | [#18](https://github.com/uniskela/adhd-hub/issues/18) |
-| Wave 4 — Maintainability | [#19](https://github.com/uniskela/adhd-hub/issues/19) |
-| Wave 5 — Integrations | [#20](https://github.com/uniskela/adhd-hub/issues/20) |
-| Wave 6 — AI clarity | [#52](https://github.com/uniskela/adhd-hub/issues/52) |
-| Wave 7 — Continuity intelligence | [#54](https://github.com/uniskela/adhd-hub/issues/54) |
-| Wave 8 — Find & capture | [#55](https://github.com/uniskela/adhd-hub/issues/55) |
-| Wave 9 — Shared surfaces | [#56](https://github.com/uniskela/adhd-hub/issues/56) |
+| Item | Issue | Status |
+|------|-------|--------|
+| Parent roadmap | [#15](https://github.com/uniskela/adhd-hub/issues/15) | Active |
+| Foundation B umbrella | [#71](https://github.com/uniskela/adhd-hub/issues/71) | B1/B2 shipped; B3 remains |
+| Foundation B1 — source identity | [#73](https://github.com/uniskela/adhd-hub/issues/73) | ✅ Shipped in v0.8.0 |
+| Foundation B2 — repo-primary reconciliation | [#74](https://github.com/uniskela/adhd-hub/issues/74) | ✅ Shipped in v0.8.0 |
+| Foundation B3 — event ledger/live UI/sync health | [#75](https://github.com/uniskela/adhd-hub/issues/75) | **Now** |
+| Wave 5 — optional integrations | [#20](https://github.com/uniskela/adhd-hub/issues/20) | Deferred / opt-in |
+| Wave 6 — AI clarity | [#52](https://github.com/uniskela/adhd-hub/issues/52) | Next after B3 |
+| Wave 7 — continuity intelligence | [#54](https://github.com/uniskela/adhd-hub/issues/54) | After Wave 6 |
+| Wave 8 — find & capture | [#55](https://github.com/uniskela/adhd-hub/issues/55) | After Wave 7 |
+| Activity insights/statistics | [#72](https://github.com/uniskela/adhd-hub/issues/72) | After core Waves 6–8 |
+| Wave 9 — shared surfaces | [#56](https://github.com/uniskela/adhd-hub/issues/56) | Later |
 
-## Security note (forge inbox)
+Independent repository maintenance is tracked separately so it can land without distorting the product sequence: CI/security in [#101](https://github.com/uniskela/adhd-hub/issues/101) and the clean pytest/Ruff quality gate in [#102](https://github.com/uniskela/adhd-hub/issues/102).
 
-Inbox sync imports **only** issues authored by usernames in `board_inbox_authors` / `ADHD_HUB_FORGE_BOARD_INBOX_AUTHORS`. Empty allowlist ⇒ import nothing. See [forge-issue-inbox.md](../forge-issue-inbox.md).
+## Current order
 
-## Suggested order
+1. **Foundation B3 — #75**
+   - durable structured activity/event history;
+   - authenticated SSE-first browser invalidation;
+   - sync/connection health and compact history;
+   - reliable history substrate for #72.
+2. **Wave 6 — #52**
+   - short AI/heuristic thread summaries;
+   - cleaner project list with tags/categories;
+   - optional human-confirmed AI organisation.
+3. **Wave 7 — #54**
+   - stale-thread triage;
+   - cross-project Next-up ranking;
+   - merge/dedupe suggestions;
+   - better return cues.
+4. **Wave 8 — #55**
+   - reversible progress compaction;
+   - local-first global search;
+   - mobile/share capture;
+   - energy/context modes.
+5. **Activity insights — #72**
+   - daily/weekly/monthly completion/activity views;
+   - persisted focus time;
+   - contribution-style heatmap built on #75 history.
+6. **Wave 9 — #56**
+   - related-work map;
+   - soft household multi-profile;
+   - skills.sh discoverability.
 
-| Priority | Wave | Focus |
-|----------|------|--------|
-| Done | Inbox harden | Author allowlist (0.3.5) |
-| Done | Wave 1 | ADHD UX depth in `/ui` (#16 / PR #22) — shipped in 0.3.6 |
-| Done | Wave 2 | MCP parity + OpenClaw memory (#17 / PR #24) — shipped in 0.3.6 |
-| Done | Wave 3 | Homelab ops, trust, PWA (#18) — shipped in 0.3.7 |
-| Done | Wave 4 | Split `app.js` / facades / a11y (#19) — shipped in 0.3.8 |
-| Now | Wave 6 | AI thread summaries + project list tags/categories + optional AI organiser (#52) |
-| Next | Wave 7 | Stale triage, cross-project Next-up, merge/dedupe cues, return-cue nudges (#54) |
-| Next | Wave 8 | Wiki compaction, global search, mobile capture, energy/context modes (#55) |
-| Later | Wave 9 | Related-work map, household multi-profile, skills.sh listing (#56) |
-| Opt-in | Wave 5 | Slack/Discord, calendar; leaderboard only with identity review (#20) |
+Wave 5 remains opt-in/deferred unless a concrete Slack/Discord/calendar need justifies pulling one tightly scoped integration forward.
 
-Prefer **Wave 6 → 7 → 8** (clarity and findability) before Wave 5 integrations or Wave 9 shared surfaces. Do not start Wave 5 early unless a specific integration is urgently needed (see issue #20).
+## Shipped foundation
 
-## Foundation (thread identity + guidance drift)
+### Foundation A — thread/outcome model ✅
 
-One thread = one independently finishable outcome; `upsert_progress(thread_id=...)`; structured goal/focus/next; Active/History `PROGRESS.md`.
+PR #65 established one thread = one independently finishable outcome, explicit thread targeting, structured Goal / Focus / Next / Blocked / Resume state, guidance drift detection, and thread-scoped continuity.
 
-Hub-owned project guidance / skills carry an independent schema version (`AGENT_GUIDANCE_VERSION`, `hub_skill_version`). `adhd-hub doctor --project` and `adhd-hub setup --check` detect drift; repair only via explicit setup/connect (never silent per-session rewrites). That work is a prerequisite for Waves 6–8, not a substitute for AI summaries (#52), merge/dedupe UI (#54), or reversible wiki compaction (#55).
+### Foundation B1 — source-aware identity ✅
 
-## Wave 6 — AI clarity & project organisation
+Shipped in v0.8.0. Local work remains Hub-owned; repo-backed work has durable GitHub/Gitea identity and explicit task-vs-continuity authority boundaries.
 
-1. **AI task/thread summaries** — default scannable Now/Done/Next/Waiting/Return cue; expand for full detail; opt-in local LLM with heuristic fallback.
-2. **Cleaner project list** — tags/categories, filters, lower density (title + one-line status + open count + last touch).
-3. **Optional AI sorter/organiser** — suggest tags/groupings; apply only after human confirmation.
+### Foundation B2 — repo-primary reconciliation ✅
 
-## Wave 7 — Continuity intelligence
+Shipped in v0.8.0. GitHub/Gitea is authoritative for repo-backed task fields; Hub keeps private continuity. Ordinary issues can be imported safely, explicit close/reopen is remote-first, local work can be promoted/linked, and periodic reconciliation heals missed updates.
 
-1. Stale-thread triage (confirm / snooze; never auto-dismiss).
-2. Cross-project Next-up ranking (honour focus-mode drift policy).
-3. Thread merge / dedupe cues (human merges only).
-4. Return-cue quality nudges (advisory only).
+### Foundation B3 — live/history layer 🔄
 
-## Wave 8 — Find & capture
+The v0.10.0 Forge job queue provides useful queued/running/done/failed operation visibility, but it does **not** replace #75. B3 still owns the durable event ledger, live browser invalidation, broader sync health/history, and the trusted history source for #72.
 
-1. Progress wiki compaction (reversible).
-2. Global search (local-first).
-3. Capture share target / mobile PWA.
-4. Energy / context modes (no energy guilt).
+## Security and ownership baseline
 
-## Wave 9 — Shared surfaces & discoverability
-
-1. Related-work map (optional; list stays default).
-2. Household multi-profile (soft; no public leaderboard by default).
-3. skills.sh listing after publish.
-
-## Wave 5 — Optional integrations
-
-Only after clarity/findability work feels stable: Slack/Discord nudges, calendar blocks, public leaderboard only after identity/ledger review. See [rewards-roadmap.md](../rewards-roadmap.md).
+- Local/non-repo work remains first-class and needs no forge.
+- Repo-backed task fields are forge-authoritative; Hub continuity fields are Hub-authoritative.
+- Do not use generic last-write-wins.
+- Do not close imported repo issues merely because Hub discovered them.
+- Never automatically publish private Hub continuity/session history to public issues.
+- Periodic reconciliation remains the correctness fallback even if faster event paths are added.
+- Public/committed artifacts must not embed secrets, private Hub URLs, or machine-specific paths.
 
 ## Verification
 
-- `uv run pytest` + `uv run ruff check src tests`
+- `uv run pytest`
+- `uv run ruff check src tests`
 - UI waves: `scripts/browser_smoke.py`
 - MCP waves: `scripts/probe_mcp.py`

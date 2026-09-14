@@ -3,13 +3,27 @@
 ## Dev setup
 
 ```bash
-uv sync --all-extras
-uv run pytest
+uv sync --extra dev --frozen
+uv run pytest -q
 uv run ruff check src tests
+git diff --check
 uv run adhd-hub serve --host 127.0.0.1 --port 8787
 ```
 
 Preview the public docs site locally with `uv run zensical serve` (after `uv sync --extra dev`).
+
+CI runs the full pytest suite and Ruff with Python 3.12 and the frozen `uv.lock`.
+The quality workflow is read-only: fixes belong in reviewed source changes.
+
+## UI modules
+
+Edit `src/adhd_hub/ui/js/` directly; the dashboard loads `js/boot.js`.
+The old `ui/app.js` IIFE is a historical migration input, not the source of the
+current modules. `scripts/split_ui_modules.py` no longer writes files: its legacy
+renderer does not know about newer UI features and must not regenerate them.
+`uv run python scripts/split_ui_modules.py --check` checks the maintained focus
+timer's mutability without writing. `tests/test_ui_module_state.py` also guards
+shared-state assignments across all current modules.
 
 ## Design notes
 
