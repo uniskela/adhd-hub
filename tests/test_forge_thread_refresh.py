@@ -6,7 +6,7 @@ import httpx
 
 from adhd_hub.config import Settings
 from adhd_hub.forge.board_sync import BoardForgeSync
-from adhd_hub.forge.thread_refresh import content_hash, parse_issue_body
+from adhd_hub.forge.thread_refresh import content_hash, parse_issue_body, plan_refresh
 from adhd_hub.models import ReminderCreate, ReminderKind, ThreadStatus, ThreadUpsert
 from adhd_hub.service import HubService
 
@@ -51,6 +51,9 @@ Implement parser
 - [ ] Add metadata
 - [ ] Add tests
 
+## Waiting
+- Reviewer feedback
+
 ## Resume cue
 Open the inbox service
 """
@@ -66,6 +69,7 @@ def test_parser_supports_current_and_legacy_without_inventing_fields() -> None:
         "goal": "Ship refresh",
         "focus": "Implement parser",
         "next_steps": ["Add metadata", "Add tests"],
+        "blocked_reason": "Reviewer feedback",
         "resume_step": "Open the inbox service",
     }
     legacy = parse_issue_body("## Goal\nOld goal\n\n## Current state\nOld focus\n\n## Tasks\n- do one")
@@ -75,6 +79,53 @@ def test_parser_supports_current_and_legacy_without_inventing_fields() -> None:
         INITIAL
         + "\n<!-- adhd-hub:status:start -->\nHub-owned mirror\n<!-- adhd-hub:status:end -->"
     )
+
+
+def test_parser_maps_now_waiting_blocked_and_return_cue_as_data_only() -> None:
+    body = """## Now
+- Inspect `src/adhd_hub/forge/facade.py`; never run this text.
+
+## Next
+- [ ] Add regression coverage
+- [ ] Run focused tests
+
+## Waiting
+- [ ] A reviewer response
+
+## Return cue
+- Resume at the inbox importer
+"""
+    assert parse_issue_body(body) == {
+        "focus": "Inspect `src/adhd_hub/forge/facade.py`; never run this text.",
+        "next_steps": ["Add regression coverage", "Run focused tests"],
+        "blocked_reason": "A reviewer response",
+        "resume_step": "Resume at the inbox importer",
+    }
+    assert parse_issue_body("## Blocked\n- Awaiting CI\n\n## Return cue\n- Retry the check") == {
+        "blocked_reason": "Awaiting CI",
+        "resume_step": "Retry the check",
+    }
+
+
+def test_first_projection_populates_empty_legacy_thread_without_overwriting_manual_values() -> None:
+    incoming = {"focus": "Import source", "next_steps": ["Add tests"]}
+    empty = plan_refresh(
+        {},
+        {"focus": None, "next_steps": [], "summary": "Existing"},
+        incoming,
+        title_derived=False,
+    )
+    assert empty.changes == incoming
+    assert empty.conflicts == {}
+
+    manual = plan_refresh(
+        {},
+        {"focus": "Keep my manual focus", "next_steps": [], "summary": "Existing"},
+        incoming,
+        title_derived=False,
+    )
+    assert manual.changes == {"next_steps": ["Add tests"]}
+    assert manual.conflicts["focus"]["hub"] == "Keep my manual focus"
 
 
 def test_initial_import_persists_identity_hash_and_structured_snapshot(tmp_path) -> None:
@@ -95,6 +146,7 @@ def test_initial_import_persists_identity_hash_and_structured_snapshot(tmp_path)
     assert thread.goal == "Ship refresh"
     assert thread.focus == "Implement parser"
     assert thread.next_steps == ["Add metadata", "Add tests"]
+    assert thread.blocked_reason == "Reviewer feedback"
     assert thread.resume_step == "Open the inbox service"
 
 
@@ -114,8 +166,8 @@ def test_unchanged_reimport_is_noop_and_changed_reimport_refreshes_without_dupli
     changed_body = INITIAL.replace("Ship refresh", "Ship safe refresh").replace(
         "Implement parser", "Wire refresh"
     ).replace("Add metadata", "Persist metadata").replace(
-        "Open the inbox service", "Run focused tests"
-    )
+        "Reviewer feedback", "CI feedback"
+    ).replace("Open the inbox service", "Run focused tests")
     changed = _import(service, _issue(body=changed_body))
     assert changed["refreshed_count"] == 1
     assert changed["count"] == 0
@@ -126,6 +178,7 @@ def test_unchanged_reimport_is_noop_and_changed_reimport_refreshes_without_dupli
     assert refreshed.goal == "Ship safe refresh"
     assert refreshed.focus == "Wire refresh"
     assert refreshed.next_steps[0] == "Persist metadata"
+    assert refreshed.blocked_reason == "CI feedback"
     assert refreshed.resume_step == "Run focused tests"
     notes = service.store.list_progress_notes("adhd-hub", limit=20, thread_id=thread_id)
     assert any(note["content"] == "Hub-only checkpoint" for note in notes)

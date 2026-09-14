@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-SOURCE_FIELDS = ("goal", "focus", "next_steps", "resume_step")
+SOURCE_FIELDS = ("goal", "focus", "next_steps", "blocked_reason", "resume_step")
 _HEADING = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 _TASK = re.compile(r"^\s*[-*]\s+(?:\[[ xX]\]\s*)?(.+?)\s*$")
 _HUB_STATUS = re.compile(
@@ -42,6 +42,17 @@ def _text(value: str | None) -> str | None:
     return cleaned or None
 
 
+def _section_text(value: str | None) -> str | None:
+    """Return a short section's text, accepting one ordinary Markdown bullet."""
+    text = _text(value)
+    if not text:
+        return None
+    lines = text.splitlines()
+    if len(lines) == 1 and (match := _TASK.match(lines[0])):
+        return match.group(1).strip() or None
+    return text
+
+
 def _steps(value: str | None) -> list[str] | None:
     if value is None:
         return None
@@ -50,21 +61,24 @@ def _steps(value: str | None) -> list[str] | None:
 
 
 def parse_issue_body(body: str) -> dict[str, Any]:
-    """Extract current and legacy continuity fields; never infer from prose."""
+    """Extract allowlisted continuity headings; never infer or execute prose."""
     sections = _sections(body)
-    goal = _text(sections.get("goal")) if "goal" in sections else None
-    focus_key = "focus" if "focus" in sections else "current state" if "current state" in sections else None
-    next_key = "next" if "next" in sections else "tasks" if "tasks" in sections else None
-    resume_key = "resume cue" if "resume cue" in sections else None
+    goal = _section_text(sections.get("goal")) if "goal" in sections else None
+    focus_key = next((key for key in ("focus", "now", "current state") if key in sections), None)
+    next_key = next((key for key in ("next", "tasks") if key in sections), None)
+    blocked_key = next((key for key in ("blocked", "waiting") if key in sections), None)
+    resume_key = next((key for key in ("resume cue", "return cue") if key in sections), None)
     values: dict[str, Any] = {}
     if "goal" in sections:
         values["goal"] = goal
     if focus_key:
-        values["focus"] = _text(sections.get(focus_key))
+        values["focus"] = _section_text(sections.get(focus_key))
     if next_key:
         values["next_steps"] = _steps(sections.get(next_key)) or []
+    if blocked_key:
+        values["blocked_reason"] = _section_text(sections.get(blocked_key))
     if resume_key:
-        values["resume_step"] = _text(sections.get(resume_key))
+        values["resume_step"] = _section_text(sections.get(resume_key))
     return values
 
 
@@ -96,6 +110,16 @@ def plan_refresh(
         before = previous.get(field)
         hub = current_hub.get(field)
         forge = incoming.get(field)
+        # A legacy repo-primary thread may have no source snapshot at all. Its
+        # empty continuity defaults are not a user edit, so let the first safe
+        # source projection establish the three-way base. Non-empty local
+        # values remain protected as potential manual edits.
+        if field not in previous:
+            default = [] if field == "next_steps" else None
+            if hub == default:
+                if hub != forge:
+                    changes[field] = forge
+                continue
         if forge == before:
             continue
         if hub != before and hub != forge:

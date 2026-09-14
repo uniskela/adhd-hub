@@ -1062,7 +1062,7 @@ class Store:
         if not current:
             raise KeyError("thread_not_found")
         changes = changes or {}
-        allowed = {"summary", "goal", "focus", "next_steps", "resume_step"}
+        allowed = {"summary", "goal", "focus", "next_steps", "blocked_reason", "resume_step"}
         unknown = set(changes) - allowed
         if unknown:
             raise ValueError(f"unsupported source fields: {sorted(unknown)}")
