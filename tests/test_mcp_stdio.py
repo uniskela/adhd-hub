@@ -45,6 +45,6 @@ async def test_mcp_stdio_lists_and_calls_existing_tool_catalog(tmp_path) -> None
         reminders = await session.call_tool("list_reminders", {"due_only": True})
         overview = await session.call_tool("get_overview", {})
 
-        assert overlap.isError is not True
-        assert reminders.isError is not True
-        assert overview.isError is not True
+        assert overlap.is_error is not True
+        assert reminders.is_error is not True
+        assert overview.is_error is not True
