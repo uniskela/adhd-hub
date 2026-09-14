@@ -473,19 +473,32 @@ class HubService:
                     log.exception("wiki rollback after rename DB failure")
             raise
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
-        forge_out: dict = {"uploaded": [], "deleted": [], "errors": []}
+        forge_out: dict = {
+            "uploaded": [],
+            "unchanged_files": [],
+            "deleted": [],
+            "errors": [],
+        }
         cfg = self.wiki_forge_config()
         if cfg.enabled() and cfg.wiki_enabled:
             try:
                 content = self.wiki.read_progress(proj.slug) or ""
                 old_rel = f"projects/{old}/PROGRESS.md"
                 new_rel = f"projects/{new}/PROGRESS.md"
-                if content:
+                if content and old != new:
                     move = WikiForgeSync(cfg).move_file(old_rel, new_rel, content)
-                    forge_out["uploaded"].append(new_rel)
+                    forge_out["uploaded"].extend(move.get("uploaded") or [])
+                    forge_out["unchanged_files"].extend(
+                        move.get("unchanged_files") or []
+                    )
                     if move.get("deleted", {}).get("deleted"):
                         forge_out["deleted"].append(old_rel)
-                WikiForgeSync(cfg).push_wiki_tree(self.settings.wiki_dir)
+                wiki_sync = WikiForgeSync(cfg).push_wiki_tree(self.settings.wiki_dir)
+                forge_out["uploaded"].extend(wiki_sync.get("uploaded") or [])
+                forge_out["unchanged_files"].extend(
+                    wiki_sync.get("unchanged_files") or []
+                )
+                forge_out["errors"].extend(wiki_sync.get("errors") or [])
             except Exception as exc:  # noqa: BLE001
                 forge_out["errors"].append(str(exc))
         # Resync open threads so labels/bodies pick up new slug
@@ -497,6 +510,9 @@ class HubService:
             except Exception as exc:  # noqa: BLE001
                 forge_out["errors"].append(f"thread {thread.id}: {exc}")
         self._refresh_forge_section(proj.slug)
+        forge_out["unchanged"] = not (
+            forge_out["uploaded"] or forge_out["deleted"] or forge_out["errors"]
+        )
         return {"project": proj.model_dump(mode="json"), "wiki": wiki_result, "forge": forge_out}
 
     def delete_project(

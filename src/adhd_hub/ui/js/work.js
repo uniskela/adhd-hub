@@ -2,7 +2,7 @@ import { state, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink } from './dom.js';
 import { loadAll } from './load.js';
-import { chooseThread, wireNotes } from './now.js';
+import { chooseThread, closeNotesReader, wireNotes } from './now.js';
 import {
   IMPORT_POLICY_HINTS,
   IMPORT_POLICY_LABELS,
@@ -257,6 +257,7 @@ export function openProjectDialog(project) {
     open().catch((e) => setMsg(String(e)));
   }
 export function renderThreads(threads) {
+    closeNotesReader({ restoreFocus: false });
     const query = $("thread-search").value.trim().toLowerCase();
     const total = threads.length;
     threads = threads.filter((thread) =>
@@ -297,7 +298,7 @@ export function renderThreads(threads) {
           </div>
           <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
           <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.updated_at))}</span></div>
-          <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary><svg class="notes-affordance notes-affordance-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg><svg class="notes-affordance notes-affordance-close" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg><span>Notes &amp; context</span></summary><div class="notes-scroll"></div></details>
+          <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Notes &amp; context</span></button>
           <div class="actions thread-actions">
             ${
               t.status !== "done"

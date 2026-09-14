@@ -96,38 +96,99 @@ export async function pauseHere(event) {
     } catch (error) { $("pause-error").textContent = error.message; }
     finally { button.disabled = false; }
   }
+let notesTrigger = null;
+let notesRequest = 0;
+
+function syncNotesReaderHeight() {
+    const reader = $("notes-reader");
+    if (!reader || reader.hidden || matchMedia("(max-width: 1099px)").matches) {
+      reader?.style.removeProperty("--notes-reader-height");
+      return;
+    }
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const top = Math.max(16, reader.getBoundingClientRect().top);
+    reader.style.setProperty("--notes-reader-height", `${Math.max(160, viewportHeight - top - 16)}px`);
+  }
+
+function setNotesMode(mode) {
+    const layout = $("notes-reader")?.closest(".layout");
+    if (!layout) return;
+    const expanded = mode === "expanded";
+    layout.classList.toggle("notes-expanded", expanded);
+    layout.classList.toggle("notes-docked", !expanded);
+    $("btn-notes-dock")?.setAttribute("aria-pressed", String(!expanded));
+    $("btn-notes-expand")?.setAttribute("aria-pressed", String(expanded));
+    requestAnimationFrame(syncNotesReaderHeight);
+  }
+
+export function closeNotesReader({ restoreFocus = true } = {}) {
+    const reader = $("notes-reader");
+    if (!reader || reader.hidden) return;
+    ++notesRequest;
+    reader.hidden = true;
+    reader.closest(".layout")?.classList.remove("notes-docked", "notes-expanded");
+    document.body.classList.remove("notes-reader-open");
+    document.querySelectorAll("[data-notes][aria-expanded='true']").forEach((button) =>
+      button.setAttribute("aria-expanded", "false")
+    );
+    const restoreTarget = notesTrigger;
+    notesTrigger = null;
+    if (restoreFocus && restoreTarget?.isConnected) restoreTarget.focus();
+  }
+
+async function openNotesReader(trigger) {
+    const reader = $("notes-reader");
+    const body = $("notes-reader-body");
+    if (!reader || !body) return;
+    const request = ++notesRequest;
+    document.querySelectorAll("[data-notes][aria-expanded='true']").forEach((button) =>
+      button.setAttribute("aria-expanded", "false")
+    );
+    notesTrigger = trigger;
+    trigger.setAttribute("aria-expanded", "true");
+    const thread = trigger.closest(".thread");
+    $("notes-reader-title").textContent = thread?.querySelector("h3")?.textContent || "Saved context";
+    $("notes-reader-meta").textContent = [...(thread?.querySelectorAll(".thread-meta span") || [])]
+      .map((item) => item.textContent.trim())
+      .filter(Boolean)
+      .join(" · ");
+    reader.hidden = false;
+    document.body.classList.add("notes-reader-open");
+    setNotesMode(matchMedia("(max-width: 1099px)").matches ? "expanded" : "docked");
+    body.textContent = "Loading notes…";
+    try {
+      const data = await api("/threads/" + encodeURIComponent(trigger.dataset.notes));
+      if (request !== notesRequest) return;
+      body.innerHTML = data.progress_html || "<p class=\"notes-empty-hint\">No saved notes yet.</p>";
+      body.focus({ preventScroll: true });
+    } catch (_) {
+      if (request === notesRequest) body.textContent = "Could not load notes. Close and reopen to retry.";
+    }
+  }
+
+function wireNotesReaderControls() {
+    const reader = $("notes-reader");
+    if (!reader || reader.dataset.wired) return;
+    reader.dataset.wired = "true";
+    $("btn-notes-dock")?.addEventListener("click", () => setNotesMode("docked"));
+    $("btn-notes-expand")?.addEventListener("click", () => setNotesMode("expanded"));
+    $("btn-notes-close")?.addEventListener("click", () => closeNotesReader());
+    window.addEventListener("resize", syncNotesReaderHeight);
+    window.visualViewport?.addEventListener("resize", syncNotesReaderHeight);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !reader.hidden) {
+        event.preventDefault();
+        closeNotesReader();
+      }
+    });
+  }
+
 export function wireNotes(root) {
-    root.querySelectorAll("details[data-notes]").forEach((details) => {
-      if (details.dataset.notesWired) return;
-      details.dataset.notesWired = "true";
-      details.addEventListener("toggle", async () => {
-        if (!details.open) return;
-        // Fixed overlay: only one Notes panel at a time.
-        document.querySelectorAll("details[data-notes][open]").forEach((other) => {
-          if (other !== details) other.open = false;
-        });
-        if (details.dataset.loaded || details.dataset.loading) return;
-        details.dataset.loading = "true";
-        const content =
-          details.querySelector(".notes-scroll") ||
-          details.querySelector(".markdown-body");
-        if (!content) {
-          delete details.dataset.loading;
-          return;
-        }
-        content.textContent = "Loading notes…";
-        try {
-          const thread = await api("/threads/" + encodeURIComponent(details.dataset.notes));
-          content.innerHTML = thread.progress_html || "<p>No saved notes yet.</p>";
-          details.dataset.loaded = "true";
-          // Force layout after inject so flex scroll height resolves on first open.
-          void content.offsetHeight;
-        } catch (_) {
-          content.textContent = "Could not load notes. Close and reopen to retry.";
-        } finally {
-          delete details.dataset.loading;
-        }
-      });
+    wireNotesReaderControls();
+    root.querySelectorAll("button[data-notes]").forEach((button) => {
+      if (button.dataset.notesWired) return;
+      button.dataset.notesWired = "true";
+      button.addEventListener("click", () => openNotesReader(button));
     });
   }
 export async function captureStep(event) {

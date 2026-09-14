@@ -35,6 +35,17 @@ export function showScreen(screen, { focusHeading = true, persist = true } = {})
   }
   document.body.classList.toggle("settings-open", next === "settings");
   if (next !== "work") {
+    const reader = $("notes-reader");
+    if (reader && !reader.hidden) {
+      reader.hidden = true;
+      reader.closest(".layout")?.classList.remove("notes-docked", "notes-expanded");
+      document.body.classList.remove("notes-reader-open");
+      document.querySelectorAll("[data-notes][aria-expanded='true']").forEach((button) =>
+        button.setAttribute("aria-expanded", "false")
+      );
+    }
+  }
+  if (next !== "work") {
     ++state.projectRequest;
     ++state.threadsRequest;
   }

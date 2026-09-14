@@ -119,4 +119,9 @@ def test_push_wiki_tree_skips_unchanged(tmp_path: Path) -> None:
 
     assert out.get("unchanged") is True
     assert out["uploaded"] == []
+    assert out["unchanged_files"] == [
+        "INDEX.md",
+        "projects/adhd-hub/PROGRESS.md",
+        "projects/flowtari/PROGRESS.md",
+    ]
     assert out["batched"] is True

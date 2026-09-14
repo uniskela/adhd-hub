@@ -156,6 +156,21 @@
           <div id="threads"></div>
         </section>
           </div>
+          <aside id="notes-reader" class="notes-reader" aria-labelledby="notes-reader-title" hidden>
+            <header class="notes-reader-header">
+              <div class="notes-reader-heading">
+                <p class="eyebrow">NOTES &amp; CONTEXT</p>
+                <h2 id="notes-reader-title">Saved context</h2>
+                <p id="notes-reader-meta" class="notes-reader-meta"></p>
+              </div>
+              <div class="notes-reader-actions" aria-label="Reader layout">
+                <button type="button" class="ghost compact" id="btn-notes-dock" aria-pressed="true" title="Dock reader on the right">Dock right</button>
+                <button type="button" class="ghost compact" id="btn-notes-expand" aria-pressed="false" title="Expand reader">Expand</button>
+                <button type="button" class="notes-reader-close" id="btn-notes-close" aria-label="Close notes reader" title="Close">×</button>
+              </div>
+            </header>
+            <div id="notes-reader-body" class="notes-reader-body" tabindex="0" aria-live="polite"></div>
+          </aside>
         </div>
       </section>
       <section id="progress-view" class="view progress-view" aria-label="Progress" hidden>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -55,7 +56,9 @@ class WikiForgeSync:
             return None
         resp.raise_for_status()
         data = resp.json()
-        return data if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            raise TypeError(f"unexpected Contents API payload for {rel_path}")
+        return data
 
     def _decode_content(self, existing: dict[str, Any] | None) -> str | None:
         if not existing or existing.get("type") != "file":
@@ -63,11 +66,45 @@ class WikiForgeSync:
         encoded = existing.get("content")
         if not isinstance(encoded, str):
             return None
+        encoding = existing.get("encoding")
+        if isinstance(encoding, str) and encoding.lower() != "base64":
+            return None
         raw = "".join(encoded.split())
         try:
-            return base64.b64decode(raw).decode("utf-8")
+            return base64.b64decode(raw, validate=True).decode("utf-8")
         except Exception:  # noqa: BLE001
             return None
+
+    @staticmethod
+    def _git_blob_sha(content: str, length: int) -> str | None:
+        raw = content.encode("utf-8")
+        blob = f"blob {len(raw)}\0".encode() + raw
+        if length == 40:
+            return hashlib.sha1(blob).hexdigest()
+        if length == 64:
+            return hashlib.sha256(blob).hexdigest()
+        return None
+
+    def _remote_matches(
+        self, existing: dict[str, Any], content: str, rel_path: str
+    ) -> bool:
+        if existing.get("type") != "file":
+            raise RuntimeError(f"cannot compare non-file Contents API payload for {rel_path}")
+        remote = self._decode_content(existing)
+        if remote is not None:
+            return remote == content
+
+        sha = existing.get("sha")
+        if isinstance(sha, str):
+            normalized = sha.strip().lower()
+            try:
+                int(normalized, 16)
+            except ValueError:
+                normalized = ""
+            expected = self._git_blob_sha(content, len(normalized))
+            if expected is not None:
+                return normalized == expected
+        raise RuntimeError(f"cannot determine remote content for {rel_path}")
 
     def _put_contents(
         self,
@@ -79,6 +116,8 @@ class WikiForgeSync:
     ) -> dict[str, Any]:
         with httpx.Client(timeout=30.0) as client:
             existing = self._get_file(client, rel_path, at_repo_root=at_repo_root)
+            if existing is not None and self._remote_matches(existing, content, rel_path):
+                return {"skipped": True, "reason": "unchanged", "path": rel_path}
             payload: dict[str, Any] = {
                 "message": message,
                 "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
@@ -152,7 +191,18 @@ class WikiForgeSync:
             old_rel,
             message=message or f"adhd-hub: remove old path {old_rel}",
         )
-        return {"put": put, "deleted": deleted, "from": old_rel, "to": new_rel}
+        uploaded = [] if put.get("skipped") else [new_rel]
+        unchanged_files = [new_rel] if put.get("reason") == "unchanged" else []
+        wrote = bool(uploaded or deleted.get("deleted"))
+        return {
+            "put": put,
+            "deleted": deleted,
+            "from": old_rel,
+            "to": new_rel,
+            "uploaded": uploaded,
+            "unchanged_files": unchanged_files,
+            "unchanged": not wrote,
+        }
 
     def _collect_wiki_files(self, wiki_dir: Path) -> list[tuple[str, str]]:
         files: list[tuple[str, str]] = []
@@ -169,15 +219,16 @@ class WikiForgeSync:
 
     def _changed_files(
         self, client: httpx.Client, files: list[tuple[str, str]]
-    ) -> list[tuple[str, str]]:
+    ) -> tuple[list[tuple[str, str]], list[str]]:
         changed: list[tuple[str, str]] = []
+        unchanged: list[str] = []
         for rel, content in files:
             existing = self._get_file(client, rel, at_repo_root=False)
-            remote = self._decode_content(existing)
-            if remote == content:
+            if existing is not None and self._remote_matches(existing, content, rel):
+                unchanged.append(rel)
                 continue
             changed.append((rel, content))
-        return changed
+        return changed, unchanged
 
     def _branch_head(self, client: httpx.Client) -> tuple[str, str]:
         """Return (commit_sha, tree_sha) for wiki_branch."""
@@ -212,7 +263,7 @@ class WikiForgeSync:
         data = resp.json()
         commit = data.get("commit") if isinstance(data, dict) else None
         if not isinstance(commit, dict):
-            raise RuntimeError(f"unexpected branch payload for {branch}")
+            raise TypeError(f"unexpected branch payload for {branch}")
         commit_sha = commit.get("sha")
         nested = commit.get("commit") if isinstance(commit.get("commit"), dict) else {}
         tree = nested.get("tree") if isinstance(nested, dict) else None
@@ -229,7 +280,7 @@ class WikiForgeSync:
             tree_sha = (cdata.get("tree") or {}).get("sha")
             commit_sha = cdata.get("sha") or commit_sha
         if not (isinstance(commit_sha, str) and isinstance(tree_sha, str)):
-            raise RuntimeError(f"could not resolve head for branch {branch}")
+            raise TypeError(f"could not resolve head for branch {branch}")
         return commit_sha, tree_sha
 
     def _commit_files_batch(
@@ -260,7 +311,7 @@ class WikiForgeSync:
             blob = blob_resp.json()
             blob_sha = blob.get("sha")
             if not isinstance(blob_sha, str):
-                raise RuntimeError(f"blob create missing sha for {rel}")
+                raise TypeError(f"blob create missing sha for {rel}")
             tree_items.append(
                 {
                     "path": self._full_path(rel, at_repo_root=False),
@@ -284,7 +335,7 @@ class WikiForgeSync:
             tree_resp.raise_for_status()
         new_tree = tree_resp.json().get("sha")
         if not isinstance(new_tree, str):
-            raise RuntimeError("tree create missing sha")
+            raise TypeError("tree create missing sha")
 
         commit_resp = client.post(
             self._repo_api("git/commits"),
@@ -304,7 +355,7 @@ class WikiForgeSync:
             commit_resp.raise_for_status()
         new_commit = commit_resp.json().get("sha")
         if not isinstance(new_commit, str):
-            raise RuntimeError("commit create missing sha")
+            raise TypeError("commit create missing sha")
 
         branch = self.config.wiki_branch or "main"
         ref_payload = {"sha": new_commit, "force": False}
@@ -337,14 +388,24 @@ class WikiForgeSync:
         self, files: list[tuple[str, str]]
     ) -> dict[str, Any]:
         uploaded: list[str] = []
+        unchanged_files: list[str] = []
         errors: list[str] = []
         for rel, content in files:
             try:
-                self.put_file(rel, content, f"adhd-hub: update {rel}")
-                uploaded.append(rel)
+                result = self.put_file(rel, content, f"adhd-hub: update {rel}")
+                if result.get("reason") == "unchanged":
+                    unchanged_files.append(rel)
+                else:
+                    uploaded.append(rel)
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{rel}: {exc}")
-        return {"uploaded": uploaded, "errors": errors, "batched": False}
+        return {
+            "uploaded": uploaded,
+            "unchanged_files": unchanged_files,
+            "errors": errors,
+            "batched": False,
+            "unchanged": not uploaded and not errors,
+        }
 
     def push_wiki_tree(self, wiki_dir: Path) -> dict[str, Any]:
         """Push INDEX.md + projects/*/PROGRESS.md in one forge commit when possible."""
@@ -352,18 +413,31 @@ class WikiForgeSync:
             return {"skipped": True, "reason": "wiki_sync_disabled"}
         files = self._collect_wiki_files(wiki_dir)
         if not files:
-            return {"uploaded": [], "errors": [], "batched": True, "unchanged": True}
+            return {
+                "uploaded": [],
+                "unchanged_files": [],
+                "errors": [],
+                "batched": True,
+                "unchanged": True,
+            }
 
         with httpx.Client(timeout=60.0) as client:
             try:
-                changed = self._changed_files(client, files)
+                changed, unchanged_files = self._changed_files(client, files)
             except Exception as exc:  # noqa: BLE001
-                log.warning("wiki change detection failed; pushing all: %s", exc)
-                changed = files
+                log.warning(
+                    "wiki change detection failed (%s); falling back to per-file Contents API",
+                    exc,
+                )
+                sequential = self._push_files_sequential(files)
+                sequential["fallback_reason"] = "change_detection_failed"
+                sequential["checked"] = len(files)
+                return sequential
 
             if not changed:
                 return {
                     "uploaded": [],
+                    "unchanged_files": unchanged_files,
                     "errors": [],
                     "batched": True,
                     "unchanged": True,
@@ -388,6 +462,8 @@ class WikiForgeSync:
             try:
                 result = self._commit_files_batch(client, changed, message)
                 result["errors"] = []
+                result["unchanged_files"] = unchanged_files
+                result["unchanged"] = False
                 result["checked"] = len(files)
                 return result
             except Exception as exc:  # noqa: BLE001
@@ -397,7 +473,9 @@ class WikiForgeSync:
                 )
 
         sequential = self._push_files_sequential(changed)
+        sequential["unchanged_files"] = unchanged_files + sequential["unchanged_files"]
         sequential["fallback_reason"] = "batch_commit_failed"
+        sequential["checked"] = len(files)
         return sequential
 
     def _list_dir(

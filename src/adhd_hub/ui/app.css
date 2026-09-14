@@ -480,10 +480,14 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
 }
 @media (max-width: 1050px) { .brand-label { display: none; } .layout { gap: 1.5rem; grid-template-columns: 180px minmax(0, 1fr); } .welcome { align-items: flex-start; } .stats { gap: .75rem; } }
 @media (max-width: 800px) {
-  .shell { padding: .8rem 1rem 2rem; }
+  .shell { padding: .8rem max(1rem, env(safe-area-inset-right)) 2rem max(1rem, env(safe-area-inset-left)); overflow-x: clip; }
   .appearance-bar { padding-right: 1rem; padding-left: 1rem; }
   .top { align-items: flex-start; flex-direction: column; padding-bottom: 1rem; margin-bottom: .75rem; }
   .layout { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .work-content, .threads-panel, #threads, .thread, .markdown-body { min-width: 0; max-width: 100%; }
+  .markdown-body { overflow-x: hidden; }
+  .markdown-body ul, .markdown-body ol { margin-inline: 0; padding-inline-start: 1.25rem; }
+  .markdown-body pre, .markdown-body table { max-width: 100%; overflow-x: auto; }
   .rail { position: static; border-bottom: 1px solid var(--line); padding-bottom: 1rem; max-height: none; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: visible; }
   .rail-scroll { overflow-x: auto; overflow-y: visible; max-height: none; max-width: 100%; min-width: 0; flex: none; }
   .rail-head { margin-bottom: .5rem; }
@@ -983,7 +987,7 @@ body { background: var(--bg); color: var(--ink); }
 .resume-step { border-radius: 0 8px 8px 0; }
 
 /* My Work: dense scanning first, context on demand. */
-#work-view { width: min(100%, 1500px); max-width: 100%; min-width: 0; margin: 0 auto; }
+#work-view { width: min(100%, 1680px); max-width: 100%; min-width: 0; margin: 0 auto; }
 #work-view .layout { grid-template-columns: 210px minmax(0, 1fr); gap: 1.5rem; min-height: 0; min-width: 0; align-items: start; }
 #work-view .rail {
   position: sticky;
@@ -1039,71 +1043,128 @@ body { background: var(--bg); color: var(--ink); }
 }
 .thread-meta { font-size: .72rem; }
 .thread .actions { margin-top: .45rem; }
-.thread .progress-details { margin-top: .35rem; border-top: 0; padding-top: 0; }
-.thread .progress-details > summary {
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  min-height: 32px;
-  padding: .25rem 0;
-}
-.thread .progress-details > summary::-webkit-details-marker { display: none; }
-.thread .progress-details > summary::marker { content: ""; }
-.thread .progress-details .notes-affordance {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+.notes-trigger {
+  min-height: 34px;
+  margin-top: .35rem;
+  padding: .3rem .15rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: var(--muted);
+  font-size: .78rem;
+  font-weight: 550;
 }
-.thread .progress-details .notes-affordance-close { display: none; }
-.thread .progress-details[open] > summary .notes-affordance-expand { display: none; }
-.thread .progress-details[open] > summary .notes-affordance-close {
-  display: block;
-  color: var(--accent);
+.notes-trigger:hover,
+.notes-trigger[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); filter: none; }
+.thread:has(.notes-trigger[aria-expanded="true"]) { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }
+
+/* An email-style reader that can share the workspace or take it over. */
+#work-view .layout.notes-docked {
+  grid-template-columns: 190px minmax(360px, 1fr) minmax(380px, 31vw);
+  gap: clamp(1rem, 1.6vw, 1.5rem);
 }
-.thread:has(.progress-details[open]) { background: var(--accent-soft); }
-@media (min-width: 1100px) {
-  .thread .progress-details[open] {
-    position: fixed;
-    z-index: 45;
-    top: 88px;
-    right: max(24px, calc((100vw - 1600px) / 2 + 24px));
-    width: min(390px, 31vw);
-    height: calc(100dvh - 116px);
-    max-height: calc(100dvh - 116px);
-    overflow: hidden;
-    display: block;
-    padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--card) 97%, var(--bg));
-    box-shadow: var(--shadow);
+.notes-reader {
+  min-width: 0;
+  height: var(--notes-reader-height, calc(100dvh - 7rem));
+  max-height: var(--notes-reader-height, calc(100dvh - 7rem));
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.notes-reader-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem .9rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 94%, var(--surface));
+}
+.notes-reader-heading { min-width: 0; }
+.notes-reader-heading .eyebrow { margin-bottom: .3rem; }
+.notes-reader-heading h2 { margin: 0; font-size: 1.08rem; overflow-wrap: anywhere; }
+.notes-reader-meta { margin: .35rem 0 0; color: var(--muted); font-size: .72rem; overflow-wrap: anywhere; }
+.notes-reader-actions { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; }
+.notes-reader-actions button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.notes-reader-close {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+.notes-reader-close:hover { color: var(--ink); background: var(--surface); filter: none; }
+.notes-reader-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.1rem;
+}
+.notes-reader-body,
+.notes-reader-body .markdown-body,
+.notes-reader-body .notes-entry,
+.notes-reader-body .notes-wiki-details { min-width: 0; max-width: 100%; }
+.notes-reader-body .markdown-body ul,
+.notes-reader-body .markdown-body ol { margin-inline: 0; padding-inline-start: 1.3rem; }
+.notes-reader-body .markdown-body li { max-width: 100%; padding-inline-start: .1rem; }
+.notes-reader-body .markdown-body a,
+.notes-reader-body .markdown-body code { overflow-wrap: anywhere; word-break: break-word; }
+.notes-reader-body .markdown-body pre,
+.notes-reader-body .markdown-body table { max-width: 100%; overflow-x: auto; }
+.notes-reader-body .markdown-body pre code { white-space: pre; word-break: normal; }
+#work-view .layout.notes-expanded { grid-template-columns: minmax(0, 1fr); }
+#work-view .layout.notes-expanded > .rail,
+#work-view .layout.notes-expanded > .work-content { display: none; }
+#work-view .layout.notes-expanded .notes-reader {
+  position: static;
+  width: min(100%, 1120px);
+  height: var(--notes-reader-height, calc(100dvh - 7rem));
+  max-height: var(--notes-reader-height, calc(100dvh - 7rem));
+  margin: 0 auto;
+}
+#work-view .layout.notes-expanded .notes-reader-body { padding: clamp(1.25rem, 3vw, 2.75rem); }
+#work-view .layout.notes-expanded .notes-reader-body > * { width: min(100%, 96ch); margin-right: auto; margin-left: auto; }
+@media (max-width: 1099px) {
+  body.notes-reader-open { overflow: hidden; }
+  #work-view .layout.notes-docked,
+  #work-view .layout.notes-expanded { grid-template-columns: minmax(0, 1fr); }
+  .notes-reader {
+    position: fixed !important;
+    z-index: 160;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh !important;
+    margin: 0 !important;
+    border: 0;
+    border-radius: 0;
   }
-  .thread .progress-details[open] > summary {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 2;
-    margin: 0;
-    padding: .85rem 1.1rem .55rem;
-    background: color-mix(in srgb, var(--card) 97%, var(--bg));
-    color: var(--accent);
-    border-bottom: 1px solid var(--line);
+  .notes-reader-header {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
   }
-  /* Absolute fill below summary — flex-on-<details> does not scroll in Chromium. */
-  .thread .progress-details[open] > .notes-scroll {
-    position: absolute;
-    top: 3.15rem;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow-x: hidden;
-    overflow-y: scroll;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: .75rem 1.1rem 1rem;
+  .notes-reader-actions .ghost { display: none; }
+  .notes-reader-body {
+    flex: 1 1 auto;
+    height: auto;
+    padding: 1rem max(1rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   }
 }
 .notes-entry {
