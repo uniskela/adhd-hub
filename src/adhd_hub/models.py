@@ -74,6 +74,13 @@ class Thread(BaseModel):
     external_updated_at: str | None = None
     external_fingerprint: str | None = None
     external_labels: list[str] = Field(default_factory=list)
+    source_issue_url: str | None = None
+    source_imported_at: str | None = None
+    source_content_hash: str | None = None
+    source_snapshot: dict[str, Any] = Field(default_factory=dict)
+    source_sync_state: str | None = None
+    source_conflicts: dict[str, Any] = Field(default_factory=dict)
+    source_title_derived: bool = False
 
 
 class ThreadUpsert(BaseModel):

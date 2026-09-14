@@ -45,6 +45,7 @@ $("btn-refresh").addEventListener("click", async () => {
   catch (error) { setMsg("Could not refresh: " + error.message); }
   finally { button.disabled = false; button.textContent = "Refresh"; }
 });
+$("btn-cancel-source-refresh").addEventListener("click", () => $("source-refresh-dialog").close());
 $("btn-settings").addEventListener("click", () => {
   loadForge().catch((error) => setMsg(error.message));
   loadOpenClawSecureStatus().catch((error) => setMsg(error.message));

@@ -256,6 +256,94 @@ export function openProjectDialog(project) {
     };
     open().catch((e) => setMsg(String(e)));
   }
+
+function sourceValue(value) {
+    if (Array.isArray(value)) return value.join("\n");
+    return value == null ? "—" : String(value);
+  }
+
+export async function openSourceRefresh(threadId) {
+    const dialog = $("source-refresh-dialog");
+    const body = $("source-refresh-body");
+    const apply = $("btn-apply-source-refresh");
+    body.textContent = "Checking the linked issue…";
+    apply.disabled = true;
+    dialog.showModal();
+    let preview;
+    try {
+      preview = await api(`/threads/${encodeURIComponent(threadId)}/source-refresh`);
+    } catch (error) {
+      body.textContent = `Source issue could not be loaded: ${error.message}`;
+      return;
+    }
+    if (preview.error || preview.source_state === "unavailable") {
+      body.textContent = "The source issue is unavailable, deleted, or this connection cannot access it. No Hub data was changed.";
+      return;
+    }
+    const changes = Object.entries(preview.changes || {});
+    const conflicts = Object.entries(preview.conflicts || {});
+    const rows = [];
+    const lastImported = preview.last_imported_at
+      ? formatWhen(preview.last_imported_at)
+      : "Never (legacy import)";
+    rows.push(`<p class="hint">Last imported ${escapeHtml(lastImported)} · Source is ${escapeHtml(preview.source_state || "available")} · <a href="${safeLink(preview.source_issue_url)}" target="_blank" rel="noopener">Open source issue</a></p>`);
+    changes.forEach(([field, value]) => {
+      rows.push(`<div class="source-change"><strong>${escapeHtml(field.replaceAll("_", " "))}</strong><pre>${escapeHtml(sourceValue(value))}</pre></div>`);
+    });
+    conflicts.forEach(([field, values]) => {
+      rows.push(`<div class="source-conflict">
+        <strong>${escapeHtml(field.replaceAll("_", " "))} — changed in both places</strong>
+        <p><small>Previously imported</small><br>${escapeHtml(sourceValue(values.previous))}</p>
+        <p><small>Current Hub</small><br>${escapeHtml(sourceValue(values.hub))}</p>
+        <p><small>Current forge</small><br>${escapeHtml(sourceValue(values.forge))}</p>
+        <label>Resolution
+          <select data-source-resolution="${escapeHtml(field)}">
+            <option value="forge">Use forge version</option>
+            <option value="hub">Keep Hub version</option>
+            <option value="manual">Merge/edit manually</option>
+          </select>
+        </label>
+        <textarea data-source-manual="${escapeHtml(field)}" rows="3" aria-label="Manual merged value">${escapeHtml(sourceValue(values.hub) === "—" ? "" : sourceValue(values.hub))}</textarea>
+      </div>`);
+    });
+    if (!changes.length && !conflicts.length) {
+      rows.push("<p>No source-controlled fields changed.</p>");
+    }
+    body.innerHTML = rows.join("");
+    apply.disabled = !changes.length && !conflicts.length;
+    apply.onclick = async () => {
+      const resolutions = {};
+      const manual_values = {};
+      body.querySelectorAll("[data-source-resolution]").forEach((select) => {
+        const field = select.dataset.sourceResolution;
+        resolutions[field] = select.value;
+        if (select.value === "manual") {
+          const raw = body.querySelector(`[data-source-manual="${CSS.escape(field)}"]`).value;
+          manual_values[field] = field === "next_steps"
+            ? raw.split("\n").map((item) => item.trim()).filter(Boolean).slice(0, 3)
+            : raw.trim() || null;
+        }
+      });
+      apply.disabled = true;
+      try {
+        const result = await api(`/threads/${encodeURIComponent(threadId)}/source-refresh`, {
+          method: "POST",
+          body: JSON.stringify({ resolutions, manual_values }),
+        });
+        if (result.needs_review) {
+          setMsg("Refresh still has unresolved conflicts.", { variant: "warning" });
+          return;
+        }
+        dialog.close();
+        setMsg(`Refreshed from source (${(result.updated_fields || []).length} fields updated).`);
+        await loadAll();
+      } catch (error) {
+        setMsg(`Source refresh failed: ${error.message}`, { variant: "error" });
+      } finally {
+        apply.disabled = false;
+      }
+    };
+  }
 export function renderThreads(threads) {
     closeNotesReader({ restoreFocus: false });
     const query = $("thread-search").value.trim().toLowerCase();
@@ -290,6 +378,13 @@ export function renderThreads(threads) {
       .map((t, index) => {
         const isChosen = t.id === state.chosenId;
         const statusLabel = t.status === "done" ? "Finished" : state.currentView === "stale" ? "Waiting" : "Ready";
+        const sourceState = ({
+          current: "Source current",
+          refresh_available: "Refresh available",
+          conflicted: "Source conflict",
+          unavailable: "Source unavailable",
+          untracked: "Source linked",
+        })[t.source_sync_state] || "";
         return `<article class="thread${isChosen ? " chosen" : ""}" aria-labelledby="thread-title-${index}">
           <div class="thread-topline">
             <span class="thread-number">${index + 1}</span>
@@ -298,6 +393,7 @@ export function renderThreads(threads) {
           </div>
           <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
           <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.updated_at))}</span></div>
+          ${sourceState ? `<div class="source-sync source-sync-${escapeHtml(t.source_sync_state)}">${escapeHtml(sourceState)}${t.source_imported_at ? ` · ${escapeHtml(formatWhen(t.source_imported_at))}` : ""}</div>` : ""}
           <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Notes &amp; context</span></button>
           <div class="actions thread-actions">
             ${
@@ -310,6 +406,7 @@ export function renderThreads(threads) {
                 ? `<a class="btn ghost compact" href="${safeLink(t.forge_issue_url)}" target="_blank" rel="noopener">Issue #${escapeHtml(t.forge_issue_number)}</a>`
                 : ""
             }
+            ${t.source_issue_url ? `<button type="button" class="ghost compact" data-refresh-source="${escapeHtml(t.id)}">Refresh from source issue</button>` : ""}
             <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
           </div>
         </article>`;
@@ -321,6 +418,9 @@ export function renderThreads(threads) {
     );
     root.querySelectorAll("[data-copy]").forEach((btn) =>
       btn.addEventListener("click", () => copyReference(btn.dataset.copy))
+    );
+    root.querySelectorAll("[data-refresh-source]").forEach((btn) =>
+      btn.addEventListener("click", () => openSourceRefresh(btn.dataset.refreshSource))
     );
   }
 export async function loadThreads() {

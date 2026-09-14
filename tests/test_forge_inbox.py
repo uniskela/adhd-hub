@@ -94,7 +94,8 @@ def test_list_inbox_issues_label_or_title_prefix() -> None:
     params = client.get.call_args.kwargs["params"]
     assert "labels" not in params
     assert params["per_page"] == 100
-    assert [issue["number"] for issue in issues] == [1, 5, 7, 8]
+    # Synced issues remain visible if reopened so an edited source can refresh.
+    assert [issue["number"] for issue in issues] == [1, 2, 5, 7, 8]
 
 
 def test_list_inbox_issues_gitea_same_or_logic() -> None:

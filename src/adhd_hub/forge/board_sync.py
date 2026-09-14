@@ -514,7 +514,6 @@ class BoardForgeSync:
             log.info("forge inbox: skipping list — board_inbox_authors is empty (fail closed)")
             return []
         hub_label = self._hub_label()
-        synced = self._synced_label()
         out: list[dict[str, Any]] = []
         with httpx.Client(timeout=30.0) as client:
             for page in range(1, _INBOX_LIST_MAX_PAGES + 1):
@@ -545,8 +544,6 @@ class BoardForgeSync:
                     if not author or author.casefold() not in allowed:
                         continue
                     names = self._issue_label_names(raw)
-                    if synced and synced in names:
-                        continue
                     if not self._matches_inbox_selector(raw, hub_label=hub_label, names=names):
                         continue
                     out.append(raw)
@@ -555,6 +552,17 @@ class BoardForgeSync:
                 if len(items) < page_size:
                     break
         return out
+
+    def get_issue(self, number: int) -> dict[str, Any]:
+        """Fetch one linked issue, including closed issues, for manual refresh."""
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(self._issue_url(number), headers=self._headers())
+            if resp.status_code >= 400:
+                resp.raise_for_status()
+            data = resp.json()
+        if not isinstance(data, dict) or data.get("pull_request") is not None:
+            raise ValueError("source_issue_invalid")
+        return data
 
     def mark_issue_imported(
         self,

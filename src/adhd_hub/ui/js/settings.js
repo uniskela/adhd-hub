@@ -833,8 +833,14 @@ export async function importForgeInbox() {
       setMsg("Issue inbox import failed: " + out.error);
       return;
     }
-    const n = out.count || 0;
-    setMsg(`Imported ${n} forge issue${n === 1 ? "" : "s"} into Hub threads.`);
+    const imported = out.count || 0;
+    const refreshed = out.refreshed_count || 0;
+    const unchanged = out.unchanged_count || 0;
+    const conflicts = out.conflict_count || 0;
+    setMsg(
+      `Imported ${imported} · Refreshed ${refreshed} · Unchanged ${unchanged} · Needs review ${conflicts}`,
+      conflicts ? { variant: "warning" } : undefined
+    );
     await loadAll();
   }
 export function pendingConnectCode() {
