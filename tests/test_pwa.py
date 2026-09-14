@@ -44,6 +44,10 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'id="chart-day-tip"' in home.content
         assert b'name="mobile-web-app-capable"' in home.content
         assert b'name="apple-mobile-web-app-capable"' in home.content
+        assert b'id="notes-reader"' in home.content
+        assert b'id="btn-notes-dock"' in home.content
+        assert b'id="btn-notes-expand"' in home.content
+        assert b'id="btn-notes-close"' in home.content
 
         root = client.get("/")
         assert root.json()["ui"] == "/ui/"

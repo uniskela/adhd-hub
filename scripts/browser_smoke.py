@@ -24,6 +24,7 @@ from playwright.sync_api import expect, sync_playwright
 
 def main():
     root = Path(__file__).resolve().parents[1]
+    reader_qa_only = "--reader-qa-only" in sys.argv
     screenshots = Path(os.environ.get("ADHD_HUB_SCREENSHOT_DIR", "/tmp/adhd-hub-preview"))
     screenshots.mkdir(parents=True, exist_ok=True)
     with socket.socket() as sock:
@@ -168,12 +169,36 @@ def main():
                 expect(page.locator("#work-view")).to_be_visible()
                 page.locator('#project-list [data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Personal website")
+                notes_trigger = page.locator("#threads [data-notes]").first
+                notes_trigger.click()
+                expect(page.locator("#notes-reader")).to_be_visible()
+                expect(page.locator("#notes-reader-body")).to_contain_text("Personal website")
+                expect(page.locator("#work-view .layout")).to_have_class(re.compile(r"notes-docked"))
+                page.screenshot(path=str(screenshots / "notes-reader-docked.png"), full_page=True)
+                page.locator("#btn-notes-expand").click()
+                expect(page.locator("#work-view .layout")).to_have_class(re.compile(r"notes-expanded"))
+                page.screenshot(path=str(screenshots / "notes-reader-expanded.png"), full_page=True)
+                page.set_viewport_size({"width": 390, "height": 844})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                assert page.locator("#notes-reader").evaluate("el => el.scrollWidth <= el.clientWidth")
+                assert page.locator("#notes-reader-body").evaluate("el => el.scrollWidth <= el.clientWidth")
+                page.screenshot(path=str(screenshots / "notes-reader-mobile.png"), full_page=True)
+                if reader_qa_only:
+                    browser.close()
+                    print("PASS: Notes reader docked, expanded, and mobile layout; no JS errors")
+                    print(f"Screenshots: {screenshots}")
+                    return
+                page.set_viewport_size({"width": 1440, "height": 1080})
+                page.locator("#btn-notes-dock").click()
+                page.keyboard.press("Escape")
+                expect(page.locator("#notes-reader")).to_be_hidden()
+                expect(notes_trigger).to_be_focused()
                 page.locator("#threads [data-choose]").first.click()
                 expect(page.locator("#now-view")).to_be_visible()
                 notes = page.locator("#next-card .progress-details")
                 assert notes.evaluate("el => !el.open")
-                notes.locator("summary").click()
-                expect(notes.locator(".markdown-body")).to_contain_text("Personal website")
+                notes.locator(":scope > summary").click()
+                expect(notes.locator(":scope > .markdown-body")).to_contain_text("Personal website")
                 expect(page.locator("#next-card script")).to_have_count(0)
                 page.get_by_role("button", name="Start", exact=True).click()
                 page.get_by_role("button", name="Pause here", exact=True).click()
@@ -352,6 +377,18 @@ def main():
                     full_page=True,
                     animations="disabled",
                 )
+                page.get_by_role("button", name="My work", exact=True).click()
+                page.locator('#project-list [data-slug="my-website"]').click()
+                mobile_notes_trigger = page.locator("#threads [data-notes]").first
+                mobile_notes_trigger.click()
+                expect(page.locator("#notes-reader")).to_be_visible()
+                expect(page.locator("#notes-reader-body")).to_contain_text("Personal website")
+                assert page.locator("#notes-reader").evaluate("el => el.scrollWidth <= el.clientWidth")
+                assert page.locator("#notes-reader-body").evaluate("el => el.scrollWidth <= el.clientWidth")
+                page.screenshot(path=str(screenshots / "notes-reader-mobile.png"), full_page=True)
+                page.locator("#btn-notes-close").click()
+                expect(mobile_notes_trigger).to_be_focused()
+                page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Settings", exact=True).click()
                 for name in [
                     "Preferences",
