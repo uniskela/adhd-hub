@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.10.1](https://github.com/uniskela/adhd-hub/compare/v0.10.0...v0.10.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* add responsive notes reader ([03b90d9](https://github.com/uniskela/adhd-hub/commit/03b90d97b7209e062a6fc7ea142553c06b66fd2a))
+* isolate installer download stdin ([d2558a4](https://github.com/uniskela/adhd-hub/commit/d2558a47ea3879ead4e69645cbd87175c3e9888d))
+* isolate streamed installer stdin ([b7c9787](https://github.com/uniskela/adhd-hub/commit/b7c978735c2e113e8a6b38e48f97558d5cc88bcd))
+* keep notes reader inside viewport ([f978052](https://github.com/uniskela/adhd-hub/commit/f97805292298b7d50e64414e910a2c2279787bdc))
+* make forge renames idempotent ([4ab97ad](https://github.com/uniskela/adhd-hub/commit/4ab97ad70ba63fb8147219b8aef64bae2040c810))
+* prepare v0.10.1 reliability and reader updates ([4e50587](https://github.com/uniskela/adhd-hub/commit/4e50587600240134f36fb346dc02e8884a613b20))
+* restore quality baseline and retire destructive UI generation ([ca8932d](https://github.com/uniskela/adhd-hub/commit/ca8932d502699e4cbf375aeb68468e04bc13f3bf))
+* stop redundant forge file commits ([e5d8f35](https://github.com/uniskela/adhd-hub/commit/e5d8f35db55a9ec571f9b43681eae52fd43cbd28))
+* widen expanded notes content ([5ba3943](https://github.com/uniskela/adhd-hub/commit/5ba39433d7d32ef04234974f425f57ee450eaa9c))
+
+
+### Documentation
+
+* align improvement roadmap with current main ([ea3ecfa](https://github.com/uniskela/adhd-hub/commit/ea3ecfa8be876269099bff50114e61bab8683e0b))
+* plan v0.10.1 forge and installer fixes ([541c24c](https://github.com/uniskela/adhd-hub/commit/541c24c7bc215f8fded085b4b49858c478a7b70d))
+* refresh current roadmap sequence ([1db9d89](https://github.com/uniskela/adhd-hub/commit/1db9d89521ad67af79cebd11d4872d4997553b3b))
+
 ## [0.10.0](https://github.com/uniskela/adhd-hub/compare/v0.9.1...v0.10.0) (2026-09-13)
 
 
