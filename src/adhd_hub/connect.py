@@ -809,6 +809,16 @@ _adhd_ensure_uv_path() {{
   export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 }}
 
+_adhd_run_child() {{
+  # This installer is commonly streamed into `sh`. Never let a child inherit
+  # that script pipe: stdin-hungry tools can consume and print the unread tail.
+  if [ -r /dev/tty ] && ( : </dev/tty ) 2>/dev/null; then
+    "$@" </dev/tty
+  else
+    "$@" </dev/null
+  fi
+}}
+
 _adhd_refresh_existing_cli() {{
   # Re-running install against this Hub should refresh a durable CLI already on PATH.
   if [ "${{DRY_RUN:-0}}" -eq 1 ]; then
@@ -821,7 +831,7 @@ _adhd_refresh_existing_cli() {{
     return 0
   fi
   echo "Updating existing adhd-hub CLI from this Hub…"
-  if ! uv tool install --force "$PKG_FROM"; then
+  if ! _adhd_run_child uv tool install --force "$PKG_FROM"; then
     echo "Warning: could not refresh adhd-hub CLI; continuing with the current binary." >&2
   fi
   _adhd_ensure_uv_path
@@ -875,7 +885,7 @@ _adhd_offer_permanent_cli() {{
     y|Y|yes|YES)
       echo "Installing ADHD Hub CLI (uv tool install)…"
       # --force: leftover ~/.local/bin/adhd-hub after removing uv blocks plain install.
-      uv tool install --force "$PKG_FROM"
+      _adhd_run_child uv tool install --force "$PKG_FROM"
       _adhd_ensure_uv_path
       if command -v adhd-hub >/dev/null 2>&1; then
         echo "adhd-hub is on PATH. Try: adhd-hub doctor --hub \\"$HUB_URL\\" --project \\"$PROJECT\\""
@@ -893,12 +903,12 @@ _adhd_refresh_existing_cli
 
 # Prefer a refreshed durable CLI; fall back to ephemeral uvx from this Hub's wheel.
 if command -v adhd-hub >/dev/null 2>&1; then
-  adhd-hub "$@"
+  _adhd_run_child adhd-hub "$@"
   exit $?
 fi
 
 if command -v uvx >/dev/null 2>&1; then
-  uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
+  _adhd_run_child uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
   _adhd_after_connect $?
 fi
 
@@ -949,14 +959,14 @@ _adhd_bootstrap_uv_and_cli() {{
   fi
   echo "Installing ADHD Hub CLI (uv tool install)…"
   # --force: leftover ~/.local/bin/adhd-hub after removing uv blocks plain install.
-  uv tool install --force "$PKG_FROM"
+  _adhd_run_child uv tool install --force "$PKG_FROM"
   _adhd_ensure_uv_path
   if command -v adhd-hub >/dev/null 2>&1; then
-    adhd-hub "$@"
+    _adhd_run_child adhd-hub "$@"
     exit $?
   fi
   if command -v uvx >/dev/null 2>&1; then
-    uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
+    _adhd_run_child uvx --refresh --from "$PKG_FROM" adhd-hub "$@"
     _adhd_after_connect $?
   fi
   echo "CLI install finished but adhd-hub/uvx still not on PATH. Re-open your shell or add uv's bin dir, then re-run." >&2
@@ -982,10 +992,10 @@ if command -v uv >/dev/null 2>&1; then
   case "$ANSWER" in
     y|Y|yes|YES)
       echo "Installing ADHD Hub CLI (uv tool install)…"
-      uv tool install --force "$PKG_FROM"
+      _adhd_run_child uv tool install --force "$PKG_FROM"
       _adhd_ensure_uv_path
       if command -v adhd-hub >/dev/null 2>&1; then
-        adhd-hub "$@"
+        _adhd_run_child adhd-hub "$@"
         exit $?
       fi
       echo "CLI install finished but adhd-hub still not on PATH. Reopen your shell or add ~/.local/bin, then re-run." >&2

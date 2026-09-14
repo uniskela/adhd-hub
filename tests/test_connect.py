@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -387,6 +390,79 @@ def test_render_install_sh_mentions_uvx() -> None:
     script = render_install_sh("http://example:8787")
     assert "uvx" in script
     assert "ADHD_HUB_AUTH_TOKEN" in script
+
+
+def test_render_install_sh_isolates_streamed_script_from_child_stdin(
+    tmp_path: Path,
+) -> None:
+    """A child reading stdin must not consume the unread `curl | sh` source."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    child = bin_dir / "adhd-hub"
+    child.write_text(
+        "#!/bin/sh\ncat\nprintf 'CHILD_FINISHED\\n'\n",
+        encoding="utf-8",
+    )
+    child.chmod(child.stat().st_mode | stat.S_IXUSR)
+    curl = bin_dir / "curl"
+    curl.write_text("#!/bin/sh\nprintf 'https://example/adhd-hub.whl\\n'\n", encoding="utf-8")
+    curl.chmod(curl.stat().st_mode | stat.S_IXUSR)
+
+    script = render_install_sh("http://example:8787")
+    # Exceed typical shell read buffering so the regression is deterministic.
+    script += "\n# UNREAD_INSTALLER_SOURCE\n" * 2000
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "ADHD_HUB_CONNECT_NO_SKILLS": "1",
+    }
+    result = subprocess.run(
+        ["sh", "-s", "--", "."],
+        input=script,
+        text=True,
+        capture_output=True,
+        env=env,
+        check=False,
+        start_new_session=True,
+    )
+
+    assert result.returncode == 0
+    assert "CHILD_FINISHED" in result.stdout
+    assert "UNREAD_INSTALLER_SOURCE" not in result.stdout
+
+
+def test_render_install_sh_preserves_child_exit_and_quoted_project(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    child = bin_dir / "adhd-hub"
+    child.write_text(
+        "#!/bin/sh\nprintf 'ARG=<%s>\\n' \"$2\"\ncat\nexit 23\n",
+        encoding="utf-8",
+    )
+    child.chmod(child.stat().st_mode | stat.S_IXUSR)
+    curl = bin_dir / "curl"
+    curl.write_text("#!/bin/sh\nprintf 'https://example/adhd-hub.whl\\n'\n", encoding="utf-8")
+    curl.chmod(curl.stat().st_mode | stat.S_IXUSR)
+    script = render_install_sh("http://example:8787")
+    script += "\n# UNREAD_AFTER_FAILURE\n" * 2000
+    result = subprocess.run(
+        ["sh", "-s", "--", "project with spaces"],
+        input=script,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+        },
+        check=False,
+        start_new_session=True,
+    )
+
+    assert result.returncode == 23
+    assert "ARG=<project with spaces>" in result.stdout
+    assert "UNREAD_AFTER_FAILURE" not in result.stdout
 
 
 def test_render_install_sh_supports_flags() -> None:
