@@ -6,9 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from adhd_hub.config import Settings
 from adhd_hub.forge.config import ForgeConfig, ForgeProvider
 from adhd_hub.forge.scaffold import push_primary_scaffold
 from adhd_hub.forge.wiki_sync import WikiForgeSync
+from adhd_hub.models import ProgressUpsert, ProjectUpsert
+from adhd_hub.service import HubService
 from adhd_hub.wiki import Wiki
 
 
@@ -217,6 +220,63 @@ def test_move_does_not_count_unchanged_destination_as_uploaded() -> None:
     assert result["unchanged_files"] == ["new.md"]
     assert result["deleted"]["deleted"] is True
     assert result["unchanged"] is False
+
+
+def _service_with_project(tmp_path: Path) -> HubService:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="token"))
+    service.upsert_project(ProjectUpsert(title="Alpha", slug="alpha"))
+    service.upsert_progress(
+        ProgressUpsert(project_slug="alpha", content="## Next\n- finish", source_tool="test")
+    )
+    return service
+
+
+def test_same_slug_rename_updates_title_without_remote_move(tmp_path: Path) -> None:
+    service = _service_with_project(tmp_path)
+    cfg = _config()
+    push = {"uploaded": [], "unchanged_files": ["INDEX.md"], "errors": [], "unchanged": True}
+    with (
+        patch.object(service, "wiki_forge_config", return_value=cfg),
+        patch("adhd_hub.service.WikiForgeSync") as sync_class,
+    ):
+        sync_class.return_value.push_wiki_tree.return_value = push
+        result = service.rename_project("alpha", "alpha", title="Alpha renamed")
+
+    sync_class.return_value.move_file.assert_not_called()
+    sync_class.return_value.push_wiki_tree.assert_called_once()
+    assert result["project"]["title"] == "Alpha renamed"
+    assert result["forge"]["unchanged_files"] == ["INDEX.md"]
+    assert result["forge"]["unchanged"] is True
+
+
+def test_rename_aggregates_wiki_uploads_and_errors(tmp_path: Path) -> None:
+    service = _service_with_project(tmp_path)
+    cfg = _config()
+    push = {
+        "uploaded": ["INDEX.md"],
+        "unchanged_files": ["projects/alpha-app/PROGRESS.md"],
+        "errors": ["projects/other/PROGRESS.md: failed"],
+        "unchanged": False,
+    }
+    move = {
+        "uploaded": ["projects/alpha-app/PROGRESS.md"],
+        "unchanged_files": [],
+        "deleted": {"deleted": True},
+    }
+    with (
+        patch.object(service, "wiki_forge_config", return_value=cfg),
+        patch("adhd_hub.service.WikiForgeSync") as sync_class,
+    ):
+        sync_class.return_value.move_file.return_value = move
+        sync_class.return_value.push_wiki_tree.return_value = push
+        result = service.rename_project("alpha", "alpha-app")
+
+    forge = result["forge"]
+    assert forge["uploaded"] == ["projects/alpha-app/PROGRESS.md", "INDEX.md"]
+    assert forge["deleted"] == ["projects/alpha/PROGRESS.md"]
+    assert forge["unchanged_files"] == ["projects/alpha-app/PROGRESS.md"]
+    assert forge["errors"] == ["projects/other/PROGRESS.md: failed"]
+    assert forge["unchanged"] is False
 
 
 def test_rebuild_index_preserves_bytes_when_only_timestamp_changes(

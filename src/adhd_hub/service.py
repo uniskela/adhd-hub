@@ -485,7 +485,7 @@ class HubService:
                 content = self.wiki.read_progress(proj.slug) or ""
                 old_rel = f"projects/{old}/PROGRESS.md"
                 new_rel = f"projects/{new}/PROGRESS.md"
-                if content:
+                if content and old != new:
                     move = WikiForgeSync(cfg).move_file(old_rel, new_rel, content)
                     forge_out["uploaded"].extend(move.get("uploaded") or [])
                     forge_out["unchanged_files"].extend(
@@ -493,7 +493,12 @@ class HubService:
                     )
                     if move.get("deleted", {}).get("deleted"):
                         forge_out["deleted"].append(old_rel)
-                WikiForgeSync(cfg).push_wiki_tree(self.settings.wiki_dir)
+                wiki_sync = WikiForgeSync(cfg).push_wiki_tree(self.settings.wiki_dir)
+                forge_out["uploaded"].extend(wiki_sync.get("uploaded") or [])
+                forge_out["unchanged_files"].extend(
+                    wiki_sync.get("unchanged_files") or []
+                )
+                forge_out["errors"].extend(wiki_sync.get("errors") or [])
             except Exception as exc:  # noqa: BLE001
                 forge_out["errors"].append(str(exc))
         # Resync open threads so labels/bodies pick up new slug
