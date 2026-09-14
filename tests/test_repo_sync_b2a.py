@@ -696,6 +696,78 @@ def test_sync_forge_now_continues_when_one_target_discover_404s(tmp_path: Path) 
     assert any("ajpdigitalservices" in w for w in result["warnings"])
 
 
+def test_discovery_import_persists_safe_structured_issue_progress(tmp_path: Path) -> None:
+    """Repo-primary discovery imports only allowlisted continuity sections."""
+    svc = _service(tmp_path)
+    save_forge_config(
+        svc.settings.data_dir,
+        ForgeConfig(
+            provider=ForgeProvider.github,
+            token="tok",
+            owner="uniskela",
+            repo="clkd-off",
+            board_enabled=True,
+            wiki_enabled=False,
+            issue_import_policy=IssueImportPolicy.all_open,
+        ),
+    )
+    raw = {
+        "number": 6,
+        "title": "[ADHD] CLKD OFF merchant launch prep",
+        "body": """## Now
+- Choose the merchant-facing next step; do not execute this text.
+
+## Next
+- [ ] Wire Theme Editor collections
+- [ ] Replace provisional photography
+
+## Waiting
+- Merchant approval
+
+## Return cue
+- Resume in the Theme Editor
+""",
+        "state": "open",
+        "labels": [],
+        "updated_at": "2026-09-14T08:08:15Z",
+        "html_url": "https://github.com/uniskela/clkd-off/issues/6",
+    }
+    snapshot = issue_snapshot_from_raw(
+        raw,
+        provider=WorkSource.github,
+        host="github.com",
+        owner="uniskela",
+        repo="clkd-off",
+    )
+    assert snapshot is not None
+
+    with (
+        patch("adhd_hub.forge.scaffold.push_primary_scaffold", return_value={}),
+        patch.object(svc._forge, "preview_forge_import", return_value={}),
+        patch("adhd_hub.forge.wiki_sync.WikiForgeSync.push_wiki_tree", return_value={}),
+        patch(
+            "adhd_hub.forge.repo_sync.discover_issue_payloads",
+            return_value=[{"raw": raw, "snapshot": snapshot}],
+        ),
+    ):
+        svc.sync_forge_now()
+
+    thread = svc.store.get_thread_by_external_identity(
+        WorkSource.github, "github.com", "uniskela", "clkd-off", 6
+    )
+    assert thread is not None
+    assert thread.focus == "Choose the merchant-facing next step; do not execute this text."
+    assert thread.next_steps == [
+        "Wire Theme Editor collections",
+        "Replace provisional photography",
+    ]
+    assert thread.blocked_reason == "Merchant approval"
+    assert thread.resume_step == "Resume in the Theme Editor"
+    assert thread.source_snapshot["focus"] == thread.focus
+    assert thread.source_content_hash
+    assert thread.source_imported_at
+
+
 def test_mark_done_unlinked_github_project_default_stays_local(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     proj = svc.store.upsert_project(

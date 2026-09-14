@@ -381,8 +381,24 @@ class ForgeFacade:
                 external_fingerprint=fp,
                 external_labels=list(fetched.labels),
             )
+            refresh = self._apply_issue_refresh(
+                thread,
+                {
+                    "number": fetched.identity.number,
+                    "title": fetched.title,
+                    "body": fetched.body,
+                    "state": fetched.state.value,
+                    "html_url": cfg.issue_web_url(fetched.identity.number),
+                },
+                cred_cfg,
+            )
             reconcile_results.append(
-                {"thread_id": thread.id, "identity": identity.number, **applied}
+                {
+                    "thread_id": thread.id,
+                    "identity": identity.number,
+                    **applied,
+                    "refresh": refresh,
+                }
             )
 
         # 2) Discovery for projects with a connection profile (plus default hub target),
@@ -570,6 +586,7 @@ class ForgeFacade:
                     external_fingerprint=fp,
                     external_labels=list(snap.labels),
                 )
+                self._apply_issue_refresh(thread, item["raw"], tcfg)
                 imported.append(
                     {
                         "number": snap.identity.number,
@@ -630,6 +647,7 @@ class ForgeFacade:
             "goal": thread.goal,
             "focus": thread.focus,
             "next_steps": thread.next_steps,
+            "blocked_reason": thread.blocked_reason,
             "resume_step": thread.resume_step,
         }
 
@@ -751,6 +769,7 @@ class ForgeFacade:
                 "goal": "Goal",
                 "focus": "Focus",
                 "next_steps": "Next",
+                "blocked_reason": "Blocked",
                 "resume_step": "Resume cue",
             }
             changed = ", ".join(labels[name] for name in changes)
@@ -880,7 +899,7 @@ class ForgeFacade:
                 incoming = issue_snapshot(issue)
                 changed = (
                     linked.source_content_hash != content_hash(str(issue.get("body") or ""))
-                    or linked.source_snapshot.get("summary") != incoming.get("summary")
+                    or linked.source_snapshot != incoming
                 )
                 if not changed:
                     item = {"number": number, "thread_id": linked.id}
@@ -964,6 +983,7 @@ class ForgeFacade:
                 goal=issue_snapshot(issue).get("goal"),
                 focus=issue_snapshot(issue).get("focus"),
                 next_steps=issue_snapshot(issue).get("next_steps"),
+                blocked_reason=issue_snapshot(issue).get("blocked_reason"),
                 resume_step=issue_snapshot(issue).get("resume_step"),
             )
             slug = self._hub._resolve_slug_for_write(

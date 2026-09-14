@@ -109,6 +109,7 @@ class IssueSnapshot:
     state: ExternalIssueState
     labels: tuple[str, ...]
     updated_at: str
+    body: str = ""
     assignee_logins: tuple[str, ...] = ()
 
 
@@ -196,6 +197,7 @@ def issue_snapshot_from_raw(
     if not own or not rep:
         return None
     updated = raw.get("updated_at") or raw.get("updated") or ""
+    body = raw.get("body") if isinstance(raw.get("body"), str) else ""
     identity = normalize_external_identity(provider, host, str(own), str(rep), number)
     return IssueSnapshot(
         identity=identity,
@@ -203,6 +205,7 @@ def issue_snapshot_from_raw(
         state=state,
         labels=normalize_labels(label_names),
         updated_at=str(updated),
+        body=body,
         assignee_logins=tuple(sorted({a.casefold() for a in assignees if a})),
     )
 
