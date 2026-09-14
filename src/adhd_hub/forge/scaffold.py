@@ -94,12 +94,22 @@ def push_primary_scaffold(
     url = resolve_hub_ui_url(config, hub_ui_url)
     sync = WikiForgeSync(config)
     uploaded: list[str] = []
+    unchanged_files: list[str] = []
     errors: list[str] = []
     # Scaffold lives at repo root (not under wiki_path) so README is visible on the home page.
     for rel, content in primary_repo_files(hub_ui_url=url).items():
         try:
-            sync.put_file_at_repo_root(rel, content, f"adhd-hub: seed {rel}")
-            uploaded.append(rel)
+            result = sync.put_file_at_repo_root(rel, content, f"adhd-hub: seed {rel}")
+            if result.get("reason") == "unchanged":
+                unchanged_files.append(rel)
+            else:
+                uploaded.append(rel)
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{rel}: {exc}")
-    return {"uploaded": uploaded, "errors": errors, "hub_ui_url": url}
+    return {
+        "uploaded": uploaded,
+        "unchanged_files": unchanged_files,
+        "errors": errors,
+        "hub_ui_url": url,
+        "unchanged": not uploaded and not errors,
+    }

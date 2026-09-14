@@ -387,7 +387,15 @@ class Wiki:
                 n = len(by_slug.get(slug, []))
                 lines.append(f"- [{slug}]({rel}) — {n} open thread(s)")
         lines.append("")
-        index_path.write_text("\n".join(lines), encoding="utf-8")
+        rendered = "\n".join(lines)
+        if index_path.is_file():
+            existing = index_path.read_text(encoding="utf-8")
+            timestamp_line = r"(?m)^_Generated [^\r\n]*_$"
+            if re.sub(timestamp_line, "_Generated <timestamp>_", existing) == re.sub(
+                timestamp_line, "_Generated <timestamp>_", rendered
+            ):
+                return index_path
+        index_path.write_text(rendered, encoding="utf-8")
         return index_path
 
     def index_snippet(self, max_chars: int = 1200) -> str | None:
