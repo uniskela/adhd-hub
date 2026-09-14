@@ -1,0 +1,154 @@
+name: Apply MCP stdio transport
+
+on:
+  push:
+    branches:
+      - feat/mcp-stdio-transport
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/mcp-stdio-transport
+          fetch-depth: 0
+
+      - name: Apply implementation and docs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one replacement target, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "src/adhd_hub/cli.py",
+              '''    app = create_app(settings)\n    uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")\n    return 0\n\n\ndef cmd_index(args: argparse.Namespace) -> int:\n''',
+              '''    app = create_app(settings)\n    uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")\n    return 0\n\n\ndef cmd_mcp_stdio(args: argparse.Namespace) -> int:\n    """Run the Hub MCP tool catalog over stdio for local MCP clients."""\n    settings = load_settings(Path(args.config) if args.config else None)\n    _configure_logging(args.verbose)\n\n    from adhd_hub.mcp_app import build_mcp\n    from adhd_hub.service import HubService\n\n    mcp = build_mcp(HubService(settings))\n    mcp.run(transport="stdio")\n    return 0\n\n\ndef cmd_index(args: argparse.Namespace) -> int:\n''',
+          )
+
+          replace_once(
+              "src/adhd_hub/cli.py",
+              '''    serve.add_argument("--port", type=int, default=None)\n    serve.set_defaults(func=cmd_serve)\n\n    index = sub.add_parser("index", help="Scan local transcripts and POST summaries to hub")\n''',
+              '''    serve.add_argument("--port", type=int, default=None)\n    serve.set_defaults(func=cmd_serve)\n\n    mcp_stdio = sub.add_parser(\n        "mcp-stdio",\n        help="Run MCP over stdio for local clients and MCP proxies",\n    )\n    mcp_stdio.set_defaults(func=cmd_mcp_stdio)\n\n    index = sub.add_parser("index", help="Scan local transcripts and POST summaries to hub")\n''',
+          )
+
+          Path("tests/test_mcp_stdio.py").write_text(
+              '''from __future__ import annotations\n\nimport os\nimport sys\n\nimport pytest\nfrom mcp import ClientSession, StdioServerParameters\nfrom mcp.client.stdio import stdio_client\n\nfrom adhd_hub import cli\n\n\ndef test_cli_exposes_mcp_stdio_command() -> None:\n    args = cli.build_parser().parse_args(["mcp-stdio"])\n\n    assert args.command == "mcp-stdio"\n    assert args.func is cli.cmd_mcp_stdio\n\n\n@pytest.mark.asyncio\nasync def test_mcp_stdio_lists_existing_tool_catalog(tmp_path) -> None:\n    env = os.environ.copy()\n    env["ADHD_HUB_DATA_DIR"] = str(tmp_path / "data")\n    env["ADHD_HUB_AUTH_TOKEN"] = "stdio-test-token"\n    params = StdioServerParameters(\n        command=sys.executable,\n        args=["-m", "adhd_hub.cli", "mcp-stdio"],\n        env=env,\n    )\n\n    async with stdio_client(params) as (read_stream, write_stream):\n        async with ClientSession(read_stream, write_stream) as session:\n            await session.initialize()\n            result = await session.list_tools()\n\n    names = {tool.name for tool in result.tools}\n    assert {"resolve_project", "session_digest", "check_overlap", "upsert_progress"} <= names\n''',
+              encoding="utf-8",
+          )
+
+          replace_once(
+              "README.md",
+              '''Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP + REST hub, optional OpenClaw notifications, optional local transcript indexer (summaries only).''',
+              '''Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP over Streamable HTTP (plus an optional local stdio transport) + REST, optional OpenClaw notifications, and an optional local transcript indexer (summaries only).''',
+          )
+
+          replace_once(
+              "README.md",
+              '''uv run adhd-hub serve --host 127.0.0.1 --port 8787\n```\n\nPublished images''',
+              '''uv run adhd-hub serve --host 127.0.0.1 --port 8787\n```\n\n### Local MCP over stdio\n\nFor MCP clients that launch a local subprocess, the same Hub tool catalog can run over stdio:\n\n```bash\nadhd-hub mcp-stdio\n```\n\nGeneric MCP config:\n\n```json\n{\n  "mcpServers": {\n    "adhd-hub": {\n      "command": "adhd-hub",\n      "args": ["mcp-stdio"]\n    }\n  }\n}\n```\n\nStdio is an **optional local mode**: it uses the configured Hub data directory and the same MCP tools, but it does not start the REST API, dashboard, or background scheduler. It has no bearer header because the MCP connection is the local child process itself. For a persistent/shared Hub, remote agents, OAuth, dashboard access, and scheduled reminders, keep using `adhd-hub serve`/Docker and the Streamable HTTP `/mcp` endpoint.\n\nPublished images''',
+          )
+
+          replace_once(
+              "README.md",
+              '''MCP endpoint: `http://<host>:8787/mcp`  \nREST docs: `http://<host>:8787/docs`  \nUI: `http://<host>:8787/ui/`''',
+              '''MCP (recommended persistent/shared transport): `http://<host>:8787/mcp`  \nMCP (optional local subprocess transport): `adhd-hub mcp-stdio`  \nREST docs: `http://<host>:8787/docs`  \nUI: `http://<host>:8787/ui/`''',
+          )
+
+          replace_once(
+              "docs/index.md",
+              '''**Self-hosted · MCP + REST · Cursor / Codex / Claude Code · GitHub/Gitea optional**''',
+              '''**Self-hosted · MCP (Streamable HTTP + local stdio) + REST · Cursor / Codex / Claude Code · GitHub/Gitea optional**''',
+          )
+
+          replace_once(
+              "docs/index.md",
+              '''- [Environment variables](environment-variables.md)\n- [Forge permissions](forge-permissions.md)''',
+              '''- [Environment variables](environment-variables.md)\n- [MCP transports: HTTP and local stdio](connect.md#local-stdio-transport-optional)\n- [Forge permissions](forge-permissions.md)''',
+          )
+
+          replace_once(
+              "docs/installation.md",
+              '''| Source + `uv` | Development or non-container server | Pull source, `uv sync`, restart |\n| `uv tool install` | Client CLI only | Re-run with `--upgrade` |''',
+              '''| Source + `uv` | Development or non-container server | Pull source, `uv sync`, restart |\n| `adhd-hub mcp-stdio` | Local subprocess MCP clients / inspectors | Update the installed CLI or source checkout |\n| `uv tool install` | Client CLI only | Re-run with `--upgrade` |''',
+          )
+
+          replace_once(
+              "docs/installation.md",
+              '''Use `127.0.0.1` for a local-only server. If you deliberately bind outside loopback, set a strong token first and use a trusted private network or HTTPS reverse proxy.\n\n## Install only the client CLI''',
+              '''Use `127.0.0.1` for a local-only server. If you deliberately bind outside loopback, set a strong token first and use a trusted private network or HTTPS reverse proxy.\n\n## Optional local stdio MCP process\n\nIf the coding agent or MCP inspector can launch a local subprocess, run the Hub tool catalog directly over stdio:\n\n```bash\nadhd-hub mcp-stdio\n```\n\nThis loads the normal Hub settings and `ADHD_HUB_DATA_DIR`, so tools persist to the same kind of SQLite/Markdown store as the HTTP server. Stdio does **not** start the REST API, dashboard, OAuth endpoints, or background scheduler, and it does not use an HTTP bearer header. Treat it as a local single-process alternative, not a replacement for the persistent Docker/`serve` deployment when you need remote access, UI, scheduled reminders, or OpenClaw jobs.\n\nSee [Connect](connect.md#local-stdio-transport-optional) for MCP client snippets.\n\n## Install only the client CLI''',
+          )
+
+          replace_once(
+              "docs/connect.md",
+              '''Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.\n\n## MCP Auth / Authenticate (OAuth)''',
+              '''Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.\n\n## Local stdio transport (optional)\n\nLocal MCP clients that can spawn a subprocess can use the same Hub tool catalog without an HTTP connection:\n\n```json\n{\n  "mcpServers": {\n    "adhd-hub": {\n      "command": "adhd-hub",\n      "args": ["mcp-stdio"]\n    }\n  }\n}\n```\n\nThe equivalent command is `adhd-hub mcp-stdio`. It loads normal Hub settings (`.env`, config TOML, and `ADHD_HUB_*` environment variables) and persists through the configured `ADHD_HUB_DATA_DIR`. Because stdio is a local child-process transport, it does not use an HTTP bearer header.\n\nUse this when the agent and Hub data are intentionally local to the same machine, or when an MCP inspector/proxy such as Glama needs a stdio child process. It does **not** start the REST API, dashboard, OAuth endpoints, or background scheduler. If you already run a persistent Hub server, or need multiple machines/remote agents, keep the Streamable HTTP `/mcp` configuration above. `adhd-hub connect` continues to wire the HTTP transport by default.\n\n## MCP Auth / Authenticate (OAuth)''',
+          )
+
+          replace_once(
+              "adapters/codex.md",
+              '''Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart it. Keep the token out of checked-in configuration. Use HTTPS for connections outside localhost. Verify the server with `uv run python scripts/probe_mcp.py` (set `ADHD_HUB_MCP_URL` for a remote hub).\n\n## When MCP is unreachable''',
+              '''Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart it. Keep the token out of checked-in configuration. Use HTTPS for connections outside localhost. Verify the server with `uv run python scripts/probe_mcp.py` (set `ADHD_HUB_MCP_URL` for a remote hub).\n\n### Local stdio alternative\n\nWhen Codex and the Hub data intentionally live on the same machine, Codex can launch the MCP server directly:\n\n```toml\n[mcp_servers.adhd-hub]\ncommand = "adhd-hub"\nargs = ["mcp-stdio"]\n```\n\nStdio uses the configured `ADHD_HUB_DATA_DIR` and needs no bearer header. It does not start the dashboard, REST API, OAuth endpoints, or background scheduler; prefer the HTTP configuration above for a persistent/shared Hub.\n\n## When MCP is unreachable''',
+          )
+
+          replace_once(
+              "adapters/claude-code.md",
+              '''}\n```\n\nOptional: run `adhd-hub index`''',
+              '''}\n```\n\n### Local stdio alternative\n\nFor a local Claude Code process with local Hub data:\n\n```json\n{\n  "mcpServers": {\n    "adhd-hub": {\n      "command": "adhd-hub",\n      "args": ["mcp-stdio"]\n    }\n  }\n}\n```\n\nStdio uses the configured `ADHD_HUB_DATA_DIR` and needs no bearer header. It does not start the dashboard, REST API, OAuth endpoints, or background scheduler; prefer the HTTP configuration above for a persistent/shared Hub.\n\nOptional: run `adhd-hub index`''',
+          )
+
+          replace_once(
+              "skills/adhd-hub-session/SKILL.md",
+              '''Requires the operator's own **`adhd-hub`** MCP server (Streamable HTTP at `/mcp`). This skill does not install, discover, or call a third-party service. Configure the MCP client with the URL of the Hub instance you control and an `Authorization: Bearer <ADHD_HUB_AUTH_TOKEN>` header; never put the token in this file, a prompt, or a progress note.''',
+              '''Requires the operator's own **`adhd-hub`** MCP server. The recommended persistent/shared transport is Streamable HTTP at `/mcp`; local clients may instead launch `adhd-hub mcp-stdio`. This skill does not install, discover, or call a third-party service. For HTTP, configure the MCP client with the URL of the Hub instance you control and an `Authorization: Bearer <ADHD_HUB_AUTH_TOKEN>` header. Stdio is local-process access and has no HTTP bearer header. Never put the token in this file, a prompt, or a progress note.''',
+          )
+
+          replace_once(
+              "skills/adhd-hub-projects/SKILL.md",
+              '''MCP server: **`adhd-hub`** at `/mcp` (Streamable HTTP, bearer authentication). **Primary signal** Hub is unavailable:''',
+              '''MCP server: **`adhd-hub`** via Streamable HTTP at `/mcp` (recommended persistent/shared transport, bearer authentication) or local `adhd-hub mcp-stdio` (no HTTP bearer header). **Primary signal** Hub is unavailable:''',
+          )
+
+          replace_once(
+              "CONTRIBUTING.md",
+              '''- **MCP + REST** share `HubService` — add tools in `mcp_app.py` and routes in `api.py`.''',
+              '''- **MCP transports (Streamable HTTP + local stdio) + REST** share `HubService` — add tools in `mcp_app.py` and routes in `api.py`.''',
+          )
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+
+      - name: Verify feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv sync --extra dev --frozen
+          uv run pytest -q tests/test_mcp_stdio.py
+          uv run pytest -q
+          uv run ruff check src tests
+          git diff --check
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/apply-mcp-stdio.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/adhd_hub/cli.py tests/test_mcp_stdio.py README.md docs/index.md docs/installation.md docs/connect.md adapters/codex.md adapters/claude-code.md skills/adhd-hub-session/SKILL.md skills/adhd-hub-projects/SKILL.md CONTRIBUTING.md .github/workflows/apply-mcp-stdio.yml
+          git commit -m "feat: add stdio MCP transport"
+          git push origin HEAD:feat/mcp-stdio-transport
