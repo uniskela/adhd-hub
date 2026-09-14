@@ -265,6 +265,24 @@ def _render_consent_page(
     response_type: str,
 ) -> HTMLResponse:
     safe_name = html.escape(client_name or "application", quote=True)
+    callback_help = ""
+    if is_loopback_host(_hostname(redirect_uri)):
+        callback_help = """
+  <details id="remote-callback-help">
+    <summary>Browser on a different machine from your agent?</summary>
+    <p>This callback uses loopback: it returns to the machine running your browser,
+       not a remote gateway. If your agent runs here too, continue normally.</p>
+    <p>For a remote OpenClaw gateway, first open an SSH local port forward from
+       this browser machine to the gateway's callback listener. Bind it only to
+       loopback and use the callback port from your login request on both ends.
+       Keep SSH and the original login command running, then click Allow.</p>
+    <p>See the <a href="https://uniskela.github.io/adhd-hub/openclaw-mcp-oauth/"
+       target="_blank" rel="noopener noreferrer">OpenClaw remote callback guide</a>.
+       Do not edit the
+       authorization URL, expose the callback publicly, or paste codes into chat.
+       If login has timed out, restart it and open the new authorization URL.</p>
+  </details>
+"""
     fields = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
@@ -298,6 +316,9 @@ def _render_consent_page(
   .allow {{ background: #3d8bfd; color: #061018; }}
   .deny {{ background: transparent; color: #e8eef4; border: 1px solid #3a4654; }}
   .err {{ color: #ff8e8e; margin-top: 1rem; display: none; }}
+  details {{ margin-bottom: 1.25rem; }}
+  summary {{ cursor: pointer; margin-bottom: .75rem; }}
+  a {{ color: #8bbaff; }}
 </style>
 </head>
 <body>
@@ -305,6 +326,7 @@ def _render_consent_page(
   <h1>Allow MCP access?</h1>
   <p><strong>{safe_name}</strong> wants a Hub token for MCP tools on this server.
      Allow only if you started this from your coding agent.</p>
+  {callback_help}
   <form id="consent" method="post" action="/api/oauth/authorize">
     {hidden}
     <div class="actions">
@@ -739,7 +761,10 @@ def _parse_authorize_params(source: Any) -> dict[str, str]:
             raw = values[0] if values else ""
         else:
             raw = source.get(name, "") if hasattr(source, "get") else ""
-        return (raw or "").strip() if isinstance(raw, str) else ""
+        if not isinstance(raw, str):
+            return ""
+        # State is an opaque client session binding; even whitespace is significant.
+        return raw if name == "state" else raw.strip()
 
     return {
         "response_type": get("response_type"),
@@ -883,7 +908,7 @@ def build_oauth_router(
                 redirect_uri,
                 {"error": "access_denied", **({"state": state} if state else {})},
             )
-            return JSONResponse({"redirect": target})
+            return JSONResponse({"redirect": target}, headers=_consent_headers())
 
         if decision != "allow":
             return JSONResponse({"error": "invalid_request"}, status_code=400)
@@ -903,7 +928,7 @@ def build_oauth_router(
             redirect_uri,
             {"code": code, **({"state": state} if state else {})},
         )
-        return JSONResponse({"redirect": target})
+        return JSONResponse({"redirect": target}, headers=_consent_headers())
 
     @router.post("/api/oauth/token")
     async def token_post(request: Request) -> Response:

@@ -111,6 +111,11 @@ Flow (agent-agnostic — any MCP client that speaks MCP OAuth 2.1; Cursor is one
 
 That issues an opaque OAuth access token for MCP only. It is not the server access token and is not a CLI connect session.
 
+**Browser on a different machine from the agent?** A loopback callback returns to
+the browser machine. For OpenClaw, use the [remote gateway SSH callback setup](openclaw-mcp-oauth.md#remote-browser-gateway)
+before approving; no authorization-code copying is needed. Do not rewrite the
+authorization URL or expose the callback publicly.
+
 **Still supported (no Auth button required):**
 
 - Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).

@@ -23,6 +23,7 @@ nav = [
     { "Dashboard" = "dashboard.md" },
     { "Coding companions" = "coding-companions.md" },
     { "OpenClaw" = "openclaw.md" },
+    { "OpenClaw MCP OAuth" = "openclaw-mcp-oauth.md" },
     { "Forge issue inbox" = "forge-issue-inbox.md" },
     { "Indexer schedule" = "indexer-schedule.md" },
     { "Rewards roadmap" = "rewards-roadmap.md" },
