@@ -67,6 +67,12 @@ def test_mcp_discovery_validation_and_progress(tmp_path):
                 assert name in tools
             assert tools["get_overview"]["annotations"]["readOnlyHint"] is True
             assert tools["list_reminders"]["annotations"]["readOnlyHint"] is True
+            assert "pause_thread" in tools["mark_done"]["description"]
+            assert "mark_done" in tools["pause_thread"]["description"]
+            assert "upsert_progress" in tools["upsert_thread"]["description"]
+            assert "thread_id" in tools["upsert_progress"]["description"]
+            assert "session" in tools["resolve_project"]["description"].lower()
+            assert "side effect" in tools["register_workspace"]["description"].lower()
         invalid = rpc("tools/call", {"name": "list_projects", "arguments": {"limit": -1}})
         assert invalid.json()["result"]["isError"] is True
         result = rpc(
