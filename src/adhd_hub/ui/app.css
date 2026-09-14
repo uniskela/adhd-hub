@@ -1065,7 +1065,8 @@ body { background: var(--bg); color: var(--ink); }
 }
 .notes-reader {
   min-width: 0;
-  height: calc(100dvh - 7rem);
+  height: var(--notes-reader-height, calc(100dvh - 7rem));
+  max-height: var(--notes-reader-height, calc(100dvh - 7rem));
   position: sticky;
   top: 1rem;
   display: flex;
@@ -1132,7 +1133,8 @@ body { background: var(--bg); color: var(--ink); }
 #work-view .layout.notes-expanded .notes-reader {
   position: static;
   width: min(100%, 1120px);
-  height: calc(100dvh - 7rem);
+  height: var(--notes-reader-height, calc(100dvh - 7rem));
+  max-height: var(--notes-reader-height, calc(100dvh - 7rem));
   margin: 0 auto;
 }
 #work-view .layout.notes-expanded .notes-reader-body { padding: clamp(1.25rem, 3vw, 2.75rem); }

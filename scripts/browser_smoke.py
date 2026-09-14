@@ -174,9 +174,13 @@ def main():
                 expect(page.locator("#notes-reader")).to_be_visible()
                 expect(page.locator("#notes-reader-body")).to_contain_text("Personal website")
                 expect(page.locator("#work-view .layout")).to_have_class(re.compile(r"notes-docked"))
+                reader_box = page.locator("#notes-reader").bounding_box()
+                assert reader_box and reader_box["y"] + reader_box["height"] <= page.viewport_size["height"]
                 page.screenshot(path=str(screenshots / "notes-reader-docked.png"), full_page=True)
                 page.locator("#btn-notes-expand").click()
                 expect(page.locator("#work-view .layout")).to_have_class(re.compile(r"notes-expanded"))
+                reader_box = page.locator("#notes-reader").bounding_box()
+                assert reader_box and reader_box["y"] + reader_box["height"] <= page.viewport_size["height"]
                 page.screenshot(path=str(screenshots / "notes-reader-expanded.png"), full_page=True)
                 page.set_viewport_size({"width": 390, "height": 844})
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

@@ -99,6 +99,17 @@ export async function pauseHere(event) {
 let notesTrigger = null;
 let notesRequest = 0;
 
+function syncNotesReaderHeight() {
+    const reader = $("notes-reader");
+    if (!reader || reader.hidden || matchMedia("(max-width: 1099px)").matches) {
+      reader?.style.removeProperty("--notes-reader-height");
+      return;
+    }
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const top = Math.max(16, reader.getBoundingClientRect().top);
+    reader.style.setProperty("--notes-reader-height", `${Math.max(160, viewportHeight - top - 16)}px`);
+  }
+
 function setNotesMode(mode) {
     const layout = $("notes-reader")?.closest(".layout");
     if (!layout) return;
@@ -107,6 +118,7 @@ function setNotesMode(mode) {
     layout.classList.toggle("notes-docked", !expanded);
     $("btn-notes-dock")?.setAttribute("aria-pressed", String(!expanded));
     $("btn-notes-expand")?.setAttribute("aria-pressed", String(expanded));
+    requestAnimationFrame(syncNotesReaderHeight);
   }
 
 export function closeNotesReader({ restoreFocus = true } = {}) {
@@ -161,6 +173,8 @@ function wireNotesReaderControls() {
     $("btn-notes-dock")?.addEventListener("click", () => setNotesMode("docked"));
     $("btn-notes-expand")?.addEventListener("click", () => setNotesMode("expanded"));
     $("btn-notes-close")?.addEventListener("click", () => closeNotesReader());
+    window.addEventListener("resize", syncNotesReaderHeight);
+    window.visualViewport?.addEventListener("resize", syncNotesReaderHeight);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !reader.hidden) {
         event.preventDefault();
