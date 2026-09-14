@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 
@@ -15,31 +16,54 @@ from adhd_hub.service import HubService
 
 def test_forge_jobs_queue_serializes_spam_clicks(tmp_path: Path) -> None:
     svc = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
-    started: list[str] = []
-    finished: list[str] = []
+    execution: list[tuple[str, int]] = []
+    first_started = threading.Event()
+    release_first = threading.Event()
+    calls = 0
 
     def slow_sync():
-        started.append("sync")
-        time.sleep(0.15)
-        finished.append("sync")
+        nonlocal calls
+        calls += 1
+        call = calls
+        execution.append(("start", call))
+        if call == 1:
+            first_started.set()
+            assert release_first.wait(timeout=10), "test did not release first job"
+        execution.append(("finish", call))
         return {"ok": True, "wiki": {"uploaded": []}, "warnings": []}
 
     svc.sync_forge_now = slow_sync  # type: ignore[method-assign]
 
-    first = svc.enqueue_forge_job("sync")
-    second = svc.enqueue_forge_job("sync")
-    assert second["status"] == "queued"
-    assert second.get("queue_position") == 2
+    try:
+        first = svc.enqueue_forge_job("sync")
+        assert first_started.wait(timeout=5), "worker did not start first job"
+        second = svc.enqueue_forge_job("sync")
+        third = svc.enqueue_forge_job("sync")
 
-    done1 = svc.wait_forge_job(first["job_id"], timeout=5.0)
-    done2 = svc.wait_forge_job(second["job_id"], timeout=5.0)
-    assert done1["status"] == "done"
-    assert done2["status"] == "done"
-    assert started == ["sync", "sync"]
-    assert finished == ["sync", "sync"]
+        # Positions count waiting jobs, not the job already running. Hold the
+        # first job until these assertions finish, independent of scheduling.
+        assert second["status"] == third["status"] == "queued"
+        assert second["queue_position"] == 1
+        assert third["queue_position"] == 2
+        listed = {job["job_id"]: job for job in svc.list_forge_jobs(limit=5)}
+        assert listed[first["job_id"]]["status"] == "running"
+        assert "queue_position" not in listed[first["job_id"]]
+        for queued, position in [(second, 1), (third, 2)]:
+            assert listed[queued["job_id"]]["queue_position"] == position
+            assert svc.get_forge_job(queued["job_id"])["queue_position"] == position
+        assert execution == [("start", 1)]
 
-    listed = svc.list_forge_jobs(limit=5)
-    assert any(j["job_id"] == first["job_id"] for j in listed)
+        release_first.set()
+        for job in (first, second, third):
+            assert svc.wait_forge_job(job["job_id"], timeout=5)["status"] == "done"
+        assert execution == [
+            ("start", 1), ("finish", 1),
+            ("start", 2), ("finish", 2),
+            ("start", 3), ("finish", 3),
+        ]
+    finally:
+        release_first.set()
+        svc._forge_jobs.shutdown(wait=True)
 
 
 def test_forge_job_queue_records_failure() -> None:
