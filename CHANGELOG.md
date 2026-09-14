@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.0](https://github.com/uniskela/adhd-hub/compare/v0.11.0...v0.12.0) (2026-09-14)
+
+
+### Features
+
+* add stdio MCP transport ([5491530](https://github.com/uniskela/adhd-hub/commit/549153068210fc5cd7e7a9016e748ef705377091))
+* add stdio MCP transport ([226a46c](https://github.com/uniskela/adhd-hub/commit/226a46c2b30ed22020f9a678d640a1b28444074e))
+
+
+### Bug Fixes
+
+* **forge:** allow blocked reason source projection ([435ad57](https://github.com/uniskela/adhd-hub/commit/435ad57cdb9b0e1aa444a2b7b0ad5bb3f89ee2f3))
+* **forge:** import issue progress into structured threads ([7da427d](https://github.com/uniskela/adhd-hub/commit/7da427d98d06228f446b9a648f144d034d986e1f))
+* **forge:** import issue progress into structured threads ([aa54c17](https://github.com/uniskela/adhd-hub/commit/aa54c17b7d7674c1bcc458fcf653635efa62ce0f))
+* **oauth:** support remote gateway loopback callbacks ([c9ee491](https://github.com/uniskela/adhd-hub/commit/c9ee491df5a4452ecea73721fb460f8ba0450a43))
+* **oauth:** support remote gateway loopback callbacks ([b7f2c9f](https://github.com/uniskela/adhd-hub/commit/b7f2c9f4261c8fb6cfd3a2558873de93ce562960))
+
 ## [0.11.0](https://github.com/uniskela/adhd-hub/compare/v0.10.1...v0.11.0) (2026-09-14)
 
 
