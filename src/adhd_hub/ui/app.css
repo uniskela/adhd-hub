@@ -1138,7 +1138,7 @@ body { background: var(--bg); color: var(--ink); }
   margin: 0 auto;
 }
 #work-view .layout.notes-expanded .notes-reader-body { padding: clamp(1.25rem, 3vw, 2.75rem); }
-#work-view .layout.notes-expanded .notes-reader-body > * { width: min(100%, 78ch); margin-right: auto; margin-left: auto; }
+#work-view .layout.notes-expanded .notes-reader-body > * { width: min(100%, 96ch); margin-right: auto; margin-left: auto; }
 @media (max-width: 1099px) {
   body.notes-reader-open { overflow: hidden; }
   #work-view .layout.notes-docked,
