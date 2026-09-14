@@ -7,12 +7,18 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from adhd_hub.app import create_app
 from adhd_hub.auth import COOKIE_NAME
 from adhd_hub.config import Settings
 from adhd_hub.connect_auth import generate_pkce, verify_pkce
-from adhd_hub.oauth import OAuthStore, is_allowed_redirect_uri, is_safe_oauth_return_path
+from adhd_hub.oauth import (
+    OAuthStore,
+    _consent_headers,
+    is_allowed_redirect_uri,
+    is_safe_oauth_return_path,
+)
 
 MCP_ACCEPT = {"Accept": "application/json, text/event-stream"}
 MCP_RESOURCE = "https://hub.example/mcp"
@@ -397,6 +403,51 @@ def _authorize_query(
     }
 
 
+def test_consent_page_allows_same_origin_fetch() -> None:
+    assert "connect-src 'self'" in _consent_headers()["Content-Security-Policy"]
+
+
+@pytest.mark.parametrize(("decision", "result_key"), [("allow", "code"), ("deny", "error")])
+async def test_authorize_browser_request_returns_callback_url(
+    tmp_path: Path, decision: str, result_key: str
+) -> None:
+    app = create_app(_oauth_settings(tmp_path))
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="https://hub.example"
+    ) as client:
+        reg = (
+            await client.post(
+                "/api/oauth/register",
+                json={
+                    "client_name": "cursor",
+                    "redirect_uris": [LOOPBACK_REDIRECT],
+                    "token_endpoint_auth_method": "none",
+                },
+            )
+        ).json()
+        login = await client.post("/api/auth/login", headers=BROWSER, json={"token": "secret"})
+        assert login.status_code == 200
+        _, challenge = generate_pkce()
+
+        allow = await client.post(
+            "/api/oauth/authorize",
+            headers=BROWSER,
+            data={
+                **_authorize_query(client_id=reg["client_id"], challenge=challenge),
+                "decision": decision,
+            },
+        )
+
+    assert allow.status_code == 200
+    redirect = allow.json()["redirect"]
+    assert redirect.startswith(LOOPBACK_REDIRECT)
+    query = parse_qs(urlparse(redirect).query)
+    assert query[result_key]
+    assert query["state"] == ["xyz"]
+    if decision == "deny":
+        assert query["error"] == ["access_denied"]
+
+
 def test_is_allowed_redirect_uri_policy() -> None:
     assert is_allowed_redirect_uri("https://app.example/oauth/callback")
     assert is_allowed_redirect_uri("http://127.0.0.1:9999/callback")
@@ -552,6 +603,7 @@ def test_full_oauth_flow_mcp_only_and_deny_replay(tmp_path: Path) -> None:
         assert "text/html" in consent.headers.get("content-type", "")
         assert "Content-Security-Policy" in consent.headers
         assert "frame-ancestors 'none'" in consent.headers["Content-Security-Policy"]
+        assert "connect-src 'self'" in consent.headers["Content-Security-Policy"]
         assert "Allow" in consent.text
 
         # Plain cross-origin form POST must fail (no CSRF headers)
@@ -586,8 +638,8 @@ def test_full_oauth_flow_mcp_only_and_deny_replay(tmp_path: Path) -> None:
             },
             follow_redirects=False,
         )
-        assert allow.status_code in {302, 303}
-        loc = allow.headers["location"]
+        assert allow.status_code == 200
+        loc = allow.json()["redirect"]
         assert loc.startswith(LOOPBACK_REDIRECT)
         q = parse_qs(urlparse(loc).query)
         assert q["state"] == [state]
@@ -674,8 +726,8 @@ def test_full_oauth_flow_mcp_only_and_deny_replay(tmp_path: Path) -> None:
             },
             follow_redirects=False,
         )
-        assert deny.status_code in {302, 303}
-        dq = parse_qs(urlparse(deny.headers["location"]).query)
+        assert deny.status_code == 200
+        dq = parse_qs(urlparse(deny.json()["redirect"]).query)
         assert dq["error"] == ["access_denied"]
         assert dq["state"] == ["deny-me"]
 
