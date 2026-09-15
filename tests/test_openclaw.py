@@ -4,11 +4,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from adhd_hub.app import create_app
 from adhd_hub.config import Settings
 from adhd_hub.models import Thread
+from adhd_hub.openclaw import OpenClawBridge
 from adhd_hub.openclaw_config import (
     OpenClawConfig,
     load_openclaw_config,
@@ -16,6 +18,72 @@ from adhd_hub.openclaw_config import (
     save_openclaw_config,
 )
 from adhd_hub.service import HubService
+
+
+class _AcceptedResponse:
+    status_code = 200
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+@pytest.mark.asyncio
+async def test_openclaw_async_payloads_target_main_agent(monkeypatch) -> None:
+    requests: list[dict[str, object]] = []
+
+    class RecordingAsyncClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def post(self, url: str, **kwargs):
+            requests.append({"url": url, **kwargs})
+            return _AcceptedResponse()
+
+    monkeypatch.setattr("adhd_hub.openclaw.httpx.AsyncClient", RecordingAsyncClient)
+    bridge = OpenClawBridge(
+        webhook_url="https://openclaw.test/hooks/wake",
+        agent_url="https://openclaw.test/hooks/agent",
+        token="hook-token",
+        alerts_enabled=True,
+    )
+
+    assert await bridge.wake("wake test") is True
+    assert await bridge.agent("agent test") is True
+    assert [request["json"]["agentId"] for request in requests] == ["main", "main"]
+
+
+def test_openclaw_sync_payload_targets_main_agent(monkeypatch) -> None:
+    requests: list[dict[str, object]] = []
+
+    class RecordingClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def post(self, url: str, **kwargs):
+            requests.append({"url": url, **kwargs})
+            return _AcceptedResponse()
+
+    monkeypatch.setattr("adhd_hub.openclaw.httpx.Client", RecordingClient)
+    bridge = OpenClawBridge(
+        agent_url="https://openclaw.test/hooks/agent",
+        token="hook-token",
+        alerts_enabled=True,
+    )
+
+    assert bridge.sync_memory_note_sync("Title", "Digest") is True
+    assert requests[0]["json"]["agentId"] == "main"
 
 
 def test_openclaw_config_encrypts_and_redacts_token(tmp_path: Path) -> None:
