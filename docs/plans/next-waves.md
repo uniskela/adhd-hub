@@ -1,3 +1,8 @@
+---
+search:
+  exclude: true
+---
+
 # Next waves — superseded
 
 This page is retained only so older links do not break.
