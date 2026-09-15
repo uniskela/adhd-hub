@@ -38,9 +38,27 @@ Before configuring ADHD Hub, the Gateway must have HTTP hooks enabled:
 }
 ```
 
-Use a dedicated token that is different from the Gateway's normal authentication token. Current OpenClaw hook configuration expects a token string (often supplied through deployment environment substitution); do not assume that a generic secret reference can be pasted into `hooks.token`. If the Gateway's configuration UI or installed version reports that secure token provisioning is unsupported, stop and fix the Gateway-side secret provisioning rather than asking an agent to reveal the token.
+Use a dedicated token that is different from the Gateway's normal authentication token. You can keep the value in an untracked OpenClaw `.env` file and reference it from `openclaw.json` with environment substitution:
 
-After hooks are enabled, configure ADHD Hub with the matching URL and token, then use **Save & send test**.
+```dotenv
+# ~/.openclaw/.env or the Gateway process's working-directory .env
+OPENCLAW_HOOK_TOKEN=<dedicated-long-random-hook-token>
+```
+
+```json5
+{
+  "hooks": {
+    "enabled": true,
+    "token": "${OPENCLAW_HOOK_TOKEN}",
+    "path": "/hooks",
+    "allowedAgentIds": ["main"]
+  }
+}
+```
+
+OpenClaw supports `${UPPERCASE_ENV_NAME}` substitution in config strings. Keep the `.env` file out of Git and restrict its file permissions. Do not use the normal `OPENCLAW_GATEWAY_TOKEN` for this value: the hook token must be separate. A generic SecretRef object cannot be pasted directly into `hooks.token` on current OpenClaw versions, so use environment substitution or another supported deployment secret mechanism instead.
+
+After hooks are enabled, configure ADHD Hub with the matching URL and token, then use **Save & send test**. The token remains in the Gateway `.env` and is entered into the Hub UI only through the protected settings form; it should not be pasted into an agent prompt.
 
 **Pairing (recommended):** In ADHD Hub, open **Settings → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
 
