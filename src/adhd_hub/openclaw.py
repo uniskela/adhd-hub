@@ -39,7 +39,7 @@ class OpenClawBridge:
         url = self.webhook_url
         if not url:
             return False
-        payload = {"text": text, "mode": "now"}
+        payload = {"text": text, "mode": "now", "agentId": "main"}
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 resp = await client.post(url, json=payload, headers=self._headers())
@@ -59,6 +59,7 @@ class OpenClawBridge:
             "message": prompt,
             "name": "ADHD Hub stale digest",
             "wakeMode": "now",
+            "agentId": "main",
         }
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -116,9 +117,10 @@ class OpenClawBridge:
                 "message": prompt,
                 "name": "ADHD Hub memory digest",
                 "wakeMode": "now",
+                "agentId": "main",
             }
         else:
-            payload = {"text": prompt, "mode": "now"}
+            payload = {"text": prompt, "mode": "now", "agentId": "main"}
         try:
             with httpx.Client(timeout=60.0) as client:
                 resp = client.post(url, json=payload, headers=self._headers())
