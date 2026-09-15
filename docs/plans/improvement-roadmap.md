@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-15**: package **v0.12.0**, plus post-release documentation/reliability work through PR #116.
+Reviewed against `main` on **2026-09-15** at package **v0.12.0**. Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
