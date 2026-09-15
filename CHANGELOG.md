@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.1](https://github.com/uniskela/adhd-hub/compare/v0.12.0...v0.12.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **mcp:** clarify tool guidance and stdio coverage ([34e0b4f](https://github.com/uniskela/adhd-hub/commit/34e0b4fa38f01d50c02f67a6861382808fb60141))
+* target main agent in OpenClaw hooks ([b23509f](https://github.com/uniskela/adhd-hub/commit/b23509f20b74a39f9f48c7f338df59dcfd370f43))
+* target main agent in OpenClaw hooks ([341d4f0](https://github.com/uniskela/adhd-hub/commit/341d4f0aa188cbfb4ebfb3295e83c96347da6120))
+
+
+### Documentation
+
+* define MCP tool quality improvements ([9d2acda](https://github.com/uniskela/adhd-hub/commit/9d2acda32efa2057c72547437b09c42f4d343fbd))
+* explain OpenClaw hook token setup ([2d880e2](https://github.com/uniskela/adhd-hub/commit/2d880e2c8db07a616a9b55716e6c9fe3dfe70382))
+* explain OpenClaw hook token setup ([615f237](https://github.com/uniskela/adhd-hub/commit/615f23721b6c85bf0be15c92c9c364bc4c008979))
+* **mcp:** improve agent-facing tool guidance ([bd9ce6f](https://github.com/uniskela/adhd-hub/commit/bd9ce6fac316b5a5333dede17d251140fd1dbb90))
+* plan MCP tool quality work ([01f0cf3](https://github.com/uniskela/adhd-hub/commit/01f0cf3173d2ccaf4d8d194bc0bf8cdcfd6a0d4e))
+* show env-backed OpenClaw hook token ([99f3378](https://github.com/uniskela/adhd-hub/commit/99f33785b9ca79564bff8ceefa1fdf0fd0fcb6e1))
+
 ## [0.12.0](https://github.com/uniskela/adhd-hub/compare/v0.11.0...v0.12.0) (2026-09-14)
 
 
