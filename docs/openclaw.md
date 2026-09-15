@@ -14,6 +14,34 @@ This installs the skills in OpenClaw's global skills directory. If you are devel
 
 ## 2. Connect the Hub to OpenClaw
 
+### The simple mental model
+
+This connection involves two separate services:
+
+- **ADHD Hub** finds stale open work and sends a reminder.
+- **OpenClaw Gateway** receives that reminder through its HTTP hook.
+
+The **hook bearer token** is the shared password for that private connection. It is created/configured on the OpenClaw Gateway, then copied once into ADHD Hub's **Settings → OpenClaw** form. It is not the ADHD Hub auth token, not the Gateway login token, and not part of either URL.
+
+An OpenClaw agent can help inspect configuration, explain errors, or submit the pairing request, but it must not print or reveal the hook token. A human operator or the deployment's secret-management mechanism must make the token available to both services.
+
+Before configuring ADHD Hub, the Gateway must have HTTP hooks enabled:
+
+```json5
+{
+  "hooks": {
+    "enabled": true,
+    "token": "<dedicated-long-random-hook-token>",
+    "path": "/hooks",
+    "allowedAgentIds": ["main"]
+  }
+}
+```
+
+Use a dedicated token that is different from the Gateway's normal authentication token. Current OpenClaw hook configuration expects a token string (often supplied through deployment environment substitution); do not assume that a generic secret reference can be pasted into `hooks.token`. If the Gateway's configuration UI or installed version reports that secure token provisioning is unsupported, stop and fix the Gateway-side secret provisioning rather than asking an agent to reveal the token.
+
+After hooks are enabled, configure ADHD Hub with the matching URL and token, then use **Save & send test**.
+
 **Pairing (recommended):** In ADHD Hub, open **Settings → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
 
 Secure pairing has one prerequisite on the OpenClaw side: `hooks.token` must be provisioned without exposing the raw bearer token to the pairing agent. Use a protected runtime SecretRef when the installed OpenClaw version supports it, or inject the hook token through the gateway service environment when that is the supported secure path. The pairing agent must never print, echo, reveal, or paste the hook token into chat, command arguments, config files, or tool output.
