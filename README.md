@@ -245,19 +245,17 @@ adhd-hub use-hub https://adhd-hub.example.com --project /path/to/project --agent
 
 ## Roadmap
 
-Sequenced waves live in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md) (tracking: [next-waves.md](docs/plans/next-waves.md)). Near-term highlights:
+The single public roadmap lives in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker when current status changes faster than the docs.
 
-- **Wave 0 (shipped in 0.3.5):** Hub-backed `/install.sh` + `/install.ps1` + `adhd-hub connect` / `doctor`
-- **Wave 1–2 (shipped in 0.3.6):** Soft-archive, reminders, focus mode; MCP parity + OpenClaw memory digest
-- **Wave 3 (shipped in 0.3.7):** Durable sessions, proxy/Secure cookies, forge wiki-path cleanup, encrypted backups, doctor remote checks, installable PWA
-- **Wave 4 (shipped in 0.3.8):** Maintainability, UI modules, and a11y
-- **0.4.0–0.4.1 (shipped):** Connect agent prefs, Hub-served CLI wheel, OpenClaw pairing, initial coding companions
-- **0.5.0–0.6.0 (shipped):** MCP OAuth/Auth, `use-hub`, outcome-focused thread continuity, guidance-health/drift checks, and expanded opt-in companions (Superpowers, Context7, agent-browser, Serena)
-- **Wave 6 (next):** AI task/thread summaries + cleaner project list (tags/categories) + optional AI organiser — [#52](https://github.com/uniskela/adhd-hub/issues/52)
-- **Wave 7:** Stale triage, cross-project Next-up, merge/dedupe cues, return-cue nudges — [#54](https://github.com/uniskela/adhd-hub/issues/54)
-- **Wave 8:** Wiki compaction, global search, mobile capture, energy/context modes — [#55](https://github.com/uniskela/adhd-hub/issues/55)
-- **Wave 9:** Related-work map, household multi-profile, skills.sh listing — [#56](https://github.com/uniskela/adhd-hub/issues/56)
-- Wave 5 (opt-in Slack/Discord/calendar) remains upcoming after clarity/findability work
+Current sequence:
+
+- **Now — Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75):** durable activity/event history, live UI invalidation, sync health and history.
+- **Next — Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52):** AI/heuristic thread summaries and calmer project organisation.
+- **Then — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** stale triage, cross-project Next-up, merge/dedupe and return cues.
+- **Then — Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55):** progress compaction, local search, mobile capture and energy/context modes.
+- **Later:** activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72) and shared/discovery surfaces [#56](https://github.com/uniskela/adhd-hub/issues/56).
+- **Deferred/opt-in:** Slack/Discord/calendar integrations [#20](https://github.com/uniskela/adhd-hub/issues/20).
+- **Independent maintenance:** MCP schema quality [#117](https://github.com/uniskela/adhd-hub/issues/117) and the remaining CI lockfile cleanup [#102](https://github.com/uniskela/adhd-hub/issues/102).
 
 ### Dashboard comfort
 
@@ -279,4 +277,4 @@ MIT — [LICENSE](LICENSE)
 
 ## Brand and rewards
 
-See the [brand guide](docs/brand-guide.md) for the logo, colours, and UI patterns, and the [reward roadmap](docs/rewards-roadmap.md) for ranks, sharing, and the future leaderboard direction.
+See the [brand guide](docs/brand-guide.md) for the logo, colours, and UI patterns. Current optional ranks, badges and shareable progress are documented in [dashboard preferences](docs/dashboard.md); future public/competitive reward ideas are not part of the active roadmap.
