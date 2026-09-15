@@ -38,4 +38,6 @@ The project is designed to be useful without streaks, competitive pressure, or a
 
 ## Project
 
-The [roadmap](plans/improvement-roadmap.md), [next waves](plans/next-waves.md), [brand guide](brand-guide.md), and public repository document how the Hub is evolving.
+The [public roadmap](plans/improvement-roadmap.md) is the single documentation page for current sequencing. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical planning tracker. See the [brand guide](brand-guide.md) for the visual and interaction principles used by the project.
+
+Historical implementation plans remain in the repository for maintainers, but are intentionally kept out of the main documentation navigation.

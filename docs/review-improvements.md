@@ -1,3 +1,8 @@
+---
+search:
+  exclude: true
+---
+
 # Repository review — September 2026
 
 Implemented improvements:

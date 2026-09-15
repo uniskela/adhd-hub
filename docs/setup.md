@@ -25,7 +25,7 @@ adhd-hub doctor --project /path/to/project
 # Install from GitHub (recommended):
 npx skills add uniskela/adhd-hub -g
 # Or, while developing an unreleased local checkout:
-cd Z:\Projects\adhd-hub
+cd C:\path\to\adhd-hub
 npx skills add ./skills -g
 ```
 
@@ -33,7 +33,7 @@ npx skills add ./skills -g
 5. **Start a coding session** in any project — skip Hub tools for trivial/read-only questions and tiny edits. For substantial work: once per meaningful session `resolve_project` → `session_digest`. If resuming a known thread, reuse its `thread_id`; otherwise use `check_overlap` before potentially new/duplicate work and reuse only when the Goal matches. See [project agent setup](project-agent-setup.md).
 6. **Pause unfinished work** — checkpoint with `upsert_progress(thread_id=...)` using **goal**, **focus** (one action), ≤3 **next_steps**, **blocked_reason** only if blocked, and **resume_step**. When actually leaving mid-task, follow it with `pause_thread(thread_id, next_step=...)` so the Hub records a concrete paused/resume state. See [ADHD-friendly writing and planning](writing.md).
 7. **Review** — open `http://127.0.0.1:8787/ui`, filter by project, check Stale, open Gitea issues if board sync is on.
-8. **Indexer backstop** (optional daily): see [indexer-schedule.md](indexer-schedule.md).
+8. **Indexer backstop** (optional daily): see [the advanced indexer schedule](indexer-schedule.md). It is intentionally not part of the main docs navigation because most users do not need it.
 
 ## Optional OpenClaw check-in
 
@@ -48,7 +48,7 @@ Then pair from **Settings → OpenClaw** (recommended): **Start OpenClaw pairing
 ## Local smoke (Windows)
 
 ```powershell
-cd Z:\Projects\adhd-hub
+cd C:\path\to\adhd-hub
 copy .env.example .env
 # Edit .env: ADHD_HUB_AUTH_TOKEN, optional ADHD_HUB_PUBLIC_URL
 # (and ADHD_HUB_OAUTH_ENABLED=false only if you need Bearer-only rollback)
@@ -69,7 +69,7 @@ See [adapters/cursor-hooks.md](https://github.com/uniskela/adhd-hub/blob/main/ad
 ## Deploy to lab
 
 ```powershell
-.\scripts\sync-and-deploy.ps1 -HostName root@100.115.187.7 -RemoteDir /opt/adhd-hub
+.\scripts\sync-and-deploy.ps1 -HostName root@<tailscale-host-or-ip> -RemoteDir /opt/adhd-hub
 ```
 
-Then set MCP URL to `http://<tailscale-ip>:8787/mcp` and `ADHD_HUB_PUBLIC_URL` to that base for README → `/ui` links. See [Homelab deployment](deploy-homelab.md) for the full Proxmox/Tailscale flow.
+Then set MCP URL to `http://<tailscale-host-or-ip>:8787/mcp` and `ADHD_HUB_PUBLIC_URL` to that base for README → `/ui` links. See [Homelab deployment](deploy-homelab.md) for the full Proxmox/Tailscale flow.

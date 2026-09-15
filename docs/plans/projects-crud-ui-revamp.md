@@ -1,3 +1,8 @@
+---
+search:
+  exclude: true
+---
+
 # Projects CRUD, forge folder sync, ADHD UI revamp
 
 Approved execution plan (2026-09-08). See also Cursor plan `projects_crud_ui_revamp_030b7d97`.
