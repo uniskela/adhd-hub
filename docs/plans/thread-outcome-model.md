@@ -1,3 +1,8 @@
+---
+search:
+  exclude: true
+---
+
 # Thread outcome model + guidance drift (foundation for Waves 6–8)
 
 One thread = one independently finishable outcome.
