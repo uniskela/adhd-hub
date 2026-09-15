@@ -42,6 +42,21 @@ def test_docs_navigation_has_calm_information_architecture() -> None:
         assert f'{{ "{label}" =' not in nav
 
 
+def test_historical_docs_are_excluded_from_site_search() -> None:
+    historical_pages = [
+        REPO_ROOT / "docs" / "review-improvements.md",
+        REPO_ROOT / "docs" / "rewards-roadmap.md",
+        REPO_ROOT / "docs" / "plans" / "adhd-hub-foundation.md",
+        REPO_ROOT / "docs" / "plans" / "next-waves.md",
+        REPO_ROOT / "docs" / "plans" / "projects-crud-ui-revamp.md",
+        REPO_ROOT / "docs" / "plans" / "thread-outcome-model.md",
+    ]
+    expected_front_matter = "---\nsearch:\n  exclude: true\n---\n"
+
+    for path in historical_pages:
+        assert path.read_text(encoding="utf-8").startswith(expected_front_matter)
+
+
 def test_public_docs_use_one_canonical_roadmap() -> None:
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     index = (REPO_ROOT / "docs" / "index.md").read_text(encoding="utf-8")
