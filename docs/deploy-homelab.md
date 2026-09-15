@@ -18,7 +18,7 @@ If you are developing ADHD Hub itself and intentionally deploy the current check
 
 ```bash
 # Linux/macOS or Git Bash / WSL:
-./scripts/sync-and-deploy.sh root@100.115.187.7 /opt/adhd-hub
+./scripts/sync-and-deploy.sh root@<tailscale-host-or-ip> /opt/adhd-hub
 ```
 
 Or manually on the Docker host:
@@ -36,7 +36,7 @@ docker compose up -d --build
 curl -fsS http://127.0.0.1:8787/api/health
 ```
 
-Ensure container port `8787` is reachable on the Tailscale interface. With the standard Compose mapping, clients use `http://<tailscale-ip>:8787` while the process still listens on `0.0.0.0:8787` inside the container.
+Ensure container port `8787` is reachable on the Tailscale interface. With the standard Compose mapping, clients use `http://<tailscale-host-or-ip>:8787` while the process still listens on `0.0.0.0:8787` inside the container.
 
 ### Reverse proxy / HTTPS cookies
 
@@ -68,7 +68,7 @@ Prefer `adhd-hub connect` / the generated one-liner instead of hand-editing each
 
 | Client | Typical route |
 |--------|---------------|
-| Cursor Windows | MCP URL `http://<ts-ip>:8787/mcp` or HTTPS public URL |
+| Cursor Windows | MCP URL `http://<tailscale-host-or-ip>:8787/mcp` or HTTPS public URL |
 | Cursor Cloud | Same MCP URL if the cloud agent can reach that private route; otherwise use the forge mailbox fallback |
 | Dev LXC | Same MCP URL from that host |
 | Codex / Claude | Connect CLI or their documented MCP configuration |
@@ -81,7 +81,7 @@ Transcripts normally live on the PC while the Hub lives in the lab. Run the inde
 
 ```toml
 # config.toml
-hub_url = "http://<ts-ip>:8787"
+hub_url = "http://<tailscale-host-or-ip>:8787"
 auth_token = "..."
 ```
 
@@ -149,7 +149,7 @@ Forge import does **not** recreate SQLite threads/reminders; use Export/Import (
 First confirm health:
 
 ```bash
-curl -fsS http://<ts-ip>:8787/api/health
+curl -fsS http://<tailscale-host-or-ip>:8787/api/health
 ```
 
-Then run `adhd-hub doctor --hub http://<ts-ip>:8787 --project /path/to/project` from a client machine. If you want an API-level write test, use a CLI session or temporary Bearer token and create a disposable thread, then confirm `session_digest` / `check_overlap` can see it.
+Then run `adhd-hub doctor --hub http://<tailscale-host-or-ip>:8787 --project /path/to/project` from a client machine. If you want an API-level write test, use a CLI session or temporary Bearer token and create a disposable thread, then confirm `session_digest` / `check_overlap` can see it.
