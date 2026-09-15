@@ -1,3 +1,8 @@
+---
+search:
+  exclude: true
+---
+
 # ADHD Hub foundation plan (executed)
 
 See the Cursor plan **ADHD Hub Foundation** for the full design. This repo now includes:
