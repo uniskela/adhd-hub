@@ -1,3 +1,8 @@
+---
+search:
+  exclude: true
+---
+
 # Rewards and future leaderboards
 
 Implemented: a versioned, authenticated `overview.rewards` payload derived from actual hub completion totals; six ranks; six badges; a next-rank cue; and a local PNG/text export with preview. The `scope` is `hub`. No public leaderboard, profile, share endpoint, external publishing service, or new user identity model is introduced.
