@@ -1,6 +1,7 @@
 import { state, $, setMsg } from './state.js';
 import { api } from './api.js';
 import { loadAll } from './load.js';
+import { chooseThread } from './now.js';
 import { savedScreen, showScreen } from './screens.js';
 
 export function showLogin(message) {
@@ -60,6 +61,15 @@ function consumeOAuthReturn() {
       return false;
     }
   }
+function requestedThreadId() {
+    const params = new URLSearchParams(location.search);
+    const id = (params.get("thread") || "").trim();
+    if (!id || id.length > 200) return "";
+    params.delete("thread");
+    const query = params.toString();
+    history.replaceState({}, "", location.pathname + (query ? `?${query}` : "") + location.hash);
+    return id;
+  }
 export async function tryAuth() {
     try {
       await api("/overview");
@@ -89,6 +99,8 @@ export async function handleLogin(ev) {
       if (consumeOAuthReturn()) return;
       showApp();
       await loadAll();
+      const threadId = requestedThreadId();
+      if (threadId) await chooseThread(threadId);
     } catch (error) {
       if (error.status === 401) { $("login-error").textContent = error.message; $("login-token").focus(); }
       else if (!$("app-shell").hidden) setMsg("Could not load dashboard: " + error.message);

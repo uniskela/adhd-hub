@@ -156,3 +156,17 @@ def test_splitter_check_rejects_missing_now_module(tmp_path: Path, monkeypatch):
     with pytest.raises(SystemExit, match="Missing now.js"):
         splitter.main(["--check"])
     assert list(tmp_path.iterdir()) == []
+
+
+def test_thread_deep_link_is_consumed_after_initial_or_interactive_auth():
+    """A stale-nudge CTA must survive the login gate and open its thread afterwards."""
+    boot = (UI_JS / "boot.js").read_text()
+    auth = (UI_JS / "auth.js").read_text()
+
+    assert "function requestedThreadId()" in boot
+    assert "if (threadId) await chooseThread(threadId);" in boot
+    assert "function requestedThreadId()" in auth
+    login_load = auth.index("await loadAll();")
+    login_thread = auth.index("const threadId = requestedThreadId();", login_load)
+    login_open = auth.index("if (threadId) await chooseThread(threadId);", login_thread)
+    assert login_load < login_thread < login_open

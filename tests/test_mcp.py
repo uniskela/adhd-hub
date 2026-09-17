@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from adhd_hub.app import create_app
 from adhd_hub.config import Settings
-from adhd_hub.models import ReminderCreate, ReminderKind, ThreadUpsert
+from adhd_hub.models import ReminderCreate, ReminderKind, Thread, ThreadUpsert
 from adhd_hub.service import HubService
 
 
@@ -204,15 +204,22 @@ def test_openclaw_memory_digest_and_sync(tmp_path: Path) -> None:
 
 
 async def test_stale_nudge_pushes_memory_roundtrip(tmp_path: Path) -> None:
-    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="secret"))
-    from adhd_hub.models import Thread
-
+    service = HubService(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="secret",
+            public_url="https://hub.example",
+        )
+    )
     thread = Thread(
         id="stale-two",
         summary="Resume the draft",
         project_slug="demo",
         created_at=datetime.now(UTC) - timedelta(days=5),
         updated_at=datetime.now(UTC) - timedelta(days=5),
+        focus="Finish the first review pass.",
+        next_steps=["Open the draft and write the first paragraph."],
+        source_issue_url="https://github.com/acme/demo/issues/42",
     )
     service.list_stale_threads = lambda: [thread]  # type: ignore[method-assign]
     service.store.touch_reminded = lambda ids: None  # type: ignore[method-assign]
@@ -228,3 +235,27 @@ async def test_stale_nudge_pushes_memory_roundtrip(tmp_path: Path) -> None:
     kwargs = service.push_openclaw_memory.await_args.kwargs
     assert kwargs["threads"] == [thread]
     assert "stale" in kwargs["note"].lower()
+    nudge_lines = service.openclaw.notify_stale_threads.await_args.args[0]
+    assert "Summary: Finish the first review pass." in nudge_lines[0]
+    assert "Next: Open the draft and write the first paragraph." in nudge_lines[0]
+    assert "[Open in ADHD Hub](https://hub.example/ui?thread=stale-two)" in nudge_lines[0]
+    assert "[Open source issue](https://github.com/acme/demo/issues/42)" in nudge_lines[0]
+
+
+def test_stale_nudge_uses_safe_link_fallbacks_and_resume_step(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="secret"))
+    thread = Thread(
+        id="stale-three",
+        summary="Resume the work",
+        project_slug="demo",
+        created_at=datetime.now(UTC) - timedelta(days=5),
+        updated_at=datetime.now(UTC) - timedelta(days=5),
+        resume_step="Re-open the review notes.",
+        source_issue_url="javascript:alert(1)",
+    )
+
+    line = service._openclaw_ops._stale_nudge_lines([thread])[0]
+
+    assert "Next: Re-open the review notes." in line
+    assert "javascript:" not in line
+    assert "Thread ID: `stale-three`" in line
