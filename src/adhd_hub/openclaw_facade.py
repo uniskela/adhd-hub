@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
+from urllib.parse import quote, urlsplit
 
 from adhd_hub.models import Thread
 from adhd_hub.openclaw import OpenClawBridge
@@ -164,15 +165,71 @@ class OpenClawFacade:
         result["digest_lines"] = len(body.splitlines())
         return result
 
+    @staticmethod
+    def _nudge_text(value: str | None, *, limit: int = 280) -> str:
+        """Flatten thread state for a compact, non-instructional notification."""
+        text = " ".join((value or "").split())
+        if len(text) <= limit:
+            return text
+        return text[: limit - 1].rstrip() + "…"
+
+    @staticmethod
+    def _safe_http_url(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+        parsed = urlsplit(value.strip())
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return None
+        if parsed.username or parsed.password:
+            return None
+        return value.strip()
+
+    def _stale_nudge_lines(self, threads: list[Thread]) -> list[str]:
+        """Render supplied stale-thread state with direct, safe CTAs."""
+        hub_url = self._safe_http_url(self._hub.settings.resolve_public_url())
+        lines: list[str] = []
+        for thread in threads:
+            title = self._nudge_text(thread.summary, limit=180) or "Untitled thread"
+            context = self._nudge_text(thread.focus or thread.goal, limit=240)
+            next_step = self._nudge_text(
+                thread.resume_step
+                or (thread.next_steps[0] if thread.next_steps else None)
+                or thread.focus,
+                limit=240,
+            )
+            parts = [f"### {title}"]
+            if thread.project_slug:
+                parts.append(f"Project: {self._nudge_text(thread.project_slug, limit=80)}")
+            if context:
+                parts.append(f"Summary: {context}")
+            if next_step:
+                parts.append(f"Next: {next_step}")
+            else:
+                parts.append("Next: Open the thread, choose one small restart action, and save it.")
+
+            links: list[str] = []
+            if hub_url:
+                links.append(f"[Open in ADHD Hub]({hub_url}/ui?thread={quote(thread.id, safe='')})")
+            public = self._hub.thread_public_dict(thread)
+            issue_url = self._safe_http_url(public.get("forge_issue_url"))
+            source_url = self._safe_http_url(thread.source_issue_url)
+            if issue_url:
+                links.append(f"[Open issue]({issue_url})")
+            elif source_url:
+                links.append(f"[Open source issue]({source_url})")
+            if links:
+                parts.append("CTA: " + " · ".join(links))
+            else:
+                parts.append(f"Thread ID: `{thread.id}`")
+            lines.append("\n".join(parts))
+        return lines
+
     async def run_stale_nudge(self) -> dict:
         stale = self._hub.list_stale_threads()
         if not stale:
             return {"nudged": 0, "openclaw": False, "memory": None}
         limited = stale[: self._hub.settings.digest_max_nudge]
-        lines = [
-            f"{t.summary} [{t.project_slug or '-'}] (id={t.id}, updated={t.updated_at.date()})"
-            for t in limited
-        ]
+        lines = self._stale_nudge_lines(limited)
         sent = await self._hub.openclaw.notify_stale_threads(lines)
         self._hub.rebuild_wiki_index()
         memory = None

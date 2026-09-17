@@ -3,7 +3,7 @@ import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
 import { fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
-import { captureStep, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
+import { captureStep, chooseThread, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
@@ -306,7 +306,22 @@ fillTimezoneSelect(state.currentTz);
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/ui/sw.js", { scope: "/ui/" }).catch(() => {});
 }
+function requestedThreadId() {
+  const params = new URLSearchParams(location.search);
+  const id = (params.get("thread") || "").trim();
+  if (!id || id.length > 200) return "";
+  params.delete("thread");
+  const query = params.toString();
+  history.replaceState({}, "", location.pathname + (query ? `?${query}` : "") + location.hash);
+  return id;
+}
+
 loadAuthStatus().then(() => tryAuth())
-  .then((ok) => (ok ? loadAll() : null))
+  .then(async (ok) => {
+    if (!ok) return;
+    await loadAll();
+    const threadId = requestedThreadId();
+    if (threadId) await chooseThread(threadId);
+  })
   .then(() => offerPendingConnect())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
