@@ -160,12 +160,13 @@ def test_splitter_check_rejects_missing_now_module(tmp_path: Path, monkeypatch):
 
 def test_thread_deep_link_is_consumed_after_initial_or_interactive_auth():
     """A stale-nudge CTA must survive the login gate and open its thread afterwards."""
-    now = (UI_JS / "now.js").read_text()
     boot = (UI_JS / "boot.js").read_text()
     auth = (UI_JS / "auth.js").read_text()
 
-    assert "export async function openRequestedThreadFromUrl" in now
-    assert "await openRequestedThreadFromUrl();" in boot
+    assert "function requestedThreadId()" in boot
+    assert "if (threadId) await chooseThread(threadId);" in boot
+    assert "function requestedThreadId()" in auth
     login_load = auth.index("await loadAll();")
-    login_deep_link = auth.index("await openRequestedThreadFromUrl();")
-    assert login_deep_link > login_load
+    login_thread = auth.index("const threadId = requestedThreadId();", login_load)
+    login_open = auth.index("if (threadId) await chooseThread(threadId);", login_thread)
+    assert login_load < login_thread < login_open
