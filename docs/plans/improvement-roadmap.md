@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-15** at package **v0.12.0**. Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-17** at package **v0.12.1** (through PR #121). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -18,9 +18,12 @@ The Hub already includes:
 - richer structured progress import from forge issues (#111);
 - OpenClaw HTTPS/hook-token guidance (#112/#116);
 - Glama metadata/release support (#114);
-- clearer MCP tool guidance and real stdio tool-call coverage (#115).
+- clearer MCP tool guidance and real stdio tool-call coverage (#115);
+- OpenClaw multi-agent hook targeting (#118);
+- canonical public-roadmap/docs cleanup (#120);
+- docs-sync notification wiring for the Uniskela site (#121).
 
-Those newer integration/reliability changes do **not** replace the remaining product roadmap below.
+Those newer integration/reliability/documentation changes do **not** replace the remaining product roadmap below.
 
 ## Product principles
 
@@ -90,6 +93,8 @@ Remote AI remains opt-in and must not leak secrets, raw transcripts, private URL
 - merge/dedupe suggestions with human confirmation;
 - better return-cue guidance.
 
+Richer stale-reminder context/direct CTAs are a narrower reminder UX improvement and do not complete this wave; Wave 7 still owns triage/snooze, ranking, merge suggestions and return-cue quality coaching.
+
 ### Wave 8 — find & capture
 
 [#55](https://github.com/uniskela/adhd-hub/issues/55) — after Wave 7.
@@ -128,7 +133,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 These can land without changing the product-wave sequence:
 
 - [#117](https://github.com/uniskela/adhd-hub/issues/117) — **do soon**: improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish the remaining lockfile/current-version drift and decide whether CI can move from `--frozen` to `--locked` after refresh.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish the remaining lockfile/current-version drift and decide whether CI can move from `--frozen` to `--locked` after refresh. `pyproject.toml` is v0.12.1 while `uv.lock` still records the local package as v0.11.0.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 
