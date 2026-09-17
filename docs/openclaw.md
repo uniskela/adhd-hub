@@ -135,7 +135,7 @@ curl -sS -X POST \
   http://adhd-hub:8787/api/admin/stale-nudge
 ```
 
-If it succeeds, OpenClaw receives a short list of unfinished work. The optional agent endpoint can turn that into a non-nagging message and save a brief memory digest (summaries + next steps only — never raw chats). Agents can also call MCP `push_openclaw_memory` for an on-demand short round-trip. The Hub's wiki remains the source of truth for project progress.
+If it succeeds, OpenClaw receives compact stale-thread entries grounded in the Hub's saved state: a short summary/context, one concrete restart action, and direct CTAs when safe links are available. With `ADHD_HUB_PUBLIC_URL` configured, a reminder can include **Open in ADHD Hub**, which opens that thread in the Now screen after authentication. Linked forge/source issues are included as a second CTA when a credential-free `http(s)` URL is available; otherwise the thread ID remains as the fallback. The optional agent endpoint can turn those entries into a non-nagging message while preserving supplied CTA links exactly, and save a brief memory digest (summaries + next steps only — never raw chats). Agents can also call MCP `push_openclaw_memory` for an on-demand short round-trip. The Hub's wiki remains the source of truth for project progress.
 
 ## Optional: OpenClaw reads the Hub
 
