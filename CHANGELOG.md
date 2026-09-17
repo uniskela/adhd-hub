@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.13.0](https://github.com/uniskela/adhd-hub/compare/v0.12.1...v0.13.0) (2026-09-17)
+
+
+### Features
+
+* enrich stale thread nudges with CTAs ([63f96b3](https://github.com/uniskela/adhd-hub/commit/63f96b3e26c6f5e746287c57f36248503bbdcc52))
+* enrich stale thread nudges with CTAs ([5576fae](https://github.com/uniskela/adhd-hub/commit/5576fae31f25adfd512312a2cb4644986cd1a9dd))
+
+
+### Bug Fixes
+
+* **ui:** consume thread deep link after login ([2c902d0](https://github.com/uniskela/adhd-hub/commit/2c902d0c5478e65edc65d99fa53243ddfb41e598))
+
+
+### Documentation
+
+* align public roadmap with current tracker ([d25b68a](https://github.com/uniskela/adhd-hub/commit/d25b68a0308371c48301a5d51e97f7fd9186eac1))
+* clarify public URL browser links ([7b9b30f](https://github.com/uniskela/adhd-hub/commit/7b9b30ffeb884e2dc0941e0c15889d06d0198ecc))
+* describe stale nudge CTAs ([aec2cdf](https://github.com/uniskela/adhd-hub/commit/aec2cdf4b281d252dc0b00471d1c549689fcf3b1))
+
 ## [0.12.1](https://github.com/uniskela/adhd-hub/compare/v0.12.0...v0.12.1) (2026-09-15)
 
 
