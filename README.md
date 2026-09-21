@@ -66,7 +66,7 @@ Stdio is an **optional local mode**: it uses the configured Hub data directory a
 
 Published images (only after a manual release-PR merge by `uniskela`):
 
-- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.6.0`, `0.6`)
+- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.13.0`, `0.13`)
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
 
@@ -76,7 +76,7 @@ Documentation, chore, test, and CI-only merges do not open a release PR, even if
 
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
-docker pull ghcr.io/uniskela/adhd-hub:0.6.0
+docker pull ghcr.io/uniskela/adhd-hub:0.13.0
 ```
 
 Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).
