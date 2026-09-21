@@ -22,11 +22,11 @@ jobs:
     steps:
       - name: Check App configuration
         env:
-          APP_ID: ${{ vars.DOCS_SYNC_APP_ID }}
+          APP_CLIENT_ID: ${{ vars.DOCS_SYNC_APP_CLIENT_ID }}
           APP_KEY: ${{ secrets.DOCS_SYNC_APP_PRIVATE_KEY }}
         run: |
-          if [ -z "$APP_ID" ] || [ -z "$APP_KEY" ]; then
-            echo '::error::Configure DOCS_SYNC_APP_ID and DOCS_SYNC_APP_PRIVATE_KEY; see .github/docs-sync.md.'
+          if [ -z "$APP_CLIENT_ID" ] || [ -z "$APP_KEY" ]; then
+            echo '::error::Configure DOCS_SYNC_APP_CLIENT_ID and DOCS_SYNC_APP_PRIVATE_KEY; see .github/docs-sync.md.'
             exit 1
           fi
       - name: Resolve trusted source commit
@@ -44,7 +44,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.DOCS_SYNC_APP_ID }}
+          client-id: ${{ vars.DOCS_SYNC_APP_CLIENT_ID }}
           private-key: ${{ secrets.DOCS_SYNC_APP_PRIVATE_KEY }}
           owner: uniskela
           repositories: .com
