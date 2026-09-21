@@ -2,6 +2,7 @@
 
 [![Coded with Codex](https://vibecoded.fyi/badges/terminal/agents/codex.svg)](https://vibecoded.fyi/)
 [![Coded with Cursor](https://vibecoded.fyi/badges/terminal/agents/cursor.svg)](https://vibecoded.fyi/)
+[![ADHD Progress Hub MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/uniskela/adhd-hub/badges/score.svg)](https://glama.ai/mcp/servers/uniskela/adhd-hub)
 
 Self-hosted **source of truth** for half-finished plans, migrations, and setups — so coding agents (Cursor, Codex, Claude Code, …) can check overlap, save progress, and nudge you later.
 
