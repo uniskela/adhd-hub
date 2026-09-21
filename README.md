@@ -197,7 +197,7 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 
 | Tool | Snippet |
 |------|---------|
-| Cursor | [adapters/cursor-mcp.json](adapters/cursor-mcp.json), [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) |
+| Cursor | Marketplace: [adhd-hub-cursorskill](https://github.com/uniskela/adhd-hub-cursorskill); project: [adapters/cursor-mcp.json](adapters/cursor-mcp.json), [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) |
 | Codex | [adapters/codex.md](adapters/codex.md) |
 | Claude Code | [adapters/claude-code.md](adapters/claude-code.md) |
 | OpenClaw | [adapters/openclaw.md](adapters/openclaw.md) |
