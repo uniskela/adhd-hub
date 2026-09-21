@@ -35,3 +35,11 @@ shared-state assignments across all current modules.
 ## Public adapters
 
 Document new coding tools under `adapters/` with a minimal MCP/config snippet.
+
+## Cursor Marketplace plugin skills
+
+Hub `skills/` and `adapters/cursor-rule.mdc` are the source of truth for the
+[`adhd-hub-cursorskill`](https://github.com/uniskela/adhd-hub-cursorskill) plugin.
+Edit skills here; a GitHub Action opens a plugin PR (never pushes plugin `main`).
+See [Cursor plugin skill sync](docs/cursor-plugin-skill-sync.md) and
+[`.github/cursorskill-sync.md`](.github/cursorskill-sync.md).

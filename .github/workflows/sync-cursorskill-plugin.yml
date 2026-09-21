@@ -1,0 +1,180 @@
+name: Sync Cursor skill plugin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "skills/adhd-hub-session/**"
+      - "skills/adhd-hub-projects/**"
+      - "skills/env-check/**"
+      - "adapters/cursor-rule.mdc"
+      - ".cursor/rules/adhd-hub.mdc"
+      - "scripts/sync_cursorskill_plugin.py"
+      - ".github/workflows/sync-cursorskill-plugin.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-cursorskill-plugin
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'uniskela/adhd-hub'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve sync token
+        id: auth
+        env:
+          APP_CLIENT_ID: ${{ vars.CURSORSKILL_SYNC_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.CURSORSKILL_SYNC_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.CURSORSKILL_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${APP_CLIENT_ID:-}" ] && [ -n "${APP_PRIVATE_KEY:-}" ]; then
+            echo "mode=app" >> "$GITHUB_OUTPUT"
+          elif [ -n "${PAT:-}" ]; then
+            echo "mode=pat" >> "$GITHUB_OUTPUT"
+          else
+            echo '::error::Configure CURSORSKILL_SYNC_TOKEN (PAT) or CURSORSKILL_SYNC_APP_CLIENT_ID + CURSORSKILL_SYNC_APP_PRIVATE_KEY. See .github/cursorskill-sync.md.'
+            exit 1
+          fi
+
+      - name: Create GitHub App token
+        id: app
+        if: steps.auth.outputs.mode == 'app'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.CURSORSKILL_SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CURSORSKILL_SYNC_APP_PRIVATE_KEY }}
+          owner: uniskela
+          repositories: adhd-hub-cursorskill
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+        with:
+          path: hub
+          fetch-depth: 0
+
+      - name: Checkout cursorskill plugin
+        uses: actions/checkout@v4
+        with:
+          repository: uniskela/adhd-hub-cursorskill
+          token: ${{ steps.auth.outputs.mode == 'app' && steps.app.outputs.token || secrets.CURSORSKILL_SYNC_TOKEN }}
+          path: plugin
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prepare sync branch
+        id: branch
+        env:
+          HUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          short="$(printf '%s' "$HUB_SHA" | cut -c1-7)"
+          branch="sync/hub-${short}"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+          cd plugin
+          git config user.name "adhd-hub-cursorskill-sync"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B "$branch" origin/main
+
+      - name: Copy, rewrite, validate
+        id: sync
+        env:
+          HUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 hub/scripts/sync_cursorskill_plugin.py \
+            --hub-root hub \
+            --plugin-repo plugin \
+            --hub-sha "$HUB_SHA" \
+            --summary-out "$RUNNER_TEMP/sync-summary.md"
+
+      - name: Commit and open or update PR
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.mode == 'app' && steps.app.outputs.token || secrets.CURSORSKILL_SYNC_TOKEN }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          SHORT: ${{ steps.branch.outputs.short }}
+          HUB_SHA: ${{ github.sha }}
+          HUB_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          cd plugin
+          git add -- \
+            skills/adhd-hub-session/SKILL.md \
+            skills/adhd-hub-session/reference.md \
+            skills/adhd-hub-projects/SKILL.md \
+            skills/env-check/SKILL.md \
+            skills/env-check/scripts/check_runtime.sh \
+            rules/adhd-hub.mdc \
+            README.md
+
+          # Preserve executable bit for the shell helper.
+          git update-index --chmod=+x skills/env-check/scripts/check_runtime.sh
+
+          if git diff --cached --quiet; then
+            echo "No mirrored content changes for $HUB_SHA; skipping PR."
+            # Idempotency: if an open sync PR already exists for this SHA, leave it.
+            existing="$(gh pr list --repo uniskela/adhd-hub-cursorskill \
+              --state open --head "$BRANCH" --json number --jq '.[0].number // empty')"
+            if [ -n "$existing" ]; then
+              echo "Open PR #$existing already tracks $BRANCH."
+            fi
+            exit 0
+          fi
+
+          git commit -m "sync: Hub skills/rule from ${SHORT}"
+
+          # Force-with-lease is OK for the same Hub short-SHA branch name.
+          git push --force-with-lease origin "HEAD:refs/heads/${BRANCH}"
+
+          title="sync: Hub skills/rule from ${SHORT}"
+          body_file="$RUNNER_TEMP/pr-body.md"
+          {
+            echo "## Hub → cursorskill skill sync"
+            echo
+            echo "Automated sync from [\`${HUB_REPO}@${HUB_SHA}\`](https://github.com/${HUB_REPO}/commit/${HUB_SHA})."
+            echo
+            echo "This PR must be reviewed before merge. Automation never pushes to \`main\`."
+            echo
+            cat "$RUNNER_TEMP/sync-summary.md"
+            echo
+            echo "### Validator"
+            echo
+            echo "\`node scripts/validate-template.mjs\` passed in CI before this commit was pushed."
+          } > "$body_file"
+
+          existing="$(gh pr list --repo uniskela/adhd-hub-cursorskill \
+            --state open --head "$BRANCH" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo uniskela/adhd-hub-cursorskill \
+              --title "$title" --body-file "$body_file"
+            echo "Updated existing PR #$existing"
+            gh pr view "$existing" --repo uniskela/adhd-hub-cursorskill --json url --jq .url
+          else
+            # Close older open sync/* PRs as superseded (latest Hub SHA wins).
+            while read -r num; do
+              [ -z "$num" ] && continue
+              gh pr comment "$num" --repo uniskela/adhd-hub-cursorskill \
+                --body "Superseded by sync from Hub \`${SHORT}\` (\`${HUB_SHA}\`)."
+              gh pr close "$num" --repo uniskela/adhd-hub-cursorskill >/dev/null
+            done < <(gh pr list --repo uniskela/adhd-hub-cursorskill --state open \
+              --json number,headRefName --jq '.[] | select(.headRefName|startswith("sync/hub-")) | .number')
+
+            gh pr create --repo uniskela/adhd-hub-cursorskill \
+              --base main \
+              --head "$BRANCH" \
+              --title "$title" \
+              --body-file "$body_file"
+          fi

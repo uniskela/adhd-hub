@@ -22,6 +22,7 @@ nav = [
   { "Using the Hub" = [
     { "Dashboard" = "dashboard.md" },
     { "Coding companions" = "coding-companions.md" },
+    { "Cursor plugin skill sync" = "cursor-plugin-skill-sync.md" },
     { "OpenClaw" = "openclaw.md" },
     { "OpenClaw MCP OAuth" = "openclaw-mcp-oauth.md" },
     { "Forge issue inbox" = "forge-issue-inbox.md" },
