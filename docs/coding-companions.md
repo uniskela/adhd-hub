@@ -2,6 +2,9 @@
 
 Optional tools that pair well with ADHD Progress Hub. **Hub does not require them.** They are independent projects: Hub does not ship, warranty, or auto-update them.
 
+For the Cursor Marketplace client plugin (skills + rule + BYO MCP), see
+[`adhd-hub-cursorskill`](https://github.com/uniskela/adhd-hub-cursorskill). Hub remains the skill source of truth; sync opens a plugin PR — [Cursor plugin skill sync](cursor-plugin-skill-sync.md).
+
 | Role | Tool |
 |------|------|
 | Continuity & progress | ADHD Progress Hub |
