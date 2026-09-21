@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "pages": [
+    {
+      "source": "README.md",
+      "slug": "readme",
+      "kind": "readme"
+    },
+    {
+      "source": "docs/index.md",
+      "slug": "index",
+      "title": "What is ADHD Progress Hub?",
+      "group": "Start here",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/installation.md",
+      "slug": "installation",
+      "title": "Installation",
+      "group": "Start here",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/connect.md",
+      "slug": "connect",
+      "title": "Connect an agent",
+      "group": "Start here",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/project-agent-setup.md",
+      "slug": "project-agent-setup",
+      "title": "Project agent setup",
+      "group": "Start here",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/setup.md",
+      "slug": "setup",
+      "title": "Personal setup",
+      "group": "Start here",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/writing.md",
+      "slug": "writing",
+      "title": "Writing & continuity",
+      "group": "Start here",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/dashboard.md",
+      "slug": "dashboard",
+      "title": "Dashboard",
+      "group": "Using the Hub",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/coding-companions.md",
+      "slug": "coding-companions",
+      "title": "Coding companions",
+      "group": "Using the Hub",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/openclaw.md",
+      "slug": "openclaw",
+      "title": "OpenClaw",
+      "group": "Using the Hub",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/openclaw-mcp-oauth.md",
+      "slug": "openclaw-mcp-oauth",
+      "title": "OpenClaw MCP OAuth",
+      "group": "Using the Hub",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/forge-issue-inbox.md",
+      "slug": "forge-issue-inbox",
+      "title": "Forge issue inbox",
+      "group": "Using the Hub",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/deploy-homelab.md",
+      "slug": "deploy-homelab",
+      "title": "Homelab deployment",
+      "group": "Deploy & configure",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/authentication.md",
+      "slug": "authentication",
+      "title": "Authentication",
+      "group": "Deploy & configure",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/environment-variables.md",
+      "slug": "environment-variables",
+      "title": "Environment variables",
+      "group": "Deploy & configure",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/forge-permissions.md",
+      "slug": "forge-permissions",
+      "title": "Forge permissions",
+      "group": "Deploy & configure",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/plans/improvement-roadmap.md",
+      "slug": "plans/improvement-roadmap",
+      "title": "Roadmap",
+      "group": "Project",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/brand-guide.md",
+      "slug": "brand-guide",
+      "title": "Brand guide",
+      "group": "Project",
+      "kind": "doc"
+    }
+  ]
+}
