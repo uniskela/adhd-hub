@@ -177,6 +177,8 @@ adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 
 ### What connect configures
 
+For Cursor-only Marketplace install (skills + rule + BYO MCP variables, no per-project `connect`), see [adhd-hub-cursorskill](https://github.com/uniskela/adhd-hub-cursorskill) and [Cursor plugin skill sync](cursor-plugin-skill-sync.md). `adhd-hub connect` remains the project/CLI path below.
+
 - **Cursor MCP** — project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (`--scope user`), using `${env:ADHD_HUB_AUTH_TOKEN}` so the file stays token-free
 - **Codex / Claude** — optional MCP blocks when listed in `--agents`
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
