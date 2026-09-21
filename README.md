@@ -83,10 +83,9 @@ Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses 
 
 ### Connect Cursor
 
-Merge [adapters/cursor-mcp.json](adapters/cursor-mcp.json) into your MCP config (update URL + bearer token).  
-Install the rule from [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) into `.cursor/rules/` (user or project).
+**Marketplace plugin (recommended for Cursor):** install [adhd-hub-cursorskill](https://github.com/uniskela/adhd-hub-cursorskill) (Marketplace once published, or local/dev install of that repo). With a Hub already running, set plugin variables `ADHD_HUB_MCP_URL` (`{base}/mcp`) and `ADHD_HUB_AUTH_TOKEN`, then verify MCP tools and skills. That plugin ships the Hub rule + session/projects/env-check skills with Marketplace wiring; Hub remains the skill source of truth ([Cursor plugin skill sync](docs/cursor-plugin-skill-sync.md)).
 
-**Skills (recommended, all agents):**
+**Project / CLI connect** (monorepos, `adhd-hub connect`, or non-Marketplace setups): merge [adapters/cursor-mcp.json](adapters/cursor-mcp.json) into your MCP config (URL + bearer via `${env:ADHD_HUB_AUTH_TOKEN}`), install the rule from [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) into `.cursor/rules/`, and optionally install skills:
 
 ```bash
 # Install from the published repository:
@@ -94,6 +93,8 @@ npx skills add uniskela/adhd-hub -g
 # Or, while developing an unreleased local checkout:
 npx skills add ./skills -g
 ```
+
+Or use `adhd-hub connect … --agents cursor --cursor-rule --skills` — see [docs/connect.md](docs/connect.md).
 
 **Optional coding companions** (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Agents & install** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
 
