@@ -12,6 +12,12 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock README.md LICENSE ATTRIBUTION.md ./
 COPY src ./src
 
+# Pull current Debian security fixes into the final runtime image rather than
+# inheriting stale OS packages from a cached base-image build.
+RUN apt-get update \
+ && apt-get upgrade -y \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN uv sync --frozen --no-dev \
  && uv build --wheel -o /app/dist
 
