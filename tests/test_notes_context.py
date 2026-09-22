@@ -370,6 +370,60 @@ def test_notes_coalesce_milestones_and_show_older(tmp_path) -> None:
     assert cont < notes
 
 
+def test_coalesce_groups_present_when_thread_notes_default_open(tmp_path) -> None:
+    """Open Thread notes must not bypass ritual coalescing (open only adds `open`)."""
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Open coalesce", project_slug="demo", goal="G", focus="F")
+    )
+    # Ritual wall (Codex multi-em-dash) plus enough human notes to default-open.
+    for i in range(4):
+        service.store.add_progress_note(
+            "demo",
+            (
+                f"Thread upserted from codex: Task {i} — Deterministic email — "
+                "Prove outbound mail under retry"
+            ),
+            thread_id=thread.id,
+        )
+    for i in range(3):
+        service.store.add_progress_note(
+            "demo",
+            f"## Human {i}\n\nKeep the coalesce group even when notes stay open.",
+            thread_id=thread.id,
+        )
+    html = service.thread_notes_context_html(thread)
+    assert 'class="notes-section-details notes-thread-notes" open' in html
+    assert 'class="notes-coalesce"' in html
+    assert html.count('class="notes-coalesce"') == 1
+    assert "checkpoints · last:" in html
+    # Coalesce groups themselves stay closed; only Thread notes accordion is open.
+    assert 'class="notes-coalesce" open' not in html
+    assert "notes-entry-human" in html
+    assert "Keep the coalesce group" in html
+    # Human notes stay distinct; ritual wall is one coalesce group, not 4 human entries.
+    assert html.count('class="notes-entry notes-entry-human"') == 3
+
+
+def test_chipless_milestone_uses_muted_summary_not_markdown_body(tmp_path) -> None:
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Single ritual", project_slug="demo", goal="G")
+    )
+    service.store.add_progress_note(
+        "demo",
+        "Thread upserted from codex: Task 1 — Title only — Description bit",
+        thread_id=thread.id,
+    )
+    html = service.thread_notes_context_html(thread)
+    assert "notes-entry-milestone" in html
+    assert "notes-milestone-summary" in html
+    # Chip-less ritual must not dump a full markdown-body wall entry.
+    entry_start = html.index("notes-entry-milestone")
+    entry_chunk = html[entry_start : entry_start + 500]
+    assert "markdown-body" not in entry_chunk
+
+
 def test_notes_default_closed_for_milestone_wall(tmp_path) -> None:
     service = _service(tmp_path)
     thread = service.store.upsert_thread(

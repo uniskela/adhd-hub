@@ -844,7 +844,7 @@ class HubService:
         # 2. This thread continuity card (always visible)
         parts.append(self._notes_continuity_card_html(thread, heading="This thread"))
 
-        # 3. Thread notes (coalesced milestones; history kept under "Show older")
+        # 3. Thread notes — coalesce BEFORE open/closed; `open` only toggles <details>.
         notes: list[dict[str, str]] = []
         if slug:
             notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
@@ -864,6 +864,7 @@ class HubService:
                 f'<div class="notes-show-older-body">{older_html}</div>'
                 "</details>"
             )
+        # Open/closed never skips coalescing; coalesce groups stay closed by default.
         open_notes = " open" if notes and default_open_thread_notes(notes) else ""
         notes_inner = (
             "".join(note_parts)
@@ -938,9 +939,12 @@ class HubService:
         chips = milestone_field_chips(content) if is_ms else []
         chips_html = self._notes_change_chips_html(chips)
         cls = "notes-entry notes-entry-milestone" if is_ms else "notes-entry notes-entry-human"
-        if is_ms and chips:
-            # Prefer change chips; keep a muted one-line core for screen readers / expand.
-            core = structural_core(content) or content
+        if is_ms:
+            # Always muted one-line summary — never full ritual markdown as body.
+            # (Chip-less "Thread upserted from …" used to render as a flat human-looking wall.)
+            core = structural_core(content) or content.strip()
+            if len(core) > 160:
+                core = core[:157] + "…"
             body = (
                 f'<p class="notes-milestone-summary">{escape(core)}</p>'
                 if core

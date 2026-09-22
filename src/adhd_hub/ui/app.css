@@ -1338,19 +1338,23 @@ body { background: var(--bg); color: var(--ink); }
   font-weight: 600;
   text-transform: lowercase;
 }
-.notes-continuity-field { margin: 0 0 .7rem; }
+.notes-continuity-field { margin: 0 0 .9rem; }
 .notes-continuity-field:last-child { margin-bottom: 0; }
 .notes-continuity-label {
-  margin: 0 0 .2rem;
-  color: var(--muted);
-  font-size: .7rem;
-  font-weight: 600;
-  letter-spacing: .02em;
+  margin: 0 0 .4rem;
+  color: var(--ink);
+  font-size: .78rem;
+  font-weight: 650;
+  letter-spacing: .04em;
   text-transform: uppercase;
+}
+.notes-continuity-compact .notes-continuity-label {
+  font-size: .76rem;
 }
 .notes-continuity-value {
   overflow-wrap: anywhere;
   word-break: break-word;
+  color: var(--ink);
 }
 .notes-continuity-value p { margin: 0; }
 .notes-continuity-value ol,
