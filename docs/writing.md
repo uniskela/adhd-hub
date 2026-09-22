@@ -103,7 +103,7 @@ Keep one source of truth for a decision. Link to a detailed design, issue, or pu
 
 Prefer short headings, one idea per bullet, plain language, and links or commands that can be opened or copied directly. Put a timestamp on a status update when recency matters. Put background material after the active section, where it remains available without competing with the next action.
 
-For forge issues titled `[ADHD] …`, Hub’s inbox accepts bare `## Resume` (also `## Resume cue` / `## Return cue`). Use a short Goal/Focus/Next/Resume mailbox body for importable handoffs; for long trackers, keep that continuity header pinned above PRD sections. See [Forge issue inbox](forge-issue-inbox.md).
+For forge issues titled `[ADHD] …`, Hub’s inbox accepts bare `## Resume` (also `## Resume cue` / `## Return cue`). Use a short Goal/Focus/Next/Resume mailbox body for importable handoffs; for long trackers, keep that continuity header pinned above PRD sections. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`) so it does not land in Resume. See [Forge issue inbox](forge-issue-inbox.md).
 
 ## Why this pattern
 

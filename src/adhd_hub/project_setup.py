@@ -82,8 +82,11 @@ For substantial work in this project:
   the authenticated identity is accepted by Hub Inbox authors. Open/update a
   GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume
   cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip
-  labels if the token cannot set them. Prefer short repository-relative
-  summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
+  labels if the token cannot set them. Recommended: append
+  `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under
+  a non-imported heading (e.g. `## Attribution`) so it does not land in Resume.
+  Prefer short repository-relative summaries; never invent Hub continuity,
+  progress, or thread state after a forge-only write.
 - CLOUD_AGENT: do not assume machine-installed local skill CLIs (e.g.
   `graphify`) exist. If missing: one-line notice, continue via repo tools /
   committed `graphify-out/` when present; never fabricate graph or Hub state.

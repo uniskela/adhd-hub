@@ -1,6 +1,6 @@
 ---
 name: adhd-hub-session
-hub_skill_version: 3
+hub_skill_version: 4
 description: >-
   ADHD Progress Hub continuity protocol for substantial coding work. Use the
   operator's adhd-hub MCP when starting/resuming meaningful project work,
@@ -38,7 +38,8 @@ Use the forge mailbox only when forge issue-write access is available and the au
 1. Open or update a GitHub/Gitea issue titled `[ADHD] <short summary>` using an identity on the operator's **Inbox authors** allowlist (otherwise the Hub will ignore it). Title prefix is enough; do not treat label application as required.
 2. Optional labels when the forge token can set them: `adhd-hub`, `project:<slug>` when known, and `source:codex` / `source:chatgpt` / `source:cursor` / `source:claude` / `source:claude-code`. Cursor Cloud often cannot set labels (`Resource not accessible by integration`) — skip them and keep the `[ADHD]` title.
 3. Put a short Goal / Focus / Next / Resume cue in the issue body (or Now / Done / Next / Return cue). Forge issues must be safe for the repository's visibility: never include credentials, customer or personal data, private hostnames/IPs, absolute local workspace paths, or other machine-specific/private infrastructure details. Prefer repository-relative paths and summaries.
-4. Tell the operator the Hub will import the issue on its next inbox poll (or when they click **Import issue inbox**). After a successful import, the Hub closes it with label `adhd-hub-synced`; it is not deleted.
+4. Recommended: append a one-line Made-with footer under a non-imported heading (e.g. `## Attribution`) so it does not land in Resume: `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)`. Skip if already present; do not paste full `PROGRESS.md`. See [docs/forge-issue-inbox.md](../../docs/forge-issue-inbox.md).
+5. Tell the operator the Hub will import the issue on its next inbox poll (or when they click **Import issue inbox**). After a successful import, the Hub closes it with label `adhd-hub-synced`; it is not deleted.
 
 Prefer Hub MCP whenever it is available. Do not invent Hub thread ids, progress, or continuity state after a forge-only write. Never claim a Hub write succeeded when it did not.
 

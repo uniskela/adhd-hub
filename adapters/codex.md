@@ -40,7 +40,7 @@ Use the [forge issue inbox](../docs/forge-issue-inbox.md):
 
 1. Open a GitHub/Gitea issue titled `[ADHD] <summary>` as a user on the Hub **Inbox authors** allowlist. Title prefix is enough; the `adhd-hub` label is optional.
 2. Optional labels when the token can set them: `adhd-hub`, `project:<slug>`, `source:codex` (or `source:chatgpt`).
-3. Body: short Goal/Focus/Next/Resume (or Now / Done / Next / Return) — repository-relative summaries only; no secrets, private URLs, or absolute machine paths.
+3. Body: short Goal/Focus/Next/Resume (or Now / Done / Next / Return) — repository-relative summaries only; no secrets, private URLs, or absolute machine paths. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`).
 4. Hub imports on poll or **Import issue inbox**, then closes with `adhd-hub-synced`.
 
 ## Agent instructions (drop into AGENTS.md)

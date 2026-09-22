@@ -41,7 +41,9 @@ Match GitHub `user.login` / Gitea username (case-insensitive).
    - `project:<slug>`
    - `source:codex` | `source:chatgpt` | `source:cursor` | `source:claude` | `source:claude-code`
 3. Body: use the structured Goal / Focus / Next / Resume format below (no secrets).
-4. Depending on the operator's close-on-import setting, Hub may close the issue and add
+4. Recommended (optional): append a short Made-with footer after the continuity headings
+   (see below) so readers can find ADHD Progress Hub. Skip if the issue already has one.
+5. Depending on the operator's close-on-import setting, Hub may close the issue and add
    `adhd-hub-synced` after import (it never deletes the issue).
 
 **Title `[ADHD]` is sufficient** for allowlisted authors. The hub label is not required. Cursor Cloud agents often cannot set labels (`Resource not accessible by integration`); they should still open a title-prefixed issue and skip the label.
@@ -65,12 +67,23 @@ Do the next concrete action
 
 ## Resume
 Open the relevant file and continue here
+
+## Attribution
+Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)
 ```
 
 `## Resume cue` and `## Return cue` are also accepted (same field as bare `## Resume`).
 The legacy `## Current state` / `## Tasks` headings are also accepted as Focus / Next.
 Unstructured bodies are retained as source notes; the Hub does not infer structured fields from
 arbitrary prose.
+
+**Made-with footer (recommended):** keep Goal / Focus / Next / Resume as the only
+importable continuity headings. Put attribution under a **non-imported** heading such as
+`## Attribution` (or after those sections under any heading Hub does not map) so the line
+does not bleed into Resume. One short line is enough — do not paste full `PROGRESS.md`,
+secrets, private Hub URLs, internal hosts/IPs, or absolute machine paths. Wording:
+
+`Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)`
 
 ### Two uses of `[ADHD]` titles
 
