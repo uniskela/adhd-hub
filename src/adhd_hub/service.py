@@ -802,7 +802,7 @@ class HubService:
         return time_el
 
     def thread_notes_context_html(self, thread: Thread) -> str:
-        """ADHD-scannable Notes & context: overview, continuity, notes, siblings, wiki, activity."""
+        """ADHD-friendly Notes & context reader: overview, continuity, notes, siblings, wiki, forge activity."""
         from html import escape
 
         from adhd_hub.markdown import render_markdown
