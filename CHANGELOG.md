@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.14.0](https://github.com/uniskela/adhd-hub/compare/v0.13.0...v0.14.0) (2026-09-22)
+
+
+### Features
+
+* **notes:** ADHD-friendly Notes & context reader ([#136](https://github.com/uniskela/adhd-hub/issues/136)) ([#145](https://github.com/uniskela/adhd-hub/issues/145)) ([0da2b69](https://github.com/uniskela/adhd-hub/commit/0da2b694835e44d3b52380af1fda69a35788f503))
+
+
+### Bug Fixes
+
+* **ui:** My Work midnight Updated / Source stamps ([#140](https://github.com/uniskela/adhd-hub/issues/140)) ([0975641](https://github.com/uniskela/adhd-hub/commit/097564130d1c903baa41b46822d61dcab9c44c96))
+
+
+### Documentation
+
+* add version-aware publication metadata ([#127](https://github.com/uniskela/adhd-hub/issues/127)) ([45997b6](https://github.com/uniskela/adhd-hub/commit/45997b63db350f84310d123126a0c1038e0772f8))
+* Foundation B3 kickoff for [#75](https://github.com/uniskela/adhd-hub/issues/75) ([#138](https://github.com/uniskela/adhd-hub/issues/138)) ([10237f8](https://github.com/uniskela/adhd-hub/commit/10237f80936e5c73f05a66218ce4584521df298e))
+* pin README docker examples to v0.13.0 ([ea475aa](https://github.com/uniskela/adhd-hub/commit/ea475aaf9144a5423efde472cd36b36bbd7b4864))
+
 ## [0.13.0](https://github.com/uniskela/adhd-hub/compare/v0.12.1...v0.13.0) (2026-09-17)
 
 
