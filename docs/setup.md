@@ -19,6 +19,8 @@ irm http://127.0.0.1:8787/install.ps1 | iex
 adhd-hub doctor --project /path/to/project
 ```
 
+After a Hub upgrade, re-run doctor on each active project. It detects outdated managed `AGENTS.md` / Cursor rule / Hub skills and, when credentials work, records verification so agents see a useful `session_digest.guidance` status. Repair with `adhd-hub setup . --refresh` (and `--install-skills` when you want global skill updates). Details: [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current).
+
 3. **Skills (global)** if you skipped `--skills` on connect:
 
 ```powershell

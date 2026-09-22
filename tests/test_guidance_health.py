@@ -189,6 +189,8 @@ def test_session_digest_guidance_honesty(tmp_path: Path) -> None:
     assert digest.guidance["expected_version"] == AGENT_GUIDANCE_VERSION
     assert digest.guidance["status"] == "local_verification_required"
     assert digest.guidance["last_verified_version"] is None
+    assert "doctor" in digest.guidance["hint"]
+    assert "install-skills" in digest.guidance["hint"]
 
     service.resolve_project(
         workspace_path=str(tmp_path), create_if_missing=True, title="Demo"
@@ -201,3 +203,45 @@ def test_session_digest_guidance_honesty(tmp_path: Path) -> None:
     digest2 = service.session_digest(workspace_path=str(tmp_path))
     assert digest2.guidance["last_verified_version"] == AGENT_GUIDANCE_VERSION
     assert digest2.guidance["status"] == "last_verified_current"
+
+
+def test_doctor_records_guidance_verification_when_hub_ok(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from unittest.mock import patch
+
+    project = tmp_path / "proj"
+    project.mkdir()
+    install_agent_guidance(project)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+
+    posted: dict = {}
+
+    def fake_http_json(url, *, token=None, timeout=8.0, method="GET", payload=None):
+        if method == "POST" and url.endswith("/api/guidance/verify"):
+            posted["url"] = url
+            posted["token"] = token
+            posted["payload"] = payload
+            return {"recorded": True}
+        raise AssertionError(f"unexpected {method} {url}")
+
+    with (
+        patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok")),
+        patch("adhd_hub.connect._http_json", side_effect=fake_http_json),
+        patch("adhd_hub.connect._doctor_oauth_checks"),
+        patch("adhd_hub.connect._doctor_remote_checks"),
+    ):
+        report = run_doctor(
+            hub_url="http://127.0.0.1:8787",
+            project=project,
+            token="secret-token",
+        )
+
+    names = {s.name: s for s in report.steps}
+    assert names["guidance verify"].status == "ok"
+    assert posted["token"] == "secret-token"
+    assert posted["payload"]["source"] == "doctor"
+    assert posted["payload"]["agent_guidance_version"] == AGENT_GUIDANCE_VERSION
+    assert posted["payload"]["workspace_path"] == str(project.resolve())
+    assert report.continuity_items is not None

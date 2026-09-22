@@ -56,7 +56,16 @@ adhd-hub setup /path/to/my-project --check
 adhd-hub setup /path/to/my-project --refresh
 ```
 
-After upgrading Hub guidance, `adhd-hub doctor --project /path/to/my-project` is the broader check because it also reports Cursor-rule and installed Hub-skill versions.
+After upgrading Hub guidance, `adhd-hub doctor --project /path/to/my-project` is the broader check because it also reports Cursor-rule and installed Hub-skill versions. When Hub credentials work, doctor **records** those local versions on the Hub so the next `session_digest.guidance` status is honest (the Hub never inspects your checkout itself).
+
+## Keeping guidance and skills current
+
+| Who | What to do |
+|-----|------------|
+| **You (operator)** | After a Hub upgrade (or when an agent mentions stale guidance): run `adhd-hub doctor --project .`. Repair with `setup . --refresh` (AGENTS block) and, when you want global skill updates, `setup . --install-skills`. Cursor Marketplace users also pull skill/rule updates via the [plugin sync](cursor-plugin-skill-sync.md) PR → publish path. |
+| **Coding agent** | On substantial session start, read `session_digest.guidance`. If status is `local_verification_required` or `verification_recommended`, mention once and recommend doctor / refresh / install-skills. Do not invent “up to date.” After a local check, optionally call MCP `report_guidance_health` with the versions verified. Never hand-edit inside `<!-- adhd-hub:project-agent:* -->` markers. |
+
+Dry-run only (no writes, no Hub record): `adhd-hub setup . --check`.
 
 ## Remove the managed section
 

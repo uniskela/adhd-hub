@@ -447,6 +447,11 @@ def build_mcp(service: HubService) -> MCPServer:
         Use after resolve_project. It combines relevant stale/open threads, due
         reminders, and the progress wiki snippet; query narrows overlap relevance
         and energy can filter work to the operator's current capacity.
+
+        Includes a `guidance` object (expected versions + last local verification
+        status). The Hub cannot inspect the client's checkout — run
+        `adhd-hub doctor --project` locally (or call `report_guidance_health`
+        after a local check) so this field becomes meaningful.
         """
         e = EnergyLevel(energy) if energy else None
         digest = service.session_digest(workspace_path=workspace_path, query=query, energy=e)

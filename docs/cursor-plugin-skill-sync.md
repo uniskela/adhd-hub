@@ -14,6 +14,11 @@ repo, rewrites Hub-only links/setup language for Marketplace packaging, runs
 - Install and configure the plugin from the plugin repo / Marketplace listing.
 - Continuity behavior still comes from the same Hub skills and always-apply rule.
 - Skill wording may lag Hub `main` by one reviewed plugin PR — that is intentional.
+- Per-project `AGENTS.md` injections are **not** updated by Marketplace. After Hub
+  guidance changes, run `adhd-hub doctor --project .` and `adhd-hub setup . --refresh`
+  on each project (see [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current)).
+- CLI skill installs (`npx skills add` / `setup --install-skills`) are separate from
+  Marketplace; refresh whichever path you installed from.
 
 ## What contributors should edit where
 

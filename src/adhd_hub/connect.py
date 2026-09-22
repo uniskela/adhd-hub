@@ -196,6 +196,7 @@ class ConnectReport:
     hub_url: str
     steps: list[StepResult] = field(default_factory=list)
     continuity_text: str | None = None
+    continuity_items: list[Any] | None = None
     dry_run: bool = False
 
     def add(self, name: str, status: str, detail: str) -> None:
@@ -247,14 +248,25 @@ def cursor_mcp_snippet(hub_url: str) -> dict[str, Any]:
     }
 
 
-def _http_json(url: str, *, token: str | None = None, timeout: float = 8.0) -> dict[str, Any]:
+def _http_json(
+    url: str,
+    *,
+    token: str | None = None,
+    timeout: float = 8.0,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     from adhd_hub.ssl_trust import ensure_os_truststore
 
     ensure_os_truststore()
     headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    req = Request(url, headers=headers, method="GET")
+    body_bytes: bytes | None = None
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+        body_bytes = json.dumps(payload).encode("utf-8")
+    req = Request(url, data=body_bytes, headers=headers, method=method)
     with urlopen(req, timeout=timeout) as resp:
         body = resp.read().decode("utf-8")
     data = json.loads(body) if body else {}
@@ -1589,6 +1601,77 @@ def run_connect(
     return report
 
 
+def _doctor_push_guidance_verification(
+    *,
+    hub_url: str,
+    token: str | None,
+    project: Path,
+    continuity: list[Any],
+    report: ConnectReport,
+) -> None:
+    """Best-effort: record local doctor versions on the Hub for session_digest.
+
+    Hub cannot inspect the client filesystem; doctor is the local verifier.
+    Failures stay warns so offline / auth issues never fail the doctor banner alone.
+    """
+    auth = (token or "").strip()
+    if not auth or auth == "change-me":
+        return
+
+    def _installed(name_prefix: str) -> int | None:
+        for item in continuity:
+            name = getattr(item, "name", "") or ""
+            if name.startswith(name_prefix) or name == name_prefix:
+                return getattr(item, "installed_version", None)
+        return None
+
+    payload = {
+        "workspace_path": str(project),
+        "agent_guidance_version": _installed("AGENTS.md"),
+        "session_skill_version": _installed("adhd-hub-session"),
+        "cursor_rule_version": _installed("Cursor rule"),
+        "source": "doctor",
+    }
+    if all(
+        payload[k] is None
+        for k in (
+            "agent_guidance_version",
+            "session_skill_version",
+            "cursor_rule_version",
+        )
+    ):
+        report.add(
+            "guidance verify",
+            "warn",
+            "no local version markers found to record",
+        )
+        return
+
+    base = normalize_hub_url(hub_url)
+    try:
+        _http_json(
+            f"{base}/api/guidance/verify",
+            token=auth,
+            method="POST",
+            payload=payload,
+        )
+        report.add(
+            "guidance verify",
+            "ok",
+            "recorded on Hub for session_digest.guidance",
+        )
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        OSError,
+    ) as exc:
+        report.add("guidance verify", "warn", f"could not record ({exc})")
+
+
 def _doctor_remote_checks(report: ConnectReport, hub_url: str, token: str | None) -> None:
     """Optional authenticated checks against forge / OpenClaw / indexer metadata."""
     auth = token or os.environ.get("ADHD_HUB_AUTH_TOKEN")
@@ -1781,6 +1864,7 @@ def run_doctor(
         }
         for item in continuity:
             report.add(item.name, status_map.get(item.status, "warn"), item.detail)
+        report.continuity_items = continuity
         # Project registration (local path known; Hub reachability separate).
         if ok and token_set:
             report.add(
@@ -1801,6 +1885,14 @@ def run_doctor(
                 "Hub unreachable — cannot confirm registration",
             )
         report.continuity_text = format_continuity_report(continuity)
+        if ok and token_set:
+            _doctor_push_guidance_verification(
+                hub_url=hub_url,
+                token=token or os.environ.get("ADHD_HUB_AUTH_TOKEN"),
+                project=project,
+                continuity=continuity,
+                report=report,
+            )
 
     report.add(
         "skills CLI",
@@ -1833,6 +1925,7 @@ _AGENT_NAMES = frozenset({
     "adhd-hub-session skill",
     "adhd-hub-projects skill",
     "env-check skill",
+    "guidance verify",
 })
 _COMPANION_PREFIXES = (
     "companion ",
