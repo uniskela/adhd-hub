@@ -48,11 +48,13 @@ def test_remote_mcp_docs_link_to_uniskela_com_portal() -> None:
     index = (REPO_ROOT / "docs" / "index.md").read_text(encoding="utf-8")
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     site_url = (REPO_ROOT / "zensical.toml").read_text(encoding="utf-8")
+    manifest = (REPO_ROOT / "docs" / "manifest.json").read_text(encoding="utf-8")
     canonical = "https://uniskela.com/docs/adhd-hub/remote-mcp-access/"
 
     assert f"]({canonical})" in index
     assert canonical in readme
     assert 'site_url = "https://uniskela.com/docs/adhd-hub/"' in site_url
+    assert '"source": "docs/remote-mcp-access.md"' in manifest
     assert (REPO_ROOT / "docs" / "remote-mcp-access.md").is_file()
 
 

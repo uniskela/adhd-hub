@@ -63,6 +63,13 @@
       "kind": "doc"
     },
     {
+      "source": "docs/cursor-plugin-skill-sync.md",
+      "slug": "cursor-plugin-skill-sync",
+      "title": "Cursor plugin skill sync",
+      "group": "Using the Hub",
+      "kind": "doc"
+    },
+    {
       "source": "docs/openclaw.md",
       "slug": "openclaw",
       "title": "OpenClaw",
@@ -87,6 +94,13 @@
       "source": "docs/deploy-homelab.md",
       "slug": "deploy-homelab",
       "title": "Homelab deployment",
+      "group": "Deploy & configure",
+      "kind": "doc"
+    },
+    {
+      "source": "docs/remote-mcp-access.md",
+      "slug": "remote-mcp-access",
+      "title": "Remote MCP access (tunnels for cloud agents)",
       "group": "Deploy & configure",
       "kind": "doc"
     },
