@@ -22,8 +22,12 @@ concurrency:
 
 jobs:
   release-gate:
-    # Documentation and maintenance-only changes do not need a version. This
-    # job reads only the push event; it cannot write a release or a PR.
+    # Documentation and maintenance-only changes do not need a version. Soft
+    # skip (should_run=false) for non-releasable subjects is intentional —
+    # docs/chore pushes stay quiet rather than failing CI. PR title CI
+    # (pr-title.yml) catches non-conventional titles before merge when the
+    # diff touches release surfaces. This job reads only the push event; it
+    # cannot write a release or a PR.
     if: github.actor == 'uniskela'
     runs-on: ubuntu-latest
     permissions: {}
