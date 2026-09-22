@@ -1,0 +1,34 @@
+name: PR title
+
+# Squash-merge uses the PR title as the merge subject (COMMIT_OR_PR_TITLE).
+# Fail early when a release-surface diff would skip Release Please after merge.
+# Soft-skip of release_gate on main for docs/chore subjects stays intentional.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-title:
+    name: Conventional title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check PR title against release surfaces
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_title_gate.py --title "$PR_TITLE" --base "$BASE_SHA" --head "$HEAD_SHA"

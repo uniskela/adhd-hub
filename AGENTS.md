@@ -50,6 +50,23 @@ If `graphify-out/wiki/index.md` exists, prefer it for navigation. Use `graphify-
 
 See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphify/SKILL.md) and rule [`.cursor/rules/graphify.mdc`](.cursor/rules/graphify.mdc).
 
+## Releases / PR titles
+
+Release Please reads the **squash-merge subject** on `main`, not PR body bullets.
+With GitHub `COMMIT_OR_PR_TITLE`, that subject is the **PR title** (for
+multi-commit squashes unless the merger edits it).
+
+- Release-surface diffs (`src/`, `pyproject.toml`, `uv.lock`, `Dockerfile`,
+  `docker-compose.yml`): PR title **must** be `feat:` / `fix:` / `perf:` /
+  `revert:` (optional scope) or `type!:` for breaking changes.
+- Docs / chore / CI / test-only PRs may use `docs:`, `chore:`, `ci:`, `test:`, etc.
+- CI enforces the release-surface rule via `.github/workflows/pr-title.yml`
+  (`scripts/pr_title_gate.py`, same surfaces as `scripts/release_gate.py`).
+- Soft-skip of `release_gate` on `main` for non-releasable subjects (docs/chore)
+  is intentional — it skips Release Please rather than failing the push.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the PR template.
+
 ## Docs / Wiki
 
 - On each new PR, audit and update wiki docs (`graphify-out/wiki/` when present) so they stay aligned with the change and do not drift.

@@ -69,7 +69,7 @@ Published images (only after a manual release-PR merge by `uniskela`):
 
 - `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.13.0`, `0.13`)
 
-**Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger.
+**Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger. **Squash merges use the PR title as the subject** (body bullets do not count); keep titles conventional for release-surface work — see [AGENTS.md](AGENTS.md) / [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Pre-1.0 bumps (see `release-please-config.json`): `fix:` → patch, `feat:` → minor, `feat!:` / breaking → minor (not 1.0.0 yet).
 

@@ -1,5 +1,14 @@
 # Contributing
 
+## PR titles (Release Please)
+
+Squash-merge uses the **PR title** as the merge subject. Body bullets do not
+count. If the PR touches release surfaces (`src/`, package metadata/lockfile,
+`Dockerfile`, `docker-compose.yml`), the title must be a releasable Conventional
+Commit (`feat:` / `fix:` / `perf:` / `revert:` or `type!:`). Docs-only work may
+use `docs:` and similar. Agents: see [AGENTS.md](AGENTS.md); release overview in
+[README.md](README.md).
+
 ## Dev setup
 
 ```bash
