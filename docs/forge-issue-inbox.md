@@ -40,7 +40,7 @@ Match GitHub `user.login` / Gitea username (case-insensitive).
    - `adhd-hub` — belt-and-suspenders if the agent *can* apply labels
    - `project:<slug>`
    - `source:codex` | `source:chatgpt` | `source:cursor` | `source:claude` | `source:claude-code`
-3. Body: use the structured Goal / Focus / Next / Resume cue format below (no secrets).
+3. Body: use the structured Goal / Focus / Next / Resume format below (no secrets).
 4. Depending on the operator's close-on-import setting, Hub may close the issue and add
    `adhd-hub-synced` after import (it never deletes the issue).
 
@@ -63,20 +63,34 @@ Do the next concrete action
 - [ ] First follow-up
 - [ ] Second follow-up
 
-## Resume cue
+## Resume
 Open the relevant file and continue here
 ```
 
+`## Resume cue` and `## Return cue` are also accepted (same field as bare `## Resume`).
 The legacy `## Current state` / `## Tasks` headings are also accepted as Focus / Next.
 Unstructured bodies are retained as source notes; the Hub does not infer structured fields from
 arbitrary prose.
 
+### Two uses of `[ADHD]` titles
+
+The same title prefix covers two different jobs — keep them distinct:
+
+1. **Short mailbox cue (importable)** — one finishable outcome with Goal / Focus / Next / Resume only.
+   Prefer this for cloud-agent handoffs when Hub MCP is down. Import maps those headings into thread
+   fields; comments are **not** merged into Goal/Focus.
+2. **Long living tracker / PRD** — a durable issue that accumulates design notes, discussion, and
+   comments. Still use the `[ADHD]` title if you want Hub discoverability, but **pin a continuity
+   header** (Goal / Focus / Next / Resume) at the top of the body above longer sections so import and
+   the Hub Notes continuity card stay useful. Do not paste full `PROGRESS.md` into the issue; Hub
+   mirrors structured status via the `<!-- adhd-hub:status -->` block when configured.
+
 Each import stores the provider, host/repository identity, issue number and canonical URL, body
 hash, successful-import timestamp, and the structured values used as the three-way merge base.
 Running **Import issue inbox** again reports imported, refreshed, unchanged, and needs-review
-counts. A changed linked issue updates only Goal, Focus, Next, Resume cue, and a title still derived
+counts. A changed linked issue updates only Goal, Focus, Next, Resume, and a title still derived
 from the issue. Thread status, Hub progress notes, reminders, links, completion notes, and operator
-annotations are preserved.
+annotations are preserved. Issue comments stay display-only in Notes & context (Forge activity).
 
 When both the Hub and forge changed a source-controlled field from its previously imported value,
 the thread enters **Source conflict** instead of overwriting either side. Use **Refresh from source

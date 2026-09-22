@@ -564,6 +564,159 @@ class BoardForgeSync:
             raise ValueError("source_issue_invalid")
         return data
 
+    def _issue_api_base(
+        self,
+        number: int,
+        *,
+        owner: str | None = None,
+        repo: str | None = None,
+    ) -> str:
+        own = (owner or self.config.owner or "").strip()
+        rep = (repo or self.config.repo or "").strip()
+        return f"{self.config.api_root()}/repos/{own}/{rep}/issues/{number}"
+
+    @staticmethod
+    def _comment_author(raw: dict[str, Any]) -> str:
+        user = raw.get("user") or raw.get("author") or {}
+        if isinstance(user, dict):
+            return str(user.get("login") or user.get("username") or user.get("name") or "").strip()
+        return str(user or "").strip()
+
+    def list_issue_comments(
+        self,
+        number: int,
+        *,
+        owner: str | None = None,
+        repo: str | None = None,
+        limit: int = 40,
+    ) -> list[dict[str, Any]]:
+        """List issue comments newest-first (GitHub + Gitea Issues REST)."""
+        if not self.config.enabled() or not self.config.token:
+            return []
+        url = f"{self._issue_api_base(number, owner=owner, repo=repo)}/comments"
+        out: list[dict[str, Any]] = []
+        with httpx.Client(timeout=20.0) as client:
+            page = 1
+            page_size = min(100, max(1, limit))
+            while len(out) < limit and page <= 5:
+                resp = client.get(
+                    url,
+                    headers=self._headers(),
+                    params={"per_page": page_size, "page": page, "limit": page_size},
+                )
+                if resp.status_code >= 400:
+                    log.warning(
+                        "list issue comments failed: %s %s",
+                        resp.status_code,
+                        resp.text[:200],
+                    )
+                    resp.raise_for_status()
+                items = resp.json()
+                if not isinstance(items, list):
+                    break
+                for raw in items:
+                    if not isinstance(raw, dict):
+                        continue
+                    remote_id = raw.get("id")
+                    if remote_id is None:
+                        continue
+                    out.append(
+                        {
+                            "remote_id": str(remote_id),
+                            "kind": "comment",
+                            "author": self._comment_author(raw),
+                            "body": str(raw.get("body") or ""),
+                            "created_at": str(
+                                raw.get("created_at") or raw.get("created") or ""
+                            ),
+                            "html_url": str(raw.get("html_url") or raw.get("url") or ""),
+                        }
+                    )
+                    if len(out) >= limit:
+                        break
+                if len(items) < page_size:
+                    break
+                page += 1
+        out.sort(key=lambda row: row.get("created_at") or "", reverse=True)
+        return out[:limit]
+
+    def list_issue_timeline(
+        self,
+        number: int,
+        *,
+        owner: str | None = None,
+        repo: str | None = None,
+        limit: int = 12,
+    ) -> list[dict[str, Any]]:
+        """Light issue timeline/events slice when the forge exposes it cheaply."""
+        if not self.config.enabled() or not self.config.token:
+            return []
+        base = self._issue_api_base(number, owner=owner, repo=repo)
+        # GitHub timeline; Gitea often 404s — fail soft.
+        url = f"{base}/timeline"
+        headers = dict(self._headers())
+        if self.config.provider == ForgeProvider.github:
+            headers["Accept"] = "application/vnd.github+json"
+        interesting = {
+            "labeled",
+            "unlabeled",
+            "closed",
+            "reopened",
+            "cross-referenced",
+            "referenced",
+            "renamed",
+            "assigned",
+            "unassigned",
+        }
+        out: list[dict[str, Any]] = []
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                resp = client.get(
+                    url,
+                    headers=headers,
+                    params={"per_page": min(30, max(limit, 10)), "page": 1},
+                )
+                if resp.status_code == 404:
+                    return []
+                if resp.status_code >= 400:
+                    log.warning(
+                        "list issue timeline failed: %s %s",
+                        resp.status_code,
+                        resp.text[:200],
+                    )
+                    return []
+                items = resp.json()
+        except httpx.HTTPError as exc:
+            log.warning("list issue timeline transport failed: %s", exc)
+            return []
+        if not isinstance(items, list):
+            return []
+        for raw in items:
+            if not isinstance(raw, dict):
+                continue
+            event = str(raw.get("event") or raw.get("type") or "").strip().casefold()
+            if event not in interesting:
+                continue
+            remote_id = raw.get("id") or raw.get("node_id") or f"{event}-{raw.get('created_at')}"
+            label = ""
+            if isinstance(raw.get("label"), dict):
+                label = str(raw["label"].get("name") or "")
+            out.append(
+                {
+                    "remote_id": str(remote_id),
+                    "kind": "timeline",
+                    "author": self._comment_author(raw),
+                    "body": label or event.replace("-", " "),
+                    "event": event,
+                    "created_at": str(raw.get("created_at") or ""),
+                    "html_url": str(raw.get("html_url") or raw.get("url") or ""),
+                }
+            )
+            if len(out) >= limit:
+                break
+        out.sort(key=lambda row: row.get("created_at") or "", reverse=True)
+        return out[:limit]
+
     def mark_issue_imported(
         self,
         number: int,

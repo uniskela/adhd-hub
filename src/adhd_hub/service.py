@@ -747,48 +747,274 @@ class HubService:
         return slugify(summary_or_title or "untitled")
 
     def thread_notes_context_html(self, thread: Thread) -> str:
-        """Readable Notes & context HTML: thread entries first, full wiki preserved."""
+        """ADHD-scannable Notes & context: overview, continuity, notes, siblings, wiki, activity."""
         from html import escape
 
         from adhd_hub.markdown import render_markdown
 
         parts: list[str] = []
-        has_entries = False
-        if thread.project_slug:
-            notes = self.store.list_progress_notes(
-                thread.project_slug, limit=40, thread_id=thread.id
+        slug = thread.project_slug
+        project = self.store.get_project(slug) if slug else None
+        unfinished = self._unfinished_threads(slug) if slug else []
+        pub = self.thread_public_dict(thread)
+
+        # 1. Project overview (always visible)
+        title = escape((project.title if project else None) or slug or "Project")
+        slug_label = escape(slug or "—")
+        active_n = len(unfinished)
+        updated = escape((thread.updated_at.isoformat() if thread.updated_at else "")[:19])
+        forge_link = ""
+        issue_url = pub.get("forge_issue_url")
+        issue_num = pub.get("forge_issue_number")
+        if issue_url and issue_num is not None:
+            forge_link = (
+                f'<a class="notes-overview-link" href="{escape(str(issue_url))}" '
+                f'target="_blank" rel="noopener noreferrer">Issue #{escape(str(issue_num))}</a>'
             )
-            if notes:
-                has_entries = True
-                for note in notes:
-                    stamp = escape(note.get("created_at") or "")
-                    body = render_markdown(note.get("content") or "")
-                    parts.append(
-                        '<article class="notes-entry">'
-                        f'<time class="notes-entry-meta" datetime="{stamp}">{stamp}</time>'
-                        f'<div class="markdown-body">{body}</div>'
-                        "</article>"
-                    )
-            wiki = self.wiki.read_progress(thread.project_slug) or ""
+        elif project and project.repo_url:
+            forge_link = (
+                f'<a class="notes-overview-link" href="{escape(project.repo_url)}" '
+                f'target="_blank" rel="noopener noreferrer">Repository</a>'
+            )
+        updated_html = f"<span>Updated {updated}</span>" if updated else ""
+        parts.append(
+            '<section class="notes-overview" aria-label="Project overview">'
+            f'<p class="notes-overview-title">{title}</p>'
+            '<p class="notes-overview-meta">'
+            f'<span class="notes-overview-slug"><code>{slug_label}</code></span>'
+            f'<span>{active_n} active</span>'
+            f"{updated_html}"
+            f"{forge_link}"
+            "</p></section>"
+        )
+
+        # 2. This thread continuity card (always visible)
+        parts.append(self._notes_continuity_card_html(thread, heading="This thread"))
+
+        # 3. Thread notes
+        notes: list[dict[str, str]] = []
+        if slug:
+            notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
+        note_parts: list[str] = []
+        for note in notes:
+            stamp = escape(note.get("created_at") or "")
+            body = render_markdown(note.get("content") or "")
+            note_parts.append(
+                '<article class="notes-entry">'
+                f'<time class="notes-entry-meta" datetime="{stamp}">{stamp}</time>'
+                f'<div class="markdown-body">{body}</div>'
+                "</article>"
+            )
+        open_notes = " open" if note_parts else ""
+        notes_inner = (
+            "".join(note_parts)
+            if note_parts
+            else '<p class="notes-empty-hint">No thread-scoped notes yet.</p>'
+        )
+        parts.append(
+            f'<details class="notes-section-details notes-thread-notes"{open_notes}>'
+            "<summary>Thread notes</summary>"
+            f'<div class="notes-section-body">{notes_inner}</div>'
+            "</details>"
+        )
+
+        # 4. Other active threads (closed by default)
+        for sibling in unfinished:
+            if sibling.id == thread.id:
+                continue
+            summary = escape(sibling.summary or "Untitled")
+            status = escape(sibling.status.value)
+            parts.append(
+                '<details class="notes-section-details notes-sibling-thread">'
+                f"<summary>{summary} <span class=\"notes-status-chip\">{status}</span></summary>"
+                f'<div class="notes-section-body">'
+                f"{self._notes_continuity_card_html(sibling, heading=None, compact=True)}"
+                "</div></details>"
+            )
+
+        # 5. Full PROGRESS.md (closed by default; secondary)
+        if slug:
+            wiki = self.wiki.read_progress(slug) or ""
             if wiki.strip():
                 wiki_html = render_markdown(wiki)
-                # Open wiki by default when there are no thread-scoped entries so
-                # first expand is not an empty-looking shell.
-                open_attr = " open" if not has_entries else ""
-                if not has_entries:
-                    parts.append(
-                        '<p class="notes-empty-hint">No thread-scoped notes yet. '
-                        "Project wiki is shown below.</p>"
-                    )
                 parts.append(
-                    f'<details class="notes-wiki-details"{open_attr}>'
-                    "<summary>Project wiki / full progress</summary>"
-                    f'<div class="markdown-body">{wiki_html}</div>'
+                    '<details class="notes-section-details notes-wiki-details">'
+                    "<summary>Full PROGRESS.md</summary>"
+                    f'<div class="notes-section-body markdown-body">{wiki_html}</div>'
                     "</details>"
                 )
-        if not parts:
-            return "<p>No saved notes yet.</p>"
+
+        # 6. Forge activity (open when comments exist; fail soft)
+        parts.append(self._notes_forge_activity_html(thread, pub))
+
         return "".join(parts)
+
+    def _notes_continuity_card_html(
+        self,
+        thread: Thread,
+        *,
+        heading: str | None = "This thread",
+        compact: bool = False,
+    ) -> str:
+        from html import escape
+
+        from adhd_hub.markdown import render_markdown
+
+        status = escape(thread.status.value)
+        blocks: list[str] = []
+        if heading:
+            blocks.append(
+                f'<header class="notes-continuity-head">'
+                f'<p class="notes-continuity-title">{escape(thread.summary or "Untitled")}</p>'
+                f'<span class="notes-status-chip">{status}</span>'
+                f"</header>"
+            )
+        elif not compact:
+            blocks.append(f'<span class="notes-status-chip">{status}</span>')
+
+        def field(label: str, html: str) -> str:
+            return (
+                f'<div class="notes-continuity-field">'
+                f'<p class="notes-continuity-label">{escape(label)}</p>'
+                f'<div class="notes-continuity-value">{html}</div>'
+                f"</div>"
+            )
+
+        if thread.goal:
+            blocks.append(field("Goal", f"<p>{escape(thread.goal)}</p>"))
+        if thread.focus:
+            blocks.append(field("Focus", f"<p>{escape(thread.focus)}</p>"))
+        if thread.next_steps:
+            items = "".join(f"<li>{escape(step)}</li>" for step in thread.next_steps[:3])
+            blocks.append(field("Next", f"<ol>{items}</ol>"))
+        if thread.blocked_reason:
+            blocks.append(field("Blocked", f"<p>{escape(thread.blocked_reason)}</p>"))
+        if thread.resume_step:
+            # Allow light markdown in resume for emphasis; still sanitized.
+            resume_html = render_markdown(thread.resume_step)
+            blocks.append(field("Resume", resume_html))
+        if not any(
+            [
+                thread.goal,
+                thread.focus,
+                thread.next_steps,
+                thread.blocked_reason,
+                thread.resume_step,
+            ]
+        ):
+            blocks.append(
+                '<p class="notes-empty-hint">No Goal / Focus / Next / Resume on this thread yet.</p>'
+            )
+        cls = "notes-continuity-card"
+        if compact:
+            cls += " notes-continuity-compact"
+        return f'<section class="{cls}">{"".join(blocks)}</section>'
+
+    def _notes_forge_activity_html(self, thread: Thread, pub: dict | None = None) -> str:
+        from html import escape
+
+        from adhd_hub.markdown import render_markdown
+
+        pub = pub or self.thread_public_dict(thread)
+        number = pub.get("forge_issue_number")
+        if number is None:
+            return (
+                '<details class="notes-section-details notes-forge-activity">'
+                "<summary>Forge activity</summary>"
+                '<div class="notes-section-body">'
+                '<p class="notes-empty-hint">No linked forge issue.</p>'
+                "</div></details>"
+            )
+
+        activity = self._forge_activity_for_notes(thread, issue_number=int(number))
+        comments = [row for row in activity.get("items", []) if row.get("kind") == "comment"]
+        timeline = [row for row in activity.get("items", []) if row.get("kind") == "timeline"]
+        open_attr = " open" if comments else ""
+        body_parts: list[str] = []
+
+        if activity.get("error"):
+            body_parts.append(
+                '<p class="notes-empty-hint">Activity unavailable — Hub sections above are still current.</p>'
+            )
+        if timeline:
+            chips = []
+            for ev in timeline[:8]:
+                label = escape((ev.get("body") or ev.get("event") or "event").strip())
+                stamp = escape((ev.get("created_at") or "")[:10])
+                time_html = f"<time>{stamp}</time>" if stamp else ""
+                chips.append(
+                    f'<li class="notes-activity-chip"><span>{label}</span>{time_html}</li>'
+                )
+            body_parts.append(
+                '<ul class="notes-activity-timeline" aria-label="Issue timeline">'
+                + "".join(chips)
+                + "</ul>"
+            )
+        if comments:
+            for row in comments:
+                stamp = escape(row.get("created_at") or "")
+                author = escape(row.get("author") or "comment")
+                body = render_markdown(row.get("body") or "")
+                time_html = (
+                    f'<time datetime="{stamp}">{stamp}</time>' if stamp else ""
+                )
+                body_parts.append(
+                    '<article class="notes-activity-comment">'
+                    f'<div class="markdown-body">{body}</div>'
+                    f'<p class="notes-activity-meta"><span>{author}</span>{time_html}</p>'
+                    "</article>"
+                )
+        elif not activity.get("error"):
+            body_parts.append(
+                '<p class="notes-empty-hint">No comments on the linked issue yet.</p>'
+            )
+
+        return (
+            f'<details class="notes-section-details notes-forge-activity"{open_attr}>'
+            "<summary>Forge activity</summary>"
+            f'<div class="notes-section-body">{"".join(body_parts)}</div>'
+            "</details>"
+        )
+
+    def _forge_activity_for_notes(
+        self, thread: Thread, *, issue_number: int, ttl_seconds: int = 90
+    ) -> dict:
+        """Refresh-on-open forge comments/timeline with short TTL; never raises."""
+        from datetime import datetime, timedelta
+
+        cached = self.store.list_forge_activity(thread.id, limit=60)
+        fetched_at = self.store.forge_activity_fetched_at(thread.id)
+        fresh = False
+        if fetched_at:
+            try:
+                stamp = datetime.fromisoformat(fetched_at)
+                if stamp.tzinfo is None:
+                    stamp = stamp.replace(tzinfo=UTC)
+                fresh = datetime.now(UTC) - stamp < timedelta(seconds=ttl_seconds)
+            except ValueError:
+                fresh = False
+        if cached and fresh:
+            return {"items": cached, "cached": True}
+
+        try:
+            cfg = self.forge_config(thread.project_slug)
+            board = self._forge._board(cfg)
+            owner = thread.external_owner
+            repo = thread.external_repo
+            comments = board.list_issue_comments(
+                issue_number, owner=owner, repo=repo, limit=40
+            )
+            timeline = board.list_issue_timeline(
+                issue_number, owner=owner, repo=repo, limit=12
+            )
+            items = [*comments, *timeline]
+            self.store.replace_forge_activity(thread.id, items)
+            return {"items": self.store.list_forge_activity(thread.id, limit=60), "cached": False}
+        except Exception as exc:  # noqa: BLE001 — display-only path must fail soft
+            log.warning("forge activity refresh failed for %s: %s", thread.id, exc)
+            if cached:
+                return {"items": cached, "cached": True, "error": str(exc)}
+            return {"items": [], "error": str(exc)}
 
     def thread_public_dict(self, thread: Thread) -> dict:
         data = thread.model_dump(mode="json")

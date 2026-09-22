@@ -270,6 +270,28 @@ class Store:
                 "CREATE INDEX IF NOT EXISTS idx_progress_thread ON progress_notes(thread_id)"
             )
 
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS forge_activity_cache (
+                    id TEXT PRIMARY KEY,
+                    thread_id TEXT NOT NULL,
+                    remote_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    author TEXT,
+                    body TEXT NOT NULL DEFAULT '',
+                    created_at TEXT,
+                    html_url TEXT,
+                    event TEXT,
+                    fetched_at TEXT NOT NULL,
+                    UNIQUE(thread_id, remote_id, kind)
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_forge_activity_thread "
+                "ON forge_activity_cache(thread_id, fetched_at)"
+            )
+
     def _row_thread(self, row: sqlite3.Row) -> Thread:
         keys = set(row.keys())
         next_raw = row["next_steps"] if "next_steps" in keys else None
@@ -565,6 +587,88 @@ class Store:
                 conn.execute(
                     "UPDATE threads SET last_reminded_at = ? WHERE id = ?",
                     (now, tid),
+                )
+
+    def list_forge_activity(
+        self, thread_id: str, *, limit: int = 50
+    ) -> list[dict[str, str]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, thread_id, remote_id, kind, author, body, created_at,
+                       html_url, event, fetched_at
+                FROM forge_activity_cache
+                WHERE thread_id = ?
+                ORDER BY created_at DESC, remote_id DESC
+                LIMIT ?
+                """,
+                (thread_id, limit),
+            ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "thread_id": r["thread_id"],
+                "remote_id": r["remote_id"],
+                "kind": r["kind"],
+                "author": r["author"] or "",
+                "body": r["body"] or "",
+                "created_at": r["created_at"] or "",
+                "html_url": r["html_url"] or "",
+                "event": r["event"] or "",
+                "fetched_at": r["fetched_at"] or "",
+            }
+            for r in rows
+        ]
+
+    def forge_activity_fetched_at(self, thread_id: str) -> str | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT fetched_at FROM forge_activity_cache
+                WHERE thread_id = ?
+                ORDER BY fetched_at DESC LIMIT 1
+                """,
+                (thread_id,),
+            ).fetchone()
+        return row["fetched_at"] if row else None
+
+    def replace_forge_activity(
+        self,
+        thread_id: str,
+        items: list[dict[str, Any]],
+        *,
+        fetched_at: str | None = None,
+    ) -> None:
+        """Replace cached forge comments/timeline for a thread (idempotent by remote id)."""
+        stamp = fetched_at or utcnow().isoformat()
+        with self._conn() as conn:
+            conn.execute(
+                "DELETE FROM forge_activity_cache WHERE thread_id = ?", (thread_id,)
+            )
+            for item in items:
+                remote_id = str(item.get("remote_id") or "").strip()
+                kind = str(item.get("kind") or "comment").strip() or "comment"
+                if not remote_id:
+                    continue
+                conn.execute(
+                    """
+                    INSERT INTO forge_activity_cache (
+                        id, thread_id, remote_id, kind, author, body, created_at,
+                        html_url, event, fetched_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(uuid4()),
+                        thread_id,
+                        remote_id,
+                        kind,
+                        str(item.get("author") or "")[:200] or None,
+                        str(item.get("body") or ""),
+                        str(item.get("created_at") or "") or None,
+                        str(item.get("html_url") or "") or None,
+                        str(item.get("event") or "") or None,
+                        stamp,
+                    ),
                 )
 
     def add_progress_note(
