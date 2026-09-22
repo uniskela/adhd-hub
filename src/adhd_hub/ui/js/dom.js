@@ -1,10 +1,18 @@
 import { state, $, setMsg, escapeHtml } from './state.js';
 
-export async function copyReference(id) {
+export async function copyText(text, successMsg) {
     try {
-      await navigator.clipboard.writeText(id);
-      setMsg("Reference copied. You can paste it into your assistant.");
-    } catch (_) { setMsg("Clipboard unavailable. Thread reference: " + id); }
+      await navigator.clipboard.writeText(text);
+      setMsg(successMsg || "Copied.");
+      return true;
+    } catch (_) {
+      setMsg("Clipboard unavailable.");
+      return false;
+    }
+  }
+export async function copyReference(id) {
+    const ok = await copyText(id, "Reference copied. You can paste it into your assistant.");
+    if (!ok) setMsg("Clipboard unavailable. Thread reference: " + id);
   }
 export function safeHttpUrl(value) {
     try {

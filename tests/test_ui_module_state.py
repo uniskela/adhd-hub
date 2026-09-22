@@ -180,7 +180,39 @@ def test_notes_reader_formats_time_elements_with_current_tz():
     assert "time[datetime]" in dom
     assert "formatWhen(iso)" in dom
     assert "formatNotesTimes" in now
-    assert "import { formatNotesTimes, formatWhen }" in now
+    assert "import { copyText, formatNotesTimes, formatWhen }" in now
     # Runs as part of wireNotesActions so both reader inject and Now card paths cover it.
     wire = now.index("function wireNotesActions")
     assert "formatNotesTimes(root)" in now[wire : wire + 400]
+
+
+def test_now_copy_coding_agent_prompt_control():
+    """Selected Now thread exposes a compact Copy agent prompt control."""
+    now = (UI_JS / "now.js").read_text()
+    dom = (UI_JS / "dom.js").read_text()
+    assert "export function buildCodingAgentPrompt" in now
+    assert "export async function copyCodingAgentPrompt" in now
+    assert 'id="btn-copy-agent-prompt"' in now
+    assert ">Copy agent prompt</button>" in now
+    assert "Copied coding-agent prompt" in now
+    assert "export async function copyText" in dom
+    assert "import { copyText, formatNotesTimes, formatWhen }" in now
+    # Button sits with Start / Choose / Done in renderFocus.
+    render = now.index("export function renderFocus")
+    btn = now.index('id="btn-copy-agent-prompt"', render)
+    done = now.index('data-done="', render)
+    assert done < btn
+    # Prompt includes the scannable continuity sections agents need.
+    for needle in (
+        "**Goal**",
+        "**Focus**",
+        "**Next**",
+        "**Blocked**",
+        "**Resume**",
+        "**Progress**",
+        "Linked forge issue",
+        "upsert_progress",
+    ):
+        assert needle in now
+    # Cap next steps at 3 in the builder.
+    assert ".slice(0, 3)" in now[now.index("buildCodingAgentPrompt") :]

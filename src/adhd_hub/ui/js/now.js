@@ -1,10 +1,97 @@
 import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
-import { formatNotesTimes, formatWhen } from './dom.js';
+import { copyText, formatNotesTimes, formatWhen } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { celebrate } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
+
+/** Resolve display title for a project slug from the overview cache. */
+export function projectTitleForSlug(slug) {
+    if (!slug || slug === "unclassified") return "Inbox";
+    const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
+    return project?.title || slug;
+  }
+
+/**
+ * ADHD-scannable prompt for a coding agent, from thread public fields already on Now.
+ * Omits empty sections; caps Next at 3 and progress snippet length.
+ * @param {object} thread
+ * @param {{ projectTitle?: string }} [opts]
+ */
+export function buildCodingAgentPrompt(thread, opts = {}) {
+    if (!thread) return "";
+    const lines = [
+      "Continue this ADHD Hub thread as a coding agent.",
+      "",
+      "Open the repo and any linked forge issue, then continue from Resume / Next. Checkpoint with Hub upsert_progress when you pause.",
+      "",
+      "## Project",
+    ];
+    const slug = thread.project_slug || "";
+    const title = opts.projectTitle || (slug === "unclassified" ? "Inbox" : slug);
+    if (slug) lines.push(`- slug: \`${slug}\``);
+    if (title) lines.push(`- title: ${title}`);
+    if (thread.summary) lines.push(`- thread: ${String(thread.summary).trim()}`);
+    if (thread.id) lines.push(`- thread_id: \`${thread.id}\``);
+    lines.push("");
+
+    const issueNum = thread.forge_issue_number;
+    const issueUrl = thread.forge_issue_url;
+    if (issueNum != null || issueUrl) {
+      lines.push("## Linked forge issue");
+      if (issueNum != null) lines.push(`- number: #${issueNum}`);
+      if (issueUrl) lines.push(`- url: ${issueUrl}`);
+      lines.push("");
+    }
+
+    lines.push("## Continuity");
+    const goal = String(thread.goal || "").trim();
+    const focus = String(thread.focus || "").trim();
+    const blocked = String(thread.blocked_reason || "").trim();
+    const resume = String(thread.resume_step || "").trim();
+    const nextSteps = (Array.isArray(thread.next_steps) ? thread.next_steps : [])
+      .map((step) => String(step || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const snippet = String(thread.progress_snippet || "").trim().slice(0, 800);
+
+    if (goal) {
+      lines.push("**Goal**", "", goal, "");
+    }
+    if (focus) {
+      lines.push("**Focus**", "", focus, "");
+    }
+    if (nextSteps.length) {
+      lines.push("**Next**", "");
+      nextSteps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+      lines.push("");
+    }
+    if (blocked) {
+      lines.push("**Blocked**", "", blocked, "");
+    }
+    if (resume) {
+      lines.push("**Resume**", "", resume, "");
+    }
+    if (snippet) {
+      lines.push("**Progress**", "", snippet, "");
+    }
+    if (!goal && !focus && !nextSteps.length && !blocked && !resume && !snippet) {
+      lines.push("_No continuity fields yet — use the thread summary and forge issue._", "");
+    }
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  }
+
+export async function copyCodingAgentPrompt(thread) {
+    const text = buildCodingAgentPrompt(thread, {
+      projectTitle: projectTitleForSlug(thread?.project_slug),
+    });
+    if (!text.trim()) {
+      setMsg("Nothing to copy yet.");
+      return;
+    }
+    await copyText(text, "Copied coding-agent prompt");
+  }
 
 export function rememberFocus() {
     if (state.chosenId) preferences.setItem("adhd_hub_chosen_thread", state.chosenId);
@@ -282,6 +369,7 @@ export function renderFocus() {
         <button type="button" class="primary" id="btn-start">${state.focusState === "working" ? "Pause here" : returning || state.focusState === "paused" ? "Resume" : "Start"}</button>
         <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
         <button type="button" class="ghost" data-done="${escapeHtml(thread.id)}">Done</button>
+        <button type="button" class="ghost" id="btn-copy-agent-prompt" title="Copy as prompt for Coding Agent to begin work">Copy agent prompt</button>
       </div>
       <details class="progress-details"><summary>Project notes</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
     $("btn-start").addEventListener("click", () => {
@@ -294,6 +382,9 @@ export function renderFocus() {
     });
     $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
     card.querySelector("[data-done]").addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
+    $("btn-copy-agent-prompt")?.addEventListener("click", () => {
+      copyCodingAgentPrompt(thread).catch((error) => setMsg(error.message));
+    });
     wireNotesActions(card);
   }
 export async function markDone(id) {
