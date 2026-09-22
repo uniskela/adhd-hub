@@ -55,7 +55,7 @@ curl -fsS -H "Authorization: Bearer $ADHD_HUB_AUTH_TOKEN" \
   "$ADHD_HUB_PUBLIC_URL/mcp"
 ```
 
-7. Point cloud MCP clients at `https://hub.example.com/mcp` with the same bearer token (see [Cursor Cloud wiring](#cursor-cloud--cloud-agent-wiring)).
+7. Point cloud MCP clients at `https://hub.example.com/mcp` with the same bearer token (see [Cursor Cloud wiring](#cursor-cloud-cloud-agent-wiring)).
 
 **Optional:** put [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) in front of the tunnel hostname for an extra operator login gate. Access does not replace Hub Bearer/OAuth for MCP clients — agents still need `Authorization: Bearer` (or Hub OAuth).
 
