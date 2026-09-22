@@ -26,6 +26,7 @@ from adhd_hub.models import (
     ThreadStatus,
     ThreadUpsert,
 )
+from adhd_hub.timeutil import ensure_aware_utc
 from adhd_hub.work_identity import (
     WORK_IDENTITY_MIGRATED_META,
     DuplicateExternalIdentityError,
@@ -42,6 +43,12 @@ log = logging.getLogger(__name__)
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if value is None or value == "":
+        return None
+    return ensure_aware_utc(value) or datetime.fromisoformat(value)
 
 
 def slugify(text: str) -> str:
@@ -308,7 +315,7 @@ class Store:
             summary=row["summary"],
             resume_step=row["resume_step"] if "resume_step" in keys else None,
             paused_at=(
-                datetime.fromisoformat(row["paused_at"])
+                _parse_dt(row["paused_at"])
                 if "paused_at" in keys and row["paused_at"]
                 else None
             ),
@@ -320,11 +327,9 @@ class Store:
             chat_ref=row["chat_ref"],
             transcript_ref=row["transcript_ref"],
             origin=row["origin"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
-            last_reminded_at=(
-                datetime.fromisoformat(row["last_reminded_at"]) if row["last_reminded_at"] else None
-            ),
+            created_at=_parse_dt(row["created_at"]) or utcnow(),
+            updated_at=_parse_dt(row["updated_at"]) or utcnow(),
+            last_reminded_at=_parse_dt(row["last_reminded_at"]) if row["last_reminded_at"] else None,
             goal=row["goal"] if "goal" in keys else None,
             focus=row["focus"] if "focus" in keys else None,
             next_steps=next_steps,

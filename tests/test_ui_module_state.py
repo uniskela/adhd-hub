@@ -179,11 +179,25 @@ def test_notes_reader_formats_time_elements_with_current_tz():
     assert "export function formatNotesTimes" in dom
     assert "time[datetime]" in dom
     assert "formatWhen(iso)" in dom
+    assert "export function parseHubInstant" in dom
+    assert "Hub UTC, not browser-local" in dom
     assert "formatNotesTimes" in now
     assert "import { copyText, formatNotesTimes, formatWhen }" in now
     # Runs as part of wireNotesActions so both reader inject and Now card paths cover it.
     wire = now.index("function wireNotesActions")
     assert "formatNotesTimes(root)" in now[wire : wire + 400]
+
+
+def test_prefs_prefer_browser_tz_over_default_utc():
+    """Default server UTC must not stick; browser TZ wins until Settings save is explicit."""
+    settings = (UI_JS / "settings.js").read_text()
+    assert 'tzKey + "_explicit"' in settings
+    assert 'serverTz !== "UTC"' in settings
+    assert "browserTz()" in settings
+    load = settings.index("export async function loadPrefs")
+    save = settings.index("export async function saveSettings")
+    assert "_explicit" in settings[load:save]
+    assert 'preferences.setItem(tzKey + "_explicit", "1")' in settings[save : save + 500]
 
 
 def test_now_copy_coding_agent_prompt_control():

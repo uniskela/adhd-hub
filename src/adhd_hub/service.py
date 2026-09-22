@@ -782,12 +782,16 @@ class HubService:
         """Machine-readable <time datetime>; UI reformats text via formatWhen / currentTz."""
         from html import escape
 
+        from adhd_hub.timeutil import to_iso_utc
+
         if value is None:
             return ""
-        if hasattr(value, "isoformat"):
-            raw = value.isoformat()
-        else:
-            raw = str(value).strip()
+        raw = to_iso_utc(value)  # type: ignore[arg-type]
+        if not raw:
+            if hasattr(value, "isoformat"):
+                raw = value.isoformat()
+            else:
+                raw = str(value).strip()
         if not raw:
             return ""
         esc = escape(raw)
@@ -1157,7 +1161,9 @@ class HubService:
             return {"items": [], "error": str(exc)}
 
     def thread_public_dict(self, thread: Thread) -> dict:
-        data = thread.model_dump(mode="json")
+        from adhd_hub.timeutil import normalize_public_timestamps
+
+        data = normalize_public_timestamps(thread.model_dump(mode="json"))
         project = (
             self.store.get_project(thread.project_slug) if thread.project_slug else None
         )

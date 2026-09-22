@@ -42,12 +42,10 @@ export function selectSettingsTab(name, focus = false) {
   if (content) content.scrollTop = 0;
 }
 export async function loadPrefs() {
+    let serverTz = null;
     try {
       const p = await api("/prefs");
-      if (p.timezone) {
-        state.currentTz = p.timezone;
-        preferences.setItem(tzKey, state.currentTz);
-      }
+      if (p.timezone) serverTz = p.timezone;
       applyConnectAgents(Array.isArray(p.connect_agents) ? p.connect_agents : []);
       applyConnectCompanions(
         Array.isArray(p.connect_companions) ? p.connect_companions : []
@@ -55,20 +53,30 @@ export async function loadPrefs() {
     } catch (_e) {
       /* keep local */
     }
-    if (!preferences.getItem(tzKey + "_initialized")) {
-      const local = browserTz();
-      if (!state.currentTz || state.currentTz === "UTC") state.currentTz = local;
-      preferences.setItem(tzKey, state.currentTz);
-      preferences.setItem(tzKey + "_initialized", "1");
-      try {
-        await api("/prefs", {
-          method: "PUT",
-          body: JSON.stringify({ timezone: state.currentTz }),
-        });
-      } catch (_e2) {
-        /* optional */
+    const local = browserTz();
+    const explicit = preferences.getItem(tzKey + "_explicit") === "1";
+    // Default/env UTC must not stick forever: My Work would show UTC wall times
+    // (often 00:00 for AU morning forge imports). Prefer browser until the
+    // operator explicitly saves a timezone in Settings.
+    if (explicit && serverTz) {
+      state.currentTz = serverTz;
+    } else if (serverTz && serverTz !== "UTC") {
+      state.currentTz = serverTz;
+    } else {
+      state.currentTz = local || serverTz || "UTC";
+      if (state.currentTz !== "UTC" && state.currentTz !== serverTz) {
+        try {
+          await api("/prefs", {
+            method: "PUT",
+            body: JSON.stringify({ timezone: state.currentTz }),
+          });
+        } catch (_e2) {
+          /* optional — local display still uses browser TZ */
+        }
       }
     }
+    preferences.setItem(tzKey, state.currentTz);
+    preferences.setItem(tzKey + "_initialized", "1");
     fillTimezoneSelect(state.currentTz);
   }
 export function selectedConnectAgents() {
@@ -716,6 +724,7 @@ export async function saveSettings() {
     const tz = $("timezone").value || browserTz();
     state.currentTz = tz;
     preferences.setItem(tzKey, tz);
+    preferences.setItem(tzKey + "_explicit", "1");
     try {
       await api("/prefs", { method: "PUT", body: JSON.stringify({ timezone: tz }) });
       await loadOverview();
