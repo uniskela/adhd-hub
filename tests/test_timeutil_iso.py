@@ -52,6 +52,64 @@ def test_thread_public_dict_emits_z_utc_not_naive_midnight(tmp_path) -> None:
     assert pub["source_imported_at"] != "2026-09-23T00:00:00Z"
 
 
+def test_thread_public_dict_prefers_forge_issue_wall_clock(tmp_path) -> None:
+    """Batch Hub import at midnight must not hide the forge issue's real updated_at."""
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Forge stamp", project_slug="demo", origin="forge-import")
+    )
+    with service.store._conn() as conn:
+        conn.execute(
+            """
+            UPDATE threads SET
+              updated_at = ?,
+              source_imported_at = ?,
+              external_updated_at = ?,
+              source_sync_state = ?
+            WHERE id = ?
+            """,
+            (
+                "2026-09-22T14:00:00+00:00",  # midnight Sydney batch
+                "2026-09-22T14:00:00+00:00",
+                "2026-09-18T03:42:11Z",  # real forge issue activity
+                "current",
+                thread.id,
+            ),
+        )
+    pub = service.thread_public_dict(service.store.get_thread(thread.id))
+    assert pub["display_source_at"] == "2026-09-18T03:42:11Z"
+    assert pub["display_updated_at"] == "2026-09-18T03:42:11Z"
+    assert pub["external_updated_at"] == "2026-09-18T03:42:11Z"
+
+
+def test_thread_public_dict_keeps_later_hub_activity(tmp_path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Later hub", project_slug="demo", origin="forge-import")
+    )
+    with service.store._conn() as conn:
+        conn.execute(
+            """
+            UPDATE threads SET
+              updated_at = ?,
+              source_imported_at = ?,
+              external_updated_at = ?,
+              source_sync_state = ?
+            WHERE id = ?
+            """,
+            (
+                "2026-09-22T14:15:00+00:00",  # later Hub conflict refresh
+                "2026-09-22T14:00:00+00:00",
+                "2026-09-18T03:42:11Z",
+                "conflicted",
+                thread.id,
+            ),
+        )
+    pub = service.thread_public_dict(service.store.get_thread(thread.id))
+    assert pub["display_updated_at"] == "2026-09-22T14:15:00Z"
+    assert pub["display_source_at"] == "2026-09-18T03:42:11Z"
+
+
 def test_normalize_public_timestamps_rewrites_keys() -> None:
     data = {
         "updated_at": "2026-09-23T14:30:21",

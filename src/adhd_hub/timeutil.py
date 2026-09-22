@@ -98,8 +98,21 @@ def normalize_public_timestamps(data: dict[str, Any]) -> dict[str, Any]:
         "paused_at",
         "last_reminded_at",
         "source_imported_at",
+        "external_updated_at",
         "due_at",
     ):
         if key in data and data[key] is not None and data[key] != "":
             data[key] = to_iso_utc(data[key])
     return data
+
+
+def latest_iso(*values: datetime | date | str | None) -> str:
+    """Return the chronologically latest stamp as UTC ``Z`` ISO (empty if none)."""
+    best: datetime | None = None
+    for value in values:
+        aware = ensure_aware_utc(value)
+        if aware is None:
+            continue
+        if best is None or aware > best:
+            best = aware
+    return to_iso_utc(best) if best else ""

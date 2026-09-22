@@ -744,6 +744,7 @@ class ForgeFacade:
             return {"applied": False, "needs_review": True, **preview, "conflicts": unresolved}
 
         now = utcnow().isoformat()
+        forge_updated = str(issue.get("updated_at") or issue.get("updated") or "") or None
         updated = self._hub.store.update_forge_source(
             thread.id,
             issue_url=preview["source_issue_url"],
@@ -754,6 +755,7 @@ class ForgeFacade:
             conflicts={},
             title_derived=title_derived,
             changes=changes,
+            external_updated_at=forge_updated,
         )
         if not any(field in incoming for field in SOURCE_FIELDS):
             source_note = str(issue.get("body") or "").strip()
@@ -999,6 +1001,7 @@ class ForgeFacade:
             # Map before any outbound board sync so we update issue #N instead of creating another.
             self._meta_set_with_identity(cfg)(f"forge_issue:{thread.id}", str(number))
             snapshot = issue_snapshot(issue)
+            forge_updated = str(issue.get("updated_at") or issue.get("updated") or "") or None
             thread = self._hub.store.update_forge_source(
                 thread.id,
                 issue_url=self._source_url(cfg, issue, number),
@@ -1008,6 +1011,7 @@ class ForgeFacade:
                 sync_state="current",
                 conflicts={},
                 title_derived=True,
+                external_updated_at=forge_updated,
             )
             note_import = f"Imported from forge issue #{number}: {thread.summary}"
             self._hub.store.add_progress_note(

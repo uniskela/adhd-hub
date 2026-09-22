@@ -200,6 +200,16 @@ def test_prefs_prefer_browser_tz_over_default_utc():
     assert 'preferences.setItem(tzKey + "_explicit", "1")' in settings[save : save + 500]
 
 
+def test_my_work_cards_use_display_forge_stamps():
+    """My Work Updated / Source lines prefer display_* (forge wall-clock) fields."""
+    work = (UI_JS / "work.js").read_text()
+    assert "display_updated_at" in work
+    assert "display_source_at" in work
+    assert "formatWhen(t.display_updated_at || t.updated_at)" in work
+    assert "formatWhen(t.display_source_at || t.source_imported_at)" in work
+
+
+
 def test_now_copy_coding_agent_prompt_control():
     """Selected Now thread exposes a compact Copy agent prompt control."""
     now = (UI_JS / "now.js").read_text()
