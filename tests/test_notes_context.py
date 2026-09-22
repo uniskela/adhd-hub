@@ -336,3 +336,93 @@ def test_sibling_details_closed_by_default(tmp_path) -> None:
     assert "Choose this step" in html
     assert "B legacy title only" in html
     assert "Older forge imports" in html
+
+
+def test_notes_coalesce_milestones_and_show_older(tmp_path) -> None:
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Compact", project_slug="demo", goal="G", focus="F")
+    )
+    # Oldest first: a milestone run, then several human notes so the feed has
+    # more than NOTES_VISIBLE_ITEMS after coalescing.
+    for i in range(5):
+        service.store.add_progress_note(
+            "demo",
+            f"Focus → step {i} — Thread upserted from codex: Task {i}",
+            thread_id=thread.id,
+        )
+    for i in range(6):
+        service.store.add_progress_note(
+            "demo",
+            f"## Human note {i}\n\nKeep continuity card primary {i}.",
+            thread_id=thread.id,
+        )
+    html = service.thread_notes_context_html(thread)
+    assert "notes-coalesce" in html
+    assert "checkpoints · last:" in html
+    assert "notes-change-chip" in html
+    assert "Show older" in html
+    assert "notes-entry-human" in html
+    assert "Keep continuity card primary" in html
+    # Continuity card remains outside / above Thread notes.
+    cont = html.index('class="notes-continuity-card"')
+    notes = html.index("notes-thread-notes")
+    assert cont < notes
+
+
+def test_notes_default_closed_for_milestone_wall(tmp_path) -> None:
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Wall", project_slug="demo", goal="G", focus="F")
+    )
+    for i in range(10):
+        service.store.add_progress_note(
+            "demo", f"Focus → noise {i}", thread_id=thread.id
+        )
+    html = service.thread_notes_context_html(thread)
+    assert 'class="notes-section-details notes-thread-notes"' in html
+    assert 'class="notes-section-details notes-thread-notes" open' not in html
+    assert 'class="notes-continuity-card"' in html
+
+
+def test_upsert_progress_scrubs_ritual_and_dedups(tmp_path) -> None:
+    from adhd_hub.models import ProgressUpsert
+
+    service = _service(tmp_path)
+    first = service.upsert_progress(
+        ProgressUpsert(
+            project_slug="demo",
+            title="Notes compaction",
+            goal="Ship compaction",
+            focus="Write helpers",
+            resume_step="Open notes_compaction.py",
+            content="Thread upserted from codex: Task 1",
+        )
+    )
+    tid = first["thread_id"]
+    notes = service.store.list_progress_notes("demo", limit=20, thread_id=tid)
+    assert notes
+    assert all("Thread upserted from" not in (n["content"] or "") for n in notes)
+
+    service.upsert_progress(
+        ProgressUpsert(
+            project_slug="demo",
+            thread_id=tid,
+            focus="Write helpers",
+            content="Thread upserted from codex: Task 2",
+        )
+    )
+    mid = service.store.list_progress_notes("demo", limit=20, thread_id=tid)
+    assert len(mid) == len(notes)  # near-dup / scrubbed ritual did not grow wall
+
+    service.upsert_progress(
+        ProgressUpsert(
+            project_slug="demo",
+            thread_id=tid,
+            focus="Add tests",
+            resume_step="Run pytest tests/test_notes_compaction.py",
+        )
+    )
+    after = service.store.list_progress_notes("demo", limit=20, thread_id=tid)
+    assert len(after) == len(mid) + 1
+    assert "Focus → Add tests" in after[0]["content"]

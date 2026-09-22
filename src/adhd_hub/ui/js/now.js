@@ -16,9 +16,28 @@ export function projectTitleForSlug(slug) {
 /**
  * ADHD-scannable prompt for a coding agent, from thread public fields already on Now.
  * Omits empty sections; caps Next at 3 and progress snippet length.
+ * Omits Progress when it is only a milestone/boilerplate wall (Resume/Next/Goal/Focus stay).
  * @param {object} thread
  * @param {{ projectTitle?: string }} [opts]
  */
+export function isBoilerplateProgressSnippet(snippet) {
+    const text = String(snippet || "").trim();
+    if (!text) return true;
+    if (/^(thread\s+upserted\s+from|checkpoint(?:ed)?\s+from|progress\s+(?:update|note)\s+from|upsert(?:ed)?\s+from)\b/i.test(text)) {
+      return true;
+    }
+    const bits = text.split(/\s+—\s+/).map((b) => b.trim()).filter(Boolean);
+    if (!bits.length) return true;
+    const fieldish = bits.filter((b) =>
+      /^(Title|Goal|Focus|Next|Blocked|Resume|Status)\s*→/i.test(b)
+      || /^Unblocked$/i.test(b)
+      || /^Started:\s/i.test(b)
+      || /^(thread\s+upserted\s+from|checkpoint(?:ed)?\s+from)\b/i.test(b)
+    );
+    // Milestone / system checkpoint lines dominate Progress noise.
+    return fieldish.length >= 1 && fieldish.length >= Math.ceil(bits.length / 2);
+  }
+
 export function buildCodingAgentPrompt(thread, opts = {}) {
     if (!thread) return "";
     const lines = [
@@ -55,6 +74,7 @@ export function buildCodingAgentPrompt(thread, opts = {}) {
       .filter(Boolean)
       .slice(0, 3);
     const snippet = String(thread.progress_snippet || "").trim().slice(0, 800);
+    const includeProgress = snippet && !isBoilerplateProgressSnippet(snippet);
 
     if (goal) {
       lines.push("**Goal**", "", goal, "");
@@ -64,7 +84,7 @@ export function buildCodingAgentPrompt(thread, opts = {}) {
     }
     if (nextSteps.length) {
       lines.push("**Next**", "");
-      nextSteps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+      nextSteps.forEach((step, i) lines.push(`${i + 1}. ${step}`));
       lines.push("");
     }
     if (blocked) {
@@ -73,10 +93,10 @@ export function buildCodingAgentPrompt(thread, opts = {}) {
     if (resume) {
       lines.push("**Resume**", "", resume, "");
     }
-    if (snippet) {
+    if (includeProgress) {
       lines.push("**Progress**", "", snippet, "");
     }
-    if (!goal && !focus && !nextSteps.length && !blocked && !resume && !snippet) {
+    if (!goal && !focus && !nextSteps.length && !blocked && !resume && !includeProgress) {
       lines.push("_No continuity fields yet — use the thread summary and forge issue._", "");
     }
     return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";

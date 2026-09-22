@@ -101,8 +101,8 @@ For substantial work in this project:
   Before updating a thread, compare new work to that thread's Goal; if it does
   not advance the same outcome, use another thread or create one.
 - Known thread → `upsert_progress(thread_id=...)` with compact structured state
-  (goal / focus / ≤3 next / blocked if any / resume). Do not silently attach
-  to an unrelated open thread.
+  (goal / focus / ≤3 next / blocked if any / resume); omit ritual `content`.
+  Do not silently attach to an unrelated open thread.
 - `check_overlap` only before potentially new work; reuse only when the Goal
   matches. Different goal → separate thread (`force_new_thread` if needed).
 - When leaving mid-task, checkpoint then `pause_thread(thread_id, next_step=...)`

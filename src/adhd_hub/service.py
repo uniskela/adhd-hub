@@ -29,6 +29,17 @@ from adhd_hub.openclaw_facade import OpenClawFacade
 from adhd_hub.overlap import check_overlap
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
 from adhd_hub.store import Store, item_id, slugify, workspace_basename
+from adhd_hub.notes_compaction import (
+    NOTES_VISIBLE_ITEMS,
+    coalesce_notes_feed,
+    default_open_thread_notes,
+    group_summary_label,
+    is_milestone_note,
+    milestone_field_chips,
+    scrub_progress_content,
+    should_skip_duplicate_note,
+    structural_core,
+)
 from adhd_hub.thread_state import (
     compact_thread_dict,
     milestone_text,
@@ -833,23 +844,27 @@ class HubService:
         # 2. This thread continuity card (always visible)
         parts.append(self._notes_continuity_card_html(thread, heading="This thread"))
 
-        # 3. Thread notes
+        # 3. Thread notes (coalesced milestones; history kept under "Show older")
         notes: list[dict[str, str]] = []
         if slug:
             notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
-        note_parts: list[str] = []
-        for note in notes:
-            stamp = self._notes_time_html(
-                note.get("created_at"), class_name="notes-entry-meta"
+        feed_items = coalesce_notes_feed(notes)
+        visible = feed_items[:NOTES_VISIBLE_ITEMS]
+        older = feed_items[NOTES_VISIBLE_ITEMS:]
+        note_parts = [self._notes_feed_item_html(item) for item in visible]
+        if older:
+            older_html = "".join(self._notes_feed_item_html(item) for item in older)
+            older_count = sum(
+                int(item.get("count") or 1) if item.get("kind") == "group" else 1
+                for item in older
             )
-            body = render_markdown(note.get("content") or "")
             note_parts.append(
-                '<article class="notes-entry">'
-                f"{stamp}"
-                f'<div class="markdown-body">{body}</div>'
-                "</article>"
+                '<details class="notes-show-older">'
+                f"<summary>Show older ({older_count})</summary>"
+                f'<div class="notes-show-older-body">{older_html}</div>'
+                "</details>"
             )
-        open_notes = " open" if note_parts else ""
+        open_notes = " open" if notes and default_open_thread_notes(notes) else ""
         notes_inner = (
             "".join(note_parts)
             if note_parts
@@ -899,6 +914,67 @@ class HubService:
         parts.append(self._notes_forge_activity_html(thread, pub))
 
         return "".join(parts)
+
+    def _notes_change_chips_html(self, chips: list[str]) -> str:
+        from html import escape
+
+        if not chips:
+            return ""
+        inner = "".join(
+            f'<span class="notes-change-chip">{escape(chip)}</span>' for chip in chips
+        )
+        return f'<div class="notes-change-chips" aria-label="Changed fields">{inner}</div>'
+
+    def _notes_entry_html(self, note: dict, *, milestone: bool | None = None) -> str:
+        from html import escape
+
+        from adhd_hub.markdown import render_markdown
+
+        content = note.get("content") or ""
+        is_ms = is_milestone_note(content) if milestone is None else milestone
+        stamp = self._notes_time_html(
+            note.get("created_at"), class_name="notes-entry-meta"
+        )
+        chips = milestone_field_chips(content) if is_ms else []
+        chips_html = self._notes_change_chips_html(chips)
+        cls = "notes-entry notes-entry-milestone" if is_ms else "notes-entry notes-entry-human"
+        if is_ms and chips:
+            # Prefer change chips; keep a muted one-line core for screen readers / expand.
+            core = structural_core(content) or content
+            body = (
+                f'<p class="notes-milestone-summary">{escape(core)}</p>'
+                if core
+                else ""
+            )
+        else:
+            body = f'<div class="markdown-body">{render_markdown(content)}</div>'
+        return (
+            f'<article class="{cls}">'
+            f"{stamp}"
+            f"{chips_html}"
+            f"{body}"
+            "</article>"
+        )
+
+    def _notes_feed_item_html(self, item: dict) -> str:
+        from html import escape
+
+        if item.get("kind") == "group":
+            notes = item.get("notes") or []
+            summary = escape(group_summary_label(item))
+            chips_html = self._notes_change_chips_html(list(item.get("chips") or []))
+            body = "".join(
+                self._notes_entry_html(n, milestone=True) for n in notes
+            )
+            return (
+                '<details class="notes-coalesce">'
+                f"<summary><span class=\"notes-coalesce-label\">{summary}</span>"
+                f"{chips_html}</summary>"
+                f'<div class="notes-coalesce-body">{body}</div>'
+                "</details>"
+            )
+        note = item.get("note") or {}
+        return self._notes_entry_html(note, milestone=bool(item.get("milestone")))
 
     def _notes_continuity_card_html(
         self,
@@ -1699,7 +1775,7 @@ class HubService:
         self.store.ensure_project_for_slug(
             slug, title=payload.title, workspace_path=payload.workspace_path
         )
-        content = (payload.content or "").strip()
+        content = scrub_progress_content(payload.content) or ""
         query_parts = [
             payload.title,
             payload.goal,
@@ -1839,14 +1915,14 @@ class HubService:
             if created and not history_note:
                 history_note = f"Started: {thread.summary}"
             if history_note:
-                recent = self.store.list_progress_notes(slug, limit=1, thread_id=thread.id)
-                if not recent or recent[0]["content"] != history_note:
-                    self.store.add_progress_note(slug, history_note, thread_id=thread.id)
-                else:
+                recent = self.store.list_progress_notes(slug, limit=5, thread_id=thread.id)
+                if should_skip_duplicate_note(history_note, recent):
                     history_note = None
+                else:
+                    self.store.add_progress_note(slug, history_note, thread_id=thread.id)
         elif content:
-            recent = self.store.list_progress_notes(slug, limit=1)
-            if not recent or recent[0]["content"] != content:
+            recent = self.store.list_progress_notes(slug, limit=5)
+            if not should_skip_duplicate_note(content, recent):
                 self.store.add_progress_note(slug, content, thread_id=None)
 
         # Freeform content is preserved under History; Active/milestones come from SQLite.

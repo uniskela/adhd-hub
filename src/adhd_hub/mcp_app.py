@@ -32,7 +32,7 @@ def build_mcp(service: HubService) -> MCPServer:
             "On session start call resolve_project, then session_digest with the task query. "
             "Before potentially new work call check_overlap and compare against thread Goal. "
             "At checkpoints call upsert_progress with the known thread_id and compact "
-            "goal/focus/next_steps/blocked_reason/resume_step. "
+            "goal/focus/next_steps/blocked_reason/resume_step only — omit ritual content. "
             "If upsert_progress returns needs_thread_selection, pass thread_id or force_new_thread. "
             "When finished, mark_done only that thread. Never save secrets or full transcripts."
         ),
@@ -260,7 +260,10 @@ def build_mcp(service: HubService) -> MCPServer:
         """Save a checkpoint to active thread state and project PROGRESS.md.
 
         Prefer a known thread_id so the checkpoint cannot land on the wrong
-        thread. If selection is ambiguous the tool can request a thread_id;
+        thread. Update structured Goal/Focus/Next/Blocked/Resume only on routine
+        checkpoints — do not pass ritual content such as "Thread upserted from …".
+        Reserve content for rare human-meaningful events (decision, blocker note,
+        ship note). If selection is ambiguous the tool can request a thread_id;
         force_new_thread explicitly starts another outcome. Depending on
         create_thread_if_missing, a missing thread may be created as a side effect.
         """

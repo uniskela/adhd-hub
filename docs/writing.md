@@ -12,7 +12,7 @@ Keep the top of every active note short enough to scan before you start work. It
 4. **Blocked** — who or what needs to move first? (omit when nothing is blocked)
 5. **Resume / Return cue** — what should I do when I come back after a break?
 
-Hub threads store these as structured fields (`goal`, `focus`, `next_steps`, `blocked_reason`, `resume_step`) plus a short title. Prefer updating those fields via `upsert_progress(thread_id=...)` instead of pasting a full diary every checkpoint.
+Hub threads store these as structured fields (`goal`, `focus`, `next_steps`, `blocked_reason`, `resume_step`) plus a short title. Prefer updating those fields via `upsert_progress(thread_id=...)` instead of pasting a full diary every checkpoint. On routine checkpoints, omit `content` entirely — never write ceremony lines such as “Thread upserted from …”; reserve freeform `content` for rare human-meaningful events (decision, blocker, ship note).
 
 Use a verb, a concrete object, and a location where useful: `Run uv run pytest`, `Open docs/authentication.md`, or `Ask Sam to confirm the DNS record`. Avoid labels such as “work on auth” that still require deciding how to begin.
 

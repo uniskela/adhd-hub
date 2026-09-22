@@ -85,7 +85,8 @@ At meaningful checkpoints, call `upsert_progress` with the **explicit** `thread_
 - `next_steps` — max 3
 - `blocked_reason` — only when actually blocked (omit otherwise)
 - `resume_step` — one concrete re-entry instruction
-- optional short `content` note for a meaningful milestone only
+- omit `content` on routine checkpoints; never write “Thread upserted from …” as note text
+- optional short `content` only for a rare human-meaningful event (decision, blocker, ship)
 
 Do not checkpoint trivial events. Prefer updating structured active state over restating a full narrative. If the response has `needs_thread_selection`, pick a candidate `thread_id` or set `force_new_thread=true` — never guess.
 

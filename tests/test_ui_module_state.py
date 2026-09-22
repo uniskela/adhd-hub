@@ -191,6 +191,7 @@ def test_now_copy_coding_agent_prompt_control():
     now = (UI_JS / "now.js").read_text()
     dom = (UI_JS / "dom.js").read_text()
     assert "export function buildCodingAgentPrompt" in now
+    assert "export function isBoilerplateProgressSnippet" in now
     assert "export async function copyCodingAgentPrompt" in now
     assert 'id="btn-copy-agent-prompt"' in now
     assert ">Copy agent prompt</button>" in now
@@ -216,3 +217,12 @@ def test_now_copy_coding_agent_prompt_control():
         assert needle in now
     # Cap next steps at 3 in the builder.
     assert ".slice(0, 3)" in now[now.index("buildCodingAgentPrompt") :]
+    # Progress omitted when milestone/boilerplate; forge + thread_id always kept.
+    builder = now[now.index("export function buildCodingAgentPrompt") :]
+    assert "includeProgress" in builder
+    assert "isBoilerplateProgressSnippet" in builder
+    assert "thread_id" in builder
+    assert "forge_issue_url" in builder
+    assert "thread\\s+upserted\\s+from" in now[
+        now.index("export function isBoilerplateProgressSnippet") :
+    ]

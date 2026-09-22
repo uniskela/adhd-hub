@@ -499,7 +499,7 @@ When this workspace involves substantial starting, resuming, or pausing work:
 
 1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query once per meaningful session. Reuse resolved context where possible.
 2. One thread = one independently finishable outcome. If resuming a known thread, reuse its `thread_id`. Otherwise call `check_overlap` before potentially new work and reuse a candidate only when its Goal matches; different goal → separate thread (`force_new_thread=true` when needed).
-3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state. When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
+3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state (omit ritual content). When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
 4. When finished, `mark_done` on the known completed thread id only. Never close unrelated overlap results.
 
 If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` — do not nag or hand-edit AGENTS.md.

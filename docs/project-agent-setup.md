@@ -10,7 +10,7 @@ adhd-hub setup /path/to/my-project
 
 - Once per meaningful session: `resolve_project` (current absolute project root), then `session_digest` with that path and a brief task query. Reuse resolved context when you can.
 - **One thread = one independently finishable outcome.** Compare new work to the thread Goal before updating; different goal → separate thread.
-- Known thread → `upsert_progress(thread_id=...)` with compact structured state (goal / focus / ≤3 next / blocked if any / resume).
+- Known thread → `upsert_progress(thread_id=...)` with compact structured state (goal / focus / ≤3 next / blocked if any / resume); omit ritual `content`.
 - If resuming a known thread, reuse its `thread_id`. Otherwise `check_overlap` only before potentially new/duplicate work; reuse a candidate only when its Goal matches.
 - When leaving mid-task: checkpoint with `upsert_progress`, then `pause_thread(thread_id, next_step=...)` with one concrete resume action.
 - On genuine completion: `mark_done` only for that known thread; never close unrelated overlap results.

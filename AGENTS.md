@@ -4,7 +4,7 @@ Guidance for coding agents working in this repository.
 
 ## ADHD Progress Hub
 
-- Prefer MCP tools from `adhd-hub` (`resolve_project`, `session_digest`, `check_overlap`, `upsert_progress`, `mark_done`, `set_reminder`) when starting, pausing, or finishing work that could be abandoned.
+- Prefer MCP tools from `adhd-hub` (`resolve_project`, `session_digest`, `check_overlap`, `upsert_progress`, `mark_done`, `set_reminder`) when starting, pausing, or finishing work that could be abandoned. On routine `upsert_progress` checkpoints, update Goal/Focus/Next/Blocked/Resume only — omit ritual `content` (never “Thread upserted from …”).
 - Install skills globally when possible: `npx skills add ./skills -g` (or `uniskela/adhd-hub` once public). Skills include `adhd-hub-session`, `adhd-hub-projects`, and `env-check`.
 - Use `env-check` (`skills/env-check/scripts/check_runtime.sh`) for CLOUD_AGENT vs LOCAL_WORKSPACE; **MCP unavailable** triggers forge `[ADHD]` fallback — never invent Hub state. Recommended Made-with footer on those issues: `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under `## Attribution`.
 - Do not invent hub state — only report what the tools return.
@@ -95,8 +95,8 @@ For substantial work in this project:
   Before updating a thread, compare new work to that thread's Goal; if it does
   not advance the same outcome, use another thread or create one.
 - Known thread → `upsert_progress(thread_id=...)` with compact structured state
-  (goal / focus / ≤3 next / blocked if any / resume). Do not silently attach
-  to an unrelated open thread.
+  (goal / focus / ≤3 next / blocked if any / resume); omit ritual `content`.
+  Do not silently attach to an unrelated open thread.
 - `check_overlap` only before potentially new work; reuse only when the Goal
   matches. Different goal → separate thread (`force_new_thread` if needed).
 - When leaving mid-task, checkpoint then `pause_thread(thread_id, next_step=...)`
