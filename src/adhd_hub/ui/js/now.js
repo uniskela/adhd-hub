@@ -84,7 +84,7 @@ export function buildCodingAgentPrompt(thread, opts = {}) {
     }
     if (nextSteps.length) {
       lines.push("**Next**", "");
-      nextSteps.forEach((step, i) lines.push(`${i + 1}. ${step}`));
+      nextSteps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
       lines.push("");
     }
     if (blocked) {
