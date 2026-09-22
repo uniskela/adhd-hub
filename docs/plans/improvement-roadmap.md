@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-17** at package **v0.12.1** (through PR #121). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-22** at package **v0.13.0** (Notes & context reader via PR [#136](https://github.com/uniskela/adhd-hub/pull/136)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -21,9 +21,10 @@ The Hub already includes:
 - clearer MCP tool guidance and real stdio tool-call coverage (#115);
 - OpenClaw multi-agent hook targeting (#118);
 - canonical public-roadmap/docs cleanup (#120);
-- docs-sync notification wiring for the Uniskela site (#121).
+- docs-sync notification wiring for the Uniskela site (#121);
+- ADHD-friendly Notes & context reader (#136).
 
-Those newer integration/reliability/documentation changes do **not** replace the remaining product roadmap below.
+Those newer integration/reliability/documentation changes do **not** replace the remaining product roadmap below. **NOW** remains Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75) — kickoff plan: [foundation-b3-kickoff.md](foundation-b3-kickoff.md).
 
 ## Product principles
 
@@ -61,11 +62,11 @@ GitHub/Gitea can remain authoritative for repo-backed task state while the Hub k
 
 ### Foundation B3 — activity ledger, live UI & sync health 🔄 **NOW**
 
-[#75](https://github.com/uniskela/adhd-hub/issues/75)
+[#75](https://github.com/uniskela/adhd-hub/issues/75) · kickoff: [foundation-b3-kickoff.md](foundation-b3-kickoff.md)
 
-B3 is the remaining Foundation B slice:
+B3 is the remaining Foundation B slice (train started after Notes #136):
 
-1. **Durable structured event ledger** for meaningful thread/work/session/forge changes.
+1. **Durable structured event ledger** for meaningful thread/work/session/forge changes (**first implementation slice**).
 2. **Authenticated live UI invalidation**, SSE-first, with normal API refetch remaining the displayed truth.
 3. **Sync/connection health** including last success/failure, conflicts and useful job state.
 4. **Trustworthy history substrate** for later activity insights instead of reconstructing history from current rows or Git timestamps.
@@ -132,8 +133,8 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 
 These can land without changing the product-wave sequence:
 
-- [#117](https://github.com/uniskela/adhd-hub/issues/117) — **do soon**: improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish the remaining lockfile/current-version drift and decide whether CI can move from `--frozen` to `--locked` after refresh. `pyproject.toml` is v0.12.1 while `uv.lock` still records the local package as v0.11.0.
+- [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Deferred** relative to the B3 train; land independently when capacity allows.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.13.0**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 
@@ -145,14 +146,14 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation A | Shipped |
 | Done | Foundation B1 #73 | Shipped in v0.8.0 |
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
-| **Now** | **Foundation B3 #75** | Event ledger / live UI / sync health |
+| **Now** | **Foundation B3 #75** | Event ledger / live UI / sync health (kickoff underway) |
 | Next | Wave 6 #52 | AI clarity + project organisation |
 | Then | Wave 7 #54 | Continuity intelligence |
 | Then | Wave 8 #55 | Find & capture |
 | Later | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
-| Independent | MCP schema quality #117 | Do soon |
+| Independent | MCP schema quality #117 | Deferred vs B3; land separately |
 | Independent | CI lockfile cleanup #102 | Remaining maintenance |
 
 ## Keeping this page from drifting
