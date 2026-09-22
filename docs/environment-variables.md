@@ -26,7 +26,7 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 | `ADHD_HUB_HOST` | `127.0.0.1` | string | Address the server binds to. The container image/Compose uses `0.0.0.0` so Docker can publish the port. |
 | `ADHD_HUB_PORT` | `8787` | integer | Port inside the process/container. In Compose, change the host side of `HOST:8787` instead of changing this unless you also change the container mapping. |
 | `ADHD_HUB_DATA_DIR` | `./data` | path | SQLite databases, wiki, preferences, sessions, and local Hub data. The container image uses `/data`; persist it with a volume. |
-| `ADHD_HUB_AUTH_TOKEN` | `change-me` | secret string | Server bearer token for REST/MCP plus dashboard setup/recovery. `change-me` is development-only; use a long random value before non-loopback exposure. |
+| `ADHD_HUB_AUTH_TOKEN` | `change-me` | secret string | Server bearer token for REST/MCP plus dashboard setup/recovery. `change-me` / empty / `.env.example` placeholder are development-only; the server refuses to start with a weak token when using a non-loopback bind, non-loopback `PUBLIC_URL`, or `TRUST_PROXY_HEADERS`. |
 | `ADHD_HUB_PUBLIC_URL` | unset | URL string | Externally reachable Hub base URL used for browser links, CORS-related behaviour, forge links, install/connect output, and MCP OAuth discovery. No trailing slash is needed. |
 | `ADHD_HUB_HUB_URL` | unset | URL string | Client/indexer Hub URL fallback. Normally leave unset in the server container; `PUBLIC_URL` is the usual server-facing setting. |
 | `ADHD_HUB_TIMEZONE` | `UTC` | IANA timezone | Default timezone, for example `Australia/Sydney`. The dashboard can also persist the operator preference. |

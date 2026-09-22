@@ -16,11 +16,13 @@ Always-on reverse proxies (Caddy, nginx, Tailscale Serve) are covered in [Instal
 
 ## Security checklist (required)
 
-- **Strong `ADHD_HUB_AUTH_TOKEN`** — long random secret; never leave `change-me` (or empty) when the Hub is reachable beyond loopback.
+- **Strong `ADHD_HUB_AUTH_TOKEN`** — long random secret; never leave `change-me`, empty, or the `.env.example` placeholder when the Hub is reachable beyond loopback. The server **refuses to start** with a weak token if you also set a non-loopback bind, a non-loopback `ADHD_HUB_PUBLIC_URL`, or `ADHD_HUB_TRUST_PROXY_HEADERS`.
 - **No anonymous `/mcp`** — clients must send `Authorization: Bearer <token>` (or complete Hub OAuth). Dashboard cookies do **not** authorize MCP.
 - **HTTPS + `ADHD_HUB_PUBLIC_URL`** — set the public base to the tunnel hostname (`https://…`, no trailing slash). OAuth discovery and install links must match that hostname.
-- **TLS at the tunnel terminator** — do not publish Hub’s plain HTTP port on the open internet. Terminate TLS at Cloudflare Tunnel / Serve / your proxy; Hub may stay on loopback or a private interface behind it.
+- **TLS at the tunnel terminator** — do not publish Hub’s plain HTTP port on the open internet. Terminate TLS at Cloudflare Tunnel / Serve / your proxy; with Compose + tunnel, leave Hub on the internal Docker network only (comment out host `8787` publish).
 - **`ADHD_HUB_TRUST_PROXY_HEADERS=true` only behind a trusted terminator** — never enable proxy trust on a Hub that faces the internet directly.
+- **Secrets stay out of git** — tunnel tokens and `cloudflared` credential files belong in `.env` / `secrets/` (gitignored), never in compose committed uncommented with real values.
+- **Optional Cloudflare Access** — can gate the public hostname for humans; MCP clients still need Hub Bearer/OAuth.
 - **Forge mailbox fallback** — if you cannot keep a durable private or tunnel path, use [forge issue inbox](forge-issue-inbox.md) rather than opening an unauthenticated endpoint.
 - **Rotate after ephemeral URLs** — if the public hostname changes (ngrok free tier, Funnel demos), update client MCP config and consider rotating the bearer token.
 
@@ -28,11 +30,15 @@ Out of scope here: OpenClaw SSH tunnels used only for OAuth *callbacks* (see [Op
 
 ## Cloudflare Tunnel (primary)
 
-Pattern: Hub listens on loopback (or a private Docker network). `cloudflared` terminates HTTPS and forwards to `http://127.0.0.1:8787`.
+Pattern: Hub listens on a private Docker network (or loopback). `cloudflared` terminates HTTPS and forwards to Hub. Prefer the commented opt-in service in the repository [`docker-compose.yml`](../docker-compose.yml) over publishing host `8787` to the open internet.
 
-1. Run Hub locally or in the lab (`adhd-hub serve` / Compose) bound so only the tunnel (or localhost) can reach it.
-2. Create a Cloudflare Tunnel that routes `https://hub.example.com` → `http://127.0.0.1:8787` (exact `cloudflared` steps follow Cloudflare’s current docs).
-3. On the Hub host:
+### Compose opt-in (recommended)
+
+1. Copy `.env.example` → `.env` and set a **strong** `ADHD_HUB_AUTH_TOKEN` (never leave `change-me` / the example placeholder).
+2. In `docker-compose.yml`, **comment out** the Hub `ports:` mapping so `8787` is not published on the host.
+3. Uncomment the `cloudflared` service. Put `CLOUDFLARE_TUNNEL_TOKEN` in `.env` (or mount `./secrets/cloudflared` read-only — that directory is gitignored).
+4. In Cloudflare Zero Trust, route `https://hub.example.com` → `http://adhd-hub:8787` (Docker DNS name, not host `127.0.0.1`).
+5. On the Hub:
 
 ```env
 ADHD_HUB_AUTH_TOKEN=<long-random-secret>
@@ -40,7 +46,7 @@ ADHD_HUB_PUBLIC_URL=https://hub.example.com
 ADHD_HUB_TRUST_PROXY_HEADERS=true
 ```
 
-4. Confirm health and MCP over HTTPS:
+6. Confirm health and MCP over HTTPS:
 
 ```bash
 curl -fsS "$ADHD_HUB_PUBLIC_URL/api/health"
@@ -49,7 +55,11 @@ curl -fsS -H "Authorization: Bearer $ADHD_HUB_AUTH_TOKEN" \
   "$ADHD_HUB_PUBLIC_URL/mcp"
 ```
 
-5. Point cloud MCP clients at `https://hub.example.com/mcp` with the same bearer token (see [Cursor Cloud wiring](#cursor-cloud--cloud-agent-wiring)).
+7. Point cloud MCP clients at `https://hub.example.com/mcp` with the same bearer token (see [Cursor Cloud wiring](#cursor-cloud--cloud-agent-wiring)).
+
+**Optional:** put [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) in front of the tunnel hostname for an extra operator login gate. Access does not replace Hub Bearer/OAuth for MCP clients — agents still need `Authorization: Bearer` (or Hub OAuth).
+
+Hub refuse-to-start: a weak/default token combined with non-loopback bind, non-loopback `ADHD_HUB_PUBLIC_URL`, or `ADHD_HUB_TRUST_PROXY_HEADERS=true` fails closed at startup. Pure local loopback + default token without those signals remains allowed for intentional local-dev.
 
 Tailscale **Funnel** can play a similar role (HTTPS hostname → local Hub). Treat Funnel like any other public terminator: strong token, `ADHD_HUB_PUBLIC_URL`, TLS at the edge, proxy trust only when Funnel/Serve is the trusted front.
 
@@ -102,6 +112,7 @@ See also [Connect](connect.md) for local/CLI connect and [Authentication](authen
 
 ## Related
 
+- Repository [`docker-compose.yml`](../docker-compose.yml) — commented `cloudflared` opt-in
 - [Forge issue inbox](forge-issue-inbox.md) — fallback when live MCP is unreachable
 - [Homelab deployment](deploy-homelab.md) — Proxmox + Tailscale
 - [Installation — reverse proxy / HTTPS](installation.md#reverse-proxy-https-and-tailscale)

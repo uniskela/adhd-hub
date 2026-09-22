@@ -21,7 +21,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from adhd_hub import __version__
 from adhd_hub.api import build_router
 from adhd_hub.auth import auth_dependency, build_auth_router
-from adhd_hub.config import Settings, load_settings
+from adhd_hub.config import Settings, is_weak_auth_token, load_settings, validate_bind_token_safety
 from adhd_hub.connect import render_install_ps1, render_install_sh
 from adhd_hub.connect_auth import ConnectStore, bearer_authorized, build_connect_router
 from adhd_hub.mcp_app import build_mcp
@@ -69,7 +69,9 @@ class BearerGateMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if path.startswith(("/mcp", "/messages")):
             expected = self.settings.auth_token
-            if expected and expected != "change-me":
+            # Anon MCP only for classic empty/change-me local-dev; other weak
+            # placeholders still require Bearer (fail closed if copied from .env.example).
+            if expected.strip() and expected.strip() != "change-me":
                 auth = request.headers.get("authorization", "")
                 scheme, _, value = auth.partition(" ")
                 if scheme.lower() != "bearer" or not bearer_authorized(
@@ -92,13 +94,12 @@ class BearerGateMiddleware(BaseHTTPMiddleware):
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
-    if settings.auth_token in {"", "change-me"} and settings.host not in {
-        "127.0.0.1",
-        "::1",
-        "localhost",
-    }:
-        raise ValueError(
-            "Set ADHD_HUB_AUTH_TOKEN to a strong token before binding to a network interface"
+    validate_bind_token_safety(settings)
+    if is_weak_auth_token(settings.auth_token):
+        log.warning(
+            "ADHD_HUB_AUTH_TOKEN is a weak/default value — OK only for pure local "
+            "loopback without PUBLIC_URL or proxy trust. Set a strong token before "
+            "tunnels, reverse proxies, or non-loopback binds (docs/remote-mcp-access.md)."
         )
     settings.ensure_dirs()
     service = HubService(settings)
