@@ -170,3 +170,17 @@ def test_thread_deep_link_is_consumed_after_initial_or_interactive_auth():
     login_thread = auth.index("const threadId = requestedThreadId();", login_load)
     login_open = auth.index("if (threadId) await chooseThread(threadId);", login_thread)
     assert login_load < login_thread < login_open
+
+
+def test_notes_reader_formats_time_elements_with_current_tz():
+    """Notes HTML inject path must reformat <time datetime> via formatWhen / currentTz."""
+    dom = (UI_JS / "dom.js").read_text()
+    now = (UI_JS / "now.js").read_text()
+    assert "export function formatNotesTimes" in dom
+    assert "time[datetime]" in dom
+    assert "formatWhen(iso)" in dom
+    assert "formatNotesTimes" in now
+    assert "import { formatNotesTimes, formatWhen }" in now
+    # Runs as part of wireNotesActions so both reader inject and Now card paths cover it.
+    wire = now.index("function wireNotesActions")
+    assert "formatNotesTimes(root)" in now[wire : wire + 400]

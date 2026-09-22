@@ -59,6 +59,16 @@ export function formatWhen(iso) {
       return String(iso).slice(0, 16);
     }
   }
+/** Reformat injected Notes HTML <time datetime> labels using prefs / browser TZ. */
+export function formatNotesTimes(root) {
+    if (!root) return;
+    root.querySelectorAll("time[datetime]").forEach((el) => {
+      const iso = el.getAttribute("datetime");
+      if (!iso) return;
+      const label = formatWhen(iso);
+      if (label) el.textContent = label;
+    });
+  }
 export function confirmDialog({ title, body, extraHtml }) {
     return new Promise((resolve) => {
       $("confirm-title").textContent = title;

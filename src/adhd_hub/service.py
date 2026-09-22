@@ -761,6 +761,31 @@ class HubService:
             return None
         return cleaned
 
+    @staticmethod
+    def _notes_time_html(
+        value: object,
+        *,
+        class_name: str = "",
+        prefix: str = "",
+    ) -> str:
+        """Machine-readable <time datetime>; UI reformats text via formatWhen / currentTz."""
+        from html import escape
+
+        if value is None:
+            return ""
+        if hasattr(value, "isoformat"):
+            raw = value.isoformat()
+        else:
+            raw = str(value).strip()
+        if not raw:
+            return ""
+        esc = escape(raw)
+        cls = f' class="{escape(class_name)}"' if class_name else ""
+        time_el = f'<time{cls} datetime="{esc}">{esc}</time>'
+        if prefix:
+            return f"<span>{escape(prefix)} {time_el}</span>"
+        return time_el
+
     def thread_notes_context_html(self, thread: Thread) -> str:
         """ADHD-scannable Notes & context: overview, continuity, notes, siblings, wiki, activity."""
         from html import escape
@@ -777,7 +802,6 @@ class HubService:
         title = escape((project.title if project else None) or slug or "Project")
         slug_label = escape(slug or "—")
         active_n = len(unfinished)
-        updated = escape((thread.updated_at.isoformat() if thread.updated_at else "")[:19])
         forge_link = ""
         issue_url = pub.get("forge_issue_url")
         issue_num = pub.get("forge_issue_number")
@@ -794,7 +818,7 @@ class HubService:
                     f'<a class="notes-overview-link" href="{escape(safe_repo)}" '
                     f'target="_blank" rel="noopener noreferrer">Repository</a>'
                 )
-        updated_html = f"<span>Updated {updated}</span>" if updated else ""
+        updated_html = self._notes_time_html(thread.updated_at, prefix="Updated")
         parts.append(
             '<section class="notes-overview" aria-label="Project overview">'
             f'<p class="notes-overview-title">{title}</p>'
@@ -815,11 +839,13 @@ class HubService:
             notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
         note_parts: list[str] = []
         for note in notes:
-            stamp = escape(note.get("created_at") or "")
+            stamp = self._notes_time_html(
+                note.get("created_at"), class_name="notes-entry-meta"
+            )
             body = render_markdown(note.get("content") or "")
             note_parts.append(
                 '<article class="notes-entry">'
-                f'<time class="notes-entry-meta" datetime="{stamp}">{stamp}</time>'
+                f"{stamp}"
                 f'<div class="markdown-body">{body}</div>'
                 "</article>"
             )
@@ -978,8 +1004,7 @@ class HubService:
             chips = []
             for ev in timeline[:8]:
                 label = escape((ev.get("body") or ev.get("event") or "event").strip())
-                stamp = escape((ev.get("created_at") or "")[:10])
-                time_html = f"<time>{stamp}</time>" if stamp else ""
+                time_html = self._notes_time_html(ev.get("created_at"))
                 chips.append(
                     f'<li class="notes-activity-chip"><span>{label}</span>{time_html}</li>'
                 )
@@ -990,12 +1015,9 @@ class HubService:
             )
         if comments:
             for row in comments:
-                stamp = escape(row.get("created_at") or "")
                 author = escape(row.get("author") or "comment")
                 body = render_markdown(row.get("body") or "")
-                time_html = (
-                    f'<time datetime="{stamp}">{stamp}</time>' if stamp else ""
-                )
+                time_html = self._notes_time_html(row.get("created_at"))
                 body_parts.append(
                     '<article class="notes-activity-comment">'
                     f'<div class="markdown-body">{body}</div>'

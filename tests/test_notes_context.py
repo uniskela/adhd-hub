@@ -70,6 +70,9 @@ def test_notes_html_has_overview_continuity_notes_siblings_and_closed_wiki(tmp_p
     assert 'class="notes-overview"' in html
     assert "demo" in html
     assert "2 active" in html
+    assert "Updated <time" in html
+    assert 'datetime="' in html
+    assert 'class="notes-entry-meta"' in html
     assert 'class="notes-continuity-card"' in html
     assert "Ship Notes UI" in html
     assert "Rewrite HTML" in html
@@ -141,10 +144,22 @@ def test_notes_forge_activity_fails_soft_and_opens_when_comments_exist(tmp_path)
     assert 'class="notes-section-details notes-forge-activity" open' in html
     assert "<strong>Looks good</strong>" in html
     assert "ops" in html
+    assert 'datetime="2026-09-22T10:00:00Z"' in html
+    assert 'datetime="2026-09-22T09:00:00Z"' in html
     assert "labeled" in html
 
 
-def test_board_list_issue_comments_github_and_gitea() -> None:
+def test_notes_overview_emits_time_datetime_not_bare_iso_slice(tmp_path) -> None:
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Stamp check", project_slug="demo", goal="G")
+    )
+    html = service.thread_notes_context_html(thread)
+    iso = thread.updated_at.isoformat()
+    assert f'datetime="{iso}"' in html
+    assert "Updated <time" in html
+    # Must not leave the old truncated bare text without a datetime attribute.
+    assert f"<span>Updated {iso[:19]}</span>" not in html
     real_client = httpx.Client
 
     def _comments(provider: ForgeProvider, base_url: str, payload: list[dict]) -> list[dict]:

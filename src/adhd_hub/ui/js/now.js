@@ -1,6 +1,6 @@
 import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
-import { formatWhen } from './dom.js';
+import { formatNotesTimes, formatWhen } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { celebrate } from './progress.js';
 import { openWork, showScreen } from './screens.js';
@@ -138,6 +138,7 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
 
 function wireNotesActions(root) {
     if (!root) return;
+    formatNotesTimes(root);
     root.querySelectorAll("button[data-choose]").forEach((button) => {
       if (button.dataset.chooseWired) return;
       button.dataset.chooseWired = "true";
