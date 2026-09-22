@@ -165,7 +165,7 @@ Roots (override in `config.toml` `[indexer]`):
 
 ## Homelab / Tailscale
 
-See [docs/deploy-homelab.md](docs/deploy-homelab.md). Typical pattern: Docker on Proxmox LXC, publish `:8787` on Tailscale, point Cursor Cloud + Windows + Dev LXC MCP clients at `http://<tailscale-ip>:8787/mcp`.
+See [docs/deploy-homelab.md](docs/deploy-homelab.md). Typical pattern: Docker on Proxmox LXC, publish `:8787` on Tailscale, point Cursor Cloud + Windows + Dev LXC MCP clients at `http://<tailscale-ip>:8787/mcp`. When Cloud cannot join Tailscale, use a controlled HTTPS tunnel ([docs/remote-mcp-access.md](docs/remote-mcp-access.md)) or the forge mailbox — never anonymous `/mcp`.
 
 ## Optional forge sync (GitHub / Gitea)
 
@@ -180,7 +180,7 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 
 **Note:** Hub “wiki” = normal markdown files in the repo (`INDEX.md`, `projects/*/PROGRESS.md`). That is separate from Gitea/GitHub’s built-in Wiki feature. Issues show under the Issues tab when board sync works. Projects boards only if you set a project id/number.
 
-**Cloud / remote mailbox:** enable **Import cloud-agent issues (inbox)** and set **Inbox authors** (fail closed: empty allowlist imports nothing). The Hub polls open issues from those usernames that either have the `adhd-hub` label **or** a title starting with `[ADHD]` (Cursor Cloud, Codex/ChatGPT, Claude, etc.), creates threads, then closes them with `adhd-hub-synced` (never deletes). Title prefix is enough when agents cannot set labels. Optional `source:*` labels record the tool. See [docs/forge-issue-inbox.md](docs/forge-issue-inbox.md).
+**Cloud / remote mailbox:** enable **Import cloud-agent issues (inbox)** and set **Inbox authors** (fail closed: empty allowlist imports nothing). The Hub polls open issues from those usernames that either have the `adhd-hub` label **or** a title starting with `[ADHD]` (Cursor Cloud, Codex/ChatGPT, Claude, etc.), creates threads, then closes them with `adhd-hub-synced` (never deletes). Title prefix is enough when agents cannot set labels. Optional `source:*` labels record the tool. Agents should use a short Goal/Focus/Next/Resume body and may append a Made-with footer under `## Attribution`. See [docs/forge-issue-inbox.md](docs/forge-issue-inbox.md).
 
 **PAT permissions:** see [docs/forge-permissions.md](docs/forge-permissions.md) for GitHub (fine-grained + classic) and Gitea scopes.
 
@@ -191,7 +191,7 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 - Default-token development mode is allowed only with a loopback bind. Set a long random token before binding to `0.0.0.0`; generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Use HTTPS for remote access.
 - Cookie-authenticated writes require `X-Hub-Request: 1` and a matching Origin when present. CLI and MCP clients continue using bearer auth.
 - Settings precedence is process environment, then the first nonempty TOML file (`--config`, `./config.toml`, or `~/.config/adhd-hub/config.toml`), then `.env`. `ADHD_HUB_PUBLIC_URL` sets the externally reachable Hub base URL used for browser/deep links, forge links, install/connect output, and MCP OAuth discovery.
-- Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy and strong token
+- Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy / tunnel terminator and strong token ([remote MCP access](docs/remote-mcp-access.md))
 - Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md)). Optional passphrase backups use a versioned envelope: new exports are salted scrypt + Fernet (v2); v1 SHA-256 passphrase files still decrypt.
 
 ## Adapters

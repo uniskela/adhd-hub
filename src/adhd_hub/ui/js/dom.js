@@ -1,10 +1,18 @@
 import { state, $, setMsg, escapeHtml } from './state.js';
 
-export async function copyReference(id) {
+export async function copyText(text, successMsg) {
     try {
-      await navigator.clipboard.writeText(id);
-      setMsg("Reference copied. You can paste it into your assistant.");
-    } catch (_) { setMsg("Clipboard unavailable. Thread reference: " + id); }
+      await navigator.clipboard.writeText(text);
+      setMsg(successMsg || "Copied.");
+      return true;
+    } catch (_) {
+      setMsg("Clipboard unavailable.");
+      return false;
+    }
+  }
+export async function copyReference(id) {
+    const ok = await copyText(id, "Reference copied. You can paste it into your assistant.");
+    if (!ok) setMsg("Clipboard unavailable. Thread reference: " + id);
   }
 export function safeHttpUrl(value) {
     try {
@@ -58,6 +66,16 @@ export function formatWhen(iso) {
     } catch (_e) {
       return String(iso).slice(0, 16);
     }
+  }
+/** Reformat injected Notes HTML <time datetime> labels using prefs / browser TZ. */
+export function formatNotesTimes(root) {
+    if (!root) return;
+    root.querySelectorAll("time[datetime]").forEach((el) => {
+      const iso = el.getAttribute("datetime");
+      if (!iso) return;
+      const label = formatWhen(iso);
+      if (label) el.textContent = label;
+    });
   }
 export function confirmDialog({ title, body, extraHtml }) {
     return new Promise((resolve) => {

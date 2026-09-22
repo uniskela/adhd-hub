@@ -196,6 +196,7 @@ class ConnectReport:
     hub_url: str
     steps: list[StepResult] = field(default_factory=list)
     continuity_text: str | None = None
+    continuity_items: list[Any] | None = None
     dry_run: bool = False
 
     def add(self, name: str, status: str, detail: str) -> None:
@@ -247,14 +248,25 @@ def cursor_mcp_snippet(hub_url: str) -> dict[str, Any]:
     }
 
 
-def _http_json(url: str, *, token: str | None = None, timeout: float = 8.0) -> dict[str, Any]:
+def _http_json(
+    url: str,
+    *,
+    token: str | None = None,
+    timeout: float = 8.0,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     from adhd_hub.ssl_trust import ensure_os_truststore
 
     ensure_os_truststore()
     headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    req = Request(url, headers=headers, method="GET")
+    body_bytes: bytes | None = None
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+        body_bytes = json.dumps(payload).encode("utf-8")
+    req = Request(url, data=body_bytes, headers=headers, method=method)
     with urlopen(req, timeout=timeout) as resp:
         body = resp.read().decode("utf-8")
     data = json.loads(body) if body else {}
@@ -470,7 +482,7 @@ def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
 _FALLBACK_CURSOR_RULE = """---
 description: ADHD Progress Hub — check overlap and save progress on unfinished work
 alwaysApply: true
-hub_guidance_version: 4
+hub_guidance_version: 5
 ---
 
 # ADHD Progress Hub
@@ -479,7 +491,7 @@ Use Hub for substantial continuity-worthy work, not trivial/read-only questions,
 
 If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailable: on the first substantial Hub-worthy turn after detecting the outage, the **first line** MUST state that Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Repeat the warning only if Hub status changes, a persistence attempt fails again, or the reply could otherwise imply continuity was saved. Then continue the authorized work. Never invent Hub state or claim a Hub write succeeded.
 
-**MCP unavailable** is the Hub continuity trigger (not runtime alone). Use the `env-check` skill / `skills/env-check/scripts/check_runtime.sh` for CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context (`CURSOR_AGENT`, container cues — never `$USER=root` alone). When Hub MCP is unreachable, use the forge issue mailbox only when issue-write access is available and the authenticated identity is accepted by Hub Inbox authors. Open/update a GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip labels if the token cannot set them. Prefer short repository-relative summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
+**MCP unavailable** is the Hub continuity trigger (not runtime alone). Use the `env-check` skill / `skills/env-check/scripts/check_runtime.sh` for CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context (`CURSOR_AGENT`, container cues — never `$USER=root` alone). When Hub MCP is unreachable, use the forge issue mailbox only when issue-write access is available and the authenticated identity is accepted by Hub Inbox authors. Open/update a GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip labels if the token cannot set them. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`) so it does not land in Resume. Prefer short repository-relative summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
 
 CLOUD_AGENT: do not assume machine-installed local skill CLIs (e.g. `graphify`) exist — one-line notice if missing, then repo tools / committed `graphify-out/`; prefer headless tests and injected env/OIDC over `.env.local`; no native browser/macOS-Windows binaries. LOCAL_WORKSPACE: local docker / localhost OK; local CLIs may exist; prefer Hub MCP when up.
 
@@ -487,7 +499,7 @@ When this workspace involves substantial starting, resuming, or pausing work:
 
 1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query once per meaningful session. Reuse resolved context where possible.
 2. One thread = one independently finishable outcome. If resuming a known thread, reuse its `thread_id`. Otherwise call `check_overlap` before potentially new work and reuse a candidate only when its Goal matches; different goal → separate thread (`force_new_thread=true` when needed).
-3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state. When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
+3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state (omit ritual content). When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
 4. When finished, `mark_done` on the known completed thread id only. Never close unrelated overlap results.
 
 If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` — do not nag or hand-edit AGENTS.md.
@@ -1589,6 +1601,77 @@ def run_connect(
     return report
 
 
+def _doctor_push_guidance_verification(
+    *,
+    hub_url: str,
+    token: str | None,
+    project: Path,
+    continuity: list[Any],
+    report: ConnectReport,
+) -> None:
+    """Best-effort: record local doctor versions on the Hub for session_digest.
+
+    Hub cannot inspect the client filesystem; doctor is the local verifier.
+    Failures stay warns so offline / auth issues never fail the doctor banner alone.
+    """
+    auth = (token or "").strip()
+    if not auth or auth == "change-me":
+        return
+
+    def _installed(name_prefix: str) -> int | None:
+        for item in continuity:
+            name = getattr(item, "name", "") or ""
+            if name.startswith(name_prefix) or name == name_prefix:
+                return getattr(item, "installed_version", None)
+        return None
+
+    payload = {
+        "workspace_path": str(project),
+        "agent_guidance_version": _installed("AGENTS.md"),
+        "session_skill_version": _installed("adhd-hub-session"),
+        "cursor_rule_version": _installed("Cursor rule"),
+        "source": "doctor",
+    }
+    if all(
+        payload[k] is None
+        for k in (
+            "agent_guidance_version",
+            "session_skill_version",
+            "cursor_rule_version",
+        )
+    ):
+        report.add(
+            "guidance verify",
+            "warn",
+            "no local version markers found to record",
+        )
+        return
+
+    base = normalize_hub_url(hub_url)
+    try:
+        _http_json(
+            f"{base}/api/guidance/verify",
+            token=auth,
+            method="POST",
+            payload=payload,
+        )
+        report.add(
+            "guidance verify",
+            "ok",
+            "recorded on Hub for session_digest.guidance",
+        )
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        OSError,
+    ) as exc:
+        report.add("guidance verify", "warn", f"could not record ({exc})")
+
+
 def _doctor_remote_checks(report: ConnectReport, hub_url: str, token: str | None) -> None:
     """Optional authenticated checks against forge / OpenClaw / indexer metadata."""
     auth = token or os.environ.get("ADHD_HUB_AUTH_TOKEN")
@@ -1781,6 +1864,7 @@ def run_doctor(
         }
         for item in continuity:
             report.add(item.name, status_map.get(item.status, "warn"), item.detail)
+        report.continuity_items = continuity
         # Project registration (local path known; Hub reachability separate).
         if ok and token_set:
             report.add(
@@ -1801,6 +1885,14 @@ def run_doctor(
                 "Hub unreachable — cannot confirm registration",
             )
         report.continuity_text = format_continuity_report(continuity)
+        if ok and token_set:
+            _doctor_push_guidance_verification(
+                hub_url=hub_url,
+                token=token or os.environ.get("ADHD_HUB_AUTH_TOKEN"),
+                project=project,
+                continuity=continuity,
+                report=report,
+            )
 
     report.add(
         "skills CLI",
@@ -1833,6 +1925,7 @@ _AGENT_NAMES = frozenset({
     "adhd-hub-session skill",
     "adhd-hub-projects skill",
     "env-check skill",
+    "guidance verify",
 })
 _COMPANION_PREFIXES = (
     "companion ",

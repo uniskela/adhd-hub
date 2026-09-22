@@ -4,9 +4,9 @@ Guidance for coding agents working in this repository.
 
 ## ADHD Progress Hub
 
-- Prefer MCP tools from `adhd-hub` (`resolve_project`, `session_digest`, `check_overlap`, `upsert_progress`, `mark_done`, `set_reminder`) when starting, pausing, or finishing work that could be abandoned.
+- Prefer MCP tools from `adhd-hub` (`resolve_project`, `session_digest`, `check_overlap`, `upsert_progress`, `mark_done`, `set_reminder`) when starting, pausing, or finishing work that could be abandoned. On routine `upsert_progress` checkpoints, update Goal/Focus/Next/Blocked/Resume only — omit ritual `content` (never “Thread upserted from …”).
 - Install skills globally when possible: `npx skills add ./skills -g` (or `uniskela/adhd-hub` once public). Skills include `adhd-hub-session`, `adhd-hub-projects`, and `env-check`.
-- Use `env-check` (`skills/env-check/scripts/check_runtime.sh`) for CLOUD_AGENT vs LOCAL_WORKSPACE; **MCP unavailable** triggers forge `[ADHD]` fallback — never invent Hub state.
+- Use `env-check` (`skills/env-check/scripts/check_runtime.sh`) for CLOUD_AGENT vs LOCAL_WORKSPACE; **MCP unavailable** triggers forge `[ADHD]` fallback — never invent Hub state. Recommended Made-with footer on those issues: `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under `## Attribution`.
 - Do not invent hub state — only report what the tools return.
 - Prefer summaries; never dump full chat transcripts into the hub.
 
@@ -55,7 +55,7 @@ See the Cursor skill [`.cursor/skills/graphify/SKILL.md`](.cursor/skills/graphif
 - On each new PR, audit and update wiki docs (`graphify-out/wiki/` when present) so they stay aligned with the change and do not drift.
 
 <!-- adhd-hub:project-agent:start -->
-<!-- adhd-hub:guidance-version:4 -->
+<!-- adhd-hub:guidance-version:5 -->
 ## ADHD Hub continuity
 
 For substantial work in this project:
@@ -76,8 +76,11 @@ For substantial work in this project:
   the authenticated identity is accepted by Hub Inbox authors. Open/update a
   GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume
   cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip
-  labels if the token cannot set them. Prefer short repository-relative
-  summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
+  labels if the token cannot set them. Recommended: append
+  `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under
+  a non-imported heading (e.g. `## Attribution`) so it does not land in Resume.
+  Prefer short repository-relative summaries; never invent Hub continuity,
+  progress, or thread state after a forge-only write.
 - CLOUD_AGENT: do not assume machine-installed local skill CLIs (e.g.
   `graphify`) exist. If missing: one-line notice, continue via repo tools /
   committed `graphify-out/` when present; never fabricate graph or Hub state.
@@ -92,8 +95,8 @@ For substantial work in this project:
   Before updating a thread, compare new work to that thread's Goal; if it does
   not advance the same outcome, use another thread or create one.
 - Known thread → `upsert_progress(thread_id=...)` with compact structured state
-  (goal / focus / ≤3 next / blocked if any / resume). Do not silently attach
-  to an unrelated open thread.
+  (goal / focus / ≤3 next / blocked if any / resume); omit ritual `content`.
+  Do not silently attach to an unrelated open thread.
 - `check_overlap` only before potentially new work; reuse only when the Goal
   matches. Different goal → separate thread (`force_new_thread` if needed).
 - When leaving mid-task, checkpoint then `pause_thread(thread_id, next_step=...)`

@@ -1,6 +1,6 @@
 ---
 name: env-check
-hub_skill_version: 1
+hub_skill_version: 2
 description: >-
   Detect CLOUD_AGENT vs LOCAL_WORKSPACE and apply the matching agent
   constraints. Use at session start when choosing tests, credentials, Hub
@@ -51,7 +51,7 @@ When `RUNTIME_ENV: CLOUD_AGENT` (Cursor Cloud / remote sandbox):
 - Prefer injected environment / OIDC / platform secrets over committing or relying on `.env.local`
 - Local-only assumptions (opening `localhost` GUIs, host Docker socket from the agent VM, Tailscale to a private Hub) may fail — plan accordingly
 - If Hub MCP tools are missing/errored/unauthorized: on the first substantial Hub-worthy turn, the **first line** of the reply MUST say Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Never invent Hub state or claim a Hub write succeeded
-- Fallback still applies when Hub MCP is down: when issue-write access exists and the identity is on Hub **Inbox authors**, open/update a forge/GitHub issue titled `[ADHD] …` with Goal / Focus / Next / Resume (or Now / Done / Next / Return). Optional labels `adhd-hub`, `project:<slug>`, `source:cursor` — skip labels if the token cannot set them. No secrets, private Hub URLs, internal hosts/IPs, absolute local paths, or transcripts
+- Fallback still applies when Hub MCP is down: when issue-write access exists and the identity is on Hub **Inbox authors**, open/update a forge/GitHub issue titled `[ADHD] …` with Goal / Focus / Next / Resume (or Now / Done / Next / Return). Optional labels `adhd-hub`, `project:<slug>`, `source:cursor` — skip labels if the token cannot set them. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`). No secrets, private Hub URLs, internal hosts/IPs, absolute local paths, or transcripts
 
 ## LOCAL_WORKSPACE guidelines
 

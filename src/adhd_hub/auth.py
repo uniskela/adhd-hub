@@ -11,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from adhd_hub.config import Settings
+from adhd_hub.config import Settings, is_weak_auth_token
 from adhd_hub.passwords import PasswordStore
 from adhd_hub.sessions import SESSION_SECONDS, BrowserSessions
 
@@ -40,9 +40,10 @@ def require_auth(
     settings: Settings,
     credentials: HTTPAuthorizationCredentials | None,
 ) -> None:
-    # Default-token development mode is restricted to a loopback bind at startup.
+    # Classic empty/change-me local-dev only; other weak placeholders still require Bearer.
+    # Exposure beyond loopback is refused at startup by validate_bind_token_safety.
     if (
-        settings.auth_token in {"", "change-me"}
+        settings.auth_token.strip() in {"", "change-me"}
         and credentials is None
         and not PasswordStore(settings.data_dir).configured
     ):
@@ -177,7 +178,7 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
     async def auth_status():
         return {
             "password_configured": passwords.configured,
-            "development_mode": settings.auth_token in {"", "change-me"},
+            "development_mode": is_weak_auth_token(settings.auth_token),
             "session_hours": SESSION_SECONDS // 3600,
         }
 
@@ -203,7 +204,7 @@ def build_auth_router(settings: Settings, sessions: BrowserSessions) -> APIRoute
         require_browser_request(request, settings)
         key = client_key(request)
         throttle.check(key)
-        if settings.auth_token in {"", "change-me"}:
+        if is_weak_auth_token(settings.auth_token):
             raise HTTPException(
                 409, "Set a private ADHD_HUB_AUTH_TOKEN on the server before creating a password."
             )

@@ -26,8 +26,9 @@ Include enough information to reproduce the problem safely:
 
 ## Operator guidance
 
-- Set a long random `ADHD_HUB_AUTH_TOKEN` before binding beyond loopback.
+- Set a long random `ADHD_HUB_AUTH_TOKEN` before binding beyond loopback, setting a public URL, enabling proxy trust, or fronting the Hub with a tunnel.
 - Prefer LAN, VPN, or Tailscale access and HTTPS for remote deployments.
+- For Cloudflare Tunnel / cloud-agent MCP, see [docs/remote-mcp-access.md](docs/remote-mcp-access.md); do not publish host `8787` when the tunnel is the only ingress.
 - Treat forge and OpenClaw credentials as secrets and rotate them if exposed.
 - Keep the Hub and its container dependencies updated.
 - Review backup archives before sharing them; they can contain project metadata

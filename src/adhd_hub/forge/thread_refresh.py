@@ -67,7 +67,9 @@ def parse_issue_body(body: str) -> dict[str, Any]:
     focus_key = next((key for key in ("focus", "now", "current state") if key in sections), None)
     next_key = next((key for key in ("next", "tasks") if key in sections), None)
     blocked_key = next((key for key in ("blocked", "waiting") if key in sections), None)
-    resume_key = next((key for key in ("resume cue", "return cue") if key in sections), None)
+    resume_key = next(
+        (key for key in ("resume", "resume cue", "return cue") if key in sections), None
+    )
     values: dict[str, Any] = {}
     if "goal" in sections:
         values["goal"] = goal

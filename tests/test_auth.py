@@ -135,6 +135,72 @@ def test_network_bind_requires_token(tmp_path):
         create_app(Settings(data_dir=tmp_path, host="0.0.0.0", auth_token="change-me"))
 
 
+def test_loopback_default_token_allowed_without_public_url(tmp_path):
+    app = create_app(Settings(data_dir=tmp_path, host="127.0.0.1", auth_token="change-me"))
+    assert app.title == "ADHD Progress Hub"
+
+
+def test_loopback_weak_token_refuses_remote_public_url(tmp_path):
+    with pytest.raises(ValueError, match="PUBLIC_URL"):
+        create_app(
+            Settings(
+                data_dir=tmp_path,
+                host="127.0.0.1",
+                auth_token="change-me",
+                public_url="https://hub.example.com",
+            )
+        )
+
+
+def test_loopback_weak_token_refuses_trust_proxy(tmp_path):
+    with pytest.raises(ValueError, match="TRUST_PROXY_HEADERS"):
+        create_app(
+            Settings(
+                data_dir=tmp_path,
+                host="127.0.0.1",
+                auth_token="change-me",
+                trust_proxy_headers=True,
+            )
+        )
+
+
+def test_loopback_env_example_placeholder_refuses_public_url(tmp_path):
+    with pytest.raises(ValueError, match="ADHD_HUB_AUTH_TOKEN"):
+        create_app(
+            Settings(
+                data_dir=tmp_path,
+                host="127.0.0.1",
+                auth_token="change-me-to-a-long-random-string",
+                public_url="https://hub.example.com",
+            )
+        )
+
+
+def test_loopback_weak_token_allows_loopback_public_url(tmp_path):
+    app = create_app(
+        Settings(
+            data_dir=tmp_path,
+            host="127.0.0.1",
+            auth_token="change-me",
+            public_url="http://127.0.0.1:8787",
+        )
+    )
+    assert app is not None
+
+
+def test_strong_token_allows_public_url_and_proxy_trust(tmp_path):
+    app = create_app(
+        Settings(
+            data_dir=tmp_path,
+            host="0.0.0.0",
+            auth_token="super-secret-strong-token",
+            public_url="https://hub.example.com",
+            trust_proxy_headers=True,
+        )
+    )
+    assert app is not None
+
+
 def test_config_environment_overrides_toml(tmp_path, monkeypatch):
     config = tmp_path / "config.toml"
     config.write_text('auth_token = "toml-token"\npublic_url = "https://toml.example"\n')

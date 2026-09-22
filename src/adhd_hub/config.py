@@ -4,14 +4,52 @@ import os
 import tomllib
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from dotenv import dotenv_values
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Loopback binds only — keep in sync with oauth._LOOPBACK_HOSTS.
+_LOOPBACK_BIND_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+# Exact placeholders that must never back a public / proxied / tunnelled Hub.
+_WEAK_AUTH_TOKENS = frozenset(
+    {
+        "",
+        "change-me",
+        "change-me-to-a-long-random-string",  # .env.example copy-paste foot-gun
+    }
+)
+
 
 def _default_data_dir() -> Path:
     return Path.cwd() / "data"
+
+
+def is_weak_auth_token(token: str | None) -> bool:
+    """True for empty / documented default placeholders (not a real secret)."""
+    return (token or "").strip() in _WEAK_AUTH_TOKENS
+
+
+def is_loopback_bind_host(host: str | None) -> bool:
+    if not host:
+        return False
+    return host.lower().strip("[]") in _LOOPBACK_BIND_HOSTS
+
+
+def public_url_is_non_loopback(url: str | None) -> bool:
+    """True when a configured public/hub URL hostname is missing or not loopback."""
+    if not url or not str(url).strip():
+        return False
+    try:
+        parsed = urlparse(str(url).strip())
+    except ValueError:
+        return True
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return True
+    return not is_loopback_bind_host(host)
 
 
 class Settings(BaseSettings):
@@ -94,6 +132,38 @@ class Settings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.wiki_dir.mkdir(parents=True, exist_ok=True)
         (self.wiki_dir / "projects").mkdir(parents=True, exist_ok=True)
+
+
+def validate_bind_token_safety(settings: Settings) -> None:
+    """Refuse weak tokens when the Hub is (or looks) reachable beyond pure local-dev.
+
+    Intentional local loopback + default token without PUBLIC_URL / proxy trust is OK.
+    Non-loopback bind, non-loopback PUBLIC_URL/HUB_URL, or TRUST_PROXY_HEADERS → fail closed.
+    """
+    if not is_weak_auth_token(settings.auth_token):
+        return
+
+    problems: list[str] = []
+    if not is_loopback_bind_host(settings.host):
+        problems.append(f"bind host {settings.host!r} is not loopback")
+
+    public = settings.resolve_public_url()
+    if public and public_url_is_non_loopback(public):
+        problems.append(f"PUBLIC_URL/HUB_URL {public!r} is not a loopback URL")
+
+    if settings.trust_proxy_headers:
+        problems.append("ADHD_HUB_TRUST_PROXY_HEADERS is enabled")
+
+    if not problems:
+        return
+
+    raise ValueError(
+        "Refusing to start with a weak/default ADHD_HUB_AUTH_TOKEN when the Hub "
+        "appears reachable beyond local-only development ("
+        + "; ".join(problems)
+        + "). Set a long random token before using a public URL, reverse proxy, "
+        "tunnel, or non-loopback bind. See docs/remote-mcp-access.md."
+    )
 
 
 def _load_toml(path: Path) -> dict[str, Any]:

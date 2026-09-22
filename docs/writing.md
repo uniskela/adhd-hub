@@ -12,7 +12,7 @@ Keep the top of every active note short enough to scan before you start work. It
 4. **Blocked** — who or what needs to move first? (omit when nothing is blocked)
 5. **Resume / Return cue** — what should I do when I come back after a break?
 
-Hub threads store these as structured fields (`goal`, `focus`, `next_steps`, `blocked_reason`, `resume_step`) plus a short title. Prefer updating those fields via `upsert_progress(thread_id=...)` instead of pasting a full diary every checkpoint.
+Hub threads store these as structured fields (`goal`, `focus`, `next_steps`, `blocked_reason`, `resume_step`) plus a short title. Prefer updating those fields via `upsert_progress(thread_id=...)` instead of pasting a full diary every checkpoint. On routine checkpoints, omit `content` entirely — never write ceremony lines such as “Thread upserted from …”; reserve freeform `content` for rare human-meaningful events (decision, blocker, ship note).
 
 Use a verb, a concrete object, and a location where useful: `Run uv run pytest`, `Open docs/authentication.md`, or `Ask Sam to confirm the DNS record`. Avoid labels such as “work on auth” that still require deciding how to begin.
 
@@ -102,6 +102,8 @@ Keep one source of truth for a decision. Link to a detailed design, issue, or pu
 | Handoff | Current state and exact return cue | Naming paths, commands, IDs, and blockers explicitly |
 
 Prefer short headings, one idea per bullet, plain language, and links or commands that can be opened or copied directly. Put a timestamp on a status update when recency matters. Put background material after the active section, where it remains available without competing with the next action.
+
+For forge issues titled `[ADHD] …`, Hub’s inbox accepts bare `## Resume` (also `## Resume cue` / `## Return cue`). Use a short Goal/Focus/Next/Resume mailbox body for importable handoffs; for long trackers, keep that continuity header pinned above PRD sections. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`) so it does not land in Resume. See [Forge issue inbox](forge-issue-inbox.md).
 
 ## Why this pattern
 

@@ -100,6 +100,8 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+For Cloudflare Tunnel (Hub on the Compose network only, no host `8787` publish), uncomment the commented `cloudflared` service in `docker-compose.yml` and follow [Remote MCP access](remote-mcp-access.md).
+
 For a normal server that should consume released images without a source checkout, prefer the published-image Compose example above.
 
 ## Plain `docker run`
@@ -184,7 +186,7 @@ ADHD_HUB_TRUST_PROXY_HEADERS=true
 # ADHD_HUB_COOKIE_SECURE=true
 ```
 
-Only trust forwarded headers from a proxy you control. For a Proxmox/Tailscale layout, migration instructions, and homelab-specific networking, see [Homelab deployment](deploy-homelab.md).
+Only trust forwarded headers from a proxy you control. For a Proxmox/Tailscale layout, migration instructions, and homelab-specific networking, see [Homelab deployment](deploy-homelab.md). To expose Hub MCP to Cursor Cloud (or similar) via Cloudflare Tunnel — including the commented Compose `cloudflared` opt-in — see [Remote MCP access](remote-mcp-access.md).
 
 ## Connect coding agents after the server is running
 

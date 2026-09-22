@@ -11,11 +11,11 @@ from pathlib import Path
 
 # Independent from package release version (pyproject). Bump only when Hub-owned
 # generated guidance or Hub-owned skill contracts change meaningfully.
-AGENT_GUIDANCE_VERSION = 4  # env-check + MCP-down forge mailbox + cloud local-CLI caveats
-SESSION_SKILL_VERSION = 3  # points at env-check; MCP-down is continuity trigger
-PROJECTS_SKILL_VERSION = 3
-ENV_CHECK_SKILL_VERSION = 1
-CURSOR_RULE_VERSION = 4  # env-check + MCP-unavailable forge mailbox + local CLIs
+AGENT_GUIDANCE_VERSION = 5  # Made-with footer on [ADHD] forge mailbox issues
+SESSION_SKILL_VERSION = 5  # doctor/session_digest keep-current + report_guidance_health
+PROJECTS_SKILL_VERSION = 4  # Made-with footer note on forge mailbox fallback
+ENV_CHECK_SKILL_VERSION = 2  # Made-with footer note on forge mailbox fallback
+CURSOR_RULE_VERSION = 5  # Made-with footer on [ADHD] forge mailbox issues
 
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"
@@ -437,7 +437,12 @@ def guidance_digest_payload(
         "last_verified_version": last_ver,
         "last_verified_at": last_at,
         "status": status,
-        "hint": "Run locally: adhd-hub doctor --project <path>",
+        "hint": (
+            "Run locally: adhd-hub doctor --project <path> "
+            "(records verification when Hub credentials work). "
+            "Repair AGENTS: adhd-hub setup . --refresh. "
+            "Opt-in skill refresh: adhd-hub setup . --install-skills."
+        ),
     }
 
 

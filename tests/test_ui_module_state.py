@@ -170,3 +170,59 @@ def test_thread_deep_link_is_consumed_after_initial_or_interactive_auth():
     login_thread = auth.index("const threadId = requestedThreadId();", login_load)
     login_open = auth.index("if (threadId) await chooseThread(threadId);", login_thread)
     assert login_load < login_thread < login_open
+
+
+def test_notes_reader_formats_time_elements_with_current_tz():
+    """Notes HTML inject path must reformat <time datetime> via formatWhen / currentTz."""
+    dom = (UI_JS / "dom.js").read_text()
+    now = (UI_JS / "now.js").read_text()
+    assert "export function formatNotesTimes" in dom
+    assert "time[datetime]" in dom
+    assert "formatWhen(iso)" in dom
+    assert "formatNotesTimes" in now
+    assert "import { copyText, formatNotesTimes, formatWhen }" in now
+    # Runs as part of wireNotesActions so both reader inject and Now card paths cover it.
+    wire = now.index("function wireNotesActions")
+    assert "formatNotesTimes(root)" in now[wire : wire + 400]
+
+
+def test_now_copy_coding_agent_prompt_control():
+    """Selected Now thread exposes a compact Copy agent prompt control."""
+    now = (UI_JS / "now.js").read_text()
+    dom = (UI_JS / "dom.js").read_text()
+    assert "export function buildCodingAgentPrompt" in now
+    assert "export function isBoilerplateProgressSnippet" in now
+    assert "export async function copyCodingAgentPrompt" in now
+    assert 'id="btn-copy-agent-prompt"' in now
+    assert ">Copy agent prompt</button>" in now
+    assert "Copied coding-agent prompt" in now
+    assert "export async function copyText" in dom
+    assert "import { copyText, formatNotesTimes, formatWhen }" in now
+    # Button sits with Start / Choose / Done in renderFocus.
+    render = now.index("export function renderFocus")
+    btn = now.index('id="btn-copy-agent-prompt"', render)
+    done = now.index('data-done="', render)
+    assert done < btn
+    # Prompt includes the scannable continuity sections agents need.
+    for needle in (
+        "**Goal**",
+        "**Focus**",
+        "**Next**",
+        "**Blocked**",
+        "**Resume**",
+        "**Progress**",
+        "Linked forge issue",
+        "upsert_progress",
+    ):
+        assert needle in now
+    # Cap next steps at 3 in the builder.
+    assert ".slice(0, 3)" in now[now.index("buildCodingAgentPrompt") :]
+    # Progress omitted when milestone/boilerplate; forge + thread_id always kept.
+    builder = now[now.index("export function buildCodingAgentPrompt") :]
+    assert "includeProgress" in builder
+    assert "isBoilerplateProgressSnippet" in builder
+    assert "thread_id" in builder
+    assert "forge_issue_url" in builder
+    assert "thread\\s+upserted\\s+from" in now[
+        now.index("export function isBoilerplateProgressSnippet") :
+    ]

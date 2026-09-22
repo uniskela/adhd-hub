@@ -29,6 +29,7 @@ nav = [
   ]},
   { "Deploy & configure" = [
     { "Homelab deployment" = "deploy-homelab.md" },
+    { "Remote MCP access" = "remote-mcp-access.md" },
     { "Authentication" = "authentication.md" },
     { "Environment variables" = "environment-variables.md" },
     { "Forge permissions" = "forge-permissions.md" },

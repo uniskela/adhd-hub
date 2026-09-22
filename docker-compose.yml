@@ -10,6 +10,9 @@ services:
     # Runtime CMD is the image venv binary (no PyPI). Host must stay 0.0.0.0 in-container.
     ports:
       - "8787:8787"
+    # Cloudflare Tunnel (opt-in): comment out `ports:` above so Hub stays on the
+    # Compose network only (do NOT publish host 8787). Uncomment `cloudflared`
+    # below. See docs/remote-mcp-access.md.
     env_file:
       - .env
     environment:
@@ -20,6 +23,35 @@ services:
       - adhd_hub_data:/data
     # Example OpenClaw on same Docker network:
     # ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
+
+  # ---------------------------------------------------------------------------
+  # Optional Cloudflare Tunnel — uncomment this service to enable.
+  #
+  # Before enabling:
+  #   1. Comment out adhd-hub `ports:` so 8787 is not published on the host.
+  #   2. Set a strong ADHD_HUB_AUTH_TOKEN (never change-me / empty).
+  #   3. ADHD_HUB_PUBLIC_URL=https://<your-tunnel-hostname>  (HTTPS, no slash)
+  #   4. ADHD_HUB_TRUST_PROXY_HEADERS=true  (only behind this trusted terminator)
+  #   5. Put the tunnel token or credential files outside git (see .env.example).
+  #
+  # In Cloudflare, route https://<hostname> → http://adhd-hub:8787 (Docker DNS).
+  # Optional: put Cloudflare Access in front of the hostname for an extra gate.
+  # Docs: docs/remote-mcp-access.md
+  # ---------------------------------------------------------------------------
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: adhd-hub-cloudflared
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     # From Cloudflare Zero Trust → Networks → Tunnels (never commit):
+  #     TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+  #   # Prefer read-only credential mounts when not using TUNNEL_TOKEN:
+  #   # volumes:
+  #   #   - ${CLOUDFLARED_CREDENTIALS_DIR:-./secrets/cloudflared}:/etc/cloudflared:ro
+  #   # command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+  #   depends_on:
+  #     - adhd-hub
 
 volumes:
   adhd_hub_data:
