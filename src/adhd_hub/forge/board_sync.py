@@ -582,6 +582,19 @@ class BoardForgeSync:
             return str(user.get("login") or user.get("username") or user.get("name") or "").strip()
         return str(user or "").strip()
 
+    @staticmethod
+    def _last_page_from_link(link_header: str | None) -> int | None:
+        if not link_header:
+            return None
+        for part in link_header.split(","):
+            lowered = part.casefold()
+            if 'rel="last"' not in lowered and "rel='last'" not in lowered:
+                continue
+            match = re.search(r"[?&]page=(\d+)", part)
+            if match:
+                return int(match.group(1))
+        return None
+
     def list_issue_comments(
         self,
         number: int,
@@ -594,49 +607,69 @@ class BoardForgeSync:
         if not self.config.enabled() or not self.config.token:
             return []
         url = f"{self._issue_api_base(number, owner=owner, repo=repo)}/comments"
+        page_size = min(100, max(1, limit))
+        max_pages = 5
+
+        def _normalize(raw: dict[str, Any]) -> dict[str, Any] | None:
+            remote_id = raw.get("id")
+            if remote_id is None:
+                return None
+            return {
+                "remote_id": str(remote_id),
+                "kind": "comment",
+                "author": self._comment_author(raw),
+                "body": str(raw.get("body") or ""),
+                "created_at": str(raw.get("created_at") or raw.get("created") or ""),
+                "html_url": str(raw.get("html_url") or raw.get("url") or ""),
+            }
+
         out: list[dict[str, Any]] = []
         with httpx.Client(timeout=20.0) as client:
-            page = 1
-            page_size = min(100, max(1, limit))
-            while len(out) < limit and page <= 5:
-                resp = client.get(
-                    url,
-                    headers=self._headers(),
-                    params={"per_page": page_size, "page": page, "limit": page_size},
+            first = client.get(
+                url,
+                headers=self._headers(),
+                params={"per_page": page_size, "page": 1, "limit": page_size},
+            )
+            if first.status_code >= 400:
+                log.warning(
+                    "list issue comments failed: %s %s",
+                    first.status_code,
+                    first.text[:200],
                 )
-                if resp.status_code >= 400:
-                    log.warning(
-                        "list issue comments failed: %s %s",
-                        resp.status_code,
-                        resp.text[:200],
+                first.raise_for_status()
+            first_items = first.json()
+            if not isinstance(first_items, list):
+                return []
+            last_page = self._last_page_from_link(first.headers.get("Link")) or 1
+            if len(first_items) < page_size:
+                last_page = 1
+            # Walk from the end so busy issues still surface recent comments.
+            start_page = max(1, last_page - max_pages + 1)
+            pages = list(range(start_page, last_page + 1))
+            for page in pages:
+                if page == 1:
+                    items = first_items
+                else:
+                    resp = client.get(
+                        url,
+                        headers=self._headers(),
+                        params={"per_page": page_size, "page": page, "limit": page_size},
                     )
-                    resp.raise_for_status()
-                items = resp.json()
-                if not isinstance(items, list):
-                    break
-                for raw in items:
-                    if not isinstance(raw, dict):
-                        continue
-                    remote_id = raw.get("id")
-                    if remote_id is None:
-                        continue
-                    out.append(
-                        {
-                            "remote_id": str(remote_id),
-                            "kind": "comment",
-                            "author": self._comment_author(raw),
-                            "body": str(raw.get("body") or ""),
-                            "created_at": str(
-                                raw.get("created_at") or raw.get("created") or ""
-                            ),
-                            "html_url": str(raw.get("html_url") or raw.get("url") or ""),
-                        }
-                    )
-                    if len(out) >= limit:
+                    if resp.status_code >= 400:
+                        log.warning(
+                            "list issue comments failed: %s %s",
+                            resp.status_code,
+                            resp.text[:200],
+                        )
+                        resp.raise_for_status()
+                    items = resp.json()
+                    if not isinstance(items, list):
                         break
-                if len(items) < page_size:
-                    break
-                page += 1
+                for raw in items:
+                    if isinstance(raw, dict):
+                        row = _normalize(raw)
+                        if row:
+                            out.append(row)
         out.sort(key=lambda row: row.get("created_at") or "", reverse=True)
         return out[:limit]
 
@@ -669,51 +702,72 @@ class BoardForgeSync:
             "unassigned",
         }
         out: list[dict[str, Any]] = []
+        page_size = min(30, max(limit, 10))
         try:
             with httpx.Client(timeout=15.0) as client:
-                resp = client.get(
+                first = client.get(
                     url,
                     headers=headers,
-                    params={"per_page": min(30, max(limit, 10)), "page": 1},
+                    params={"per_page": page_size, "page": 1},
                 )
-                if resp.status_code == 404:
+                if first.status_code == 404:
                     return []
-                if resp.status_code >= 400:
+                if first.status_code >= 400:
                     log.warning(
                         "list issue timeline failed: %s %s",
-                        resp.status_code,
-                        resp.text[:200],
+                        first.status_code,
+                        first.text[:200],
                     )
                     return []
-                items = resp.json()
+                first_items = first.json()
+                if not isinstance(first_items, list):
+                    return []
+                last_page = self._last_page_from_link(first.headers.get("Link")) or 1
+                if len(first_items) < page_size:
+                    last_page = 1
+                start_page = max(1, last_page - 2)
+                for page in range(start_page, last_page + 1):
+                    if page == 1:
+                        items = first_items
+                    else:
+                        resp = client.get(
+                            url,
+                            headers=headers,
+                            params={"per_page": page_size, "page": page},
+                        )
+                        if resp.status_code >= 400:
+                            break
+                        items = resp.json()
+                        if not isinstance(items, list):
+                            break
+                    for raw in items:
+                        if not isinstance(raw, dict):
+                            continue
+                        event = str(raw.get("event") or raw.get("type") or "").strip().casefold()
+                        if event not in interesting:
+                            continue
+                        remote_id = (
+                            raw.get("id")
+                            or raw.get("node_id")
+                            or f"{event}-{raw.get('created_at')}"
+                        )
+                        label = ""
+                        if isinstance(raw.get("label"), dict):
+                            label = str(raw["label"].get("name") or "")
+                        out.append(
+                            {
+                                "remote_id": str(remote_id),
+                                "kind": "timeline",
+                                "author": self._comment_author(raw),
+                                "body": label or event.replace("-", " "),
+                                "event": event,
+                                "created_at": str(raw.get("created_at") or ""),
+                                "html_url": str(raw.get("html_url") or raw.get("url") or ""),
+                            }
+                        )
         except httpx.HTTPError as exc:
             log.warning("list issue timeline transport failed: %s", exc)
             return []
-        if not isinstance(items, list):
-            return []
-        for raw in items:
-            if not isinstance(raw, dict):
-                continue
-            event = str(raw.get("event") or raw.get("type") or "").strip().casefold()
-            if event not in interesting:
-                continue
-            remote_id = raw.get("id") or raw.get("node_id") or f"{event}-{raw.get('created_at')}"
-            label = ""
-            if isinstance(raw.get("label"), dict):
-                label = str(raw["label"].get("name") or "")
-            out.append(
-                {
-                    "remote_id": str(remote_id),
-                    "kind": "timeline",
-                    "author": self._comment_author(raw),
-                    "body": label or event.replace("-", " "),
-                    "event": event,
-                    "created_at": str(raw.get("created_at") or ""),
-                    "html_url": str(raw.get("html_url") or raw.get("url") or ""),
-                }
-            )
-            if len(out) >= limit:
-                break
         out.sort(key=lambda row: row.get("created_at") or "", reverse=True)
         return out[:limit]
 

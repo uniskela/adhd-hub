@@ -207,6 +207,105 @@ def test_board_list_issue_comments_github_and_gitea() -> None:
     assert gt[0]["remote_id"] == "2"
 
 
+def test_empty_forge_activity_is_ttl_cached(tmp_path) -> None:
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Linked", project_slug="demo", goal="G")
+    )
+    service.store.set_meta(f"forge_issue:{thread.id}", "42")
+    calls = {"n": 0}
+
+    def _comments(*_a, **_k):
+        calls["n"] += 1
+        return []
+
+    with (
+        patch.object(BoardForgeSync, "list_issue_comments", side_effect=_comments),
+        patch.object(BoardForgeSync, "list_issue_timeline", return_value=[]),
+    ):
+        service.thread_notes_context_html(thread)
+        service.thread_notes_context_html(thread)
+    assert calls["n"] == 1
+    assert service.store.forge_activity_fetched_at(thread.id)
+
+
+def test_notes_overview_rejects_javascript_repo_url(tmp_path) -> None:
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="Safe", project_slug="demo", goal="G")
+    )
+    project = service.store.ensure_project_for_slug("demo", title="Demo")
+    poisoned = project.model_copy(update={"repo_url": None})
+    # Simulate a bad URL reaching HTML without going through Project validators.
+    with patch.object(
+        type(service.store),
+        "get_project",
+        return_value=poisoned.model_construct(
+            **{**poisoned.model_dump(), "repo_url": "javascript:alert(1)"}
+        ),
+    ):
+        html = service.thread_notes_context_html(thread)
+    assert "javascript:" not in html
+    assert "Repository" not in html
+
+
+def test_board_list_issue_comments_uses_last_pages() -> None:
+    real_client = httpx.Client
+    cfg = ForgeConfig(
+        provider=ForgeProvider.github,
+        base_url="https://api.github.com",
+        token="tok",
+        owner="acme",
+        repo="hub",
+    )
+    board = BoardForgeSync(cfg, lambda _k: None, lambda _k, _v: None)
+    pages: dict[int, list[dict]] = {
+        1: [
+            {
+                "id": 1,
+                "body": "old",
+                "user": {"login": "a"},
+                "created_at": "2026-01-01T00:00:00Z",
+            }
+        ],
+        2: [
+            {
+                "id": 2,
+                "body": "new",
+                "user": {"login": "b"},
+                "created_at": "2026-09-22T00:00:00Z",
+            }
+        ],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params.get("page") or "1")
+        headers = {}
+        if page == 1:
+            headers["Link"] = (
+                '<https://api.github.com/repos/acme/hub/issues/7/comments?page=2>; rel="last"'
+            )
+        return httpx.Response(200, json=pages[page], headers=headers)
+
+    transport = httpx.MockTransport(handler)
+
+    class _CM:
+        def __init__(self, *args, **kwargs):
+            self._client = real_client(transport=transport)
+
+        def __enter__(self):
+            return self._client
+
+        def __exit__(self, *args):
+            self._client.close()
+            return False
+
+    with patch("adhd_hub.forge.board_sync.httpx.Client", _CM):
+        rows = board.list_issue_comments(7, limit=1)
+    assert rows[0]["remote_id"] == "2"
+    assert rows[0]["body"] == "new"
+
+
 def test_sibling_details_closed_by_default(tmp_path) -> None:
     service = _service(tmp_path)
     a = service.store.upsert_thread(

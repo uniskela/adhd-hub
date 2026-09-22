@@ -746,6 +746,21 @@ class HubService:
             return slugify(workspace_basename(workspace_path) or "untitled")
         return slugify(summary_or_title or "untitled")
 
+    @staticmethod
+    def _safe_notes_http_url(value: object) -> str | None:
+        """Allowlist http(s) URLs for Notes HTML hrefs (innerHTML injection path)."""
+        from urllib.parse import urlsplit
+
+        if not isinstance(value, str):
+            return None
+        cleaned = value.strip()
+        parsed = urlsplit(cleaned)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return None
+        if parsed.username or parsed.password:
+            return None
+        return cleaned
+
     def thread_notes_context_html(self, thread: Thread) -> str:
         """ADHD-scannable Notes & context: overview, continuity, notes, siblings, wiki, activity."""
         from html import escape
@@ -766,16 +781,19 @@ class HubService:
         forge_link = ""
         issue_url = pub.get("forge_issue_url")
         issue_num = pub.get("forge_issue_number")
-        if issue_url and issue_num is not None:
+        safe_issue = self._safe_notes_http_url(issue_url)
+        if safe_issue and issue_num is not None:
             forge_link = (
-                f'<a class="notes-overview-link" href="{escape(str(issue_url))}" '
+                f'<a class="notes-overview-link" href="{escape(safe_issue)}" '
                 f'target="_blank" rel="noopener noreferrer">Issue #{escape(str(issue_num))}</a>'
             )
-        elif project and project.repo_url:
-            forge_link = (
-                f'<a class="notes-overview-link" href="{escape(project.repo_url)}" '
-                f'target="_blank" rel="noopener noreferrer">Repository</a>'
-            )
+        else:
+            safe_repo = self._safe_notes_http_url(project.repo_url if project else None)
+            if safe_repo:
+                forge_link = (
+                    f'<a class="notes-overview-link" href="{escape(safe_repo)}" '
+                    f'target="_blank" rel="noopener noreferrer">Repository</a>'
+                )
         updated_html = f"<span>Updated {updated}</span>" if updated else ""
         parts.append(
             '<section class="notes-overview" aria-label="Project overview">'
@@ -993,7 +1011,7 @@ class HubService:
                 fresh = datetime.now(UTC) - stamp < timedelta(seconds=ttl_seconds)
             except ValueError:
                 fresh = False
-        if cached and fresh:
+        if fetched_at and fresh:
             return {"items": cached, "cached": True}
 
         try:

@@ -598,7 +598,7 @@ class Store:
                 SELECT id, thread_id, remote_id, kind, author, body, created_at,
                        html_url, event, fetched_at
                 FROM forge_activity_cache
-                WHERE thread_id = ?
+                WHERE thread_id = ? AND remote_id != '__empty__'
                 ORDER BY created_at DESC, remote_id DESC
                 LIMIT ?
                 """,
@@ -621,6 +621,9 @@ class Store:
         ]
 
     def forge_activity_fetched_at(self, thread_id: str) -> str | None:
+        meta = self.get_meta(f"forge_activity_fetched:{thread_id}")
+        if meta:
+            return meta
         with self._conn() as conn:
             row = conn.execute(
                 """
@@ -645,6 +648,7 @@ class Store:
             conn.execute(
                 "DELETE FROM forge_activity_cache WHERE thread_id = ?", (thread_id,)
             )
+            inserted = 0
             for item in items:
                 remote_id = str(item.get("remote_id") or "").strip()
                 kind = str(item.get("kind") or "comment").strip() or "comment"
@@ -670,6 +674,19 @@ class Store:
                         stamp,
                     ),
                 )
+                inserted += 1
+            if inserted == 0:
+                # Sentinel so empty successful fetches still have a TTL marker.
+                conn.execute(
+                    """
+                    INSERT INTO forge_activity_cache (
+                        id, thread_id, remote_id, kind, author, body, created_at,
+                        html_url, event, fetched_at
+                    ) VALUES (?, ?, '__empty__', 'meta', NULL, '', NULL, NULL, NULL, ?)
+                    """,
+                    (str(uuid4()), thread_id, stamp),
+                )
+        self.set_meta(f"forge_activity_fetched:{thread_id}", stamp)
 
     def add_progress_note(
         self,
