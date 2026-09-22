@@ -140,6 +140,8 @@ def milestone_text(
 
 
 def compact_thread_dict(thread: Thread) -> dict[str, Any]:
+    from adhd_hub.timeutil import to_iso_utc
+
     return {
         "id": thread.id,
         "title": thread.summary,
@@ -150,6 +152,6 @@ def compact_thread_dict(thread: Thread) -> dict[str, Any]:
         "next_steps": list(thread.next_steps or []),
         "blocked_reason": thread.blocked_reason,
         "resume_step": thread.resume_step,
-        "updated_at": thread.updated_at.isoformat(),
+        "updated_at": to_iso_utc(thread.updated_at),
         "project_slug": thread.project_slug,
     }

@@ -50,13 +50,31 @@ export function fillTimezoneSelect(selected) {
     sel.value = selected || local;
     state.currentTz = sel.value;
   }
-export function formatWhen(iso) {
+/** Parse Hub timestamps; naive / date-only values are UTC (storage contract). */
+export function parseHubInstant(iso) {
+    if (iso == null || iso === "") return null;
+    if (iso instanceof Date) {
+      return Number.isNaN(iso.getTime()) ? null : iso;
+    }
+    let s = String(iso).trim();
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2} /.test(s)) s = s.replace(" ", "T");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      s = `${s}T00:00:00.000Z`;
+    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+      // No offset → Hub UTC, not browser-local (avoids false 00:00 wall times).
+      s = `${s}Z`;
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+export function formatWhen(iso, timeZone) {
     if (!iso) return "";
     try {
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return String(iso).slice(0, 16);
+      const d = parseHubInstant(iso);
+      if (!d) return String(iso).slice(0, 19);
       return new Intl.DateTimeFormat(undefined, {
-        timeZone: state.currentTz || "UTC",
+        timeZone: timeZone || state.currentTz || "UTC",
         year: "numeric",
         month: "short",
         day: "2-digit",
@@ -64,7 +82,7 @@ export function formatWhen(iso) {
         minute: "2-digit",
       }).format(d);
     } catch (_e) {
-      return String(iso).slice(0, 16);
+      return String(iso).slice(0, 19);
     }
   }
 /** Reformat injected Notes HTML <time datetime> labels using prefs / browser TZ. */

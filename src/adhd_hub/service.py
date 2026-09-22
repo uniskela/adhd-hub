@@ -782,12 +782,16 @@ class HubService:
         """Machine-readable <time datetime>; UI reformats text via formatWhen / currentTz."""
         from html import escape
 
+        from adhd_hub.timeutil import to_iso_utc
+
         if value is None:
             return ""
-        if hasattr(value, "isoformat"):
-            raw = value.isoformat()
-        else:
-            raw = str(value).strip()
+        raw = to_iso_utc(value)  # type: ignore[arg-type]
+        if not raw:
+            if hasattr(value, "isoformat"):
+                raw = value.isoformat()
+            else:
+                raw = str(value).strip()
         if not raw:
             return ""
         esc = escape(raw)
@@ -1157,7 +1161,19 @@ class HubService:
             return {"items": [], "error": str(exc)}
 
     def thread_public_dict(self, thread: Thread) -> dict:
-        data = thread.model_dump(mode="json")
+        from adhd_hub.timeutil import latest_iso, normalize_public_timestamps
+
+        data = normalize_public_timestamps(thread.model_dump(mode="json"))
+        # My Work: Hub batch-import stamps are often identical across cards. When
+        # Updated == Imported (same batch bump), prefer the forge issue wall-clock.
+        hub = data.get("updated_at") or ""
+        forge = data.get("external_updated_at") or ""
+        imported = data.get("source_imported_at") or ""
+        if forge and hub and imported and hub == imported:
+            data["display_updated_at"] = forge
+        else:
+            data["display_updated_at"] = latest_iso(hub, forge) or hub
+        data["display_source_at"] = forge or imported
         project = (
             self.store.get_project(thread.project_slug) if thread.project_slug else None
         )

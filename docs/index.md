@@ -30,7 +30,7 @@ The project is designed to be useful without streaks, competitive pressure, or a
 ## Deploy and configure
 
 - [Homelab deployment](deploy-homelab.md)
-- [Remote MCP access (tunnels for cloud agents)](remote-mcp-access.md)
+- [Remote MCP access (tunnels for cloud agents)](https://uniskela.com/docs/adhd-hub/remote-mcp-access/)
 - [Authentication](authentication.md)
 - [Environment variables](environment-variables.md)
 - [MCP transports: HTTP and local stdio](connect.md#local-stdio-transport-optional)

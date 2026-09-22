@@ -26,6 +26,7 @@ from adhd_hub.models import (
     ThreadStatus,
     ThreadUpsert,
 )
+from adhd_hub.timeutil import ensure_aware_utc
 from adhd_hub.work_identity import (
     WORK_IDENTITY_MIGRATED_META,
     DuplicateExternalIdentityError,
@@ -42,6 +43,12 @@ log = logging.getLogger(__name__)
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if value is None or value == "":
+        return None
+    return ensure_aware_utc(value) or datetime.fromisoformat(value)
 
 
 def slugify(text: str) -> str:
@@ -308,7 +315,7 @@ class Store:
             summary=row["summary"],
             resume_step=row["resume_step"] if "resume_step" in keys else None,
             paused_at=(
-                datetime.fromisoformat(row["paused_at"])
+                _parse_dt(row["paused_at"])
                 if "paused_at" in keys and row["paused_at"]
                 else None
             ),
@@ -320,11 +327,9 @@ class Store:
             chat_ref=row["chat_ref"],
             transcript_ref=row["transcript_ref"],
             origin=row["origin"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
-            last_reminded_at=(
-                datetime.fromisoformat(row["last_reminded_at"]) if row["last_reminded_at"] else None
-            ),
+            created_at=_parse_dt(row["created_at"]) or utcnow(),
+            updated_at=_parse_dt(row["updated_at"]) or utcnow(),
+            last_reminded_at=_parse_dt(row["last_reminded_at"]) if row["last_reminded_at"] else None,
             goal=row["goal"] if "goal" in keys else None,
             focus=row["focus"] if "focus" in keys else None,
             next_steps=next_steps,
@@ -1138,6 +1143,18 @@ class Store:
         if not current:
             raise KeyError("thread_not_found")
         if current.external_fingerprint == external_fingerprint:
+            # Fingerprint match: still refresh forge wall-clock when the API stamp moved
+            # (or backfill null) so My Work can show real issue times after a sync.
+            if (
+                external_updated_at
+                and str(external_updated_at).strip()
+                and str(external_updated_at).strip() != (current.external_updated_at or "")
+            ):
+                with self._conn() as conn:
+                    conn.execute(
+                        "UPDATE threads SET external_updated_at = ? WHERE id = ?",
+                        (str(external_updated_at).strip(), thread_id),
+                    )
             return {"applied": False, "reason": "fingerprint_match", "thread_id": thread_id}
         labels_json = json.dumps(list(external_labels or []))
         now = utcnow().isoformat()
@@ -1177,6 +1194,7 @@ class Store:
         conflicts: dict[str, Any] | None = None,
         title_derived: bool | None = None,
         changes: dict[str, Any] | None = None,
+        external_updated_at: str | None = None,
     ) -> Thread:
         """Atomically apply allowlisted source fields and save the three-way base."""
         current = self.get_thread(thread_id)
@@ -1206,6 +1224,12 @@ class Store:
         if title_derived is not None:
             assignments.append("source_title_derived = ?")
             args.append(1 if title_derived else 0)
+        if external_updated_at is not None and str(external_updated_at).strip():
+            from adhd_hub.timeutil import to_iso_utc
+
+            stamp = to_iso_utc(str(external_updated_at).strip()) or str(external_updated_at).strip()
+            assignments.append("external_updated_at = ?")
+            args.append(stamp)
         for field, value in changes.items():
             assignments.append(f"{field} = ?")
             args.append(json.dumps(value) if field == "next_steps" else value)

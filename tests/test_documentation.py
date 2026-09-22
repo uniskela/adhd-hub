@@ -26,6 +26,7 @@ def test_docs_navigation_has_calm_information_architecture() -> None:
         assert f'{{ "{group}" = [' in nav
     assert '{ "Connect an agent" = "connect.md" }' in nav
     assert '{ "Dashboard" = "dashboard.md" }' in nav
+    assert '{ "Remote MCP access (tunnels for cloud agents)" = "remote-mcp-access.md" }' in nav
     assert '{ "Roadmap" = "plans/improvement-roadmap.md" }' in nav
     assert '{ "Brand guide" = "brand-guide.md" }' in nav
 
@@ -40,6 +41,21 @@ def test_docs_navigation_has_calm_information_architecture() -> None:
     ]
     for label in hidden_from_primary_nav:
         assert f'{{ "{label}" =' not in nav
+
+
+def test_remote_mcp_docs_link_to_uniskela_com_portal() -> None:
+    """Public Remote MCP links should prefer the .com / Zensical docs portal."""
+    index = (REPO_ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    site_url = (REPO_ROOT / "zensical.toml").read_text(encoding="utf-8")
+    manifest = (REPO_ROOT / "docs" / "manifest.json").read_text(encoding="utf-8")
+    canonical = "https://uniskela.com/docs/adhd-hub/remote-mcp-access/"
+
+    assert f"]({canonical})" in index
+    assert canonical in readme
+    assert 'site_url = "https://uniskela.com/docs/adhd-hub/"' in site_url
+    assert '"source": "docs/remote-mcp-access.md"' in manifest
+    assert (REPO_ROOT / "docs" / "remote-mcp-access.md").is_file()
 
 
 def test_historical_docs_are_excluded_from_site_search() -> None:

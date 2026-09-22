@@ -6,6 +6,11 @@ Configure Actions variable `DOCS_SYNC_APP_CLIENT_ID` and Actions secret `DOCS_SY
 
 Merge the receiver into the destination default branch and configure its `DOCS_SYNC_APP_SLUG` before merging/enabling this notifier. Missing source credentials cause a visible workflow failure. Then run this workflow manually on `main` to test, and verify the destination receiver succeeds. The weekly destination sync remains a fallback. New documentation pages still need selection in the destination manifest.
 
+When a Hub page is in `zensical.toml` / `docs/` but not selected in the `.com` destination manifest, the published site falls back to a GitHub blob URL instead of `/docs/adhd-hub/…/`. Select these pages so Remote MCP and related links resolve on [uniskela.com/docs/adhd-hub](https://uniskela.com/docs/adhd-hub/):
+
+- `docs/remote-mcp-access.md` → `/docs/adhd-hub/remote-mcp-access/` (and versioned `/next/`, `/0.x/` paths)
+- `docs/cursor-plugin-skill-sync.md` → `/docs/adhd-hub/cursor-plugin-skill-sync/`
+
 Account-wide registration, configuration, and smoke-test instructions are maintained by the site owner in the `.com` repository at `docs/docs-dispatch-setup.md`. Do not put App private keys in repository files, PRs, or chats.
 
 GitHub may suppress push-triggered workflows when the original push used `GITHUB_TOKEN`; use the manual run or scheduled destination fallback for such updates. Existing GitHub Pages deployments continue unchanged until the separate documentation migration cutover.

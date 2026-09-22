@@ -155,7 +155,9 @@ def test_notes_overview_emits_time_datetime_not_bare_iso_slice(tmp_path) -> None
         ThreadUpsert(summary="Stamp check", project_slug="demo", goal="G")
     )
     html = service.thread_notes_context_html(thread)
-    iso = thread.updated_at.isoformat()
+    from adhd_hub.timeutil import to_iso_utc
+
+    iso = to_iso_utc(thread.updated_at)
     assert f'datetime="{iso}"' in html
     assert "Updated <time" in html
     # Must not leave the old truncated bare text without a datetime attribute.
