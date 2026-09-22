@@ -1,7 +1,7 @@
 [project]
 site_name = "ADHD Progress Hub"
 site_description = "A calm source of truth for unfinished work."
-site_url = "https://uniskela.github.io/adhd-hub/"
+site_url = "https://uniskela.com/docs/adhd-hub/"
 docs_dir = "docs"
 site_dir = "site"
 repo_url = "https://github.com/uniskela/adhd-hub"
@@ -29,7 +29,7 @@ nav = [
   ]},
   { "Deploy & configure" = [
     { "Homelab deployment" = "deploy-homelab.md" },
-    { "Remote MCP access" = "remote-mcp-access.md" },
+    { "Remote MCP access (tunnels for cloud agents)" = "remote-mcp-access.md" },
     { "Authentication" = "authentication.md" },
     { "Environment variables" = "environment-variables.md" },
     { "Forge permissions" = "forge-permissions.md" },
