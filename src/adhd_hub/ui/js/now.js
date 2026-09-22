@@ -136,6 +136,22 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
     if (restoreFocus && restoreTarget?.isConnected) restoreTarget.focus();
   }
 
+function wireNotesActions(root) {
+    if (!root) return;
+    root.querySelectorAll("button[data-choose]").forEach((button) => {
+      if (button.dataset.chooseWired) return;
+      button.dataset.chooseWired = "true";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const id = button.dataset.choose;
+        if (!id) return;
+        closeNotesReader({ restoreFocus: false });
+        chooseThread(id).catch((error) => setMsg(error.message));
+      });
+    });
+  }
+
 async function openNotesReader(trigger) {
     const reader = $("notes-reader");
     const body = $("notes-reader-body");
@@ -160,6 +176,7 @@ async function openNotesReader(trigger) {
       const data = await api("/threads/" + encodeURIComponent(trigger.dataset.notes));
       if (request !== notesRequest) return;
       body.innerHTML = data.progress_html || "<p class=\"notes-empty-hint\">No saved notes yet.</p>";
+      wireNotesActions(body);
       body.focus({ preventScroll: true });
     } catch (_) {
       if (request === notesRequest) body.textContent = "Could not load notes. Close and reopen to retry.";
@@ -276,6 +293,7 @@ export function renderFocus() {
     });
     $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
     card.querySelector("[data-done]").addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
+    wireNotesActions(card);
   }
 export async function markDone(id) {
     if (completing.has(id)) return;

@@ -312,9 +312,12 @@ def test_sibling_details_closed_by_default(tmp_path) -> None:
         ThreadUpsert(summary="A", project_slug="p", status=ThreadStatus.open, goal="ga")
     )
     service.store.upsert_thread(
-        ThreadUpsert(summary="B", project_slug="p", status=ThreadStatus.open, goal="gb")
+        ThreadUpsert(summary="B legacy title only", project_slug="p", status=ThreadStatus.open)
     )
     html = service.thread_notes_context_html(a)
     assert html.count("notes-sibling-thread") == 1
     assert 'notes-sibling-thread" open' not in html
-    assert "gb" in html
+    assert 'data-choose="' in html
+    assert "Choose this step" in html
+    assert "B legacy title only" in html
+    assert "Older forge imports" in html

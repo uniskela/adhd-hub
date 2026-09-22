@@ -1284,6 +1284,43 @@ body { background: var(--bg); color: var(--ink); }
   border: 0;
   background: transparent;
 }
+.notes-sibling-summary {
+  cursor: pointer;
+  list-style-position: outside;
+  gap: .55rem .75rem;
+}
+.notes-sibling-title {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notes-sibling-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .35rem .45rem;
+  flex: 0 1 auto;
+}
+.notes-choose-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: .4rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.notes-choose-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  filter: none;
+}
 .notes-section-details > summary,
 .notes-wiki-details > summary {
   cursor: pointer;

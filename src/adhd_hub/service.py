@@ -842,9 +842,16 @@ class HubService:
                 continue
             summary = escape(sibling.summary or "Untitled")
             status = escape(sibling.status.value)
+            sid = escape(sibling.id)
             parts.append(
-                '<details class="notes-section-details notes-sibling-thread">'
-                f"<summary>{summary} <span class=\"notes-status-chip\">{status}</span></summary>"
+                f'<details class="notes-section-details notes-sibling-thread" data-thread-id="{sid}">'
+                '<summary class="notes-sibling-summary">'
+                f'<span class="notes-sibling-title">{summary}</span>'
+                '<span class="notes-sibling-actions">'
+                f'<span class="notes-status-chip">{status}</span>'
+                f'<button type="button" class="notes-choose-btn" data-choose="{sid}">'
+                "Choose this step</button>"
+                "</span></summary>"
                 f'<div class="notes-section-body">'
                 f"{self._notes_continuity_card_html(sibling, heading=None, compact=True)}"
                 "</div></details>"
@@ -920,9 +927,22 @@ class HubService:
                 thread.resume_step,
             ]
         ):
-            blocks.append(
-                '<p class="notes-empty-hint">No Goal / Focus / Next / Resume on this thread yet.</p>'
-            )
+            if compact:
+                blocks.append(
+                    '<p class="notes-empty-hint">'
+                    "No Goal / Focus / Next / Resume stored yet. "
+                    "Older forge imports often only had a title — "
+                    "Choose this step, then set Focus / Resume on Now "
+                    "(or Refresh from source if the issue is linked)."
+                    "</p>"
+                )
+            else:
+                blocks.append(
+                    '<p class="notes-empty-hint">'
+                    "No Goal / Focus / Next / Resume on this thread yet. "
+                    "Use Pause here or Save continuity to add them."
+                    "</p>"
+                )
         cls = "notes-continuity-card"
         if compact:
             cls += " notes-continuity-compact"
