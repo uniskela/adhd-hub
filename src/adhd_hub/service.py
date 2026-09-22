@@ -23,12 +23,6 @@ from adhd_hub.models import (
     ThreadStatus,
     ThreadUpsert,
 )
-from adhd_hub.openclaw import stale_cutoff
-from adhd_hub.openclaw_config import OpenClawConfig
-from adhd_hub.openclaw_facade import OpenClawFacade
-from adhd_hub.overlap import check_overlap
-from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
-from adhd_hub.store import Store, item_id, slugify, workspace_basename
 from adhd_hub.notes_compaction import (
     NOTES_VISIBLE_ITEMS,
     coalesce_notes_feed,
@@ -40,6 +34,12 @@ from adhd_hub.notes_compaction import (
     should_skip_duplicate_note,
     structural_core,
 )
+from adhd_hub.openclaw import stale_cutoff
+from adhd_hub.openclaw_config import OpenClawConfig
+from adhd_hub.openclaw_facade import OpenClawFacade
+from adhd_hub.overlap import check_overlap
+from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
+from adhd_hub.store import Store, item_id, slugify, workspace_basename
 from adhd_hub.thread_state import (
     compact_thread_dict,
     milestone_text,

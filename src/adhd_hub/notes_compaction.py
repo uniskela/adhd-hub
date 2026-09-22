@@ -52,9 +52,7 @@ def is_boilerplate_freeform(text: str | None) -> bool:
         return True
     # Whole milestone line that is only ritual after field bits were stripped.
     bits = _bits(compact)
-    if bits and all(_BOILERPLATE_FREEFORM_RE.match(b) for b in bits):
-        return True
-    return False
+    return bool(bits and all(_BOILERPLATE_FREEFORM_RE.match(b) for b in bits))
 
 
 def scrub_progress_content(content: str | None) -> str | None:
@@ -83,9 +81,7 @@ def is_milestone_note(content: str | None) -> bool:
     if fieldish >= 1:
         # Milestone with optional ritual tail.
         return fieldish + boilerplate == len(bits) or fieldish >= len(bits) / 2
-    if boilerplate == len(bits):
-        return True
-    return False
+    return boilerplate == len(bits)
 
 
 def milestone_field_chips(content: str | None) -> list[str]:
@@ -126,7 +122,7 @@ def _parse_created_at(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        stamp = datetime.fromisoformat(str(value))
     except Exception:  # noqa: BLE001
         return None
     if stamp.tzinfo is None:
@@ -279,11 +275,7 @@ def is_boilerplate_progress_snippet(snippet: str | None) -> bool:
     text = (snippet or "").strip()
     if not text:
         return True
-    if is_boilerplate_freeform(text):
-        return True
-    if is_milestone_note(text):
-        return True
-    return False
+    return is_boilerplate_freeform(text) or is_milestone_note(text)
 
 
 def group_summary_label(item: dict[str, Any]) -> str:

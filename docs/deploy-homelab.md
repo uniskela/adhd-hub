@@ -69,11 +69,11 @@ Prefer `adhd-hub connect` / the generated one-liner instead of hand-editing each
 | Client | Typical route |
 |--------|---------------|
 | Cursor Windows | MCP URL `http://<tailscale-host-or-ip>:8787/mcp` or HTTPS public URL |
-| Cursor Cloud | Same MCP URL if the cloud agent can reach that private route; otherwise use the forge mailbox fallback |
+| Cursor Cloud | Same MCP URL if the cloud agent can reach that private route; otherwise use a [controlled HTTPS tunnel](remote-mcp-access.md) or the [forge mailbox](forge-issue-inbox.md) fallback |
 | Dev LXC | Same MCP URL from that host |
 | Codex / Claude | Connect CLI or their documented MCP configuration |
 
-For MCP clients that support Auth/Authenticate, a correctly configured `ADHD_HUB_PUBLIC_URL` allows Hub OAuth discovery. Static Bearer auth remains supported.
+For MCP clients that support Auth/Authenticate, a correctly configured `ADHD_HUB_PUBLIC_URL` allows Hub OAuth discovery. Static Bearer auth remains supported. When Tailscale is unreachable from Cursor Cloud, see [Remote MCP access](remote-mcp-access.md) before opening anything publicly.
 
 ## 5. Local indexer (Windows)
 

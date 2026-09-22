@@ -2,6 +2,8 @@
 
 Agents that cannot reach a private Tailscale Hub MCP can still leave unfinished work for ADHD Hub by opening forge issues. That includes **Cursor Cloud**, **Codex / ChatGPT cloud**, **Claude Code / Claude remote**, and similar sandboxed runners.
 
+If you want **live MCP** from those environments instead of issues, prefer a controlled HTTPS tunnel (Cloudflare Tunnel, or Tailscale when the agent can join the mesh) — see [Remote MCP access](remote-mcp-access.md). Use this forge mailbox when a durable private or tunnel path is unavailable; do not open anonymous `/mcp`.
+
 **How agents should detect this:** the primary signal is Hub MCP tools missing, errored, unauthorized, or auth failure — check the tool surface, do not invent “I'm in cloud.” Optional corroborating hints include `CURSOR_AGENT`, Cursor Cloud / remote-sandbox markers, or any environment without Tailscale/LAN reachability to the operator Hub. Use the `env-check` skill for CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context. On CLOUD_AGENT, do not assume machine-installed local skill CLIs (e.g. `graphify`) exist — one-line notice if missing, then repo tools / committed `graphify-out/`; never invent Hub or graph state. Never invent Hub continuity/progress/thread state or claim a Hub write succeeded when MCP was unreachable.
 
 They *can* use GitHub/Gitea. The Hub polls those issues and turns them into threads.

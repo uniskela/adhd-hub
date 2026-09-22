@@ -184,7 +184,7 @@ ADHD_HUB_TRUST_PROXY_HEADERS=true
 # ADHD_HUB_COOKIE_SECURE=true
 ```
 
-Only trust forwarded headers from a proxy you control. For a Proxmox/Tailscale layout, migration instructions, and homelab-specific networking, see [Homelab deployment](deploy-homelab.md).
+Only trust forwarded headers from a proxy you control. For a Proxmox/Tailscale layout, migration instructions, and homelab-specific networking, see [Homelab deployment](deploy-homelab.md). To expose Hub MCP to Cursor Cloud (or similar) via Cloudflare Tunnel — with Tailscale when the agent can join, and ngrok only as a cautionary option — see [Remote MCP access](remote-mcp-access.md).
 
 ## Connect coding agents after the server is running
 
