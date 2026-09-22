@@ -72,7 +72,14 @@ def is_field_change_bit(bit: str) -> bool:
 
 
 def is_milestone_note(content: str | None) -> bool:
-    """True when content looks like Hub milestone_text / system checkpoint output."""
+    """True when content looks like Hub milestone_text / system checkpoint output.
+
+    Full-line ritual freeform (e.g. Codex ``Thread upserted from … — Title — Desc``)
+    is milestone even when em-dash title/description bits are not field changes —
+    otherwise historical ritual walls stay classified as human and never coalesce.
+    """
+    if is_boilerplate_freeform(content):
+        return True
     bits = _bits(content or "")
     if not bits:
         return False

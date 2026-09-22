@@ -32,6 +32,37 @@ def test_milestone_detection_and_chips() -> None:
     assert not is_milestone_note("## Human decision\n\nWe picked chips over prose.")
 
 
+def test_codex_multi_emdash_ritual_is_milestone_and_coalesces() -> None:
+    """Codex ritual lines start with boilerplate then title/desc after em dashes.
+
+    Bit-wise classification alone treats title/desc as human; full-line
+    is_boilerplate_freeform must mark them milestone so walls collapse.
+    """
+    pattern = (
+        "Thread upserted from codex: Task 10 — Deterministic email transport — "
+        "Prove outbound mail is deterministic under retry"
+    )
+    assert is_boilerplate_freeform(pattern)
+    assert is_milestone_note(pattern)
+    assert scrub_progress_content(pattern) is None
+
+    wall = [
+        {
+            "content": (
+                f"Thread upserted from codex: Task {i} — Deterministic email transport — "
+                "Prove outbound mail is deterministic under retry"
+            ),
+            "created_at": f"2026-09-22T12:{i:02d}:00+00:00",
+        }
+        for i in range(10, 5, -1)
+    ]
+    items = coalesce_notes_feed(wall)
+    assert len(items) == 1
+    assert items[0]["kind"] == "group"
+    assert items[0]["count"] == 5
+    assert default_open_thread_notes(wall) is False
+
+
 def test_coalesce_consecutive_milestones() -> None:
     notes = [
         {"content": "Focus → A", "created_at": "2026-09-22T12:00:00+00:00"},
