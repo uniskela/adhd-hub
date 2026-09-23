@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/uniskela/adhd-hub/compare/v0.14.0...v0.15.0) (2026-09-23)
+
+
+### Features
+
+* **events:** Foundation B3 activity ledger, SSE & sync health ([#152](https://github.com/uniskela/adhd-hub/issues/152)) ([02ffac9](https://github.com/uniskela/adhd-hub/commit/02ffac99a277783c703dd411331c8130ba4c2c05))
+
+
+### Documentation
+
+* catch up Notes and roadmap for v0.14.0 ([#151](https://github.com/uniskela/adhd-hub/issues/151)) ([c451a32](https://github.com/uniskela/adhd-hub/commit/c451a32cb1e5b2695a6ad40fa23ba45c299368b3))
+* pin README docker examples to v0.14.0 ([#149](https://github.com/uniskela/adhd-hub/issues/149)) ([8186977](https://github.com/uniskela/adhd-hub/commit/8186977a762e0ebae95645ce47a7ad90cb1d5af5)), closes [#148](https://github.com/uniskela/adhd-hub/issues/148)
+
 ## [0.14.0](https://github.com/uniskela/adhd-hub/compare/v0.13.0...v0.14.0) (2026-09-22)
 
 
