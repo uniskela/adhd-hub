@@ -930,6 +930,51 @@ class HubService:
                 )
         return out
 
+    def suggest_project_organisation(self, *, limit: int = 50) -> dict:
+        from adhd_hub.organiser import suggest_tags_for_project
+
+        suggestions = []
+        for project in self.store.list_projects(limit=limit, include_archived=False):
+            threads = self.store.list_threads(
+                status=ThreadStatus.open, project_slug=project.slug, limit=20
+            )
+            item = suggest_tags_for_project(project, threads)
+            if item["suggested_tags"]:
+                suggestions.append(item)
+        return {"suggestions": suggestions, "auto_applied": False}
+
+    def apply_project_organisation(self, payload) -> dict:
+        from adhd_hub.models import OrganiseApplyRequest, ProjectUpsert
+
+        if not isinstance(payload, OrganiseApplyRequest):
+            payload = OrganiseApplyRequest.model_validate(payload)
+        applied = []
+        skipped = []
+        for item in payload.items:
+            proj = self.store.get_project(item.slug)
+            if not proj:
+                skipped.append({"slug": item.slug, "reason": "not_found"})
+                continue
+            # Merge confirmed tags with existing; never invent beyond the confirmed list.
+            merged = list(dict.fromkeys([*(proj.tags or []), *item.tags]))
+            updated = self.upsert_project(
+                ProjectUpsert(
+                    slug=proj.slug,
+                    title=proj.title,
+                    description=proj.description,
+                    tags=merged,
+                    workspace_paths=list(proj.workspace_paths or []),
+                    repo_url=proj.repo_url,
+                    forge_owner=proj.forge_owner,
+                    forge_repo=proj.forge_repo,
+                    forge_wiki_path=proj.forge_wiki_path,
+                    forge_project_id=proj.forge_project_id,
+                    forge_connection_profile_id=proj.forge_connection_profile_id,
+                )
+            )
+            applied.append({"slug": updated.slug, "tags": list(updated.tags or [])})
+        return {"applied": applied, "skipped": skipped, "auto_applied": False}
+
     def archive_project(self, slug: str) -> dict:
         if slugify(slug) == "unclassified":
             raise ValueError("Inbox cannot be archived")

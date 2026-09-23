@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, loadThreads, onTagFilterChange, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, loadThreads, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
@@ -44,6 +44,12 @@ async function loadOpenClawSecureStatus() {
 
 $("proj-all").addEventListener("click", () => selectProject(null).catch((e) => setMsg(e.message)));
 $("tag-filter")?.addEventListener("change", () => onTagFilterChange());
+$("btn-organise-projects")?.addEventListener("click", () =>
+  openOrganiseDialog().catch((e) => setMsg(e.message))
+);
+$("btn-organise-apply")?.addEventListener("click", () =>
+  applyOrganiseSelection().catch((e) => setMsg(e.message))
+);
 $("btn-refresh").addEventListener("click", async () => {
   const button = $("btn-refresh");
   button.disabled = true;

@@ -262,6 +262,20 @@ class ProjectRename(BaseModel):
     title: str | None = None
 
 
+class OrganiseApplyItem(BaseModel):
+    slug: str
+    tags: list[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: list[str] | None) -> list[str]:
+        return normalize_project_tags(value)
+
+
+class OrganiseApplyRequest(BaseModel):
+    items: list[OrganiseApplyItem] = Field(default_factory=list)
+
+
 class PendingActionKind(StrEnum):
     delete_project = "delete_project"
     rename_project = "rename_project"

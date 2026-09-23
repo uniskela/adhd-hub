@@ -218,6 +218,11 @@ summary::marker { color: var(--muted); }
   -webkit-overflow-scrolling: touch;
 }
 .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.rail-head-actions { display: flex; gap: .35rem; align-items: center; }
+.organise-list { display: grid; gap: .75rem; max-height: min(50vh, 28rem); overflow: auto; margin: .75rem 0 1rem; }
+.organise-row { display: flex; gap: .65rem; align-items: flex-start; padding: .55rem .65rem; border: 1px solid var(--line); border-radius: 8px; }
+.organise-copy { display: grid; gap: .25rem; flex: 1; min-width: 0; }
+.organise-copy input[type="text"] { width: 100%; }
 .rail h2 { color: var(--muted); text-transform: uppercase; font-size: .68rem; letter-spacing: .13em; margin: 0; }
 .rail-head .primary { background: var(--accent-soft); color: var(--accent); }
 .proj { display: block; width: 100%; text-align: left; background: transparent; color: var(--ink); margin: .25rem 0; padding: .8rem .85rem; font-weight: 550; }

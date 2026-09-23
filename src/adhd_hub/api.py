@@ -10,6 +10,7 @@ from adhd_hub.models import (
     EnergyLevel,
     IndexerBatch,
     MarkDoneRequest,
+    OrganiseApplyRequest,
     PauseRequest,
     ProgressUpsert,
     ProjectRename,
@@ -191,6 +192,14 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         if not proj:
             raise HTTPException(404, "Project not found")
         return proj
+
+    @router.get("/projects/organise/suggestions", dependencies=[Depends(auth_dep)])
+    def organise_suggestions(limit: int = Query(50, ge=1, le=200)):
+        return service.suggest_project_organisation(limit=limit)
+
+    @router.post("/projects/organise/apply", dependencies=[Depends(auth_dep)])
+    def organise_apply(payload: OrganiseApplyRequest):
+        return service.apply_project_organisation(payload)
 
     @router.get("/projects/{slug}", dependencies=[Depends(auth_dep)])
     def get_project(slug: str):
