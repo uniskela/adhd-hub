@@ -6,6 +6,8 @@ The home screen is **Now**: one chosen task, its next step, and one clear **Star
 
 On My work, **Notes & context** opens a reader for that thread’s saved continuity (Goal, Focus, Next, Blocked, Resume, notes, and forge activity). See [Notes & context](notes.md).
 
+Open Hub pages listen for authenticated live updates (SSE) and refresh relevant data shortly after Hub-side changes; if the live connection drops, ordinary Refresh / API use still works. Under **Settings → Forge**, **Sync health** shows last successful or failed forge reconciliation, concise errors, Needs review conflicts, recent change history from the activity ledger, and a Retry sync path beside Forge jobs.
+
 Use **Save a thought** for a quick capture without leaving the current task. When you need to stop, choose **Pause here**, enter the smallest useful next step, and save it. That step appears when you return.
 
 The **Where you left off** area renders saved Markdown (headings, lists, emphasis, and tables) for easier scanning. Raw HTML is escaped and remote images are shown as text descriptions.

@@ -9,8 +9,14 @@ import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
+import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
+import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
 initRepoLinks();
+bindLiveInvalidation();
+$("btn-retry-forge-sync")?.addEventListener("click", () =>
+  retryForgeSync().catch((e) => setMsg(e.message))
+);
 
 const OPENCLAW_SECURE_PROMPT_STUB = [
   "Start OpenClaw pairing to generate a one-time pairing code and secure setup prompt.",
@@ -322,6 +328,8 @@ loadAuthStatus().then(() => tryAuth())
     await loadAll();
     const threadId = requestedThreadId();
     if (threadId) await chooseThread(threadId);
+    startLiveInvalidation();
+    refreshSyncHealth().catch(() => {});
   })
   .then(() => offerPendingConnect())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));

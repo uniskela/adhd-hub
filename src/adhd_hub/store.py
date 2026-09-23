@@ -299,6 +299,44 @@ class Store:
                 "ON forge_activity_cache(thread_id, fetched_at)"
             )
 
+            # Foundation B3 — append-only activity ledger (never UPDATE/DELETE rows).
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS activity_events (
+                    id TEXT PRIMARY KEY,
+                    schema_version INTEGER NOT NULL,
+                    event_type TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    project_slug TEXT,
+                    work_id TEXT,
+                    thread_id TEXT,
+                    actor TEXT,
+                    source TEXT,
+                    idempotency_key TEXT,
+                    metadata TEXT NOT NULL DEFAULT '{}'
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_activity_events_created "
+                "ON activity_events(created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_activity_events_type "
+                "ON activity_events(event_type, created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_activity_events_thread "
+                "ON activity_events(thread_id, created_at)"
+            )
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_events_idempotency
+                ON activity_events(idempotency_key)
+                WHERE idempotency_key IS NOT NULL AND idempotency_key != ''
+                """
+            )
+
     def _row_thread(self, row: sqlite3.Row) -> Thread:
         keys = set(row.keys())
         next_raw = row["next_steps"] if "next_steps" in keys else None
@@ -870,6 +908,146 @@ class Store:
                 "UPDATE reminders SET last_fired_at = ?, handled = ? WHERE id = ?",
                 (now, handled, reminder_id),
             )
+
+    def append_activity_event(self, event: Any) -> Any | None:
+        """Insert an activity event. Returns None when idempotency_key already exists."""
+        from adhd_hub.events import ActivityEvent
+
+        if not isinstance(event, ActivityEvent):
+            raise TypeError("event must be ActivityEvent")
+        meta_json = json.dumps(event.metadata or {}, ensure_ascii=False, sort_keys=True)
+        with self._conn() as conn:
+            if event.idempotency_key:
+                existing = conn.execute(
+                    "SELECT id FROM activity_events WHERE idempotency_key = ?",
+                    (event.idempotency_key,),
+                ).fetchone()
+                if existing:
+                    return None
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO activity_events(
+                        id, schema_version, event_type, created_at,
+                        project_slug, work_id, thread_id, actor, source,
+                        idempotency_key, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event.id,
+                        int(event.schema_version),
+                        event.event_type,
+                        event.created_at,
+                        event.project_slug,
+                        event.work_id,
+                        event.thread_id,
+                        event.actor,
+                        event.source,
+                        event.idempotency_key,
+                        meta_json,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                # Race on unique idempotency_key.
+                return None
+        return event
+
+    def get_activity_event(self, event_id: str) -> Any | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM activity_events WHERE id = ?",
+                (event_id,),
+            ).fetchone()
+        return self._row_activity_event(row) if row else None
+
+    def list_activity_events(
+        self,
+        *,
+        limit: int = 50,
+        after_id: str | None = None,
+        event_type: str | None = None,
+        thread_id: str | None = None,
+        project_slug: str | None = None,
+    ) -> list[Any]:
+        limit = max(1, min(int(limit), 500))
+        clauses: list[str] = []
+        params: list[Any] = []
+        if after_id:
+            with self._conn() as conn:
+                anchor = conn.execute(
+                    "SELECT created_at FROM activity_events WHERE id = ?",
+                    (after_id,),
+                ).fetchone()
+            if not anchor:
+                # Unknown Last-Event-ID: skip catch-up rather than dumping oldest rows.
+                return []
+            clauses.append("(created_at > ? OR (created_at = ? AND id > ?))")
+            params.extend([anchor["created_at"], anchor["created_at"], after_id])
+        if event_type:
+            clauses.append("event_type = ?")
+            params.append(event_type)
+        if thread_id:
+            clauses.append("thread_id = ?")
+            params.append(thread_id)
+        if project_slug:
+            clauses.append("project_slug = ?")
+            params.append(project_slug)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql = (
+            f"SELECT * FROM activity_events {where} "
+            "ORDER BY created_at ASC, id ASC LIMIT ?"
+        )
+        params.append(limit)
+        with self._conn() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._row_activity_event(row) for row in rows]
+
+    def list_recent_activity_events(
+        self,
+        *,
+        limit: int = 20,
+        event_types: list[str] | None = None,
+    ) -> list[Any]:
+        limit = max(1, min(int(limit), 100))
+        clauses: list[str] = []
+        params: list[Any] = []
+        if event_types:
+            placeholders = ",".join("?" for _ in event_types)
+            clauses.append(f"event_type IN ({placeholders})")
+            params.extend(event_types)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql = (
+            f"SELECT * FROM activity_events {where} "
+            "ORDER BY created_at DESC, id DESC LIMIT ?"
+        )
+        params.append(limit)
+        with self._conn() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._row_activity_event(row) for row in rows]
+
+    def _row_activity_event(self, row: sqlite3.Row) -> Any:
+        from adhd_hub.events import ActivityEvent
+
+        meta_raw = row["metadata"] or "{}"
+        try:
+            metadata = json.loads(meta_raw) if meta_raw else {}
+        except (TypeError, json.JSONDecodeError):
+            metadata = {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        return ActivityEvent(
+            id=row["id"],
+            schema_version=int(row["schema_version"]),
+            event_type=row["event_type"],
+            created_at=row["created_at"],
+            project_slug=row["project_slug"],
+            work_id=row["work_id"],
+            thread_id=row["thread_id"],
+            actor=row["actor"],
+            source=row["source"],
+            idempotency_key=row["idempotency_key"],
+            metadata=metadata,
+        )
 
     def get_meta(self, key: str) -> str | None:
         with self._conn() as conn:

@@ -21,6 +21,8 @@ UI_JS_MODULES = {
     "progress.js",
     "settings.js",
     "forge-jobs.js",
+    "sync-health.js",
+    "live.js",
     "help.js",
     "load.js",
     "boot.js",
