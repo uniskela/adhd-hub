@@ -349,7 +349,7 @@ export function renderThreads(threads) {
     const query = $("thread-search").value.trim().toLowerCase();
     const total = threads.length;
     threads = threads.filter((thread) =>
-      [thread.summary, thread.project_slug, thread.progress_snippet].some((value) =>
+      [thread.summary, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
         String(value || "").toLowerCase().includes(query)
       )
     );
@@ -392,6 +392,7 @@ export function renderThreads(threads) {
             <span class="thread-status">${escapeHtml(statusLabel)}</span>
           </div>
           <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
+          ${t.scan_line ? `<p class="thread-scan">${escapeHtml(t.scan_line)}</p>` : ""}
           <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.display_updated_at || t.updated_at))}</span></div>
           ${sourceState ? `<div class="source-sync source-sync-${escapeHtml(t.source_sync_state)}">${escapeHtml(sourceState)}${(t.display_source_at || t.source_imported_at) ? ` · ${escapeHtml(formatWhen(t.display_source_at || t.source_imported_at))}` : ""}</div>` : ""}
           <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Notes &amp; context</span></button>

@@ -283,7 +283,14 @@ progress::-moz-progress-bar { background: var(--ok); border-radius: 10px; }
 .thread { position: relative; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px; padding: 1rem 1.1rem; background: color-mix(in srgb, var(--card) 88%, var(--surface)); }
 .thread.chosen { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
 .thread h3 { font-size: 1rem; letter-spacing: -.01em; margin: .65rem 0 .35rem; line-height: 1.35; }
-.thread h3, .next-card h3, .meta, .proj { overflow-wrap: anywhere; }
+.thread-scan {
+  margin: 0 0 .45rem;
+  color: var(--muted);
+  font-size: .88rem;
+  line-height: 1.4;
+  max-width: 42rem;
+}
+.thread h3, .thread-scan, .next-card h3, .meta, .proj { overflow-wrap: anywhere; }
 .thread-topline { display: flex; align-items: center; gap: .45rem; min-width: 0; }
 .thread-number { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: .72rem; font-weight: 750; }
 .thread-project { min-width: 0; overflow-wrap: anywhere; color: var(--accent); font-size: .73rem; font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }

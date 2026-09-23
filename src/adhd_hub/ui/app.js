@@ -777,7 +777,7 @@
     const query = $("thread-search").value.trim().toLowerCase();
     const total = threads.length;
     threads = threads.filter((thread) =>
-      [thread.summary, thread.project_slug, thread.progress_snippet].some((value) =>
+      [thread.summary, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
         String(value || "").toLowerCase().includes(query)
       )
     );
@@ -813,6 +813,7 @@
             <span class="thread-status">${escapeHtml(statusLabel)}</span>
           </div>
           <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
+          ${t.scan_line ? `<p class="thread-scan">${escapeHtml(t.scan_line)}</p>` : ""}
           <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.updated_at))}</span></div>
           <details class="progress-details" data-notes="${escapeHtml(t.id)}"><summary>Notes &amp; context</summary><div class="markdown-body"></div></details>
           <div class="actions thread-actions">

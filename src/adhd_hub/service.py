@@ -1407,7 +1407,9 @@ class HubService:
                 snippet = self.wiki.read_progress(thread.project_slug)
                 if snippet:
                     data["progress_snippet"] = snippet[-800:]
-        return data
+        from adhd_hub.clarity import attach_scan_line
+
+        return attach_scan_line(data, thread)
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:
         data = compact_thread_dict(thread)
