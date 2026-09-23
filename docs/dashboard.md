@@ -14,7 +14,7 @@ The **Where you left off** area renders saved Markdown (headings, lists, emphasi
 
 Search narrows the loaded thread list in My work. **Pick up later** shows older open work without an overdue warning.
 
-Select a project to show its title. The pencil button beside the title opens project editing in a focused dialog. Add an HTTP(S) repository URL to show an **Open repo** button beside the title; repository URLs containing credentials are rejected.
+Select a project to show its title. The pencil button beside the title opens project editing in a focused dialog. Projects can carry light **tags** (comma-separated in project settings) and the rail can filter by tag. Each project shows open-step count and a calm last-touch cue. Add an HTTP(S) repository URL to show an **Open repo** button beside the title; repository URLs containing credentials are rejected.
 
 ## Optional small wins
 
