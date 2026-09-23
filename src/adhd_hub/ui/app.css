@@ -358,6 +358,64 @@ progress::-moz-progress-bar { background: var(--ok); border-radius: 10px; }
 .forge-job-status.is-done { color: var(--ok); }
 .forge-job-status.is-failed { color: var(--danger, #c44); }
 .forge-job-msg { color: var(--muted); overflow-wrap: anywhere; }
+.sync-health {
+  margin-top: 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 92%, var(--bg));
+}
+.sync-health-heading {
+  margin: 0 0 .35rem;
+  font-size: .92rem;
+  font-weight: 650;
+}
+.sync-health-subheading {
+  margin: .75rem 0 .35rem;
+  font-size: .82rem;
+  font-weight: 650;
+}
+.sync-health-status { margin: 0; font-size: .9rem; }
+.sync-health-conflicts {
+  margin: .4rem 0 0;
+  color: color-mix(in srgb, var(--danger, #c44) 85%, var(--ink));
+  font-size: .85rem;
+}
+.sync-health-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-size: .82rem;
+}
+.sync-health-history li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .45rem .65rem;
+  align-items: baseline;
+}
+.sync-health-when { color: var(--muted); min-width: 4.2rem; }
+.live-connection {
+  font-size: .68rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: .2rem .45rem;
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: .35rem;
+  align-self: center;
+}
+.live-connection[data-state="live"] {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.live-connection[data-state="reconnecting"] {
+  color: color-mix(in srgb, #c9a227 80%, var(--ink));
+  border-color: color-mix(in srgb, #c9a227 45%, transparent);
+}
+.live-connection[data-state="offline"] { color: var(--muted); }
 .pending-item { border-top: 1px solid var(--line); padding: .75rem 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; }
 dialog {
   width: min(580px, calc(100vw - 2rem));

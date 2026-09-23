@@ -6,6 +6,16 @@ from collections.abc import Callable
 from datetime import UTC
 
 from adhd_hub.config import Settings
+from adhd_hub.events import (
+    FORGE_RECONCILE_FAILED,
+    FORGE_RECONCILE_SUCCEEDED,
+    THREAD_COMPLETED,
+    THREAD_CREATED,
+    THREAD_PAUSED,
+    THREAD_PROGRESS_UPDATED,
+    EventBus,
+    publish_activity_event,
+)
 from adhd_hub.forge import ForgeFacade, WikiForgeSync
 from adhd_hub.forge.config import ForgeConfig
 from adhd_hub.forge.jobs import ForgeJob, ForgeJobQueue
@@ -45,6 +55,7 @@ from adhd_hub.thread_state import (
     milestone_text,
     normalize_optional_text,
     pick_safe_matches,
+    state_fingerprint,
 )
 from adhd_hub.wiki import Wiki
 from adhd_hub.work_identity import (
@@ -54,6 +65,25 @@ from adhd_hub.work_identity import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _history_summary(event) -> str:
+    """Short human label for sync-health compact history."""
+    labels = {
+        THREAD_CREATED: "Thread started",
+        THREAD_PROGRESS_UPDATED: "Progress updated",
+        THREAD_COMPLETED: "Thread completed",
+        THREAD_PAUSED: "Thread paused",
+        FORGE_RECONCILE_SUCCEEDED: "Forge sync succeeded",
+        FORGE_RECONCILE_FAILED: "Forge sync failed",
+    }
+    base = labels.get(event.event_type, event.event_type)
+    meta = event.metadata or {}
+    if event.event_type == FORGE_RECONCILE_FAILED and meta.get("error"):
+        return f"{base}: {meta['error']}"
+    if event.project_slug:
+        return f"{base} · {event.project_slug}"
+    return base
 
 
 class HubService:
@@ -66,9 +96,172 @@ class HubService:
         self._forge = ForgeFacade(self)
         self._openclaw_ops = OpenClawFacade(self)
         self._forge_jobs = ForgeJobQueue(self._run_forge_job)
+        self.event_bus = EventBus()
         self.store.migrate_work_identity(self._confident_forge_target)
         self.store.migrate_forge_source_metadata()
         self.migrate_forge_connection_profiles()
+
+    def publish_hub_event(
+        self,
+        event_type: str,
+        *,
+        project_slug: str | None = None,
+        work_id: str | None = None,
+        thread_id: str | None = None,
+        actor: str | None = None,
+        source: str | None = None,
+        idempotency_key: str | None = None,
+        metadata: dict | None = None,
+    ):
+        """Shared publish-after-commit boundary for Hub activity events (B3)."""
+        return publish_activity_event(
+            self.store,
+            event_type=event_type,
+            project_slug=project_slug,
+            work_id=work_id,
+            thread_id=thread_id,
+            actor=actor,
+            source=source,
+            idempotency_key=idempotency_key,
+            metadata=metadata,
+            bus=self.event_bus,
+        )
+
+    def _publish_thread_lifecycle(
+        self,
+        thread: Thread,
+        *,
+        event_type: str,
+        source: str | None = None,
+        actor: str | None = None,
+        metadata: dict | None = None,
+        fingerprint: str | None = None,
+    ) -> None:
+        fp = fingerprint or state_fingerprint(thread)
+        key = f"{event_type}:{thread.id}:{fp}"
+        meta = {"status": thread.status.value, "fingerprint": fp}
+        if metadata:
+            meta.update(metadata)
+        self.publish_hub_event(
+            event_type,
+            project_slug=thread.project_slug,
+            thread_id=thread.id,
+            work_id=thread.id,
+            actor=actor or source,
+            source=source or "system",
+            idempotency_key=key,
+            metadata=meta,
+        )
+
+    def _record_forge_reconcile_outcome(
+        self,
+        *,
+        ok: bool,
+        project_slug: str | None,
+        result: dict | None = None,
+        error: str | None = None,
+        source: str = "forge",
+    ) -> None:
+        from adhd_hub.events import sanitize_event_metadata, utcnow_iso
+
+        stamp = utcnow_iso()
+        reconcile = list((result or {}).get("reconcile") or [])
+        applied = sum(1 for row in reconcile if row.get("applied"))
+        failed = sum(1 for row in reconcile if row.get("error"))
+        meta = sanitize_event_metadata(
+            {
+                "ok": ok,
+                "reconcile_count": len(reconcile),
+                "applied_count": applied,
+                "failed_count": failed,
+                "scope": project_slug or "_hub",
+                "error": str(error)[:240] if error else None,
+                "reason": str(result.get("reason"))[:120]
+                if result and result.get("reason")
+                else None,
+            }
+        )
+        # Stable-enough key for a single sync wave: time bucket + scope + outcome.
+        # Re-runs after real changes get a new stamp; retries of the same failure
+        # within the same second still collapse via idempotency.
+        key = f"forge.reconcile:{'ok' if ok else 'fail'}:{project_slug or '_hub'}:{stamp[:19]}"
+        event_type = FORGE_RECONCILE_SUCCEEDED if ok else FORGE_RECONCILE_FAILED
+        self.publish_hub_event(
+            event_type,
+            project_slug=project_slug,
+            source=source,
+            actor=source,
+            idempotency_key=key,
+            metadata=meta,
+        )
+        payload = {
+            "at": stamp,
+            "project_slug": project_slug,
+            "error": meta.get("error"),
+        }
+        if ok:
+            self.store.set_meta("forge_reconcile_last_success", payload)
+        else:
+            self.store.set_meta("forge_reconcile_last_failure", payload)
+
+    def sync_health(self) -> dict:
+        """Calm sync / connection diagnostics for the dashboard (B3.3)."""
+        import json
+
+        def _meta_obj(key: str) -> dict | None:
+            raw = self.store.get_meta(key)
+            if not raw:
+                return None
+            try:
+                value = json.loads(raw)
+            except (TypeError, json.JSONDecodeError):
+                return {"raw": str(raw)[:200]}
+            return value if isinstance(value, dict) else {"raw": str(value)[:200]}
+
+        cfg = self.forge_config()
+        conflicted = [
+            t
+            for t in self.store.list_threads(limit=500)
+            if (t.source_sync_state or "") == "conflicted"
+        ]
+        recent = self.store.list_recent_activity_events(limit=12)
+        history = []
+        for event in recent:
+            history.append(
+                {
+                    "id": event.id,
+                    "type": event.event_type,
+                    "created_at": event.created_at,
+                    "project_slug": event.project_slug,
+                    "thread_id": event.thread_id,
+                    "summary": _history_summary(event),
+                }
+            )
+        return {
+            "forge": {
+                "configured": bool(cfg.enabled() and cfg.token and cfg.owner and cfg.repo),
+                "provider": cfg.provider.value if cfg.provider else "none",
+                "last_success": _meta_obj("forge_reconcile_last_success"),
+                "last_failure": _meta_obj("forge_reconcile_last_failure"),
+            },
+            "conflicts": {
+                "count": len(conflicted),
+                "threads": [
+                    {
+                        "id": t.id,
+                        "summary": t.summary,
+                        "project_slug": t.project_slug,
+                    }
+                    for t in conflicted[:8]
+                ],
+            },
+            "jobs": self.list_forge_jobs(limit=8),
+            "recent_changes": history,
+            "live_ui": {
+                "transport": "sse",
+                "note": "Client reports connection state; refetch remains truth.",
+            },
+        }
 
     def migrate_forge_connection_profiles(self) -> dict:
         """Ensure default profile exists; one-shot bind projects with matching forge evidence."""
@@ -1474,10 +1667,32 @@ class HubService:
         return self._forge._forge_after_thread(thread)
 
     def sync_forge_now(self, project_slug: str | None = None) -> dict:
-        return self._forge.sync_forge_now(project_slug=project_slug)
+        try:
+            result = self._forge.sync_forge_now(project_slug=project_slug)
+        except Exception as exc:
+            self._record_forge_reconcile_outcome(
+                ok=False,
+                project_slug=project_slug,
+                error=str(exc),
+            )
+            raise
+        if result.get("ok"):
+            self._record_forge_reconcile_outcome(
+                ok=True,
+                project_slug=project_slug,
+                result=result,
+            )
+        elif not result.get("skipped"):
+            self._record_forge_reconcile_outcome(
+                ok=False,
+                project_slug=project_slug,
+                result=result,
+                error=str(result.get("error") or result.get("reason") or "reconcile_failed"),
+            )
+        return result
 
     def sync_forge_project(self, project_slug: str) -> dict:
-        return self._forge.sync_forge_now(project_slug=project_slug)
+        return self.sync_forge_now(project_slug=project_slug)
 
     def import_forge_inbox(self, *, limit: int = 50, close_imported: bool | None = None) -> dict:
         return self._forge.import_forge_inbox(limit=limit, close_imported=close_imported)
@@ -1965,6 +2180,22 @@ class HubService:
                 )
             except Exception as exc:  # noqa: BLE001
                 forge["wiki"] = {"error": str(exc)}
+        if thread:
+            source = payload.source_tool or "api"
+            if created:
+                self._publish_thread_lifecycle(
+                    thread,
+                    event_type=THREAD_CREATED,
+                    source=source,
+                    metadata={"created_thread": True},
+                )
+            else:
+                self._publish_thread_lifecycle(
+                    thread,
+                    event_type=THREAD_PROGRESS_UPDATED,
+                    source=source,
+                    metadata={"created_thread": False},
+                )
         return {
             "project_slug": slug,
             "progress_path": path,
@@ -2002,6 +2233,12 @@ class HubService:
                 self.wiki.rebuild_index(
                     self.store.list_threads(status=ThreadStatus.open, limit=500)
                 )
+                self._publish_thread_lifecycle(
+                    thread,
+                    event_type=THREAD_COMPLETED,
+                    source="api",
+                    metadata={"previous_status": current.status.value},
+                )
             return thread
 
         thread, changed = self.store.transition_status(thread_id, ThreadStatus.done, note=note)
@@ -2015,6 +2252,12 @@ class HubService:
             )
             self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
             self._forge_after_thread(thread)
+            self._publish_thread_lifecycle(
+                thread,
+                event_type=THREAD_COMPLETED,
+                source="api",
+                metadata={"previous_status": current.status.value},
+            )
         return thread
 
     def reopen_external_thread(self, thread_id: str) -> Thread:
@@ -2068,6 +2311,11 @@ class HubService:
         thread = self.store.pause_thread(thread_id, next_step)
         slug = thread.project_slug or slugify(thread.summary)
         self._sync_project_progress(slug, title=thread.summary, thread=thread)
+        self._publish_thread_lifecycle(
+            thread,
+            event_type=THREAD_PAUSED,
+            source="api",
+        )
         return thread
 
     def set_reminder(self, payload: ReminderCreate) -> Reminder:

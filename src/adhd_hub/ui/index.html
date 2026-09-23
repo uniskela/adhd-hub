@@ -66,6 +66,7 @@
         <button type="button" data-screen="progress">Progress</button>
       </nav>
       <div class="app-header-actions">
+        <span id="live-connection" class="live-connection" data-state="offline" hidden title="">Offline</span>
         <button type="button" class="ghost" id="btn-capture" aria-haspopup="dialog">Save a thought</button>
         <button type="button" class="ghost" id="btn-settings">Settings</button>
         <details id="appearance-menu" class="appearance-menu">
@@ -382,6 +383,17 @@
                   <button type="button" class="ghost" id="btn-scan-forge">Scan for import</button>
                   <button type="button" class="ghost" id="btn-import-inbox">Import issue inbox</button>
                 </div>
+                <section id="sync-health" class="sync-health" hidden aria-live="polite">
+                  <h3 class="sync-health-heading">Sync health</h3>
+                  <p id="sync-health-status" class="sync-health-status">Checking sync…</p>
+                  <p id="sync-health-detail" class="hint"></p>
+                  <p id="sync-health-conflicts" class="sync-health-conflicts" hidden></p>
+                  <div class="actions">
+                    <button type="button" class="ghost" id="btn-retry-forge-sync">Retry sync</button>
+                  </div>
+                  <h4 class="sync-health-subheading">Recent changes</h4>
+                  <ul id="sync-health-history" class="sync-health-history"></ul>
+                </section>
                 <section id="forge-jobs" class="forge-jobs" hidden aria-live="polite">
                   <h3 class="forge-jobs-heading">Forge jobs</h3>
                   <ul id="forge-jobs-list" class="forge-jobs-list"></ul>

@@ -19,10 +19,12 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v13" in sw.text
+        assert "adhd-hub-shell-v14" in sw.text
         assert "/ui/js/boot.js" in sw.text
         assert "/ui/js/help.js" in sw.text
         assert "/ui/js/forge-jobs.js" in sw.text
+        assert "/ui/js/sync-health.js" in sw.text
+        assert "/ui/js/live.js" in sw.text
         assert '"/ui/app.css"' in sw.text or "/ui/app.css" in sw.text
 
         slashless = client.get("/ui", follow_redirects=False)
@@ -69,8 +71,9 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "progress.js",
             "settings.js",
             "forge-jobs.js",
+            "sync-health.js",
+            "live.js",
             "help.js",
-            "forge-jobs.js",
             "load.js",
             "boot.js",
         ):

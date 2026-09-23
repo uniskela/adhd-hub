@@ -599,4 +599,101 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
                 raise HTTPException(400, "encrypted backup needs a passphrase") from exc
             raise HTTPException(400, "not a valid zip archive") from exc
 
+    @router.get("/sync-health", dependencies=[Depends(auth_dep)])
+    def get_sync_health():
+        return service.sync_health()
+
+    @router.get("/events", dependencies=[Depends(auth_dep)])
+    def list_events(
+        limit: int = Query(20, ge=1, le=100),
+        after: str | None = None,
+        thread_id: str | None = None,
+        project_slug: str | None = None,
+    ):
+        events = service.store.list_activity_events(
+            limit=limit,
+            after_id=after,
+            thread_id=thread_id,
+            project_slug=project_slug,
+        )
+        if after is None and thread_id is None and project_slug is None:
+            # Default UI feed: newest first compact history.
+            events = service.store.list_recent_activity_events(limit=limit)
+        return {"events": [e.public_dict() for e in events]}
+
+    @router.get("/events/stream", dependencies=[Depends(auth_dep)])
+    async def events_stream(request: Request, last_event_id: str | None = None):
+        """Authenticated same-origin SSE for live UI invalidation (B3.2)."""
+        import asyncio
+
+        from fastapi.responses import StreamingResponse
+
+        from adhd_hub.events import ActivityEvent, events_to_json_line
+
+        # Prefer Last-Event-ID header (EventSource reconnect) over query.
+        resume_id = request.headers.get("last-event-id") or last_event_id
+        loop = asyncio.get_running_loop()
+        outbound: asyncio.Queue[ActivityEvent | None] = asyncio.Queue(maxsize=64)
+
+        def _on_event(event: ActivityEvent) -> None:
+            def _enqueue() -> None:
+                try:
+                    outbound.put_nowait(event)
+                except asyncio.QueueFull:
+                    try:
+                        outbound.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                    try:
+                        outbound.put_nowait(event)
+                    except asyncio.QueueFull:
+                        pass
+
+            loop.call_soon_threadsafe(_enqueue)
+
+        unsubscribe = service.event_bus.subscribe(_on_event)
+
+        async def event_generator():
+            try:
+                # Catch-up: replay recent durable events after Last-Event-ID.
+                if resume_id:
+                    for event in service.store.list_activity_events(
+                        limit=50, after_id=resume_id
+                    ):
+                        yield (
+                            f"id: {event.id}\n"
+                            f"event: invalidate\n"
+                            f"data: {events_to_json_line(event)}\n\n"
+                        )
+                else:
+                    yield ": connected\n\n"
+
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        event = await asyncio.wait_for(outbound.get(), timeout=15.0)
+                    except TimeoutError:
+                        yield ": ping\n\n"
+                        continue
+                    if event is None:
+                        break
+                    yield (
+                        f"id: {event.id}\n"
+                        f"event: invalidate\n"
+                        f"data: {events_to_json_line(event)}\n\n"
+                    )
+            finally:
+                unsubscribe()
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-store",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     return router

@@ -24,6 +24,8 @@ This plan **starts** the B3 product train. It does not implement the full ledger
 | **B3.2 SSE live invalidation** | Authenticated same-origin SSE; lightweight invalidation; refetch remains truth | Depends on publishable events (or a thin bus fed by the same boundary) |
 | **B3.3 Sync / connection health** | Calm last-success / last-failure / conflict / job cues | Builds on Forge jobs; no monitoring dashboard |
 
+Implementation modules: `adhd_hub.events` (publish boundary + redaction), `Store.activity_events`, `GET /api/events` + `/api/events/stream`, `GET /api/sync-health`, UI `live.js` / `sync-health.js`.
+
 Do not fold MCP schema quality (#117) or Wave work into these slices.
 
 ## First slice only — immediate next PR (B3.1)
@@ -47,6 +49,15 @@ Do not fold MCP schema quality (#117) or Wave work into these slices.
 - Analytics dashboard or #72 aggregations.
 - Redis or external bus; in-process fan-out can wait until SSE.
 - Any #117 MCP schema work.
+
+### Publish boundary (maintainer note)
+
+After B3.1 lands, call `HubService.publish_hub_event` / `publish_activity_event`
+**only after** the mutation is durably committed. Shared boundary covers REST,
+MCP, scheduler, and UI. Never put transcripts, secrets, private Hub URLs, or
+machine paths in event metadata. Idempotency keys should reuse B2
+`external_fingerprint` / thread `state_fingerprint` where available so sync
+echoes do not duplicate rows.
 
 ### Suggested verify for B3.1
 

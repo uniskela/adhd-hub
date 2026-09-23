@@ -13,6 +13,7 @@ import {
   normalizeForgeOwnerRepo,
 } from './help.js';
 import { enqueueForgeJob, refreshForgeJobs } from './forge-jobs.js';
+import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
 export function showSettingsIndex() {
   const view = $("settings-view");
@@ -170,6 +171,7 @@ export async function loadForge() {
       $("primary_memory_repo").checked = !!c.primary_memory_repo;
       attachHubForgeTips();
       await refreshForgeJobs().catch(() => {});
+      await refreshSyncHealth().catch(() => {});
     } catch (_e) {
       /* forge optional */
     }
@@ -821,6 +823,7 @@ export async function syncForge() {
     }
     if (out.import_preview) renderImportBanner(out.import_preview);
     else await scanForgeImport().catch(() => {});
+    await refreshSyncHealth().catch(() => {});
   }
 export async function importForgeInbox() {
     const { result: out } = await enqueueForgeJob(
