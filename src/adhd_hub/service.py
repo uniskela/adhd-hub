@@ -1411,7 +1411,7 @@ class HubService:
         from adhd_hub.thread_state import state_fingerprint
 
         fp = state_fingerprint(thread)
-        cached = self._read_scan_cache(thread.id)
+        cached = self._read_scan_cache(thread.id) if self.settings.ai_base_url else None
         attach_scan_line(
             data,
             thread,

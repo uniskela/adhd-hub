@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
+from pydantic import ValidationError
 
 from adhd_hub.ai_client import generate_ai_scan_line
 from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, SCAN_LINE_SOURCE_HEURISTIC
@@ -71,6 +74,31 @@ def test_generate_ai_scan_line_falls_back_on_error():
         assert generate_ai_scan_line(settings, _thread(), client=client) is None
 
 
+def test_ai_request_scrubs_every_field_before_sending():
+    settings = Settings(auth_token="t", ai_base_url="https://ai.example/v1")
+    sensitive = "token=example-sensitive-value /home/private-work https://private.example"
+    thread = _thread(
+        summary=sensitive, focus=sensitive, goal=sensitive, resume_step=sensitive,
+        next_steps=[sensitive], blocked_reason=sensitive,
+        transcript_ref="transcript-marker", chat_ref="chat-marker",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        prompt = body["messages"][-1]["content"]
+        for forbidden in (
+            "example-sensitive-value", "/home/private-work", "https://private.example",
+            "transcript-marker", "chat-marker",
+        ):
+            assert forbidden not in prompt
+        assert "[redacted]" in prompt
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Safe step"}}]})
+
+    # Exceptions in the client are best-effort, so also assert the successful result.
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        assert generate_ai_scan_line(settings, thread, client=client) == "Safe step"
+
+
 def test_disabled_without_base_url_uses_heuristic(tmp_path: Path) -> None:
     service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
     thread = service.upsert_thread(
@@ -94,6 +122,8 @@ def test_ai_cache_used_when_fingerprint_matches(tmp_path: Path, monkeypatch) -> 
         ai_model="test",
     )
     service = HubService(settings)
+    # Do not contact a real provider during the initial mutation.
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", lambda *a, **k: None)
     thread = service.upsert_thread(
         ThreadUpsert(
             summary="Title",
@@ -126,3 +156,18 @@ def test_ai_cache_used_when_fingerprint_matches(tmp_path: Path, monkeypatch) -> 
     pub2 = service.thread_public_dict(updated)
     assert pub2["scan_line"] == "Changed focus"
     assert pub2["scan_line_source"] == SCAN_LINE_SOURCE_HEURISTIC
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), 31])
+def test_ai_timeout_is_positive_and_bounded(timeout):
+    with pytest.raises(ValidationError):
+        Settings(ai_timeout_seconds=timeout)
+
+
+def test_disabling_ai_ignores_old_cached_rewrites(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", lambda *a, **k: "AI line")
+    service = HubService(Settings(data_dir=tmp_path, auth_token="t", ai_base_url="https://ai.test"))
+    thread = service.upsert_thread(ThreadUpsert(summary="Title", focus="Local step"))
+    assert service.thread_public_dict(thread)["scan_line"] == "AI line"
+    service.settings.ai_base_url = None
+    assert service.thread_public_dict(thread)["scan_line"] == "Local step"

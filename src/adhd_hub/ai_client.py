@@ -27,18 +27,21 @@ def _structured_prompt(thread: Thread) -> str:
         "Write one calm ADHD-friendly scan line (max 140 characters) for this Hub thread.",
         "Use only the structured fields below. No secrets, paths, URLs, or transcripts.",
         "Return plain text only — no quotes or labels.",
-        f"Title: {thread.summary}",
     ]
-    if thread.focus:
-        parts.append(f"Focus: {thread.focus}")
-    if thread.resume_step:
-        parts.append(f"Resume: {thread.resume_step}")
-    if thread.goal:
-        parts.append(f"Goal: {thread.goal}")
-    if thread.next_steps:
-        parts.append("Next: " + "; ".join(thread.next_steps[:3]))
-    if thread.blocked_reason:
-        parts.append(f"Blocked: {thread.blocked_reason}")
+    fields = [
+        ("Title", thread.summary),
+        ("Focus", thread.focus),
+        ("Resume", thread.resume_step),
+        ("Goal", thread.goal),
+        ("Next", "; ".join(thread.next_steps[:3])),
+        ("Blocked", thread.blocked_reason),
+    ]
+    for label, value in fields:
+        # Redact before crossing the provider boundary and before truncating
+        # quoted secrets. Do not read progress bodies or transcript references.
+        cleaned = scrub_scan_text(value)
+        if cleaned:
+            parts.append(f"{label}: {truncate_scan_text(cleaned, limit=500)}")
     return "\n".join(parts)
 
 
@@ -75,7 +78,7 @@ def generate_ai_scan_line(
     owns_client = client is None
     http = client or httpx.Client(timeout=timeout)
     try:
-        resp = http.post(url, headers=headers, json=body)
+        resp = http.post(url, headers=headers, json=body, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         choices = data.get("choices") or []
@@ -83,12 +86,14 @@ def generate_ai_scan_line(
             return None
         message = choices[0].get("message") or {}
         content = message.get("content")
+        if not isinstance(content, str):
+            return None
         cleaned = scrub_scan_text(content)
         if not cleaned:
             return None
         return truncate_scan_text(cleaned, limit=SCAN_LINE_MAX)
     except Exception as exc:  # noqa: BLE001 — AI is best-effort
-        log.info("AI scan-line skipped: %s", exc)
+        log.info("AI scan-line skipped (%s)", type(exc).__name__)
         return None
     finally:
         if owns_client:
