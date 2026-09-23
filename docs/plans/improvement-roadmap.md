@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-22** at package **v0.13.0** (Notes & context reader via PR [#136](https://github.com/uniskela/adhd-hub/pull/136)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-22** at package **v0.14.0** (Notes & context reader via PR [#136](https://github.com/uniskela/adhd-hub/pull/136)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -134,7 +134,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 These can land without changing the product-wave sequence:
 
 - [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Deferred** relative to the B3 train; land independently when capacity allows.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.13.0**; do not treat version-string drift as open product work.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.14.0**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 

@@ -4,6 +4,8 @@ On desktop, use the compact **Appearance** menu in the app header for System, Li
 
 The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Choose this step** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
 
+On My work, **Notes & context** opens a reader for that thread’s saved continuity (Goal, Focus, Next, Blocked, Resume, notes, and forge activity). See [Notes & context](notes.md).
+
 Use **Save a thought** for a quick capture without leaving the current task. When you need to stop, choose **Pause here**, enter the smallest useful next step, and save it. That step appears when you return.
 
 The **Where you left off** area renders saved Markdown (headings, lists, emphasis, and tables) for easier scanning. Raw HTML is escaped and remote images are shown as text descriptions.

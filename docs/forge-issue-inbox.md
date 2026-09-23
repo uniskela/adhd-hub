@@ -105,7 +105,7 @@ hash, successful-import timestamp, and the structured values used as the three-w
 Running **Import issue inbox** again reports imported, refreshed, unchanged, and needs-review
 counts. A changed linked issue updates only Goal, Focus, Next, Resume, and a title still derived
 from the issue. Thread status, Hub progress notes, reminders, links, completion notes, and operator
-annotations are preserved. Issue comments stay display-only in Notes & context (Forge activity).
+annotations are preserved. Issue comments stay display-only in [Notes & context](notes.md) (Forge activity).
 
 When both the Hub and forge changed a source-controlled field from its previously imported value,
 the thread enters **Source conflict** instead of overwriting either side. Use **Refresh from source
