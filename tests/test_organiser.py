@@ -72,3 +72,31 @@ def test_organise_apply_model_normalizes_tags() -> None:
         {"items": [{"slug": "x", "tags": ["Home Lab", "docs", "docs"]}]}
     )
     assert req.items[0].tags == ["home-lab", "docs"]
+
+
+def test_apply_preserves_project_settings_and_skips_archived(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    before = service.upsert_project(
+        ProjectUpsert(title="API", slug="api", tags=["docs"], default_energy="high")
+    )
+    service.apply_project_organisation({"items": [{"slug": "api", "tags": ["api"]}]})
+    after = service.store.get_project("api")
+    assert after.default_energy == before.default_energy
+    assert after.tags == ["docs", "api"]
+
+    service.store.set_project_archived("api", archived=True)
+    result = service.apply_project_organisation({"items": [{"slug": "api", "tags": ["ci"]}]})
+    assert result["applied"] == []
+    assert result["skipped"] == [{"slug": "api", "reason": "archived"}]
+    assert service.store.get_project("api").tags == ["docs", "api"]
+
+
+def test_suggestions_and_apply_respect_available_tag_slots(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    tags = [f"tag-{i}" for i in range(8)]
+    proj = service.upsert_project(ProjectUpsert(title="API docs", slug="api", tags=tags))
+    assert suggest_tags_for_project(proj, [])["suggested_tags"] == []
+    result = service.apply_project_organisation({"items": [{"slug": "api", "tags": ["ci"]}]})
+    assert result["applied"] == []
+    assert result["skipped"] == [{"slug": "api", "reason": "tag_limit"}]
+    assert service.store.get_project("api").tags == tags

@@ -765,6 +765,7 @@ export async function openOrganiseDialog() {
     const empty = $("organise-empty");
     list.innerHTML = `<p class="hint">Loading suggestions…</p>`;
     empty.hidden = true;
+    empty.textContent = "No new tag suggestions right now.";
     dialog.showModal();
     try {
       const data = await api("/projects/organise/suggestions");
@@ -780,8 +781,8 @@ export async function openOrganiseDialog() {
           const suggested = (item.suggested_tags || []).join(", ");
           const current = (item.current_tags || []).join(", ") || "none";
           const reason = (item.reasons || []).join("; ");
-          return `<label class="organise-row">
-            <input type="checkbox" data-organise-index="${index}" checked />
+          return `<div class="organise-row">
+            <input type="checkbox" data-organise-index="${index}" aria-label="Apply tags to ${escapeHtml(item.title || item.slug)}" checked />
             <span class="organise-copy">
               <strong>${escapeHtml(item.title || item.slug)}</strong>
               <span class="meta">Current: ${escapeHtml(current)}</span>
@@ -789,7 +790,7 @@ export async function openOrganiseDialog() {
               <input type="text" data-organise-tags="${index}" value="${escapeHtml(suggested)}" aria-label="Tags for ${escapeHtml(item.slug)}" />
               <input type="hidden" data-organise-slug="${index}" value="${escapeHtml(item.slug)}" />
             </span>
-          </label>`;
+          </div>`;
         })
         .join("");
     } catch (e) {
@@ -824,7 +825,9 @@ export async function applyOrganiseSelection() {
       });
       $("organise-dialog").close();
       const n = (out.applied || []).length;
-      setMsg(n ? `Applied tags to ${n} project${n === 1 ? "" : "s"}.` : "Nothing applied.");
+      const skipped = (out.skipped || []).length;
+      setMsg((n ? `Applied tags to ${n} project${n === 1 ? "" : "s"}.` : "Nothing applied.") +
+        (skipped ? ` ${skipped} skipped; reopen Organise to review current projects and tag limits.` : ""));
       await loadAll();
     } catch (e) {
       setMsg("Could not apply organisation: " + e.message);

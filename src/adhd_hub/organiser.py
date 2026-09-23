@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from adhd_hub.models import Project, Thread, normalize_project_tags
+from adhd_hub.models import MAX_PROJECT_TAGS, Project, Thread, normalize_project_tags
 
 _WORD_RE = re.compile(r"[a-z0-9][a-z0-9-]{1,23}")
 
@@ -58,6 +58,12 @@ def suggest_tags_for_project(
     limit: int = 5,
 ) -> dict[str, Any]:
     """Return suggested tags that are not already on the project."""
+    limit = max(0, min(limit, MAX_PROJECT_TAGS - len(project.tags)))
+    if not limit:
+        return {
+            "slug": project.slug, "title": project.title,
+            "current_tags": list(project.tags), "suggested_tags": [], "reasons": [],
+        }
     bag = _tokens(project.title, project.description, project.slug)
     for thread in threads[:20]:
         bag |= _tokens(

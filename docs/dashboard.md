@@ -52,3 +52,4 @@ See the [brand guide](brand-guide.md) for palette, assets, buttons, milestone th
 The Settings footer links to the public GitHub repository and shows the running server’s version from `/api/health`. Share text includes the public repository link, and PNG cards print its URL in the footer. Your private hub address is never used for that attribution.
 
 Project tags are preserved when you rename a project slug.
+The organiser adds only the selected tags and preserves project settings. Projects archived after suggestions were loaded, or selections exceeding the eight-tag limit, are skipped so you can review them again.

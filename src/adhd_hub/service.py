@@ -944,7 +944,7 @@ class HubService:
         return {"suggestions": suggestions, "auto_applied": False}
 
     def apply_project_organisation(self, payload) -> dict:
-        from adhd_hub.models import OrganiseApplyRequest, ProjectUpsert
+        from adhd_hub.models import MAX_PROJECT_TAGS, OrganiseApplyRequest, ProjectUpsert
 
         if not isinstance(payload, OrganiseApplyRequest):
             payload = OrganiseApplyRequest.model_validate(payload)
@@ -955,14 +955,22 @@ class HubService:
             if not proj:
                 skipped.append({"slug": item.slug, "reason": "not_found"})
                 continue
+            if proj.archived_at:
+                skipped.append({"slug": item.slug, "reason": "archived"})
+                continue
             # Merge confirmed tags with existing; never invent beyond the confirmed list.
             merged = list(dict.fromkeys([*(proj.tags or []), *item.tags]))
+            if len(merged) > MAX_PROJECT_TAGS:
+                skipped.append({"slug": item.slug, "reason": "tag_limit"})
+                continue
             updated = self.upsert_project(
                 ProjectUpsert(
                     slug=proj.slug,
                     title=proj.title,
                     description=proj.description,
                     tags=merged,
+                    default_energy=proj.default_energy,
+                    default_work_source=proj.default_work_source,
                     workspace_paths=list(proj.workspace_paths or []),
                     repo_url=proj.repo_url,
                     forge_owner=proj.forge_owner,
