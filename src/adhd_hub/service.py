@@ -1451,11 +1451,8 @@ class HubService:
 
     def refresh_scan_line_ai(self, thread: Thread) -> None:
         """Best-effort AI rewrite when configured; stores cache for later reads."""
-        from adhd_hub.ai_client import (
-            SCAN_LINE_SOURCE_AI,
-            ai_configured,
-            generate_ai_scan_line,
-        )
+        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line
+        from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
         from adhd_hub.thread_state import state_fingerprint
 
         if not ai_configured(self.settings):

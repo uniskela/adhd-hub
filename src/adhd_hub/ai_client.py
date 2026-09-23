@@ -12,7 +12,6 @@ from typing import Any
 import httpx
 
 from adhd_hub.clarity import SCAN_LINE_MAX, scrub_scan_text, truncate_scan_text
-from adhd_hub.clarity import SCAN_LINE_SOURCE_AI  # re-exported for callers/tests
 from adhd_hub.config import Settings
 from adhd_hub.models import Thread
 

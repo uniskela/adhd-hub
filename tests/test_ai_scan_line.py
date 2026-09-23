@@ -7,8 +7,8 @@ from pathlib import Path
 
 import httpx
 
-from adhd_hub.ai_client import SCAN_LINE_SOURCE_AI, generate_ai_scan_line
-from adhd_hub.clarity import SCAN_LINE_SOURCE_HEURISTIC
+from adhd_hub.ai_client import generate_ai_scan_line
+from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, SCAN_LINE_SOURCE_HEURISTIC
 from adhd_hub.config import Settings
 from adhd_hub.models import Thread, ThreadStatus, ThreadUpsert
 from adhd_hub.service import HubService
