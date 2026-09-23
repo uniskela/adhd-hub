@@ -2054,12 +2054,12 @@ class Store:
                 conn.execute(
                     """
                     INSERT INTO projects (
-                        slug, title, description, repo_url, workspace_paths, default_energy,
-                        default_work_source,
+                        slug, title, description, repo_url, workspace_paths, tags,
+                        default_energy, default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id, archived_at,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new,
@@ -2067,6 +2067,7 @@ class Store:
                         row["description"],
                         dict(row).get("repo_url"),
                         row["workspace_paths"],
+                        row["tags"],
                         row["default_energy"],
                         dict(row).get("default_work_source") or WorkSource.local.value,
                         row["forge_owner"],

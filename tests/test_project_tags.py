@@ -54,3 +54,11 @@ def test_project_tags_and_last_touch(tmp_path: Path) -> None:
         ProjectUpsert(title="Wave Six Demo", slug="wave-six-demo", tags=[])
     )
     assert cleared.tags == []
+
+
+def test_rename_preserves_project_tags(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="Tagged", slug="before", tags=["docs", "api"]))
+    renamed = service.store.rename_project("before", "after")
+    assert renamed.tags == ["docs", "api"]
+    assert service.store.get_project("after").tags == ["docs", "api"]
