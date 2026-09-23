@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +32,9 @@ _RELEASE_PLEASE_AUTHORS = frozenset(
 # Default release-please-action branch prefix (manifest/component suites append
 # more segments after ``release-please--branches--``).
 _RELEASE_PLEASE_BRANCH_PREFIX = "release-please--branches--"
+_RELEASE_TITLE_RE = re.compile(
+    r"^chore(?:\([^)]+\))?: release \d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$"
+)
 
 
 def _load_release_gate():
@@ -76,7 +80,10 @@ def check_pr_title(
     head_ref: str | None = None,
 ) -> tuple[bool, str]:
     """Return whether a PR title is allowed for the given changed paths."""
-    if is_release_please_pr(author=author, head_ref=head_ref):
+    if (
+        is_release_please_pr(author=author, head_ref=head_ref)
+        and _RELEASE_TITLE_RE.fullmatch(title.strip())
+    ):
         return (
             True,
             "ok: release-please PR exempt from conventional title gate",

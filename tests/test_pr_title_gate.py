@@ -157,3 +157,13 @@ def test_pr_title_gate_cli_release_please_exempt(capsys):
         == 0
     )
     assert "exempt" in capsys.readouterr().out
+
+
+def test_release_branch_does_not_exempt_ordinary_feature_titles():
+    gate = _load_pr_title_gate()
+    ok, _ = gate.check_pr_title(
+        "chore: change application behaviour",
+        ["src/adhd_hub/service.py"],
+        head_ref="release-please--branches--main--components--adhd-hub",
+    )
+    assert not ok
