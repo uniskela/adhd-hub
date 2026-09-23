@@ -36,6 +36,17 @@ def test_scrub_redacts_secrets_paths_and_private_urls():
     assert scrub_scan_text("   ") is None
 
 
+def test_scrub_handles_headers_quoted_secrets_and_markdown_paths():
+    for value in (
+        "Retry Authorization: Bearer example-sensitive-value next",
+        'Retry password="example-sensitive-value with spaces" next',
+        "Retry Bearer example-sensitive-value next",
+        "Open `/home/example-sensitive-value/config` next",
+        "Open (C:/Users/example-sensitive-value/config) next",
+    ):
+        assert "example-sensitive-value" not in (scrub_scan_text(value) or "")
+
+
 def test_build_scan_line_priority_focus_over_resume_and_goal():
     thread = _thread(
         focus="Wire scan_line into My Work",
@@ -109,3 +120,17 @@ def test_thread_public_dict_includes_scan_line(tmp_path):
     assert pub["summary"] == "Title only"
     assert pub["scan_line"] == "Show heuristic scan line"
     assert pub["scan_line_source"] == SCAN_LINE_SOURCE_HEURISTIC
+
+    # Project-wide progress can describe a different outcome. It remains in
+    # Notes, but must never be presented as this thread's own scan line.
+    monkeypatch_thread = created.model_copy(
+        update={"focus": None, "goal": None, "resume_step": None, "next_steps": []}
+    )
+    from unittest.mock import patch
+
+    with (
+        patch.object(service.store, "list_progress_notes", return_value=[]),
+        patch.object(service.wiki, "read_progress", return_value="Deploy unrelated billing work"),
+    ):
+        pub = service.thread_public_dict(monkeypatch_thread)
+    assert pub["scan_line"] is None

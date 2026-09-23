@@ -18,10 +18,15 @@ SCAN_LINE_SOURCE_HEURISTIC = "heuristic"
 SCAN_LINE_SOURCE_AI = "ai"
 
 _SECRET_INLINE_RE = re.compile(
-    r"(?i)\b(password|passwd|secret|token|api[_-]?key|authorization|bearer|"
-    r"credential|private[_-]?key)\b\s*[:=]\s*\S+"
+    r"(?i)\b[\w-]*(?:password|passwd|secret|token|api[_-]?key|authorization|"
+    r"credential|private[_-]?key)\b[\"']?\s*[:=]\s*"
+    r"(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
 )
-_ABS_PATH_RE = re.compile(r"(^|[\s\"'=])(/[^\s\"']+|\\\\[^\s\"']+|[A-Za-z]:\\[^\s\"']+)")
+_AUTH_RE = re.compile(r"(?i)\b(?:bearer|basic)\s+[^\s,;\"']+")
+_ABS_PATH_RE = re.compile(
+    r"(^|[\s\"'`=(\[])"
+    r"(/[^\s\"'`\])]+|\\\\[^\s\"'`\])]+|[A-Za-z]:[\\/][^\s\"'`\])]+)"
+)
 _URL_RE = re.compile(r"https?://[^\s\"']+", re.IGNORECASE)
 _LOCALHOST_HOST_RE = re.compile(
     r"(^|://)(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|"
@@ -38,6 +43,7 @@ def scrub_scan_text(value: str | None) -> str | None:
     text = _WHITESPACE_RE.sub(" ", str(value)).strip()
     if not text:
         return None
+    text = _AUTH_RE.sub("[redacted]", text)
     text = _SECRET_INLINE_RE.sub("[redacted]", text)
     text = _ABS_PATH_RE.sub(lambda m: f"{m.group(1)}[path]", text)
     def _url_sub(match: re.Match[str]) -> str:
@@ -97,6 +103,7 @@ def attach_scan_line(
     data: dict[str, Any],
     thread: Thread,
     *,
+    progress_snippet: str | None = None,
     cached_line: str | None = None,
     cached_source: str | None = None,
     cached_fingerprint: str | None = None,
@@ -117,7 +124,7 @@ def attach_scan_line(
         data["scan_line_source"] = cached_source or SCAN_LINE_SOURCE_HEURISTIC
         return data
     line, source = build_scan_line(
-        thread, progress_snippet=data.get("progress_snippet")
+        thread, progress_snippet=progress_snippet
     )
     data["scan_line"] = line
     data["scan_line_source"] = source

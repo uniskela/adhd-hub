@@ -1397,12 +1397,14 @@ class HubService:
                 )
             else:
                 data["forge_issue_url"] = cfg.issue_web_url(number)
+        scan_progress_snippet = None
         if thread.project_slug:
             notes = self.store.list_progress_notes(
                 thread.project_slug, limit=3, thread_id=thread.id
             )
             if notes:
                 data["progress_snippet"] = notes[0]["content"][:800]
+                scan_progress_snippet = data["progress_snippet"]
             else:
                 snippet = self.wiki.read_progress(thread.project_slug)
                 if snippet:
@@ -1415,6 +1417,7 @@ class HubService:
         attach_scan_line(
             data,
             thread,
+            progress_snippet=scan_progress_snippet,
             cached_line=(cached or {}).get("scan_line"),
             cached_source=(cached or {}).get("source"),
             cached_fingerprint=(cached or {}).get("fingerprint"),
