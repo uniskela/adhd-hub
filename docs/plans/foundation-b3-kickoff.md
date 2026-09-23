@@ -8,13 +8,13 @@ search:
 Tracking issue: [#75](https://github.com/uniskela/adhd-hub/issues/75)  
 Parent: [#71](https://github.com/uniskela/adhd-hub/issues/71) · Roadmap: [#15](https://github.com/uniskela/adhd-hub/issues/15) · Later consumer: [#72](https://github.com/uniskela/adhd-hub/issues/72)
 
-This plan **starts** the B3 product train. It does not implement the full ledger, SSE, or sync-health surfaces. Ship B3 as a series of small PRs; keep [#117](https://github.com/uniskela/adhd-hub/issues/117) deferred and separate.
+This plan **started** the B3 product train. B3 shipped in full via [#152](https://github.com/uniskela/adhd-hub/pull/152) (closes [#75](https://github.com/uniskela/adhd-hub/issues/75)). Current product train is Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52). Keep [#117](https://github.com/uniskela/adhd-hub/issues/117) deferred and separate.
 
 ## Context (after Notes)
 
 - Baseline: **v0.13.0**; Notes & context reader landed via PR [#136](https://github.com/uniskela/adhd-hub/pull/136).
 - Foundation B1/B2 and Forge job visibility are shipped; they are **not** a substitute for a durable Hub event ledger or live UI invalidation.
-- Public sequence: **NOW = B3 #75**, then Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52) → 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) → 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). See [improvement-roadmap.md](improvement-roadmap.md).
+- Public sequence: B3 #75 ✅ → **NOW = Wave 6** [#52](https://github.com/uniskela/adhd-hub/issues/52) → 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) → 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). See [improvement-roadmap.md](improvement-roadmap.md).
 
 ## Train slices (ordered)
 

@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-22** at package **v0.14.0** (Notes & context reader via PR [#136](https://github.com/uniskela/adhd-hub/pull/136)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-23** at package **v0.14.0** (Foundation B3 shipped via PR [#152](https://github.com/uniskela/adhd-hub/pull/152)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -22,9 +22,10 @@ The Hub already includes:
 - OpenClaw multi-agent hook targeting (#118);
 - canonical public-roadmap/docs cleanup (#120);
 - docs-sync notification wiring for the Uniskela site (#121);
-- ADHD-friendly Notes & context reader (#136).
+- ADHD-friendly Notes & context reader (#136);
+- Foundation B3 activity ledger, SSE live invalidation, and sync health (#75 / [#152](https://github.com/uniskela/adhd-hub/pull/152)).
 
-Those newer integration/reliability/documentation changes do **not** replace the remaining product roadmap below. **NOW** remains Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75) — kickoff plan: [foundation-b3-kickoff.md](foundation-b3-kickoff.md).
+Those newer integration/reliability/documentation changes do **not** replace the remaining product roadmap below. **NOW** is Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52).
 
 ## Product principles
 
@@ -58,24 +59,15 @@ Local work remains Hub-owned. Repo-backed work has durable provider/host/reposit
 
 GitHub/Gitea can remain authoritative for repo-backed task state while the Hub keeps private continuity. Import/reconciliation is safe, close/reopen is remote-first for linked issues, and local work can be deliberately promoted/linked.
 
+### Foundation B3 — activity ledger, live UI & sync health ✅
+
+[#75](https://github.com/uniskela/adhd-hub/issues/75), shipped via [#152](https://github.com/uniskela/adhd-hub/pull/152). Kickoff history: [foundation-b3-kickoff.md](foundation-b3-kickoff.md).
+
+Durable structured activity events, authenticated SSE live invalidation (API refetch remains displayed truth), and sync/connection health are on `main`. This is the history substrate for later activity insights (#72).
+
 ## Current priority
 
-### Foundation B3 — activity ledger, live UI & sync health 🔄 **NOW**
-
-[#75](https://github.com/uniskela/adhd-hub/issues/75) · kickoff: [foundation-b3-kickoff.md](foundation-b3-kickoff.md)
-
-B3 is the remaining Foundation B slice (train started after Notes #136):
-
-1. **Durable structured event ledger** for meaningful thread/work/session/forge changes (**first implementation slice**).
-2. **Authenticated live UI invalidation**, SSE-first, with normal API refetch remaining the displayed truth.
-3. **Sync/connection health** including last success/failure, conflicts and useful job state.
-4. **Trustworthy history substrate** for later activity insights instead of reconstructing history from current rows or Git timestamps.
-
-The existing Forge job queue is useful operational state but is not a substitute for this durable history/live-state layer.
-
-## Next product sequence
-
-### Wave 6 — AI clarity & project organisation
+### Wave 6 — AI clarity & project organisation 🔄 **NOW**
 
 [#52](https://github.com/uniskela/adhd-hub/issues/52) — **after B3**.
 
@@ -83,7 +75,9 @@ The existing Forge job queue is useful operational state but is not a substitute
 - calmer project list with tags/categories and useful filters;
 - optional human-confirmed AI organisation.
 
-Remote AI remains opt-in and must not leak secrets, raw transcripts, private URLs or machine paths.
+Remote AI remains opt-in and must not leak secrets, raw transcripts, private URLs or machine paths. Prefer B3 events for freshness; do not create a competing history mechanism. Keep [#117](https://github.com/uniskela/adhd-hub/issues/117) as independent maintenance.
+
+## Next product sequence
 
 ### Wave 7 — continuity intelligence
 
@@ -133,7 +127,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 
 These can land without changing the product-wave sequence:
 
-- [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Deferred** relative to the B3 train; land independently when capacity allows.
+- [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 6 train; land separately when capacity allows.
 - [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.14.0**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
@@ -146,14 +140,14 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation A | Shipped |
 | Done | Foundation B1 #73 | Shipped in v0.8.0 |
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
-| **Now** | **Foundation B3 #75** | Event ledger / live UI / sync health (kickoff underway) |
-| Next | Wave 6 #52 | AI clarity + project organisation |
+| Done | Foundation B3 #75 | Event ledger / live UI / sync health (#152) |
+| **Now** | **Wave 6 #52** | AI clarity + project organisation |
 | Then | Wave 7 #54 | Continuity intelligence |
 | Then | Wave 8 #55 | Find & capture |
 | Later | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
-| Independent | MCP schema quality #117 | Deferred vs B3; land separately |
+| Independent | MCP schema quality #117 | Land separately from Wave 6 |
 | Independent | CI lockfile cleanup #102 | Remaining maintenance |
 
 ## Keeping this page from drifting
