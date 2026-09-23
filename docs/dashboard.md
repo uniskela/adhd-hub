@@ -4,7 +4,7 @@ On desktop, use the compact **Appearance** menu in the app header for System, Li
 
 The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Choose this step** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
 
-On My work, each thread card shows a short **scan line** under the title when Focus, Resume, Goal, Next, or a safe progress snippet is available (heuristic; full detail stays in Notes). **Notes & context** opens a reader for that thread’s saved continuity (Goal, Focus, Next, Blocked, Resume, notes, and forge activity). See [Notes & context](notes.md).
+On My work, each thread card shows a short **scan line** under the title when Focus, Resume, Goal, Next, or a safe progress snippet saved on that thread is available (heuristic; full detail stays in Notes). **Notes & context** opens a reader for that thread’s saved continuity (Goal, Focus, Next, Blocked, Resume, notes, and forge activity). See [Notes & context](notes.md).
 
 Open Hub pages listen for authenticated live updates (SSE) and refresh relevant data shortly after Hub-side changes; if the live connection drops, ordinary Refresh / API use still works. Under **Settings → Forge**, **Sync health** shows last successful or failed forge reconciliation, concise errors, Needs review conflicts, recent change history from the activity ledger, and a Retry sync path beside Forge jobs.
 
