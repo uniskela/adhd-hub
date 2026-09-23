@@ -3,6 +3,10 @@ name: PR title
 # Squash-merge uses the PR title as the merge subject (COMMIT_OR_PR_TITLE).
 # Fail early when a release-surface diff would skip Release Please after merge.
 # Soft-skip of release_gate on main for docs/chore subjects stays intentional.
+#
+# Release Please release PRs (branch release-please--branches--* and/or
+# release-please bot author) are exempt: their chore(…): release … titles are
+# intentional while bumping version/changelog on release surfaces.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
@@ -31,4 +35,13 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 scripts/pr_title_gate.py --title "$PR_TITLE" --base "$BASE_SHA" --head "$HEAD_SHA"
+          # login may be app/github-actions for RP action; branch is the robust signal
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: >
+          python3 scripts/pr_title_gate.py
+          --title "$PR_TITLE"
+          --base "$BASE_SHA"
+          --head "$HEAD_SHA"
+          --author "$PR_AUTHOR"
+          --head-ref "$PR_HEAD_REF"
