@@ -5,6 +5,8 @@ search:
 
 # Foundation B3 kickoff — activity ledger, live UI & sync health
 
+Shipped in v0.15.0 via [#152](https://github.com/uniskela/adhd-hub/pull/152). This page stays the historical kickoff.
+
 Tracking issue: [#75](https://github.com/uniskela/adhd-hub/issues/75)  
 Parent: [#71](https://github.com/uniskela/adhd-hub/issues/71) · Roadmap: [#15](https://github.com/uniskela/adhd-hub/issues/15) · Later consumer: [#72](https://github.com/uniskela/adhd-hub/issues/72)
 
