@@ -15,6 +15,7 @@ from adhd_hub.models import Thread
 
 SCAN_LINE_MAX = 140
 SCAN_LINE_SOURCE_HEURISTIC = "heuristic"
+SCAN_LINE_SOURCE_AI = "ai"
 
 _SECRET_INLINE_RE = re.compile(
     r"(?i)\b(password|passwd|secret|token|api[_-]?key|authorization|bearer|"
@@ -52,14 +53,17 @@ def scrub_scan_text(value: str | None) -> str | None:
     return text
 
 
-def _truncate(text: str, *, limit: int = SCAN_LINE_MAX) -> str:
+def truncate_scan_text(text: str, *, limit: int = SCAN_LINE_MAX) -> str:
     if len(text) <= limit:
         return text
     cut = text[: max(0, limit - 1)].rstrip()
-    # Prefer breaking on a word boundary when close to the end.
     if " " in cut[ max(0, len(cut) - 24) :]:
         cut = cut.rsplit(" ", 1)[0].rstrip()
     return f"{cut}…"
+
+
+def _truncate(text: str, *, limit: int = SCAN_LINE_MAX) -> str:
+    return truncate_scan_text(text, limit=limit)
 
 
 def build_scan_line(
@@ -89,8 +93,29 @@ def build_scan_line(
     return None, None
 
 
-def attach_scan_line(data: dict[str, Any], thread: Thread) -> dict[str, Any]:
-    """Mutate a public thread dict with scan_line fields; return the same dict."""
+def attach_scan_line(
+    data: dict[str, Any],
+    thread: Thread,
+    *,
+    cached_line: str | None = None,
+    cached_source: str | None = None,
+    cached_fingerprint: str | None = None,
+    fingerprint: str | None = None,
+) -> dict[str, Any]:
+    """Mutate a public thread dict with scan_line fields; return the same dict.
+
+    Prefer a fingerprint-matched AI/heuristic cache entry when provided; otherwise
+    compute a heuristic line. Does not call remote AI itself (service owns that).
+    """
+    if (
+        cached_line
+        and fingerprint
+        and cached_fingerprint
+        and fingerprint == cached_fingerprint
+    ):
+        data["scan_line"] = cached_line
+        data["scan_line_source"] = cached_source or SCAN_LINE_SOURCE_HEURISTIC
+        return data
     line, source = build_scan_line(
         thread, progress_snippet=data.get("progress_snippet")
     )

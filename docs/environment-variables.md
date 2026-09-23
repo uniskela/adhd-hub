@@ -59,6 +59,17 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 | `ADHD_HUB_TRUST_PROXY_HEADERS` | `false` | boolean | Trusts forwarded scheme/host headers from a reverse proxy. Enable only when requests arrive through a proxy you control. |
 | `ADHD_HUB_COOKIE_SECURE` | auto | boolean or unset | Forces the dashboard session cookie Secure flag when set. Unset means auto-detect HTTPS (including trusted forwarded proto when proxy trust is enabled). |
 
+## Wave 6 AI scan-lines (opt-in)
+
+Disabled unless `ADHD_HUB_AI_BASE_URL` is set. Uses an OpenAI-compatible `/chat/completions` endpoint (local Ollama or similar preferred). Only structured thread fields are sent — never transcripts. On failure or when unset, heuristic scan-lines are used.
+
+| Variable | Default | Type | Purpose |
+| --- | --- | --- | --- |
+| `ADHD_HUB_AI_BASE_URL` | unset | URL | OpenAI-compatible API base ending before `/chat/completions`, e.g. `http://127.0.0.1:11434/v1`. |
+| `ADHD_HUB_AI_MODEL` | `llama3.2` | string | Model id passed to the provider. |
+| `ADHD_HUB_AI_API_KEY` | unset | secret string | Optional bearer token for remote providers. |
+| `ADHD_HUB_AI_TIMEOUT_SECONDS` | `2.5` | float | HTTP timeout for a single scan-line rewrite. |
+
 For a TLS reverse proxy, a typical configuration is:
 
 ```env
