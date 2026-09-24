@@ -138,6 +138,9 @@ def main() -> None:
                     page.evaluate("theme => localStorage.setItem('adhd_hub_theme', theme)", theme)
                     page.reload()
                     expect(page.locator("html")).to_have_attribute("data-theme", theme)
+                    expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
+                        "content", "#14141c" if theme == "dark" else "#f7f7fa"
+                    )
                     for width, height, label in ((1440, 900, "desktop"), (768, 1024, "tablet"), (390, 844, "mobile")):
                         page.set_viewport_size({"width": width, "height": height})
                         for screen in ("now", "work", "progress", "settings"):
@@ -167,6 +170,30 @@ def main() -> None:
                     assert actions.evaluate("el => el.open"), "More actions disclosure did not open from keyboard"
                     page.keyboard.press("Enter")
                     assert not actions.evaluate("el => el.open"), "More actions disclosure did not close"
+                open_screen("work")
+                page.locator("#project-search").fill("website")
+                expect(page.locator("#project-list .proj")).to_have_count(1)
+                page.locator("#tag-filter").select_option("personal")
+                expect(page.locator("#project-list")).to_contain_text("No matching projects")
+                page.locator("#project-search").fill("")
+                expect(page.locator("#project-list .proj")).to_have_count(1)
+                page.locator("#tag-filter").select_option("")
+                expect(page.locator("#project-list .proj")).to_have_count(4)
+                utility = page.locator(".thread-utility").first
+                utility.locator("summary").focus()
+                page.keyboard.press("Enter")
+                expect(utility.locator(".thread-utility-panel")).to_be_visible()
+                page.screenshot(path=str(screenshots / "thread-actions-dark-desktop.png"), animations="disabled")
+                page.keyboard.press("Escape")
+                expect(utility.locator(".thread-utility-panel")).to_be_hidden()
+                expect(utility.locator("summary")).to_be_focused()
+                open_screen("now")
+                expect(page.locator("#now-open-count")).to_have_text("5")
+                expect(page.locator("#now-done-count")).to_have_text("2")
+                page.locator("#btn-focus-mode").click()
+                expect(page.locator(".now-overview")).to_be_hidden()
+                page.locator("#btn-focus-mode").click()
+                expect(page.locator(".now-overview")).to_be_visible()
                 open_screen("work")
                 page.locator("#btn-organise-projects").click()
                 expect(page.locator("#organise-dialog")).to_be_visible()

@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, loadThreads, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
@@ -43,6 +43,7 @@ async function loadOpenClawSecureStatus() {
 }
 
 $("proj-all").addEventListener("click", () => selectProject(null).catch((e) => setMsg(e.message)));
+$("project-search")?.addEventListener("input", onProjectSearchChange);
 $("tag-filter")?.addEventListener("change", () => onTagFilterChange());
 $("btn-organise-projects")?.addEventListener("click", () =>
   openOrganiseDialog().catch((e) => setMsg(e.message))
@@ -285,6 +286,18 @@ $("daily-goal").addEventListener("change", saveRewardPreferences);
 document.querySelectorAll("[data-screen]").forEach((button) => {
   button.addEventListener("click", async () => {
     setMsg("");
+    if (button.closest(".now-overview") && button.dataset.screen === "work") {
+      state.projectFilter = null;
+      state.tagFilter = null;
+      state.currentView = "open";
+      $("project-search").value = "";
+      $("thread-search").value = "";
+      document.querySelectorAll(".tab").forEach((tab) => {
+        const active = tab.dataset.view === "open";
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-pressed", String(active));
+      });
+    }
     showScreen(button.dataset.screen);
     renderDriftBanner();
     try {
@@ -357,3 +370,9 @@ loadAuthStatus().then(() => tryAuth())
   })
   .then(() => offerPendingConnect())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
+
+document.addEventListener("pointerdown", (event) => {
+  document.querySelectorAll(".thread-utility[open]").forEach((panel) => {
+    if (!panel.contains(event.target)) panel.open = false;
+  });
+});

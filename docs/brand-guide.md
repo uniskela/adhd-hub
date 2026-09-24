@@ -21,14 +21,14 @@ Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wo
 
 | Role | Light | Dark | Use |
 | --- | --- | --- | --- |
-| Canvas | `#F5F7F8` | `#11171C` | Page and header background |
-| Primary surface | White `#FFFFFF` | `#192127` | Grouped work, settings, and readers |
-| Secondary surface | `#EDF1F3` | `#222D34` | Quiet supporting controls |
-| Text | `#22313B` | `#E7EDF1` | Headings and body |
-| Secondary text | `#5E6D77` | `#A5B3BD` | Supporting text |
-| Primary action | Teal `#176B60` | Mint `#87D4BF` | Action, focus and selection |
-| Selected subtle background | `#E9F3F0` | `#1D3531` | Selected rows/tabs |
-| Divider | `#DCE3E7` | `#34424B` | Thin boundaries |
+| Canvas | `#F7F7FA` | `#14141C` | Page and header background |
+| Primary surface | White `#FFFFFF` | `#1E1E29` | Grouped work, settings, and readers |
+| Secondary surface | `#EEEEF4` | `#292937` | Quiet supporting controls |
+| Text | `#252536` | `#EDECF6` | Headings and body |
+| Secondary text | `#666579` | `#B0AFC4` | Supporting text |
+| Primary action | Indigo `#4F46C8` | Periwinkle `#B7BEFF` | Action, focus and selection |
+| Selected subtle background | `#EEEDFC` | `#2C2C47` | Selected rows/tabs |
+| Divider | `#DDDDE8` | `#3B3A4C` | Thin boundaries |
 | Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
 | Destructive action | `#AB3546` | `#F3A3AE` | Delete and irreversible actions |
 

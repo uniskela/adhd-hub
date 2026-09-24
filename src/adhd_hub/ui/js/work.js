@@ -16,25 +16,27 @@ export function renderProjects(projects) {
     const list = $("project-list");
     const active = (projects || []).filter((p) => !p.archived);
     populateTagFilter(active);
-    const filtered = state.tagFilter
+    const tagged = state.tagFilter
       ? active.filter((p) => (p.tags || []).includes(state.tagFilter))
       : active;
+    const query = ($("project-search")?.value || "").trim().toLowerCase();
+    const filtered = tagged.filter((p) => [p.title, p.slug, ...(p.tags || [])]
+      .some((value) => String(value || "").toLowerCase().includes(query)));
+    $("project-results").textContent = `${filtered.length} of ${active.length} projects`;
     list.innerHTML = filtered
       .map((p) => {
         const open = (p.counts && p.counts.open) || 0;
         const isActive = state.projectFilter === p.slug ? "active" : "";
-        const touch = p.last_touch_at
-          ? ` · ${escapeHtml(formatWhen(p.last_touch_at))}`
-          : "";
         const tags = (p.tags || []).slice(0, 3).map((t) => escapeHtml(t)).join(", ");
         const tagLine = tags ? `<div class="proj-tags">${tags}</div>` : "";
         return `<button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
           <div>${escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug)}</div>
-          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}${touch}</div>
+          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
           ${tagLine}
         </button>`;
       })
       .join("");
+    if (!filtered.length) list.innerHTML = '<p class="hint">No matching projects. Try another search or tag.</p>';
     $("proj-all").classList.toggle("active", !state.projectFilter);
     $("proj-all").setAttribute("aria-pressed", String(!state.projectFilter));
     list.querySelectorAll(".proj").forEach((el) => {
@@ -66,6 +68,10 @@ function populateTagFilter(projects) {
       sel.value = "";
       state.tagFilter = null;
     }
+  }
+
+export function onProjectSearchChange() {
+    renderProjects(state.overviewCache?.projects || []);
   }
 
 export function onTagFilterChange() {
@@ -456,7 +462,8 @@ export function renderThreads(threads) {
             <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Read notes</span></button>
           </div>
           <details class="thread-utility">
-            <summary>More options</summary>
+            <summary aria-label="Actions for ${escapeHtml(t.summary)}">⋯ Actions</summary>
+            <div class="thread-utility-panel">
             <p class="hint">${escapeHtml(sourceName(t.source_tool || t.origin))}</p>
             <div class="actions thread-utility-actions">
             ${!sourceNeedsAttention ? sourceSync : ""}
@@ -469,10 +476,28 @@ export function renderThreads(threads) {
             <button type="button" class="ghost compact" data-rewrite-scan="${escapeHtml(t.id)}">Rewrite scan line</button>
             <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
             </div>
+            </div>
           </details>
         </article>`;
       })
       .join("");
+    root.querySelectorAll(".thread-utility").forEach((panel) => {
+      panel.addEventListener("toggle", () => {
+        if (panel.open) root.querySelectorAll(".thread-utility[open]").forEach((other) => {
+          if (other !== panel) other.open = false;
+        });
+      });
+      panel.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          panel.open = false;
+          panel.querySelector("summary").focus();
+          event.stopPropagation();
+        }
+      });
+      panel.addEventListener("focusout", () => {
+        requestAnimationFrame(() => { if (!panel.contains(document.activeElement)) panel.open = false; });
+      });
+    });
     wireNotes(root);
     root.querySelectorAll("[data-choose]").forEach((btn) =>
       btn.addEventListener("click", () => chooseThread(btn.dataset.choose))

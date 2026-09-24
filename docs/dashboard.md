@@ -56,3 +56,13 @@ The Settings footer links to the public GitHub repository and shows the running 
 
 Project tags are preserved when you rename a project slug.
 The organiser adds only the selected tags and preserves project settings. Projects archived after suggestions were loaded, or selections exceeding the eight-tag limit, are skipped so you can review them again.
+
+### Workspace overview and controls
+
+Now includes open-step, weekly completion, and project counts below the chosen step. Focus mode hides the overview to keep a single task in view. Counts use the same live overview as Progress.
+
+My work has project search (name, slug, or tag) combined with the tag filter, plus a visible result count and empty state. Project rows show open-step counts; the selected project exposes its tags. **Suggest tags** opens the existing editable preview before applying suggestions.
+
+Thread **Actions** opens a compact panel without expanding the row. Only one panel stays open, Escape closes it and returns focus, and tabbing away closes it. Focus and Read notes remain directly available; source conflicts stay visible. AI scan-line rewriting and source refresh remain in Actions.
+
+Light uses porcelain surfaces and indigo controls; dark uses charcoal surfaces and periwinkle controls. Theme cycling and AI Test / Load Models settings remain available.
