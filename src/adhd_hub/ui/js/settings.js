@@ -100,22 +100,31 @@ export function syncAiLoadModelsButton() {
   }
 
 export function fillAiModelList(models, preferred) {
-    const list = $("ai_model_list");
-    const input = $("ai_model");
-    if (!list || !input) return;
-    list.replaceChildren();
-    const ids = Array.isArray(models) ? models.map((m) => String(m).trim()).filter(Boolean) : [];
-    for (const id of ids) {
+    const sel = $("ai_model");
+    if (!sel) return;
+    const fromModels = Array.isArray(models)
+      ? models.map((m) => String(m).trim()).filter(Boolean)
+      : [];
+    const fromSelect = [...sel.options]
+      .map((o) => String(o.value || "").trim())
+      .filter(Boolean);
+    const current = (preferred ?? sel.value ?? "").trim();
+    const ordered = [];
+    const seen = new Set();
+    for (const id of [current, ...fromModels, ...fromSelect]) {
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      ordered.push(id);
+    }
+    if (!ordered.length) ordered.push("llama3.2");
+    sel.replaceChildren();
+    for (const id of ordered) {
       const opt = document.createElement("option");
       opt.value = id;
-      list.appendChild(opt);
+      opt.textContent = id;
+      sel.appendChild(opt);
     }
-    const current = (preferred ?? input.value ?? "").trim();
-    if (current && ids.includes(current)) {
-      input.value = current;
-    } else if (!current && ids.length) {
-      input.value = ids[0];
-    }
+    sel.value = current && seen.has(current) ? current : ordered[0];
   }
 
 export async function loadAiConfig() {
@@ -126,7 +135,7 @@ export async function loadAiConfig() {
       const config = await api("/ai/config");
       $("ai_enabled").checked = !!config.enabled;
       $("ai_base_url").value = config.base_url || "";
-      $("ai_model").value = config.model || "llama3.2";
+      fillAiModelList([], config.model || "llama3.2");
       $("ai_timeout").value = config.timeout_seconds ?? 2.5;
       $("ai_api_key").value = "";
       $("ai_clear_key").checked = false;
@@ -150,7 +159,7 @@ export function aiConfigPayload() {
     return {
       enabled: !!$("ai_enabled")?.checked,
       base_url: $("ai_base_url")?.value.trim() || "",
-      model: $("ai_model")?.value.trim() || "llama3.2",
+      model: ($("ai_model")?.value || "").trim() || "llama3.2",
       timeout_seconds: Number($("ai_timeout")?.value) || 2.5,
       api_key: $("ai_api_key")?.value.trim() || null,
       clear_api_key: !!$("ai_clear_key")?.checked,
