@@ -393,7 +393,9 @@ def generate_ai_scan_line(
             {"role": "user", "content": _structured_prompt(thread)},
         ],
     }
-    timeout = float(settings.ai_timeout_seconds or 2.5)
+    from adhd_hub.ai_config import DEFAULT_AI_TIMEOUT
+
+    timeout = float(settings.ai_timeout_seconds or DEFAULT_AI_TIMEOUT)
     owns_client = client is None
     http = client or httpx.Client(timeout=timeout)
     try:
@@ -422,6 +424,15 @@ def generate_ai_scan_line(
         if reject:
             return AiScanLineResult(fail_hint=reject)
         return AiScanLineResult(text=line)
+    except httpx.TimeoutException:
+        log.info("AI scan-line skipped (ReadTimeout)")
+        return AiScanLineResult(
+            fail_hint=(
+                "AI timed out — showing the heuristic line. "
+                "Try raising Timeout in AI settings."
+            )
+        )
+
     except httpx.HTTPStatusError as exc:
         code = exc.response.status_code
         snippet = _provider_error_snippet(exc.response)
@@ -452,10 +463,12 @@ def list_ai_models(
     *,
     base_url: str,
     api_key: str = "",
-    timeout_seconds: float = 2.5,
+    timeout_seconds: float | None = None,
     client: httpx.Client | None = None,
 ) -> dict[str, Any]:
     """GET OpenAI-compatible ``/models``; return calm ok/models/message (no secrets)."""
+    from adhd_hub.ai_config import DEFAULT_AI_TIMEOUT
+
     base = (base_url or "").strip().rstrip("/")
     if not base:
         return {
@@ -467,7 +480,9 @@ def list_ai_models(
     headers: dict[str, str] = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    timeout = float(timeout_seconds or 2.5)
+    timeout = float(
+        DEFAULT_AI_TIMEOUT if timeout_seconds is None else timeout_seconds or DEFAULT_AI_TIMEOUT
+    )
     owns_client = client is None
     http = client or httpx.Client(timeout=timeout)
     try:

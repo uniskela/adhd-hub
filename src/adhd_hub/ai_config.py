@@ -21,7 +21,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 log = logging.getLogger(__name__)
 
 DEFAULT_AI_MODEL = "llama3.2"
-DEFAULT_AI_TIMEOUT = 2.5
+# Local / proxy models (Ollama, Codex-lb, etc.) often need longer than a few seconds.
+DEFAULT_AI_TIMEOUT = 15.0
+MAX_AI_TIMEOUT = 30.0
 
 
 class AiConfig(BaseModel):
@@ -32,7 +34,7 @@ class AiConfig(BaseModel):
     base_url: str = ""
     model: str = DEFAULT_AI_MODEL
     api_key: str = ""
-    timeout_seconds: float = Field(default=DEFAULT_AI_TIMEOUT, gt=0, le=30)
+    timeout_seconds: float = Field(default=DEFAULT_AI_TIMEOUT, gt=0, le=MAX_AI_TIMEOUT)
 
     @field_validator("base_url")
     @classmethod
