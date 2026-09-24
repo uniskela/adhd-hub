@@ -38,9 +38,9 @@ Gold `#EFC978` is a small accent, not body text on white. Use colour with labels
 
 Use the local system sans-serif stack; no font download is required. Body: 15 px / 1.6. Headings: 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. All-caps eyebrows are short landmarks, never paragraphs or instructions.
 
-Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 12 px corners; controls use 8–10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
+Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 14 px corners; controls use 12 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
 
-- **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
+- **Primary:** indigo/periwinkle fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
 - **Secondary:** quiet outline with text. Use for alternatives such as Choose another, Copy text, or Settings.
 - **Destructive:** berry/rose with an explicit action label and confirmation where data will be lost.
 - **Close:** a visible 44 × 44 px × button with an accessible label. Settings keeps it visible while content scrolls.
