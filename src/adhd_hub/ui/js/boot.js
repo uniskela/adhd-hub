@@ -1,7 +1,7 @@
 import { state, preferences, $, setMsg, initRepoLinks } from './state.js';
 import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
-import { fillTimezoneSelect } from './dom.js';
+import { fillTimezoneSelect, positionOverflowMenu, wireOverflowMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
@@ -53,6 +53,7 @@ $("btn-organise-projects-mobile")?.addEventListener("click", () => {
   if (menu) menu.open = false;
   openOrganiseDialog().catch((e) => setMsg(e.message));
 });
+document.querySelectorAll(".rail-mobile-actions").forEach((menu) => wireOverflowMenu(menu));
 $("btn-organise-apply")?.addEventListener("click", () =>
   applyOrganiseSelection().catch((e) => setMsg(e.message))
 );
@@ -256,6 +257,9 @@ $("btn-edit-project-mobile")?.addEventListener("click", () => {
 $("btn-rewrite-all-scan")?.addEventListener("click", () =>
   rewriteAllProjectScanLines().catch((e) => setMsg(String(e)))
 );
+$("btn-rewrite-all-scan-mobile")?.addEventListener("click", () =>
+  rewriteAllProjectScanLines().catch((e) => setMsg(String(e)))
+);
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
 $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));
@@ -416,7 +420,12 @@ loadAuthStatus().then(() => tryAuth())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
 
 document.addEventListener("pointerdown", (event) => {
-  document.querySelectorAll(".thread-utility[open]").forEach((panel) => {
+  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open]").forEach((panel) => {
     if (!panel.contains(event.target)) panel.open = false;
+  });
+});
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open]").forEach((panel) => {
+    positionOverflowMenu(panel);
   });
 });

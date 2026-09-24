@@ -19,7 +19,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v27" in sw.text
+        assert "adhd-hub-shell-v28" in sw.text
         assert "/ui/js/boot.js" in sw.text
         assert "/ui/js/help.js" in sw.text
         assert "/ui/js/forge-jobs.js" in sw.text
@@ -50,6 +50,8 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'id="work-title-mobile"' in home.content
         assert b'id="btn-toggle-thread-search"' in home.content
         assert b'id="project-mobile-actions"' in home.content
+        assert b'id="btn-rewrite-all-scan-mobile"' in home.content
+        assert b'id="btn-notes-focus"' in home.content
         assert b'id="btn-notes-dock"' in home.content
         assert b'id="btn-notes-expand"' in home.content
         assert b'id="btn-notes-close"' in home.content
