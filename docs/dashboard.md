@@ -1,5 +1,9 @@
 # A calmer dashboard
 
+![My work with Notes & context](images/my-work-notes-hero.png)
+
+*Desktop My work with the Notes & context reader.* See the [README screenshots](../README.md#screenshots) for Now, Progress, and Settings (gallery shots use dummy data).
+
 On desktop, use the compact **Appearance** button in the app header to cycle System → Light → Dark (the button shows the current mode). The same choices are available under **Settings → Preferences**; on mobile, use Settings. The preference is saved in this browser and follows operating-system changes when set to System. If browser storage is blocked, the dashboard still works and preferences last for the current page visit.
 
 The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. **Start** (or **Pause here** while working) and **Done** stay visible; **More actions** holds **Choose another** and **Copy agent prompt**. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Focus on this** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
@@ -37,9 +41,11 @@ The smoke script uses a temporary hub, a temporary database, and sample projects
 uv run --with playwright playwright install chromium
 uv run --with playwright python scripts/browser_smoke.py
 uv run --with playwright python scripts/ui_polish_smoke.py
+# Optional: refresh README/docs product shots under docs/images/
+ADHD_HUB_SCREENSHOT_DIR=docs/images uv run --with playwright python scripts/capture_readme_screenshots.py
 ```
 
-The UI polish check exercises the four screens in both themes at desktop, tablet, and phone widths, checks navigation and keyboard disclosures, and captures screenshots.
+The UI polish check exercises the four screens in both themes at desktop, tablet, and phone widths, checks navigation and keyboard disclosures, and captures screenshots. `capture_readme_screenshots.py` seeds a temporary hub with dummy projects and writes the light-theme desktop shots used in the README.
 
 Set `ADHD_HUB_BROWSER_EXECUTABLE` to use an existing Chromium binary. Screenshots default to `/tmp/adhd-hub-preview`; override with `ADHD_HUB_SCREENSHOT_DIR`.
 

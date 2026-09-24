@@ -2,7 +2,9 @@
 
 Keep enough context to resume unfinished work without reconstructing your last session.
 
-[Install](installation.md) · [Connect an agent](connect.md) · [View on GitHub](https://github.com/uniskela/adhd-hub)
+![My work with Notes & context](images/my-work-notes-hero.png)
+
+[Install](installation.md) · [Connect an agent](connect.md) · [View on GitHub](https://github.com/uniskela/adhd-hub) · [Screenshots](../README.md#screenshots)
 
 **Self-hosted · MCP (Streamable HTTP + local stdio) + REST · Cursor / Codex / Claude Code · GitHub/Gitea optional**
 
