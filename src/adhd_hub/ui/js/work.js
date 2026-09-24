@@ -345,7 +345,9 @@ export function renderArchivedProjects() {
 export function fillProjectForm(p) {
     if (!p) return;
     $("edit-heading").textContent = p.unregistered
-      ? `Register ${p.slug}`
+      ? p.slug
+        ? `Register ${p.slug}`
+        : "New project"
       : `Edit ${p.title || p.slug}`;
     $("p_title").value = p.title || "";
     $("p_slug").value = p.slug || "";
@@ -370,9 +372,60 @@ export function fillProjectForm(p) {
       syncBtn.hidden = !!p.unregistered || p.slug === "unclassified";
       syncBtn.disabled = false;
     }
+    const orgEl = $("p_org_norepo");
+    if (orgEl) {
+      // New projects default to repo-bound; existing without a repo stay org/folder.
+      const isNew = !!p.unregistered && !p.slug;
+      orgEl.checked = !isNew && !String(p.repo_url || "").trim();
+    }
+    applyOrgNorepoUi({ preserveValues: true });
     attachProjectForgeTips();
     maybePrefillForgeOwnerRepoFromUrl();
     updateEffectiveImportPolicy();
+  }
+
+/** Toggle repository / forge fields for organisation (no-repo) projects. */
+export function applyOrgNorepoUi({ preserveValues = false } = {}) {
+    const org = !!$("p_org_norepo")?.checked;
+    const hint = $("p_org_norepo_hint");
+    if (hint) hint.hidden = !org;
+    const repoLabel = $("p_repo_url_label");
+    if (repoLabel) repoLabel.hidden = org;
+    const repo = $("p_repo_url");
+    if (repo) {
+      repo.disabled = org;
+      repo.required = false;
+      if (org && !preserveValues) repo.value = "";
+    }
+    const forgeFields = [
+      "p_forge_connection_profile_id",
+      "p_forge_owner",
+      "p_forge_repo",
+      "p_forge_wiki",
+      "p_forge_project_id",
+    ];
+    for (const id of forgeFields) {
+      const el = $(id);
+      if (!el) continue;
+      el.disabled = org;
+      if (org && !preserveValues) {
+        if (el.tagName === "SELECT") el.value = "";
+        else el.value = "";
+      }
+    }
+    const syncBtn = $("btn-sync-project");
+    if (syncBtn && org) {
+      syncBtn.disabled = true;
+    } else if (syncBtn && !syncBtn.hidden) {
+      syncBtn.disabled = false;
+    }
+    if (org) {
+      const policy = $("p_effective_import_policy");
+      if (policy) {
+        policy.hidden = true;
+        policy.textContent = "";
+      }
+    }
   }
 
 function fillParentSelect(current) {
@@ -1057,6 +1110,14 @@ export async function syncProjectForge() {
         {},
         { pendingLabel: `Sync forge (${slug})` }
       );
+      if (out.skipped && out.reason === "no_repository") {
+        setMsg(
+          out.hint ||
+            "Organisation / no-repository projects have nothing to sync on the forge.",
+          { variant: "warning" }
+        );
+        return;
+      }
       if (out.skipped && out.reason === "no_forge_connection") {
         setMsg(
           out.hint || "Pick a Forge connection for this project, then Sync forge.",
@@ -1103,9 +1164,14 @@ export async function saveProject() {
       setMsg("Title is required.");
       return;
     }
-    maybePrefillForgeOwnerRepoFromUrl();
-    const rawOwner = $("p_forge_owner").value.trim();
-    const rawRepo = $("p_forge_repo").value.trim();
+    const orgNorepo = !!$("p_org_norepo")?.checked;
+    if (orgNorepo) {
+      applyOrgNorepoUi({ preserveValues: false });
+    } else {
+      maybePrefillForgeOwnerRepoFromUrl();
+    }
+    const rawOwner = orgNorepo ? "" : $("p_forge_owner").value.trim();
+    const rawRepo = orgNorepo ? "" : $("p_forge_repo").value.trim();
     const { owner, repo } = normalizeForgeOwnerRepo(rawOwner, rawRepo);
     if ($("p_forge_owner")) $("p_forge_owner").value = owner;
     if ($("p_forge_repo")) $("p_forge_repo").value = repo;
@@ -1121,18 +1187,23 @@ export async function saveProject() {
         .map((t) => t.trim())
         .filter(Boolean),
       parent_slug: ($("p_parent_slug")?.value || "").trim() || null,
-      repo_url: $("p_repo_url").value.trim() || null,
-      forge_connection_profile_id: $("p_forge_connection_profile_id")?.value || null,
-      forge_owner: owner || null,
-      forge_repo: repo || null,
-      forge_wiki_path: $("p_forge_wiki").value.trim() || null,
-      forge_project_id: $("p_forge_project_id").value.trim() || null,
+      repo_url: orgNorepo ? null : $("p_repo_url").value.trim() || null,
+      forge_connection_profile_id: orgNorepo
+        ? null
+        : $("p_forge_connection_profile_id")?.value || null,
+      // Empty strings clear COALESCE forge columns on update (null would preserve).
+      forge_owner: orgNorepo ? "" : owner || null,
+      forge_repo: orgNorepo ? "" : repo || null,
+      forge_wiki_path: orgNorepo ? "" : $("p_forge_wiki").value.trim() || null,
+      forge_project_id: orgNorepo
+        ? ""
+        : $("p_forge_project_id").value.trim() || null,
     };
     const saved = await api("/projects", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    setMsg("Project saved.");
+    setMsg(orgNorepo ? "Organisation project saved." : "Project saved.");
     state.projectFilter = saved.slug;
     $("project-dialog").close();
     await loadAll();

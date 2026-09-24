@@ -109,6 +109,51 @@ def test_project_rename_and_delete(tmp_path: Path) -> None:
     assert service.store.get_project("alpha-app") is None
 
 
+def test_create_organisation_project_without_repo(tmp_path: Path) -> None:
+    """Organisation / no-repo projects omit repo_url and still nest via parent_slug."""
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    parent = service.upsert_project(
+        ProjectUpsert(title="Homelab", slug="homelab", repo_url=None)
+    )
+    assert parent.repo_url is None
+    assert parent.forge_owner is None
+    assert parent.forge_repo is None
+
+    child = service.upsert_project(
+        ProjectUpsert(
+            title="DNS",
+            slug="dns",
+            parent_slug="homelab",
+            repo_url=None,
+        )
+    )
+    assert child.repo_url is None
+    assert child.parent_slug == "homelab"
+
+    overview = service.overview()
+    by_slug = {p["slug"]: p for p in overview["projects"]}
+    assert by_slug["homelab"]["repo_url"] is None
+    assert by_slug["dns"]["parent_slug"] == "homelab"
+
+
+def test_forge_sync_skips_organisation_project_without_repo(tmp_path: Path) -> None:
+    from adhd_hub.forge.config import project_has_forge_repo_binding
+
+    assert not project_has_forge_repo_binding(repo_url=None)
+    assert not project_has_forge_repo_binding(repo_url="", forge_owner="", forge_repo="")
+    assert project_has_forge_repo_binding(
+        repo_url="https://github.com/acme/widgets"
+    )
+    assert project_has_forge_repo_binding(forge_owner="acme", forge_repo="widgets")
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="Org Folders", slug="org-folders"))
+    out = service.sync_forge_project("org-folders")
+    assert out["skipped"] is True
+    assert out["reason"] == "no_repository"
+    assert out["ok"] is True
+
+
 def test_project_rename_conflict(tmp_path: Path) -> None:
     service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
     service.upsert_project(ProjectUpsert(title="A", slug="a"))

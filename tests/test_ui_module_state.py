@@ -231,6 +231,19 @@ def test_project_rail_hierarchy_tree_markers():
     assert "projects-drawer-open" in css
 
 
+def test_organisation_norepo_project_ui_markers():
+    """Create Project offers Organisation / no repository and toggles repo fields."""
+    work = (UI_JS / "work.js").read_text()
+    boot = (UI_JS / "boot.js").read_text()
+    html = (UI_JS.parent / "index.html").read_text()
+    assert 'id="p_org_norepo"' in html
+    assert "Organisation / no repository" in html
+    assert "export function applyOrgNorepoUi" in work
+    assert "orgNorepo" in work
+    assert 'reason === "no_repository"' in work
+    assert "applyOrgNorepoUi" in boot
+    assert "p_org_norepo" in boot
+
 
 def test_now_copy_coding_agent_prompt_control():
     """Selected Now thread exposes a compact Copy agent prompt control."""

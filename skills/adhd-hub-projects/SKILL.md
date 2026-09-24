@@ -29,7 +29,7 @@ upsert_project(
   slug="my-website",           # optional; derived from title if omitted
   workspace_path="Z:/Projects/my-website",
   description="Marketing site",
-  repo_url="https://github.com/me/my-website",  # optional browser link
+  repo_url="https://github.com/me/my-website",  # optional; omit for organisation / no-repo folders
   forge_owner="alex",          # optional: issue/code repo owner (not wiki)
   forge_repo="my-website",     # optional: issue/code repo; wiki stays on Hub memory repo
   forge_wiki_path="",          # unused for target repo; wiki path is Hub forge wiki_path
@@ -37,6 +37,7 @@ upsert_project(
 )
 ```
 
+Organisation / no-repository projects omit `repo_url` (and forge owner/repo). They still accept `parent_slug` so they can group other projects; forge sync no-ops when there is no repo binding.
 ## Rename / delete
 
 ```
