@@ -109,6 +109,7 @@ def build_mcp(service: HubService) -> MCPServer:
         description: str | None = None,
         workspace_path: str | None = None,
         repo_url: str | None = None,
+        parent_slug: str | None = None,
         forge_owner: str | None = None,
         forge_repo: str | None = None,
         forge_wiki_path: str | None = None,
@@ -117,25 +118,31 @@ def build_mcp(service: HubService) -> MCPServer:
     ) -> dict[str, Any]:
         """Create or update a project registry entry and its explicit metadata.
 
-        Use when setting title, workspace path, repository, energy, or forge
-        targeting. This persists local Hub project configuration; it does not by
-        itself create, rename, or delete a remote forge repository.
+        Use when setting title, workspace path, repository, energy, parent, or forge
+        targeting. parent_slug nests under a top-level project only (max depth 2).
+        This persists local Hub project configuration; it does not by itself create,
+        rename, or delete a remote forge repository.
         """
         paths = [workspace_path] if workspace_path else []
-        proj = service.upsert_project(
-            ProjectUpsert(
-                slug=slug,
-                title=title,
-                description=description,
-                repo_url=repo_url,
-                workspace_paths=paths,
-                default_energy=EnergyLevel(energy),
-                forge_owner=forge_owner,
-                forge_repo=forge_repo,
-                forge_wiki_path=forge_wiki_path,
-                forge_project_id=forge_project_id,
-            )
-        )
+        upsert_data: dict[str, Any] = {
+            "slug": slug,
+            "title": title,
+            "description": description,
+            "repo_url": repo_url,
+            "workspace_paths": paths,
+            "default_energy": EnergyLevel(energy),
+            "forge_owner": forge_owner,
+            "forge_repo": forge_repo,
+            "forge_wiki_path": forge_wiki_path,
+            "forge_project_id": forge_project_id,
+        }
+        # Omit parent_slug when unset so existing nesting is preserved; "" clears.
+        if parent_slug is not None:
+            upsert_data["parent_slug"] = parent_slug
+        try:
+            proj = service.upsert_project(ProjectUpsert(**upsert_data))
+        except ValueError as exc:
+            return {"error": str(exc)}
         return proj.model_dump(mode="json")
 
     @mcp.tool()

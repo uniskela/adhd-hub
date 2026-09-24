@@ -125,3 +125,85 @@ def test_normalize_workspace_path() -> None:
         "z:/Projects/Foo/"
     )
     assert slugify("My Website!") == "my-website"
+
+
+def test_project_parent_hierarchy_depth_and_cycle(tmp_path: Path) -> None:
+    import pytest
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    work = service.upsert_project(ProjectUpsert(title="Work", slug="work"))
+    assert work.parent_slug is None
+
+    hub = service.upsert_project(
+        ProjectUpsert(title="ADHD Hub", slug="adhd-hub", parent_slug="work")
+    )
+    assert hub.parent_slug == "work"
+
+    # Parent must be top-level (max depth 2).
+    with pytest.raises(ValueError, match="parent_must_be_top_level"):
+        service.upsert_project(
+            ProjectUpsert(title="Too Deep", slug="too-deep", parent_slug="adhd-hub")
+        )
+
+    with pytest.raises(ValueError, match="cannot_nest_under_self"):
+        service.upsert_project(
+            ProjectUpsert(title="Work", slug="work", parent_slug="work")
+        )
+
+    with pytest.raises(ValueError, match="parent_not_found"):
+        service.upsert_project(
+            ProjectUpsert(title="Orphan", slug="orphan", parent_slug="missing-parent")
+        )
+
+    # A project with children cannot itself become a child.
+    service.upsert_project(ProjectUpsert(title="Personal", slug="personal"))
+    with pytest.raises(ValueError, match="project_has_children"):
+        service.upsert_project(
+            ProjectUpsert(title="Work", slug="work", parent_slug="personal")
+        )
+
+    overview = service.overview()
+    by_slug = {p["slug"]: p for p in overview["projects"]}
+    assert by_slug["adhd-hub"]["parent_slug"] == "work"
+    assert by_slug["work"]["parent_slug"] is None
+
+
+def test_project_rename_preserves_parent_links(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="Work", slug="work"))
+    service.upsert_project(
+        ProjectUpsert(title="Infra", slug="infra", parent_slug="work")
+    )
+    renamed = service.rename_project("work", "work-life", title="Work Life")
+    assert renamed["project"]["slug"] == "work-life"
+    child = service.store.get_project("infra")
+    assert child is not None
+    assert child.parent_slug == "work-life"
+
+
+def test_project_archive_clears_child_parents(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="Personal", slug="personal"))
+    service.upsert_project(
+        ProjectUpsert(title="Reading", slug="reading", parent_slug="personal")
+    )
+    service.archive_project("personal")
+    child = service.store.get_project("reading")
+    assert child is not None
+    assert child.parent_slug is None
+    assert child.archived_at is None
+    parent = service.store.get_project("personal")
+    assert parent is not None
+    assert parent.archived_at is not None
+
+
+def test_project_delete_nulls_child_parent_via_fk(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="Work", slug="work"))
+    service.upsert_project(
+        ProjectUpsert(title="Hub", slug="hub", parent_slug="work")
+    )
+    service.delete_project("work", delete_progress=False)
+    child = service.store.get_project("hub")
+    assert child is not None
+    assert child.parent_slug is None

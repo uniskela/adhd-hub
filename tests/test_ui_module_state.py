@@ -209,6 +209,18 @@ def test_my_work_cards_use_display_forge_stamps():
     assert "formatWhen(t.display_source_at || t.source_imported_at)" in work
 
 
+def test_project_rail_hierarchy_tree_markers():
+    """Projects rail builds a collapsible parent/child tree with persisted expand state."""
+    work = (UI_JS / "work.js").read_text()
+    html = (UI_JS.parent / "index.html").read_text()
+    assert "adhd_hub_project_expand" in work
+    assert "buildProjectForest" in work
+    assert "proj-chevron" in work
+    assert "parent_slug" in work
+    assert 'id="p_parent_slug"' in html
+    assert "None (top-level)" in html
+
+
 
 def test_now_copy_coding_agent_prompt_control():
     """Selected Now thread exposes a compact Copy agent prompt control."""

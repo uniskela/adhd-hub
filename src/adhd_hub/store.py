@@ -184,6 +184,7 @@ class Store:
                     forge_repo TEXT,
                     forge_wiki_path TEXT,
                     forge_project_id TEXT,
+                    parent_slug TEXT REFERENCES projects(slug) ON DELETE SET NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -222,6 +223,14 @@ class Store:
                 conn.execute(
                     "ALTER TABLE projects ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'"
                 )
+            if "parent_slug" not in cols:
+                conn.execute(
+                    "ALTER TABLE projects ADD COLUMN parent_slug TEXT "
+                    "REFERENCES projects(slug) ON DELETE SET NULL"
+                )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_slug)"
+            )
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
             for column in (
@@ -1761,6 +1770,7 @@ class Store:
             repo_url=dict(row).get("repo_url"),
             workspace_paths=[str(p) for p in paths],
             tags=normalize_project_tags([str(t) for t in tags]),
+            parent_slug=dict(row).get("parent_slug") or None,
             default_energy=EnergyLevel(row["default_energy"] or "unknown"),
             default_work_source=WorkSource(
                 dict(row).get("default_work_source") or WorkSource.local.value
@@ -1810,11 +1820,15 @@ class Store:
                     tags_json = json.dumps(payload.tags or [])
                 else:
                     tags_json = dict(existing).get("tags") or "[]"
+                if "parent_slug" in payload.model_fields_set:
+                    parent_slug = slugify(payload.parent_slug) if payload.parent_slug else None
+                else:
+                    parent_slug = dict(existing).get("parent_slug") or None
                 conn.execute(
                     """
                     UPDATE projects SET
                         title = ?, description = COALESCE(?, description), repo_url = ?,
-                        workspace_paths = ?, tags = ?, default_energy = ?,
+                        workspace_paths = ?, tags = ?, parent_slug = ?, default_energy = ?,
                         default_work_source = ?,
                         forge_owner = COALESCE(?, forge_owner),
                         forge_repo = COALESCE(?, forge_repo),
@@ -1830,6 +1844,7 @@ class Store:
                         repo_url,
                         json.dumps(merged),
                         tags_json,
+                        parent_slug,
                         payload.default_energy.value,
                         default_work_source,
                         payload.forge_owner,
@@ -1846,16 +1861,20 @@ class Store:
                     ),
                 )
             else:
+                parent_slug = (
+                    slugify(payload.parent_slug) if payload.parent_slug else None
+                )
                 conn.execute(
                     """
                     INSERT INTO projects (
                         slug, title, description, repo_url, workspace_paths, tags,
+                        parent_slug,
                         default_energy,
                         default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slug,
@@ -1864,6 +1883,7 @@ class Store:
                         payload.repo_url,
                         json.dumps(paths),
                         json.dumps(payload.tags or []),
+                        parent_slug,
                         payload.default_energy.value,
                         (payload.default_work_source or WorkSource.local).value,
                         payload.forge_owner,
@@ -1934,9 +1954,36 @@ class Store:
                 """,
                 (now.isoformat() if archived else None, now.isoformat(), safe),
             )
+            if archived:
+                # Children become top-level when the parent is archived.
+                conn.execute(
+                    """
+                    UPDATE projects SET parent_slug = NULL, updated_at = ?
+                    WHERE parent_slug = ?
+                    """,
+                    (now.isoformat(), safe),
+                )
             row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
         assert row is not None
         return self._row_project(row)
+
+    def count_project_children(self, slug: str) -> int:
+        safe = slugify(slug)
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM projects WHERE parent_slug = ?",
+                (safe,),
+            ).fetchone()
+        return int(row["n"] if row else 0)
+
+    def list_child_slugs(self, slug: str) -> list[str]:
+        safe = slugify(slug)
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT slug FROM projects WHERE parent_slug = ? ORDER BY title COLLATE NOCASE",
+                (safe,),
+            ).fetchall()
+        return [str(r["slug"]) for r in rows]
 
     def set_project_forge_connection_profile(
         self, slug: str, profile_id: str | None
@@ -2059,11 +2106,12 @@ class Store:
                     """
                     INSERT INTO projects (
                         slug, title, description, repo_url, workspace_paths, tags,
+                        parent_slug,
                         default_energy, default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id, archived_at,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new,
@@ -2072,6 +2120,7 @@ class Store:
                         dict(row).get("repo_url"),
                         row["workspace_paths"],
                         row["tags"],
+                        dict(row).get("parent_slug"),
                         row["default_energy"],
                         dict(row).get("default_work_source") or WorkSource.local.value,
                         row["forge_owner"],
@@ -2083,6 +2132,11 @@ class Store:
                         row["created_at"],
                         now,
                     ),
+                )
+                # Keep child parent links pointing at the renamed slug.
+                conn.execute(
+                    "UPDATE projects SET parent_slug = ? WHERE parent_slug = ?",
+                    (new, old),
                 )
                 conn.execute(
                     "UPDATE threads SET project_slug = ? WHERE project_slug = ?",

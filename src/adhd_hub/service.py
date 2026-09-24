@@ -649,7 +649,42 @@ class HubService:
                     "forge_repo": repo or None,
                 }
             )
+        if "parent_slug" in payload.model_fields_set:
+            self._validate_project_parent(payload)
         return self.store.upsert_project(payload)
+
+    def _validate_project_parent(self, payload: ProjectUpsert) -> None:
+        """Enforce max depth 2 and reject cycles / nesting under children."""
+        from adhd_hub.store import slugify as _slugify
+
+        raw_parent = payload.parent_slug
+        if not raw_parent:
+            return
+        parent_key = _slugify(raw_parent)
+        self_slug = _slugify(payload.slug or payload.title)
+        if not parent_key:
+            raise ValueError("parent_not_found")
+        if parent_key == self_slug:
+            raise ValueError("cannot_nest_under_self")
+        parent = self.store.get_project(parent_key)
+        if not parent:
+            raise ValueError("parent_not_found")
+        if parent.parent_slug:
+            raise ValueError("parent_must_be_top_level")
+        # A project that already has children cannot become a child (depth 3).
+        if self.store.get_project(self_slug) and self.store.count_project_children(self_slug):
+            raise ValueError("project_has_children")
+        # Walk up from the chosen parent (depth-2 graph: at most one hop).
+        seen = {self_slug}
+        cursor: str | None = parent_key
+        while cursor:
+            if cursor in seen:
+                raise ValueError("cycle_detected")
+            seen.add(cursor)
+            node = self.store.get_project(cursor)
+            if not node:
+                raise ValueError("parent_not_found")
+            cursor = node.parent_slug
 
     def get_project_detail(self, slug: str) -> dict | None:
         from adhd_hub.store import slugify as _slugify
@@ -951,6 +986,7 @@ class HubService:
                         "repo_url": None,
                         "workspace_paths": [],
                         "tags": [],
+                        "parent_slug": None,
                         "default_energy": "unknown",
                         "forge_owner": None,
                         "forge_repo": None,
@@ -1004,6 +1040,7 @@ class HubService:
                     title=proj.title,
                     description=proj.description,
                     tags=merged,
+                    parent_slug=proj.parent_slug,
                     default_energy=proj.default_energy,
                     default_work_source=proj.default_work_source,
                     workspace_paths=list(proj.workspace_paths or []),

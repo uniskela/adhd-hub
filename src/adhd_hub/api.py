@@ -185,7 +185,10 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/projects", dependencies=[Depends(auth_dep)])
     def upsert_project(payload: ProjectUpsert):
-        return service.upsert_project(payload)
+        try:
+            return service.upsert_project(payload)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     @router.get("/projects/resolve", dependencies=[Depends(auth_dep)])
     def resolve_project(

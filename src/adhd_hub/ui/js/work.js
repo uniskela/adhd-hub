@@ -1,4 +1,4 @@
-import { state, $, setMsg, escapeHtml } from './state.js';
+import { state, $, setMsg, escapeHtml, preferences } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink } from './dom.js';
 import { loadAll } from './load.js';
@@ -12,6 +12,101 @@ import {
 } from './help.js';
 import { enqueueForgeJob } from './forge-jobs.js';
 
+const EXPAND_KEY = "adhd_hub_project_expand";
+
+function loadExpandedParents() {
+    try {
+      const raw = preferences.getItem(EXPAND_KEY);
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.map(String));
+    } catch (_) {
+      return new Set();
+    }
+  }
+
+function saveExpandedParents(expanded) {
+    preferences.setItem(EXPAND_KEY, JSON.stringify([...expanded]));
+  }
+
+function projectMatchesQuery(p, query) {
+    if (!query) return true;
+    return [p.title, p.slug, ...(p.tags || [])]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+  }
+
+/** Keep matching nodes plus ancestors so nested hits stay visible in context. */
+function filterProjectsForTree(active, tagged, query) {
+    const bySlug = new Map(active.map((p) => [p.slug, p]));
+    const keep = new Set();
+    for (const p of tagged) {
+      if (!projectMatchesQuery(p, query)) continue;
+      keep.add(p.slug);
+      let parent = p.parent_slug;
+      const seen = new Set();
+      while (parent && bySlug.has(parent) && !seen.has(parent)) {
+        keep.add(parent);
+        seen.add(parent);
+        parent = bySlug.get(parent)?.parent_slug;
+      }
+    }
+    return active.filter((p) => keep.has(p.slug));
+  }
+
+function buildProjectForest(projects) {
+    const bySlug = new Map(projects.map((p) => [p.slug, { ...p, children: [] }]));
+    const roots = [];
+    for (const node of bySlug.values()) {
+      const parent = node.parent_slug && bySlug.get(node.parent_slug);
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    }
+    const sortNodes = (nodes) => {
+      nodes.sort((a, b) => String(a.title || a.slug).localeCompare(String(b.title || b.slug), undefined, { sensitivity: "base" }));
+      nodes.forEach((n) => sortNodes(n.children));
+    };
+    sortNodes(roots);
+    return roots;
+  }
+
+function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
+    const open = (p.counts && p.counts.open) || 0;
+    const isActive = state.projectFilter === p.slug ? "active" : "";
+    const tags = (p.tags || []).slice(0, 3).map((t) => escapeHtml(t)).join(", ");
+    const tagLine = tags ? `<div class="proj-tags">${tags}</div>` : "";
+    const title = escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug);
+    const isOpen = expanded.has(p.slug);
+    const chevron = hasChildren
+      ? `<button type="button" class="proj-chevron" data-toggle-slug="${escapeHtml(p.slug)}" aria-expanded="${isOpen}" aria-label="${isOpen ? "Collapse" : "Expand"} ${title}">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="${isOpen ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6"}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>`
+      : `<span class="proj-chevron-spacer" aria-hidden="true"></span>`;
+    return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}" data-depth="${depth}">
+      <div class="proj-row ${isActive}" data-slug="${escapeHtml(p.slug)}">
+        ${chevron}
+        <button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
+          <div class="proj-title-line"><span class="proj-title">${title}</span><span class="proj-count">${open}</span></div>
+          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
+          ${tagLine}
+        </button>
+      </div>
+    </div>`;
+  }
+
+function flattenVisibleTree(roots, expanded) {
+    const rows = [];
+    const walk = (nodes, depth) => {
+      for (const node of nodes) {
+        const hasChildren = (node.children || []).length > 0;
+        rows.push({ project: node, depth, hasChildren });
+        if (hasChildren && expanded.has(node.slug)) walk(node.children, depth + 1);
+      }
+    };
+    walk(roots, 0);
+    return rows;
+  }
+
 export function renderProjects(projects) {
     const list = $("project-list");
     const active = (projects || []).filter((p) => !p.archived);
@@ -20,27 +115,48 @@ export function renderProjects(projects) {
       ? active.filter((p) => (p.tags || []).includes(state.tagFilter))
       : active;
     const query = ($("project-search")?.value || "").trim().toLowerCase();
-    const filtered = tagged.filter((p) => [p.title, p.slug, ...(p.tags || [])]
-      .some((value) => String(value || "").toLowerCase().includes(query)));
-    $("project-results").textContent = `${filtered.length} of ${active.length} projects`;
-    list.innerHTML = filtered
-      .map((p) => {
-        const open = (p.counts && p.counts.open) || 0;
-        const isActive = state.projectFilter === p.slug ? "active" : "";
-        const tags = (p.tags || []).slice(0, 3).map((t) => escapeHtml(t)).join(", ");
-        const tagLine = tags ? `<div class="proj-tags">${tags}</div>` : "";
-        return `<button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
-          <div>${escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug)}</div>
-          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
-          ${tagLine}
-        </button>`;
-      })
+    const filtered = filterProjectsForTree(active, tagged, query);
+    const visibleCount = tagged.filter((p) => projectMatchesQuery(p, query)).length;
+    $("project-results").textContent = `${visibleCount} of ${active.length} projects`;
+    const forest = buildProjectForest(filtered);
+    const expanded = loadExpandedParents();
+    // Auto-expand ancestors of the selected project and of search hits.
+    if (state.projectFilter) {
+      let cursor = filtered.find((p) => p.slug === state.projectFilter);
+      while (cursor?.parent_slug) {
+        expanded.add(cursor.parent_slug);
+        cursor = filtered.find((p) => p.slug === cursor.parent_slug);
+      }
+    }
+    if (query) {
+      for (const p of filtered) {
+        if (p.parent_slug && projectMatchesQuery(p, query)) expanded.add(p.parent_slug);
+      }
+    }
+    const visible = flattenVisibleTree(forest, expanded);
+    list.innerHTML = visible
+      .map(({ project, depth, hasChildren }) =>
+        renderProjectTreeRow(project, { depth, expanded, hasChildren })
+      )
       .join("");
-    if (!filtered.length) list.innerHTML = '<p class="hint">No matching projects. Try another search or tag.</p>';
+    if (!visible.length) list.innerHTML = '<p class="hint">No matching projects. Try another search or tag.</p>';
     $("proj-all").classList.toggle("active", !state.projectFilter);
     $("proj-all").setAttribute("aria-pressed", String(!state.projectFilter));
     list.querySelectorAll(".proj").forEach((el) => {
       el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
+    });
+    list.querySelectorAll(".proj-chevron").forEach((el) => {
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const slug = el.dataset.toggleSlug;
+        if (!slug) return;
+        const next = loadExpandedParents();
+        if (next.has(slug)) next.delete(slug);
+        else next.add(slug);
+        saveExpandedParents(next);
+        renderProjects(state.overviewCache?.projects || []);
+      });
     });
     renderArchivedProjects();
   }
@@ -121,6 +237,7 @@ export function fillProjectForm(p) {
     $("p_forge_wiki").value = p.forge_wiki_path || "";
     $("p_forge_project_id").value = p.forge_project_id || "";
     fillForgeConnectionSelect(p.forge_connection_profile_id || "");
+    fillParentSelect(p);
     const archived = !!(p.archived || p.archived_at);
     $("btn-rename-project").hidden = !!p.unregistered;
     $("btn-delete-project").hidden = !!p.unregistered;
@@ -134,6 +251,45 @@ export function fillProjectForm(p) {
     attachProjectForgeTips();
     maybePrefillForgeOwnerRepoFromUrl();
     updateEffectiveImportPolicy();
+  }
+
+function fillParentSelect(current) {
+    const sel = $("p_parent_slug");
+    if (!sel) return;
+    const projects = (state.overviewCache?.projects || []).filter((p) => !p.archived);
+    const selfSlug = current?.slug || "";
+    const childSlugs = new Set(
+      projects.filter((p) => p.parent_slug === selfSlug).map((p) => p.slug)
+    );
+    const hasChildren = childSlugs.size > 0;
+    // Only top-level projects (no parent) may be parents; exclude self.
+    const tops = projects.filter(
+      (p) => !p.parent_slug && p.slug !== selfSlug && p.slug !== "unclassified"
+    );
+    const selected = current?.parent_slug || "";
+    sel.innerHTML =
+      `<option value="">None (top-level)</option>` +
+      tops
+        .map(
+          (p) =>
+            `<option value="${escapeHtml(p.slug)}">${escapeHtml(p.title || p.slug)}</option>`
+        )
+        .join("");
+    // Keep current parent visible even if it somehow is not top-level in cache.
+    if (selected && !tops.some((p) => p.slug === selected)) {
+      const orphan = projects.find((p) => p.slug === selected);
+      if (orphan) {
+        sel.insertAdjacentHTML(
+          "beforeend",
+          `<option value="${escapeHtml(orphan.slug)}">${escapeHtml(orphan.title || orphan.slug)}</option>`
+        );
+      }
+    }
+    sel.value = selected;
+    sel.disabled = hasChildren;
+    sel.title = hasChildren
+      ? "Move or reparent children before nesting this project under another."
+      : "Nest under a top-level project (max depth 2).";
   }
 
 function fillForgeConnectionSelect(selectedId) {
@@ -765,6 +921,7 @@ export async function saveProject() {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
+      parent_slug: ($("p_parent_slug")?.value || "").trim() || null,
       repo_url: $("p_repo_url").value.trim() || null,
       forge_connection_profile_id: $("p_forge_connection_profile_id")?.value || null,
       forge_owner: owner || null,
