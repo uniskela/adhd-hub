@@ -200,9 +200,28 @@ def main() -> None:
                 expect(page.locator("#organise-list")).not_to_contain_text("Loading suggestions")
                 assert page.locator("#organise-list [data-organise-index]").count(), "Expected seeded organiser suggestions"
                 page.screenshot(path=str(screenshots / "organise-dark-desktop.png"), animations="disabled")
+                page.keyboard.press("Escape")
+                open_screen("settings")
+                page.locator('[data-accent="#176b60"]').click()
+                expect(page.locator('[data-accent="#176b60"]')).to_have_attribute("aria-pressed", "true")
+                page.locator("#accent-colour").fill("#ffff00")
+                expect(page.locator("#accent-value")).to_have_text("#FFFF00")
+                page.reload()
+                open_screen("settings")
+                expect(page.locator("#accent-colour")).to_have_value("#ffff00")
+                dark_accent = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent')")
+                page.get_by_role("radio", name="Light theme", exact=True).click()
+                light_accent = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent')")
+                assert light_accent != dark_accent, "Custom accent must adapt to its theme"
+                page.set_viewport_size({"width": 390, "height": 844})
+                assert page.evaluate("document.documentElement.scrollWidth - innerWidth") <= 1
+                page.screenshot(path=str(screenshots / "accent-custom-light-mobile.png"), full_page=True, animations="disabled")
+                page.locator('[data-accent=""]').click()
+                expect(page.locator("#accent-value")).to_have_text("Default palette")
+                assert page.evaluate("document.documentElement.style.getPropertyValue('--accent')") == ""
                 assert not errors, f"Browser JavaScript errors: {errors}"
                 browser.close()
-                print(f"PASS: 24 screen/theme/viewport combinations, keyboard actions and organiser; screenshots: {screenshots}")
+                print(f"PASS: 24 screen/theme/viewport combinations, keyboard actions, organiser and custom accents; screenshots: {screenshots}")
         finally:
             server.terminate()
             server.wait(timeout=10)

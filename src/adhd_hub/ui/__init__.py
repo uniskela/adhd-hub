@@ -15,6 +15,7 @@ UI_JS_MODULES = {
     "api.js",
     "auth.js",
     "theme.js",
+    "accent.js",
     "screens.js",
     "now.js",
     "work.js",

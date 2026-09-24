@@ -66,3 +66,5 @@ My work has project search (name, slug, or tag) combined with the tag filter, pl
 Thread **Actions** opens a compact panel without expanding the row. Only one panel stays open, Escape closes it and returns focus, and tabbing away closes it. Focus and Read notes remain directly available; source conflicts stay visible. AI scan-line rewriting and source refresh remain in Actions.
 
 Light uses porcelain surfaces and indigo controls; dark uses charcoal surfaces and periwinkle controls. Theme cycling and AI Test / Load Models settings remain available.
+
+Appearance also offers named accent presets and a custom colour picker. The selection saves in this browser; Default restores the two built-in palettes. Custom shades adapt to maintain readable text and selected states in light and dark mode. Status and warning colours keep their semantic roles.

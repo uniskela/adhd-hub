@@ -1899,3 +1899,16 @@ body.focus-mode .now-overview { display: none; }
   .overview-link { padding: .7rem .5rem; }
   .thread-utility, .thread-utility[open] { grid-column: 1 / -1; justify-self: end; }
 }
+
+.accent-settings { margin: 1.5rem 0; padding: 0; border: 0; min-width: 0; }
+.accent-settings legend { font-size: .9rem; font-weight: 600; }
+.accent-presets, .accent-custom { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.accent-presets button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.accent-dot { width: .8rem; height: .8rem; border-radius: 50%; border: 1px solid rgb(255 255 255 / .3); }
+.accent-teal { background: #176b60; }
+.accent-blue { background: #2563eb; }
+.accent-rose { background: #be185d; }
+.accent-amber { background: #b45309; }
+.accent-custom { margin-top: .85rem; }
+.accent-custom label { margin: 0 .25rem 0 0; }
+#accent-colour { width: 48px; height: 44px; min-height: 44px; padding: .3rem; cursor: pointer; }

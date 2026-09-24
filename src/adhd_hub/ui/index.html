@@ -264,6 +264,18 @@
                     <span>Dark</span>
                   </button>
                 </div>
+                <fieldset class="accent-settings">
+                  <legend>Accent colour</legend>
+                  <p class="hint" id="accent-hint">Choose a colour for buttons and highlights. We adjust its shade to stay readable in each theme.</p>
+                  <div class="accent-presets" role="group" aria-label="Accent presets">
+                    <button type="button" class="ghost compact" data-accent="" aria-pressed="true">Default</button>
+                    <button type="button" class="ghost compact" data-accent="#176b60" aria-pressed="false"><span class="accent-dot accent-teal" aria-hidden="true"></span>Teal</button>
+                    <button type="button" class="ghost compact" data-accent="#2563eb" aria-pressed="false"><span class="accent-dot accent-blue" aria-hidden="true"></span>Blue</button>
+                    <button type="button" class="ghost compact" data-accent="#be185d" aria-pressed="false"><span class="accent-dot accent-rose" aria-hidden="true"></span>Rose</button>
+                    <button type="button" class="ghost compact" data-accent="#b45309" aria-pressed="false"><span class="accent-dot accent-amber" aria-hidden="true"></span>Amber</button>
+                  </div>
+                  <div class="accent-custom"><label for="accent-colour">Custom colour</label><input type="color" id="accent-colour" value="#4f46c8" aria-describedby="accent-hint" /><span id="accent-value" class="hint">Default palette</span></div>
+                </fieldset>
                 <div class="preference-row"><div><strong>Gentle rewards</strong><p class="hint">Ranks, badges, and shareable wins. No streaks to lose.</p></div><label class="switch"><input type="checkbox" id="rewards-enabled" /> <span>Enable rewards</span></label></div>
                 <label>Daily goal <select id="daily-goal"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select></label>
                 <div class="settings-divider"><label for="timezone">Hub timezone</label><select id="timezone"></select><p class="hint">Used for daily activity across this hub.</p><button type="button" class="primary" id="btn-save-settings">Save</button></div>
@@ -271,7 +283,7 @@
                 <div class="settings-divider">
                   <h3>AI scan-lines</h3>
                   <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>.</p>
-                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save, and you can refresh one thread from More options.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
+                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save, and you can refresh one thread from Actions.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
                   <div class="form-grid">
                     <label class="span2">Base URL <input id="ai_base_url" type="url" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" /></label>
                     <label>Model <input id="ai_model" list="ai_model_list" placeholder="llama3.2" autocomplete="off" /><datalist id="ai_model_list"></datalist></label>

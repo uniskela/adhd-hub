@@ -68,6 +68,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "api.js",
             "auth.js",
             "theme.js",
+            "accent.js",
             "screens.js",
             "now.js",
             "work.js",

@@ -1,4 +1,7 @@
 import { preferences } from './state.js';
+import { accentPalette, normalizeAccent } from './accent.js';
+
+const ACCENT_KEY = 'adhd_hub_accent';
 
 const THEME_KEY = "adhd_hub_theme";
 const THEME_ORDER = ["system", "light", "dark"];
@@ -58,6 +61,7 @@ export function applyTheme(selection = getThemePreference()) {
   document.documentElement.dataset.theme = resolved;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#14141c" : "#f7f7fa");
   syncThemeToggles(selection);
+  applyAccent();
 }
 
 export function setThemePreference(selection) {
@@ -73,6 +77,10 @@ export function cycleThemePreference() {
 }
 
 export function bindThemeControls() {
+  document.getElementById("accent-colour")?.addEventListener("input", (event) => setAccent(event.target.value));
+  document.querySelectorAll("[data-accent]").forEach((button) => {
+    button.addEventListener("click", () => setAccent(button.dataset.accent));
+  });
   document.querySelectorAll("[data-theme-toggle]").forEach((group) => {
     group.querySelectorAll("[data-theme-value]").forEach((button) => {
       button.addEventListener("click", () => setThemePreference(button.dataset.themeValue));
@@ -85,4 +93,29 @@ export function bindThemeControls() {
     if (getThemePreference() === "system") applyTheme("system");
   });
   applyTheme(getThemePreference());
+}
+
+function applyAccent() {
+  const root = document.documentElement;
+  const chosen = normalizeAccent(preferences.getItem(ACCENT_KEY));
+  const palette = accentPalette(chosen, root.dataset.theme === "dark");
+  const tokens = { "--accent": "accent", "--accent-soft": "soft", "--accent-ink": "ink", "--accent-hover": "hover" };
+  for (const [token, key] of Object.entries(tokens)) {
+    if (palette) root.style.setProperty(token, palette[key]);
+    else root.style.removeProperty(token);
+  }
+  const picker = document.getElementById("accent-colour");
+  if (picker) picker.value = chosen || "#4f46c8";
+  const label = document.getElementById("accent-value");
+  if (label) label.textContent = chosen ? chosen.toUpperCase() : "Default palette";
+  document.querySelectorAll("[data-accent]").forEach((button) => {
+    button.setAttribute("aria-pressed", String((button.dataset.accent || null) === chosen));
+  });
+}
+
+function setAccent(value) {
+  const colour = normalizeAccent(value);
+  if (colour) preferences.setItem(ACCENT_KEY, colour);
+  else preferences.removeItem(ACCENT_KEY);
+  applyAccent();
 }
