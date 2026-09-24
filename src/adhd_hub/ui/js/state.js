@@ -166,6 +166,8 @@ export const state = {
   repoDisplayUrl: "",
   forgeConfigCache: null,
   aiConfigCache: null,
+  /** Project slugs with an in-flight rewrite-all batch. */
+  rewriteAllInFlight: new Set(),
 };
 
 export function initRepoLinks() {

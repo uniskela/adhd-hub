@@ -4,6 +4,7 @@ import { logout, showLogin } from './auth.js';
 import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { saveRewardPreferences } from './progress.js';
+import { syncAiRewriteUi } from './work.js';
 import {
   IMPORT_POLICY_HINTS,
   IMPORT_POLICY_LABELS,
@@ -213,10 +214,12 @@ export async function loadAiConfig() {
       if (status) status.textContent = formatAiStatus(config);
       state.aiConfigCache = config;
       syncAiLoadModelsButton();
+      syncAiRewriteUi();
       return config;
     } catch (_e) {
       if (status) status.textContent = "AI: could not load settings";
       syncAiLoadModelsButton();
+      syncAiRewriteUi();
       return null;
     }
   }
@@ -248,6 +251,7 @@ export async function saveAiConfig() {
     $("ai-status").textContent = formatAiStatus(config);
     state.aiConfigCache = config;
     syncAiLoadModelsButton();
+    syncAiRewriteUi();
     if (msg) msg.textContent = "AI settings saved.";
     return config;
   }

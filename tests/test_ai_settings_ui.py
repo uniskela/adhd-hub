@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from adhd_hub.ai_client import ai_configured
@@ -12,7 +13,7 @@ from adhd_hub.ai_config import AiConfig, ai_from_settings, load_ai_config, save_
 from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, SCAN_LINE_SOURCE_HEURISTIC
 from adhd_hub.config import Settings
 from adhd_hub.models import ThreadUpsert
-from adhd_hub.service import HubService
+from adhd_hub.service import HubService, ProjectRewriteInProgress
 
 
 def test_ai_from_settings_opts_in_when_env_url_set(tmp_path: Path) -> None:
@@ -242,23 +243,29 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "rewriteAllProjectScanLines" in work
     assert "/projects/" in work and "scan-lines" in work
     assert "Are you sure?" in work
-    assert "rewrite-scan-lines" in work
+    assert "rewriteAllToastKey" in work
+    assert "rewrite-scan-lines:${slug}" in work
+    assert "rewriteAllInFlight.has(slug)" in work
+    assert "rewriteAllInFlight.add(slug)" in work
+    assert "rewriteAllInFlight.delete(slug)" in work
     assert "This may take a moment." in work
+    assert "rewriteAllInFlight" in work
+    assert "restoreRewriteAllInFlightUi" in work
+    assert "aiScanLinesEnabled" in work
+    assert "syncAiRewriteUi" in work
+    assert "completed > 0" in work
     assert "(0/${" not in work
+    assert "out.completed || 0" not in work
     assert "sticky: true" in work
     assert "refreshSiblingTabCounts" in work
     state = (root / "src/adhd_hub/ui/js/state.js").read_text(encoding="utf-8")
+    assert "rewriteAllInFlight" in state
+    assert "rewriteAllInFlight: new Set()" in state
+    assert "aiConfigCache" in state
     assert "_toastApplyTimer" in state
     assert "opts.sticky" in state
-    css = (root / "src/adhd_hub/ui/app.css").read_text(encoding="utf-8")
-    assert "text-overflow: ellipsis" in css
-    assert ".thread-scan" in css
-    assert "line-clamp: 2" in css
-    assert "-webkit-line-clamp: 2" in css
-    for chunk in css.split(".thread-scan"):
-        block = chunk.split("}", 1)[0]
-        assert "white-space: nowrap" not in block
     settings = (root / "src/adhd_hub/ui/js/settings.js").read_text(encoding="utf-8")
+    assert "syncAiRewriteUi" in settings
     assert "loadAiConfig" in settings
     assert "/ai/config" in settings
     assert "testAndLoadAiModels" in settings
@@ -274,6 +281,14 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "(saved)" in settings
     assert "fromSelect" not in settings
     assert 'const sel = $("ai_model")' in settings
+    css = (root / "src/adhd_hub/ui/app.css").read_text(encoding="utf-8")
+    assert "text-overflow: ellipsis" in css
+    assert ".thread-scan" in css
+    assert "line-clamp: 2" in css
+    assert "-webkit-line-clamp: 2" in css
+    for chunk in css.split(".thread-scan"):
+        block = chunk.split("}", 1)[0]
+        assert "white-space: nowrap" not in block
     boot = (root / "src/adhd_hub/ui/js/boot.js").read_text(encoding="utf-8")
     assert "rewriteAllProjectScanLines" in boot
     assert "btn-rewrite-all-scan" in boot
@@ -640,3 +655,127 @@ def test_rewrite_project_scan_lines_api_route(
     assert payload["ai_attempted"] is True
     assert payload["ai_ok"] == 1
     assert "batch" in payload["threads"][0]["scan_line"].lower()
+
+
+def test_rewrite_project_scan_lines_rejects_concurrent_same_project(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Second rewrite for the same project raises while the first is in flight."""
+    import threading
+
+    service = HubService(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="t",
+            ai_base_url="http://ai.test/v1",
+        )
+    )
+    service.upsert_thread(
+        ThreadUpsert(
+            summary="Hold",
+            focus="Stay open during concurrent rewrite",
+            project_slug="busy-proj",
+            source_tool="pytest",
+        )
+    )
+    gate = threading.Event()
+    entered = threading.Event()
+
+    def slow_generate(settings, thread, client=None):
+        entered.set()
+        gate.wait(timeout=5)
+        return "Calm concurrent rewrite scan line for ADHD hub work"
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", slow_generate)
+    monkeypatch.setattr("time.sleep", lambda *_a, **_k: None)
+
+    result: dict = {}
+    error: list[BaseException] = []
+
+    def run_first() -> None:
+        try:
+            result["out"] = service.rewrite_project_scan_lines(
+                "busy-proj", delay_seconds=0
+            )
+        except BaseException as exc:  # noqa: BLE001 — capture for assertion
+            error.append(exc)
+
+    t = threading.Thread(target=run_first)
+    t.start()
+    assert entered.wait(timeout=5)
+    try:
+        with pytest.raises(ProjectRewriteInProgress):
+            service.rewrite_project_scan_lines("busy-proj", delay_seconds=0)
+    finally:
+        gate.set()
+        t.join(timeout=5)
+    assert not error
+    assert result["out"]["ai_ok"] == 1
+    # Lock cleared — a later rewrite succeeds.
+    out2 = service.rewrite_project_scan_lines("busy-proj", delay_seconds=0)
+    assert out2["ai_ok"] == 1
+
+
+def test_rewrite_project_scan_lines_api_returns_409_when_busy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import threading
+
+    from adhd_hub.app import create_app
+
+    settings = Settings(data_dir=tmp_path / "data", auth_token="test-token")
+    app = create_app(settings)
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer test-token"}
+    hub: HubService = app.state.service
+    hub.save_ai_config(
+        AiConfig(
+            enabled=True,
+            base_url="http://127.0.0.1:11434/v1",
+            model="llama3.2",
+        )
+    )
+    hub.upsert_thread(
+        ThreadUpsert(
+            summary="API busy",
+            focus="Focus text for concurrent API rewrite",
+            project_slug="api-busy",
+            source_tool="pytest",
+        )
+    )
+    gate = threading.Event()
+    entered = threading.Event()
+
+    def slow_generate(settings, thread, client=None):
+        entered.set()
+        gate.wait(timeout=5)
+        return "Keep rewriting calm ADHD-friendly scan lines for busy"
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", slow_generate)
+    monkeypatch.setattr("time.sleep", lambda *_a, **_k: None)
+
+    first_status: list[int] = []
+
+    def run_first() -> None:
+        resp = client.post(
+            "/api/projects/api-busy/scan-lines",
+            headers=headers,
+            json={},
+        )
+        first_status.append(resp.status_code)
+
+    t = threading.Thread(target=run_first)
+    t.start()
+    assert entered.wait(timeout=5)
+    try:
+        conflict = client.post(
+            "/api/projects/api-busy/scan-lines",
+            headers=headers,
+            json={},
+        )
+        assert conflict.status_code == 409
+        assert "already running" in conflict.json()["detail"].lower()
+    finally:
+        gate.set()
+        t.join(timeout=5)
+    assert first_status == [200]

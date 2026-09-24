@@ -120,8 +120,12 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     @router.post("/projects/{slug}/scan-lines", dependencies=[Depends(auth_dep)])
     def rewrite_project_scan_lines(slug: str):
         """Rewrite scan lines for all open threads in a project (sequential, rate-limited)."""
+        from adhd_hub.service import ProjectRewriteInProgress
+
         try:
             return service.rewrite_project_scan_lines(slug)
+        except ProjectRewriteInProgress as exc:
+            raise HTTPException(409, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
