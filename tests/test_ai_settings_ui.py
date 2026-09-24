@@ -222,7 +222,9 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert 'id="ai_enabled"' in index
     assert 'id="btn-save-ai"' in index
     assert 'id="btn-load-ai-models"' in index
-    assert 'id="ai_model_list"' in index
+    assert '<select id="ai_model">' in index
+    assert "ai_model_list" not in index
+    assert 'list="ai_model_list"' not in index
     work = (root / "src/adhd_hub/ui/js/work.js").read_text(encoding="utf-8")
     assert "data-rewrite-scan" in work
     assert "Rewrite scan line" in work
@@ -231,6 +233,9 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "/ai/config" in settings
     assert "testAndLoadAiModels" in settings
     assert "/ai/models" in settings
+    assert "fillAiModelList" in settings
+    assert 'const sel = $("ai_model")' in settings
+    assert "ai_model_list" not in settings
     boot = (root / "src/adhd_hub/ui/js/boot.js").read_text(encoding="utf-8")
     assert "btn-load-ai-models" in boot
     assert "testAndLoadAiModels" in boot
