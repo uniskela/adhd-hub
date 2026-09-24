@@ -109,6 +109,14 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         except KeyError:
             raise HTTPException(404, "Thread not found") from None
 
+    @router.post("/projects/{slug}/scan-lines", dependencies=[Depends(auth_dep)])
+    def rewrite_project_scan_lines(slug: str):
+        """Rewrite scan lines for all open threads in a project (sequential, rate-limited)."""
+        try:
+            return service.rewrite_project_scan_lines(slug)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
     @router.get("/overview", dependencies=[Depends(auth_dep)])
     def overview():
         return service.overview()

@@ -1701,6 +1701,123 @@ class HubService:
             "thread": pub,
         }
 
+    def rewrite_project_scan_lines(
+        self,
+        project_slug: str,
+        *,
+        delay_seconds: float = 0.25,
+        limit: int = 100,
+    ) -> dict:
+        """Rewrite scan lines for every open thread in a project.
+
+        Reuses :meth:`rewrite_scan_line` (quality gates, heuristic fallback, prompt
+        caps). When AI is off, explains and no-ops without calling the provider.
+        Gentle delay between AI calls to ease rate limits.
+        """
+        import time
+
+        from adhd_hub.ai_client import ai_configured
+        from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
+        from adhd_hub.store import slugify as _slugify
+
+        safe = _slugify(project_slug)
+        if not safe:
+            raise ValueError("invalid project slug")
+        threads = self.store.list_threads(
+            status=ThreadStatus.open, project_slug=safe, limit=limit
+        )
+        total = len(threads)
+        if not ai_configured(self.settings):
+            return {
+                "ok": True,
+                "ai_attempted": False,
+                "project_slug": safe,
+                "total": total,
+                "completed": 0,
+                "ai_ok": 0,
+                "fallback": 0,
+                "failed": 0,
+                "message": (
+                    "AI scan-lines are off — enable them in Settings → Preferences "
+                    "to rewrite with AI. Open threads still show heuristic lines."
+                ),
+                "threads": [self.thread_public_dict(t) for t in threads],
+                "errors": [],
+            }
+        if total == 0:
+            return {
+                "ok": True,
+                "ai_attempted": True,
+                "project_slug": safe,
+                "total": 0,
+                "completed": 0,
+                "ai_ok": 0,
+                "fallback": 0,
+                "failed": 0,
+                "message": "No open threads in this project.",
+                "threads": [],
+                "errors": [],
+            }
+
+        pause = max(0.0, float(delay_seconds))
+        updated: list[dict] = []
+        errors: list[dict] = []
+        ai_ok = 0
+        fallback = 0
+        for index, thread in enumerate(threads):
+            if index > 0 and pause:
+                time.sleep(pause)
+            try:
+                out = self.rewrite_scan_line(thread.id)
+            except Exception as exc:  # noqa: BLE001 — surface partial failure calmly
+                errors.append({"thread_id": thread.id, "error": str(exc)[:200]})
+                updated.append(self.thread_public_dict(thread))
+                continue
+            pub = out.get("thread") or self.thread_public_dict(thread)
+            updated.append(pub)
+            if pub.get("scan_line_source") == SCAN_LINE_SOURCE_AI:
+                ai_ok += 1
+            else:
+                fallback += 1
+
+        completed = ai_ok + fallback
+        failed = len(errors)
+        if failed and completed:
+            message = (
+                f"Rewrote {ai_ok} with AI ({fallback} heuristic fallback); "
+                f"{failed} could not be updated."
+            )
+        elif failed and not completed:
+            message = f"Could not rewrite scan lines ({failed} failed)."
+        elif fallback and ai_ok:
+            message = (
+                f"Rewrote {ai_ok} with AI; {fallback} used the heuristic line."
+            )
+        elif fallback and not ai_ok:
+            message = (
+                f"AI unavailable for {fallback} "
+                f"{'thread' if fallback == 1 else 'threads'} — showing heuristic lines."
+            )
+        else:
+            message = (
+                f"Rewrote {ai_ok} scan "
+                f"{'line' if ai_ok == 1 else 'lines'}."
+            )
+
+        return {
+            "ok": failed == 0,
+            "ai_attempted": True,
+            "project_slug": safe,
+            "total": total,
+            "completed": completed,
+            "ai_ok": ai_ok,
+            "fallback": fallback,
+            "failed": failed,
+            "message": message,
+            "threads": updated,
+            "errors": errors,
+        }
+
     def _enrich_compact_thread(self, thread: Thread) -> dict:
         data = compact_thread_dict(thread)
         project = (

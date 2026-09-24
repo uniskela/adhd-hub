@@ -644,6 +644,7 @@ export function renderProjectHeader(p) {
     const repo = $("btn-open-project-repo");
     const repoMobile = $("btn-open-project-repo-mobile");
     const mobileActions = $("project-mobile-actions");
+    const rewriteAll = $("btn-rewrite-all-scan");
     if (!p) {
       edit.hidden = true;
       if (editMobile) editMobile.hidden = true;
@@ -657,6 +658,7 @@ export function renderProjectHeader(p) {
         mobileActions.hidden = true;
         mobileActions.open = false;
       }
+      if (rewriteAll) rewriteAll.hidden = true;
       return;
     }
     const editLabel = p.unregistered ? "Register project" : `Edit ${p.title || p.slug}`;
@@ -678,6 +680,11 @@ export function renderProjectHeader(p) {
       else repoMobile.removeAttribute("href");
     }
     if (mobileActions) mobileActions.hidden = false;
+    if (rewriteAll) {
+      rewriteAll.hidden = false;
+      rewriteAll.disabled = false;
+      rewriteAll.textContent = "Rewrite all scan lines";
+    }
   }
 export function openProjectDialog(project) {
     if (!project) return;
@@ -946,6 +953,61 @@ export async function rewriteScanLine(threadId) {
       if (again) {
         again.disabled = false;
         again.textContent = "Rewrite scan line";
+      }
+    }
+  }
+
+export async function rewriteAllProjectScanLines() {
+    const slug = state.projectFilter;
+    if (!slug) {
+      setMsg("Select a project first to rewrite its scan lines.");
+      return;
+    }
+    const { ok } = await confirmDialog({
+      title: "Are you sure?",
+      body:
+        "This calls the configured AI for each open thread in this project. It may use API quota, hit rate limits, and take a while. Cancel to leave scan lines as they are.",
+    });
+    if (!ok) return;
+    const btn = $("btn-rewrite-all-scan");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Rewriting…";
+    }
+    const openCount = (state.threadsCache || []).filter(
+      (t) => String(t.status || "open") === "open"
+    ).length;
+    setMsg(
+      openCount > 0
+        ? `Rewriting scan lines… (0/${openCount} started)`
+        : "Rewriting scan lines…"
+    );
+    try {
+      const out = await api(`/projects/${encodeURIComponent(slug)}/scan-lines`, {
+        method: "POST",
+        body: "{}",
+      });
+      const updated = Array.isArray(out.threads) ? out.threads : [];
+      if (updated.length && Array.isArray(state.threadsCache)) {
+        const byId = new Map(updated.map((t) => [t.id, t]));
+        state.threadsCache = state.threadsCache.map((t) =>
+          byId.has(t.id) ? { ...t, ...byId.get(t.id) } : t
+        );
+        renderThreads(state.threadsCache);
+      } else if (out.ai_attempted) {
+        await loadThreads();
+      }
+      const progress =
+        typeof out.total === "number" && out.total > 0
+          ? ` (${out.completed || 0}/${out.total})`
+          : "";
+      setMsg((out.message || "Scan lines updated.") + progress);
+    } catch (e) {
+      setMsg(e.message || "Could not rewrite project scan lines.");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Rewrite all scan lines";
       }
     }
   }
