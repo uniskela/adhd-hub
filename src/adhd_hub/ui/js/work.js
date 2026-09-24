@@ -15,13 +15,23 @@ import { enqueueForgeJob } from './forge-jobs.js';
 export function renderProjects(projects) {
     const list = $("project-list");
     const active = (projects || []).filter((p) => !p.archived);
-    list.innerHTML = active
+    populateTagFilter(active);
+    const filtered = state.tagFilter
+      ? active.filter((p) => (p.tags || []).includes(state.tagFilter))
+      : active;
+    list.innerHTML = filtered
       .map((p) => {
         const open = (p.counts && p.counts.open) || 0;
         const isActive = state.projectFilter === p.slug ? "active" : "";
+        const touch = p.last_touch_at
+          ? ` · ${escapeHtml(formatWhen(p.last_touch_at))}`
+          : "";
+        const tags = (p.tags || []).slice(0, 3).map((t) => escapeHtml(t)).join(", ");
+        const tagLine = tags ? `<div class="proj-tags">${tags}</div>` : "";
         return `<button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
           <div>${escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug)}</div>
-          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
+          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}${touch}</div>
+          ${tagLine}
         </button>`;
       })
       .join("");
@@ -32,6 +42,39 @@ export function renderProjects(projects) {
     });
     renderArchivedProjects();
   }
+
+function populateTagFilter(projects) {
+    const sel = $("tag-filter");
+    if (!sel) return;
+    const tags = new Set();
+    for (const p of projects || []) {
+      for (const t of p.tags || []) {
+        if (t) tags.add(String(t));
+      }
+    }
+    const sorted = [...tags].sort((a, b) => a.localeCompare(b));
+    const previous = state.tagFilter || "";
+    sel.innerHTML =
+      `<option value="">All tags</option>` +
+      sorted
+        .map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`)
+        .join("");
+    if (previous && sorted.includes(previous)) {
+      sel.value = previous;
+      state.tagFilter = previous;
+    } else {
+      sel.value = "";
+      state.tagFilter = null;
+    }
+  }
+
+export function onTagFilterChange() {
+    const sel = $("tag-filter");
+    state.tagFilter = (sel && sel.value) || null;
+    const projects = state.overviewCache?.projects || [];
+    renderProjects(projects);
+  }
+
 export function renderArchivedProjects() {
     const wrap = $("archived-projects-wrap");
     const list = $("archived-project-list");
@@ -65,6 +108,7 @@ export function fillProjectForm(p) {
     $("p_slug").readOnly = !p.unregistered;
     $("p_path").value = (p.workspace_paths && p.workspace_paths[0]) || "";
     $("p_desc").value = p.description || "";
+    $("p_tags").value = (p.tags || []).join(", ");
     $("p_repo_url").value = p.repo_url || "";
     $("p_forge_owner").value = p.forge_owner || "";
     $("p_forge_repo").value = p.forge_repo || "";
@@ -641,6 +685,10 @@ export async function saveProject() {
       workspace_paths: $("p_path").value.trim()
         ? [$("p_path").value.trim()]
         : [],
+      tags: ($("p_tags").value || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
       repo_url: $("p_repo_url").value.trim() || null,
       forge_connection_profile_id: $("p_forge_connection_profile_id")?.value || null,
       forge_owner: owner || null,

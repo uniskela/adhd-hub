@@ -643,6 +643,15 @@ class HubService:
         )
         data["counts"] = counts
         data["archived"] = bool(proj.archived_at) if proj else False
+        if proj:
+            touches = self.store.project_last_touch_by_slug()
+            data["last_touch_at"] = touches.get(safe) or (
+                proj.updated_at.isoformat() if proj.updated_at else None
+            )
+            data.setdefault("tags", list(proj.tags or []))
+        else:
+            data["tags"] = []
+            data["last_touch_at"] = self.store.project_last_touch_by_slug().get(safe)
         data["threads"] = threads
         data["next_up"] = open_threads[0] if open_threads else None
         data["progress"] = self.wiki.read_progress(safe)
@@ -883,12 +892,16 @@ class HubService:
 
     def list_projects(self, limit: int = 200, *, include_archived: bool = False) -> list[dict]:
         counts = self.store.thread_counts_by_project()
+        last_touch = self.store.project_last_touch_by_slug()
         out = []
         for p in self.store.list_projects(limit=limit, include_archived=include_archived):
             data = p.model_dump(mode="json")
             c = counts.get(p.slug, {"open": 0, "blocked": 0, "done": 0, "dismissed": 0})
             data["counts"] = c
             data["archived"] = bool(p.archived_at)
+            data["last_touch_at"] = last_touch.get(p.slug) or (
+                p.updated_at.isoformat() if p.updated_at else None
+            )
             out.append(data)
         # Include unclassified bucket if threads exist without registry row
         for slug, c in counts.items():
@@ -902,6 +915,7 @@ class HubService:
                         "description": None,
                         "repo_url": None,
                         "workspace_paths": [],
+                        "tags": [],
                         "default_energy": "unknown",
                         "forge_owner": None,
                         "forge_repo": None,
@@ -910,6 +924,7 @@ class HubService:
                         "archived_at": None,
                         "archived": False,
                         "counts": c,
+                        "last_touch_at": last_touch.get(slug),
                         "unregistered": True,
                     }
                 )

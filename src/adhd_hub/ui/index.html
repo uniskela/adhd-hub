@@ -127,6 +127,10 @@
           <button type="button" class="primary compact" id="btn-new-project">New</button>
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
+        <label class="tag-filter-label" for="tag-filter">Tag filter</label>
+        <select id="tag-filter" aria-label="Filter projects by tag">
+          <option value="">All tags</option>
+        </select>
         <div class="rail-scroll">
           <div id="project-list"></div>
           <details class="archived-projects" id="archived-projects-wrap" hidden>
@@ -452,6 +456,7 @@
         <p id="p_effective_import_policy" class="effective-import-policy hint span2" hidden></p>
         <label class="span2">Workspace path <input id="p_path" placeholder="Z:\Projects\…" /></label>
         <label class="span2">Description <textarea id="p_desc"></textarea></label>
+        <label class="span2">Tags <input id="p_tags" placeholder="homelab, docs, client (comma-separated)" /></label>
       </div>
       <details class="advanced">
         <summary>Advanced forge overrides</summary>

@@ -218,6 +218,10 @@ class Store:
                 conn.execute(
                     "ALTER TABLE projects ADD COLUMN forge_connection_profile_id TEXT"
                 )
+            if "tags" not in cols:
+                conn.execute(
+                    "ALTER TABLE projects ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'"
+                )
 
             thread_cols = {row[1] for row in conn.execute("PRAGMA table_info(threads)")}
             for column in (
@@ -1737,12 +1741,22 @@ class Store:
             paths = []
         if not isinstance(paths, list):
             paths = []
+        raw_tags = dict(row).get("tags") or "[]"
+        try:
+            tags = json.loads(raw_tags)
+        except json.JSONDecodeError:
+            tags = []
+        if not isinstance(tags, list):
+            tags = []
+        from adhd_hub.models import normalize_project_tags
+
         return Project(
             slug=row["slug"],
             title=row["title"],
             description=row["description"],
             repo_url=dict(row).get("repo_url"),
             workspace_paths=[str(p) for p in paths],
+            tags=normalize_project_tags([str(t) for t in tags]),
             default_energy=EnergyLevel(row["default_energy"] or "unknown"),
             default_work_source=WorkSource(
                 dict(row).get("default_work_source") or WorkSource.local.value
@@ -1788,11 +1802,15 @@ class Store:
                     if payload.default_work_source is not None
                     else (dict(existing).get("default_work_source") or WorkSource.local.value)
                 )
+                if "tags" in payload.model_fields_set:
+                    tags_json = json.dumps(payload.tags or [])
+                else:
+                    tags_json = dict(existing).get("tags") or "[]"
                 conn.execute(
                     """
                     UPDATE projects SET
                         title = ?, description = COALESCE(?, description), repo_url = ?,
-                        workspace_paths = ?, default_energy = ?,
+                        workspace_paths = ?, tags = ?, default_energy = ?,
                         default_work_source = ?,
                         forge_owner = COALESCE(?, forge_owner),
                         forge_repo = COALESCE(?, forge_repo),
@@ -1807,6 +1825,7 @@ class Store:
                         payload.description,
                         repo_url,
                         json.dumps(merged),
+                        tags_json,
                         payload.default_energy.value,
                         default_work_source,
                         payload.forge_owner,
@@ -1826,12 +1845,13 @@ class Store:
                 conn.execute(
                     """
                     INSERT INTO projects (
-                        slug, title, description, repo_url, workspace_paths, default_energy,
+                        slug, title, description, repo_url, workspace_paths, tags,
+                        default_energy,
                         default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slug,
@@ -1839,6 +1859,7 @@ class Store:
                         payload.description,
                         payload.repo_url,
                         json.dumps(paths),
+                        json.dumps(payload.tags or []),
                         payload.default_energy.value,
                         (payload.default_work_source or WorkSource.local).value,
                         payload.forge_owner,
@@ -1878,6 +1899,23 @@ class Store:
                     (limit,),
                 ).fetchall()
         return [self._row_project(r) for r in rows]
+
+    def project_last_touch_by_slug(self) -> dict[str, str]:
+        """Max thread updated_at per project_slug (ISO strings)."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT COALESCE(NULLIF(project_slug, ''), 'unclassified') AS slug,
+                       MAX(updated_at) AS last_touch
+                FROM threads
+                GROUP BY COALESCE(NULLIF(project_slug, ''), 'unclassified')
+                """
+            ).fetchall()
+        return {
+            str(row["slug"]): str(row["last_touch"])
+            for row in rows
+            if row["last_touch"]
+        }
 
     def set_project_archived(self, slug: str, *, archived: bool) -> Project:
         safe = slugify(slug)
@@ -2016,12 +2054,12 @@ class Store:
                 conn.execute(
                     """
                     INSERT INTO projects (
-                        slug, title, description, repo_url, workspace_paths, default_energy,
-                        default_work_source,
+                        slug, title, description, repo_url, workspace_paths, tags,
+                        default_energy, default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id, archived_at,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new,
@@ -2029,6 +2067,7 @@ class Store:
                         row["description"],
                         dict(row).get("repo_url"),
                         row["workspace_paths"],
+                        row["tags"],
                         row["default_energy"],
                         dict(row).get("default_work_source") or WorkSource.local.value,
                         row["forge_owner"],

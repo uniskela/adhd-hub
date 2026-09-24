@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -20,6 +21,31 @@ def _validated_repo_url(value: str | None) -> str | None:
     if parsed.username or parsed.password:
         raise ValueError("repository URL must not contain credentials")
     return cleaned
+
+
+_TAG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,23}$")
+MAX_PROJECT_TAGS = 8
+
+
+def normalize_project_tags(value: list[str] | None) -> list[str]:
+    """Normalize project tags: lowercase slug tokens, unique, capped."""
+    if not value:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        text = str(raw or "").strip().casefold().replace(" ", "-")
+        text = re.sub(r"[^a-z0-9-]+", "", text)
+        text = re.sub(r"-{2,}", "-", text).strip("-")
+        if not text or not _TAG_RE.fullmatch(text):
+            continue
+        if text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+        if len(out) >= MAX_PROJECT_TAGS:
+            break
+    return out
 
 
 class ThreadStatus(StrEnum):
@@ -177,6 +203,7 @@ class Project(BaseModel):
     description: str | None = None
     repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     default_energy: EnergyLevel = EnergyLevel.unknown
     default_work_source: WorkSource = WorkSource.local
     # Optional per-project forge override for issue/code repo binding
@@ -196,6 +223,11 @@ class Project(BaseModel):
     def validate_repo_url(cls, value: str | None) -> str | None:
         return _validated_repo_url(value)
 
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: list[str] | None) -> list[str]:
+        return normalize_project_tags(value)
+
 
 class ProjectUpsert(BaseModel):
     slug: str | None = None
@@ -203,6 +235,7 @@ class ProjectUpsert(BaseModel):
     description: str | None = None
     repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
+    tags: list[str] | None = None
     default_energy: EnergyLevel = EnergyLevel.unknown
     default_work_source: WorkSource | None = None
     forge_owner: str | None = None
@@ -215,6 +248,13 @@ class ProjectUpsert(BaseModel):
     @classmethod
     def validate_repo_url(cls, value: str | None) -> str | None:
         return _validated_repo_url(value)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return normalize_project_tags(value)
 
 
 class ProjectRename(BaseModel):

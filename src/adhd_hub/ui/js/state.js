@@ -116,6 +116,7 @@ export const state = {
   projectRequest: 0,
   currentView: "open",
   projectFilter: null,
+  tagFilter: null,
   overviewCache: null,
   detailCache: null,
   activeScreen: "now",

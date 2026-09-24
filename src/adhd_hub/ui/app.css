@@ -223,6 +223,18 @@ summary::marker { color: var(--muted); }
 .proj { display: block; width: 100%; text-align: left; background: transparent; color: var(--ink); margin: .25rem 0; padding: .8rem .85rem; font-weight: 550; }
 .proj.active { background: var(--accent-soft); color: var(--accent); }
 .proj .meta { font-size: .7rem; margin-top: .15rem; font-weight: 400; }
+.proj-tags { font-size: .68rem; color: var(--muted); margin-top: .2rem; font-weight: 400; }
+.tag-filter-label {
+  display: block;
+  font-size: .72rem;
+  color: var(--muted);
+  margin: .35rem 0 .2rem;
+}
+#tag-filter {
+  width: 100%;
+  margin-bottom: .55rem;
+  font-size: .8rem;
+}
 .rail-note { margin-top: 2rem; padding: 1.15rem; background: var(--ok-soft); border-radius: 14px; color: var(--ok); }
 .rail-note > span { font-size: 1.6rem; }
 .rail-note p { font-size: .8rem; margin: .4rem 0 0; }
