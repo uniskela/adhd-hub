@@ -839,6 +839,25 @@ function setRewriteAllButtons({ hidden, disabled, text } = {}) {
     }
   }
 
+function rewriteAllInFlightFor(slug) {
+    return Boolean(slug) && state.rewriteAllInFlight === slug;
+  }
+
+function restoreRewriteAllInFlightUi() {
+    const slug = state.rewriteAllInFlight;
+    if (!slug || state.projectFilter !== slug) return;
+    setRewriteAllButtons({
+      hidden: false,
+      disabled: true,
+      text: "Rewriting…",
+    });
+    setMsg("Rewriting scan lines… This may take a moment.", {
+      key: "rewrite-scan-lines",
+      sticky: true,
+      variant: "info",
+    });
+  }
+
 export function renderProjectHeader(p) {
     const edit = $("btn-edit-project");
     const editMobile = $("btn-edit-project-mobile");
@@ -858,7 +877,16 @@ export function renderProjectHeader(p) {
         mobileActions.hidden = true;
         mobileActions.open = false;
       }
-      setRewriteAllButtons({ hidden: true });
+      // Keep Rewriting… visible across mid-flight loadAll/selectProject refresh.
+      if (rewriteAllInFlightFor(state.projectFilter)) {
+        setRewriteAllButtons({
+          hidden: false,
+          disabled: true,
+          text: "Rewriting…",
+        });
+      } else {
+        setRewriteAllButtons({ hidden: true });
+      }
       return;
     }
     const editLabel = p.unregistered ? "Register project" : `Edit ${p.title || p.slug}`;
@@ -883,10 +911,11 @@ export function renderProjectHeader(p) {
       mobileActions.hidden = false;
       wireOverflowMenu(mobileActions);
     }
+    const inFlight = rewriteAllInFlightFor(p.slug || state.projectFilter);
     setRewriteAllButtons({
       hidden: false,
-      disabled: false,
-      text: "Rewrite all scan lines",
+      disabled: inFlight,
+      text: inFlight ? "Rewriting…" : "Rewrite all scan lines",
     });
   }
 export function openProjectDialog(project) {
@@ -1193,12 +1222,23 @@ export async function rewriteAllProjectScanLines() {
       setMsg("Select a project first to rewrite its scan lines.");
       return;
     }
+    // Guard before confirm so a second click cannot reopen the dialog mid-batch.
+    if (rewriteAllInFlightFor(slug)) {
+      restoreRewriteAllInFlightUi();
+      return;
+    }
     const { ok } = await confirmDialog({
       title: "Are you sure?",
       body:
         "This calls the configured AI for each open thread in this project. It may use API quota, hit rate limits, and take a while. Cancel to leave scan lines as they are.",
     });
     if (!ok) return;
+    // Re-check after confirm in case another click started while the dialog was open.
+    if (rewriteAllInFlightFor(slug)) {
+      restoreRewriteAllInFlightUi();
+      return;
+    }
+    state.rewriteAllInFlight = slug;
     const mobileMenu = $("project-mobile-actions");
     if (mobileMenu) mobileMenu.open = false;
     setRewriteAllButtons({ disabled: true, text: "Rewriting…" });
@@ -1224,9 +1264,12 @@ export async function rewriteAllProjectScanLines() {
       } else if (out.ai_attempted) {
         await loadThreads();
       }
+      const completed = Number(out.completed) || 0;
+      const total = Number(out.total) || 0;
+      // Never show (0/N) — AI-off returns completed:0; only suffix when completed > 0.
       const progress =
-        typeof out.total === "number" && out.total > 0
-          ? ` (${out.completed || 0}/${out.total})`
+        out.ai_attempted && completed > 0 && total > 0
+          ? ` (${completed}/${total})`
           : "";
       setMsg((out.message || "Scan lines updated.") + progress, {
         key: toastKey,
@@ -1238,10 +1281,15 @@ export async function rewriteAllProjectScanLines() {
         variant: "error",
       });
     } finally {
-      setRewriteAllButtons({
-        disabled: false,
-        text: "Rewrite all scan lines",
-      });
+      if (state.rewriteAllInFlight === slug) {
+        state.rewriteAllInFlight = null;
+      }
+      if (state.projectFilter === slug) {
+        setRewriteAllButtons({
+          disabled: false,
+          text: "Rewrite all scan lines",
+        });
+      }
     }
   }
 
@@ -1257,27 +1305,37 @@ export async function loadThreads() {
     refreshSiblingTabCounts(request).catch(() => {});
   }
 export async function selectProject(slug) {
+    const nextSlug = slug || null;
+    const midFlightSame =
+      rewriteAllInFlightFor(nextSlug) && state.projectFilter === nextSlug;
     const request = ++state.projectRequest;
     ++state.threadsRequest;
-    state.projectFilter = slug || null;
-    state.detailCache = null;
-    state.threadsCache = [];
-    document.querySelectorAll("[data-tab-count]").forEach((count) => { count.textContent = ""; });
-
-    renderProjects(state.overviewCache?.projects || []);
-    renderProjectHeader(null);
-    // Do not close the projects drawer here: loadAll() (e.g. after DnD move) and
-    // screen restore call selectProject as a refresh. Intentional picks use
-    // selectProjectFromRail, which closes the drawer before loading.
-    $("threads").textContent = "Loading your steps…";
-    $("thread-count").textContent = "";
-    $("focus-links").replaceChildren();
+    state.projectFilter = nextSlug;
+    if (!midFlightSame) {
+      state.detailCache = null;
+      state.threadsCache = [];
+      document.querySelectorAll("[data-tab-count]").forEach((count) => {
+        count.textContent = "";
+      });
+      renderProjects(state.overviewCache?.projects || []);
+      renderProjectHeader(null);
+      // Do not close the projects drawer here: loadAll() (e.g. after DnD move) and
+      // screen restore call selectProject as a refresh. Intentional picks use
+      // selectProjectFromRail, which closes the drawer before loading.
+      $("threads").textContent = "Loading your steps…";
+      $("thread-count").textContent = "";
+      $("focus-links").replaceChildren();
+    } else {
+      // Visibility/SSE refresh mid-batch: keep the list and Rewriting… state.
+      renderProjects(state.overviewCache?.projects || []);
+      restoreRewriteAllInFlightUi();
+    }
     if (!state.projectFilter) {
       setWorkTitle("All projects");
       await loadThreads();
       return;
     }
-    setWorkTitle("Loading project…");
+    if (!midFlightSame) setWorkTitle("Loading project…");
     try {
       const detail = await api("/projects/" + encodeURIComponent(state.projectFilter));
       if (request !== state.projectRequest) return;
@@ -1285,12 +1343,16 @@ export async function selectProject(slug) {
       fillProjectForm(state.detailCache);
       setWorkTitle(state.detailCache.slug === "unclassified" ? "Inbox" : state.detailCache.title || state.detailCache.slug);
       renderProjectHeader(state.detailCache);
+      if (midFlightSame) restoreRewriteAllInFlightUi();
     } catch (e) {
       if (request !== state.projectRequest) return;
       setWorkTitle("Project unavailable");
       setMsg("Could not load project: " + e.message);
     }
     if (request === state.projectRequest) await loadThreads();
+    if (request === state.projectRequest && midFlightSame) {
+      restoreRewriteAllInFlightUi();
+    }
   }
 export function renderPending(actions) {
     const banner = $("pending-banner");

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
 from collections.abc import Callable
 from datetime import UTC
 
@@ -94,6 +95,10 @@ def _history_summary(event) -> str:
     return base
 
 
+class ProjectRewriteInProgress(Exception):
+    """Raised when a project scan-line rewrite batch is already running."""
+
+
 class HubService:
     def __init__(self, settings: Settings) -> None:
         settings.ensure_dirs()
@@ -112,6 +117,8 @@ class HubService:
         )
         self._forge_jobs = ForgeJobQueue(self._run_forge_job)
         self.event_bus = EventBus()
+        self._rewrite_project_lock = threading.Lock()
+        self._rewrite_project_in_flight: set[str] = set()
         self.store.migrate_work_identity(self._confident_forge_target)
         self.store.migrate_forge_source_metadata()
         self.migrate_forge_connection_profiles()
@@ -1717,7 +1724,8 @@ class HubService:
 
         Reuses :meth:`rewrite_scan_line` (quality gates, heuristic fallback, prompt
         caps). When AI is off, explains and no-ops without calling the provider.
-        Gentle delay between AI calls to ease rate limits.
+        Gentle delay between AI calls to ease rate limits. Concurrent rewrites for
+        the same project raise :class:`ProjectRewriteInProgress`.
         """
         import time
 
@@ -1728,100 +1736,110 @@ class HubService:
         safe = _slugify(project_slug)
         if not safe:
             raise ValueError("invalid project slug")
-        threads = self.store.list_threads(
-            status=ThreadStatus.open, project_slug=safe, limit=limit
-        )
-        total = len(threads)
-        if not ai_configured(self.settings):
+        with self._rewrite_project_lock:
+            if safe in self._rewrite_project_in_flight:
+                raise ProjectRewriteInProgress(
+                    "A rewrite is already running for this project."
+                )
+            self._rewrite_project_in_flight.add(safe)
+        try:
+            threads = self.store.list_threads(
+                status=ThreadStatus.open, project_slug=safe, limit=limit
+            )
+            total = len(threads)
+            if not ai_configured(self.settings):
+                return {
+                    "ok": True,
+                    "ai_attempted": False,
+                    "project_slug": safe,
+                    "total": total,
+                    "completed": 0,
+                    "ai_ok": 0,
+                    "fallback": 0,
+                    "failed": 0,
+                    "message": (
+                        "AI scan-lines are off — enable them in Settings → Preferences "
+                        "to rewrite with AI. Open threads still show heuristic lines."
+                    ),
+                    "threads": [self.thread_public_dict(t) for t in threads],
+                    "errors": [],
+                }
+            if total == 0:
+                return {
+                    "ok": True,
+                    "ai_attempted": True,
+                    "project_slug": safe,
+                    "total": 0,
+                    "completed": 0,
+                    "ai_ok": 0,
+                    "fallback": 0,
+                    "failed": 0,
+                    "message": "No open threads in this project.",
+                    "threads": [],
+                    "errors": [],
+                }
+
+            pause = max(0.0, float(delay_seconds))
+            updated: list[dict] = []
+            errors: list[dict] = []
+            ai_ok = 0
+            fallback = 0
+            for index, thread in enumerate(threads):
+                if index > 0 and pause:
+                    time.sleep(pause)
+                try:
+                    out = self.rewrite_scan_line(thread.id)
+                except Exception as exc:  # noqa: BLE001 — surface partial failure calmly
+                    errors.append({"thread_id": thread.id, "error": str(exc)[:200]})
+                    updated.append(self.thread_public_dict(thread))
+                    continue
+                pub = out.get("thread") or self.thread_public_dict(thread)
+                updated.append(pub)
+                if pub.get("scan_line_source") == SCAN_LINE_SOURCE_AI:
+                    ai_ok += 1
+                else:
+                    fallback += 1
+
+            completed = ai_ok + fallback
+            failed = len(errors)
+            if failed and completed:
+                message = (
+                    f"Rewrote {ai_ok} with AI ({fallback} heuristic fallback); "
+                    f"{failed} could not be updated."
+                )
+            elif failed and not completed:
+                message = f"Could not rewrite scan lines ({failed} failed)."
+            elif fallback and ai_ok:
+                message = (
+                    f"Rewrote {ai_ok} with AI; {fallback} used the heuristic line."
+                )
+            elif fallback and not ai_ok:
+                message = (
+                    f"AI unavailable for {fallback} "
+                    f"{'thread' if fallback == 1 else 'threads'} — showing heuristic lines."
+                )
+            else:
+                message = (
+                    f"Rewrote {ai_ok} scan "
+                    f"{'line' if ai_ok == 1 else 'lines'}."
+                )
+
             return {
-                "ok": True,
-                "ai_attempted": False,
-                "project_slug": safe,
-                "total": total,
-                "completed": 0,
-                "ai_ok": 0,
-                "fallback": 0,
-                "failed": 0,
-                "message": (
-                    "AI scan-lines are off — enable them in Settings → Preferences "
-                    "to rewrite with AI. Open threads still show heuristic lines."
-                ),
-                "threads": [self.thread_public_dict(t) for t in threads],
-                "errors": [],
-            }
-        if total == 0:
-            return {
-                "ok": True,
+                "ok": failed == 0,
                 "ai_attempted": True,
                 "project_slug": safe,
-                "total": 0,
-                "completed": 0,
-                "ai_ok": 0,
-                "fallback": 0,
-                "failed": 0,
-                "message": "No open threads in this project.",
-                "threads": [],
-                "errors": [],
+                "total": total,
+                "completed": completed,
+                "ai_ok": ai_ok,
+                "fallback": fallback,
+                "failed": failed,
+                "message": message,
+                "threads": updated,
+                "errors": errors,
             }
-
-        pause = max(0.0, float(delay_seconds))
-        updated: list[dict] = []
-        errors: list[dict] = []
-        ai_ok = 0
-        fallback = 0
-        for index, thread in enumerate(threads):
-            if index > 0 and pause:
-                time.sleep(pause)
-            try:
-                out = self.rewrite_scan_line(thread.id)
-            except Exception as exc:  # noqa: BLE001 — surface partial failure calmly
-                errors.append({"thread_id": thread.id, "error": str(exc)[:200]})
-                updated.append(self.thread_public_dict(thread))
-                continue
-            pub = out.get("thread") or self.thread_public_dict(thread)
-            updated.append(pub)
-            if pub.get("scan_line_source") == SCAN_LINE_SOURCE_AI:
-                ai_ok += 1
-            else:
-                fallback += 1
-
-        completed = ai_ok + fallback
-        failed = len(errors)
-        if failed and completed:
-            message = (
-                f"Rewrote {ai_ok} with AI ({fallback} heuristic fallback); "
-                f"{failed} could not be updated."
-            )
-        elif failed and not completed:
-            message = f"Could not rewrite scan lines ({failed} failed)."
-        elif fallback and ai_ok:
-            message = (
-                f"Rewrote {ai_ok} with AI; {fallback} used the heuristic line."
-            )
-        elif fallback and not ai_ok:
-            message = (
-                f"AI unavailable for {fallback} "
-                f"{'thread' if fallback == 1 else 'threads'} — showing heuristic lines."
-            )
-        else:
-            message = (
-                f"Rewrote {ai_ok} scan "
-                f"{'line' if ai_ok == 1 else 'lines'}."
-            )
-
-        return {
-            "ok": failed == 0,
-            "ai_attempted": True,
-            "project_slug": safe,
-            "total": total,
-            "completed": completed,
-            "ai_ok": ai_ok,
-            "fallback": fallback,
-            "failed": failed,
-            "message": message,
-            "threads": updated,
-            "errors": errors,
-        }
+        finally:
+            with self._rewrite_project_lock:
+                self._rewrite_project_in_flight.discard(safe)
 
     def _notes_summary_cache_key(self, thread_id: str) -> str:
         from adhd_hub.notes_summary import notes_summary_cache_key

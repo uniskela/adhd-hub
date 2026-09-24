@@ -272,12 +272,18 @@ def test_work_tab_counts_and_rewrite_toast_markers():
     assert 'key: toastKey' in work
     assert "sticky: true" in work
     assert "rewrite-scan-lines" in work
-    # Batch POST has no streamed progress — avoid fake 0/N while pending.
+    # Batch POST has no streamed progress — avoid fake 0/N while pending / on AI-off.
     assert "This may take a moment." in work
     assert "(0/${" not in work
+    assert "out.completed || 0" not in work
+    assert "completed > 0" in work
+    assert "rewriteAllInFlight" in work
+    assert "restoreRewriteAllInFlightUi" in work
+    assert "midFlightSame" in work
     assert "opts.sticky" in state
     assert "dataset.key" in state
     assert "_toastApplyTimer" in state
+    assert "rewriteAllInFlight" in state
 
 
 def test_mobile_overflow_menu_and_notes_focus_markers():
