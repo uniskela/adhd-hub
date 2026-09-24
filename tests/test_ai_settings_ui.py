@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 from fastapi.testclient import TestClient
 
 from adhd_hub.ai_client import ai_configured
@@ -220,9 +221,145 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     index = (root / "src/adhd_hub/ui/index.html").read_text(encoding="utf-8")
     assert 'id="ai_enabled"' in index
     assert 'id="btn-save-ai"' in index
+    assert 'id="btn-load-ai-models"' in index
+    assert 'id="ai_model_list"' in index
     work = (root / "src/adhd_hub/ui/js/work.js").read_text(encoding="utf-8")
     assert "data-rewrite-scan" in work
     assert "Rewrite scan line" in work
     settings = (root / "src/adhd_hub/ui/js/settings.js").read_text(encoding="utf-8")
     assert "loadAiConfig" in settings
     assert "/ai/config" in settings
+    assert "testAndLoadAiModels" in settings
+    assert "/ai/models" in settings
+    boot = (root / "src/adhd_hub/ui/js/boot.js").read_text(encoding="utf-8")
+    assert "btn-load-ai-models" in boot
+    assert "testAndLoadAiModels" in boot
+
+
+def test_list_ai_models_parses_openai_compatible_payload() -> None:
+    from adhd_hub.ai_client import list_ai_models
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert str(request.url).endswith("/v1/models")
+        assert request.headers.get("Authorization") == "Bearer sk-test"
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"id": "llama3.2"},
+                    {"id": "mistral"},
+                    {"id": "llama3.2"},
+                    {"object": "model"},
+                ]
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = list_ai_models(
+            base_url="http://127.0.0.1:11434/v1",
+            api_key="sk-test",
+            client=client,
+        )
+    assert result["ok"] is True
+    assert result["models"] == ["llama3.2", "mistral"]
+    assert "2 models" in result["message"]
+
+
+def test_list_ai_models_calm_failure_without_secrets() -> None:
+    from adhd_hub.ai_client import list_ai_models
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": "invalid_api_key sk-leaked"})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = list_ai_models(
+            base_url="http://ai.test/v1",
+            api_key="sk-secret-value",
+            client=client,
+        )
+    assert result["ok"] is False
+    assert result["models"] == []
+    assert "sk-secret" not in result["message"]
+    assert "Could not load models" in result["message"]
+
+
+def test_ai_models_api_route(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub.app import create_app
+
+    settings = Settings(data_dir=tmp_path / "data", auth_token="test-token")
+    app = create_app(settings)
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer test-token"}
+
+    missing = client.post("/api/ai/models", headers=headers, json={})
+    assert missing.status_code == 400
+
+    saved = client.put(
+        "/api/ai/config",
+        headers=headers,
+        json={
+            "enabled": True,
+            "base_url": "http://127.0.0.1:11434/v1",
+            "model": "llama3.2",
+            "api_key": "saved-secret",
+            "timeout_seconds": 3,
+        },
+    )
+    assert saved.status_code == 200
+
+    monkeypatch.setattr(
+        "adhd_hub.ai_client.list_ai_models",
+        lambda **kwargs: (
+            {
+                "ok": True,
+                "models": ["llama3.2", "mistral"],
+                "message": "Connected · 2 models",
+            }
+            if kwargs.get("api_key") == "saved-secret"
+            and kwargs.get("base_url") == "http://127.0.0.1:11434/v1"
+            else {"ok": False, "models": [], "message": "bad key"}
+        ),
+    )
+    ok = client.post("/api/ai/models", headers=headers, json={})
+    assert ok.status_code == 200
+    assert ok.json()["models"] == ["llama3.2", "mistral"]
+
+    # Draft URL change must not reuse the saved key for a new host.
+    seen: dict[str, str] = {}
+
+    def capture(**kwargs):
+        seen["api_key"] = kwargs.get("api_key") or ""
+        seen["base_url"] = kwargs.get("base_url") or ""
+        return {
+            "ok": True,
+            "models": ["other"],
+            "message": "Connected · 1 model",
+        }
+
+    monkeypatch.setattr("adhd_hub.ai_client.list_ai_models", capture)
+    draft = client.post(
+        "/api/ai/models",
+        headers=headers,
+        json={"base_url": "http://other.ai/v1"},
+    )
+    assert draft.status_code == 200
+    assert seen["base_url"] == "http://other.ai/v1"
+    assert seen["api_key"] == ""
+
+    monkeypatch.setattr(
+        "adhd_hub.ai_client.list_ai_models",
+        lambda **kwargs: {
+            "ok": False,
+            "models": [],
+            "message": "Could not load models from that base URL.",
+        },
+    )
+    failed = client.post(
+        "/api/ai/models",
+        headers=headers,
+        json={"base_url": "http://127.0.0.1:11434/v1"},
+    )
+    assert failed.status_code == 502
+    assert "Could not load models" in failed.json()["detail"]
+    assert "saved-secret" not in failed.text

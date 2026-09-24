@@ -104,3 +104,70 @@ def generate_ai_scan_line(
     finally:
         if owns_client:
             http.close()
+
+
+def list_ai_models(
+    *,
+    base_url: str,
+    api_key: str = "",
+    timeout_seconds: float = 2.5,
+    client: httpx.Client | None = None,
+) -> dict[str, Any]:
+    """GET OpenAI-compatible ``/models``; return calm ok/models/message (no secrets)."""
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        return {
+            "ok": False,
+            "models": [],
+            "message": "Add a base URL before loading models.",
+        }
+    url = f"{base}/models"
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    timeout = float(timeout_seconds or 2.5)
+    owns_client = client is None
+    http = client or httpx.Client(timeout=timeout)
+    try:
+        resp = http.get(url, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:  # noqa: BLE001 — surface calm message only
+        log.info("AI models list failed (%s)", type(exc).__name__)
+        return {
+            "ok": False,
+            "models": [],
+            "message": "Could not load models from that base URL.",
+        }
+    finally:
+        if owns_client:
+            http.close()
+
+    raw_items = data.get("data") if isinstance(data, dict) else None
+    if not isinstance(raw_items, list):
+        return {
+            "ok": False,
+            "models": [],
+            "message": "The models endpoint returned an unexpected response.",
+        }
+    ids: list[str] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        model_id = item.get("id")
+        if not isinstance(model_id, str):
+            continue
+        cleaned = model_id.strip()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        ids.append(cleaned)
+    ids.sort(key=str.lower)
+    count = len(ids)
+    noun = "model" if count == 1 else "models"
+    return {
+        "ok": True,
+        "models": ids,
+        "message": f"Connected · {count} {noun}",
+    }
