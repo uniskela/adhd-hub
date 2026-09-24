@@ -134,13 +134,37 @@ async function moveProjectViaApi(slug, { parent_slug = null, before_slug = null 
     await loadAll();
   }
 
-/** After a DnD gesture, ignore the ghost click that would select a project and close the drawer. */
+/**
+   * After a DnD gesture, ignore the synthetic click that would select a project.
+   * Closing the drawer is separate: selectProject must NOT close it (loadAll after
+   * a move refreshes via selectProject; only an intentional rail pick closes).
+   */
 let suppressProjectSelectUntil = 0;
-function suppressProjectSelectBriefly() {
-    suppressProjectSelectUntil = Date.now() + 500;
+/** Ignore backdrop tap that can fire on the same pointerup/touchend as a drop. */
+let suppressDrawerBackdropUntil = 0;
+function suppressProjectSelectBriefly(ms = 750) {
+    const until = Date.now() + ms;
+    suppressProjectSelectUntil = until;
+    suppressDrawerBackdropUntil = until;
   }
 function shouldSuppressProjectSelect() {
     return Date.now() < suppressProjectSelectUntil;
+  }
+function shouldSuppressDrawerBackdrop() {
+    return Date.now() < suppressDrawerBackdropUntil;
+  }
+
+/** User picked a project in the rail — close the mobile drawer, then load. */
+function selectProjectFromRail(slug) {
+    closeProjectsDrawer({ restoreFocus: false });
+    return selectProject(slug);
+  }
+
+/** "All projects" chip — same drawer rules as a rail pick; respects DnD suppress. */
+export function selectAllProjectsFromRail() {
+    if (shouldSuppressProjectSelect()) return Promise.resolve();
+    closeProjectsDrawer({ restoreFocus: false });
+    return selectProject(null);
   }
 
 function projectsListScroller(list) {
@@ -274,6 +298,9 @@ function wireProjectDnD(list, visible) {
         if (item) item.classList.add("is-dragging");
       });
       handle.addEventListener("dragend", () => {
+        // Cancelled HTML5 drags can still synthesize a click; successful drops
+        // already called suppress in apply*Drop — resetting the window is fine.
+        if (dragSlug) suppressProjectSelectBriefly();
         dragSlug = null;
         finishDragVisual();
       });
@@ -425,7 +452,7 @@ export function renderProjects(projects) {
           event.stopPropagation();
           return;
         }
-        selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message));
+        selectProjectFromRail(el.dataset.slug || null).catch((e) => setMsg(e.message));
       });
     });
     list.querySelectorAll(".proj-chevron").forEach((el) => {
@@ -501,7 +528,9 @@ export function renderArchivedProjects() {
       })
       .join("");
     list.querySelectorAll(".proj").forEach((el) => {
-      el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
+      el.addEventListener("click", () =>
+        selectProjectFromRail(el.dataset.slug || null).catch((e) => setMsg(e.message))
+      );
     });
   }
 export function fillProjectForm(p) {
@@ -1237,7 +1266,9 @@ export async function selectProject(slug) {
 
     renderProjects(state.overviewCache?.projects || []);
     renderProjectHeader(null);
-    closeProjectsDrawer({ restoreFocus: false });
+    // Do not close the projects drawer here: loadAll() (e.g. after DnD move) and
+    // screen restore call selectProject as a refresh. Intentional picks use
+    // selectProjectFromRail, which closes the drawer before loading.
     $("threads").textContent = "Loading your steps…";
     $("thread-count").textContent = "";
     $("focus-links").replaceChildren();
@@ -1678,10 +1709,8 @@ export function closeProjectsDrawer({ restoreFocus = true } = {}) {
 export function wireProjectsDrawer() {
     $("btn-open-projects-drawer")?.addEventListener("click", () => openProjectsDrawer());
     $("btn-close-projects-drawer")?.addEventListener("click", () => closeProjectsDrawer());
-    $("projects-drawer-backdrop")?.addEventListener("click", () => closeProjectsDrawer());
-    $("proj-all")?.addEventListener("click", () => {
-      if (document.body.classList.contains("projects-drawer-open")) {
-        closeProjectsDrawer({ restoreFocus: false });
-      }
+    $("projects-drawer-backdrop")?.addEventListener("click", () => {
+      if (shouldSuppressDrawerBackdrop()) return;
+      closeProjectsDrawer();
     });
   }

@@ -229,8 +229,20 @@ def test_project_rail_hierarchy_tree_markers():
     assert "autoScrollProjectsList" in work
     assert "suppressProjectSelectBriefly" in work
     assert "shouldSuppressProjectSelect" in work
+    assert "shouldSuppressDrawerBackdrop" in work
+    assert "selectProjectFromRail" in work
+    assert "selectAllProjectsFromRail" in work
+    # Drawer must stay open after DnD refresh: selectProject is a data reload path
+    # (loadAll after move) and must not close the drawer; only rail picks close it.
+    select_fn = work.split("export async function selectProject", 1)[1].split(
+        "\nexport ", 1
+    )[0]
+    assert "closeProjectsDrawer" not in select_fn
+    assert "selectProjectFromRail" in work and "closeProjectsDrawer" in work
     assert "/projects/" in work and "/move" in work
     assert "openProjectsDrawer" in work
+    boot = (UI_JS / "boot.js").read_text()
+    assert "selectAllProjectsFromRail" in boot
     assert 'id="p_parent_slug"' in html
     assert 'id="btn-open-projects-drawer"' in html
     assert 'id="projects-drawer-backdrop"' in html

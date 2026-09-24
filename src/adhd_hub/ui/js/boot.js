@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
@@ -42,7 +42,7 @@ async function loadOpenClawSecureStatus() {
   }
 }
 
-$("proj-all").addEventListener("click", () => selectProject(null).catch((e) => setMsg(e.message)));
+$("proj-all").addEventListener("click", () => selectAllProjectsFromRail().catch((e) => setMsg(e.message)));
 $("project-search")?.addEventListener("input", onProjectSearchChange);
 $("tag-filter")?.addEventListener("change", () => onTagFilterChange());
 $("btn-organise-projects")?.addEventListener("click", () =>
