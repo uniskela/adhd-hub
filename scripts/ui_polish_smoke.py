@@ -126,14 +126,12 @@ def main() -> None:
 
                 def open_screen(screen: str) -> None:
                     if screen == "settings":
-                        page.locator("#btn-settings:visible, #btn-mobile-settings:visible").first.focus()
-                        page.keyboard.press("Enter")
+                        page.locator("#btn-settings:visible, #btn-mobile-settings:visible").first.click()
                         if not page.locator("#settings-preferences").is_visible():
                             page.get_by_role("tab", name="Preferences", exact=True).click()
                         expect(page.locator("#settings-preferences")).to_be_visible()
                     else:
-                        page.locator(f'[data-screen="{screen}"]:visible').first.focus()
-                        page.keyboard.press("Enter")
+                        page.locator(f'[data-screen="{screen}"]:visible').first.click()
                         expect(page.locator(f"#{screen}-view" if screen != "work" else "#work-view")).to_be_visible()
 
                 for theme in ("light", "dark"):
@@ -147,6 +145,10 @@ def main() -> None:
                             page.screenshot(path=str(screenshots / f"{screen}-{theme}-{label}.png"), full_page=True, animations="disabled")
                             overflow = page.evaluate("document.documentElement.scrollWidth - innerWidth")
                             assert overflow <= 1, f"{screen} {theme} {label}: horizontal overflow {overflow}px"
+                            if screen == "work" and width == 390:
+                                assert page.locator("#project-list").evaluate(
+                                    "el => el.scrollWidth > el.clientWidth"
+                                ), "Mobile projects should remain horizontally browsable"
 
                 page.set_viewport_size({"width": 1440, "height": 900})
                 open_screen("now")
