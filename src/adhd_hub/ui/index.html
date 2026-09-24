@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ADHD Progress Hub</title>
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#176B60" />
+  <meta name="theme-color" content="#f7f7fa" />
   <meta name="application-name" content="Progress Hub" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -88,7 +88,7 @@
       <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
       <p id="msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
       <section id="now-view" class="view now-view" aria-label="Now">
-        <div class="view-heading"><p class="eyebrow">YOUR SPACE TO FOCUS</p><h1>One thing at a time.</h1><p>Pick up where you left off, or start small.</p></div>
+        <div class="view-heading"><p class="eyebrow">YOUR WORKSPACE, AT A GLANCE</p><h1>A little clarity for today.</h1><p>See where things stand, then choose one small step.</p></div>
         <section class="focus" id="focus-panel" aria-labelledby="focus-title">
           <div class="focus-toolbar">
             <p class="eyebrow" id="focus-eyebrow">YOUR CHOICE</p>
@@ -107,6 +107,15 @@
           <h2 id="focus-title">What would you like to work on?</h2>
           <p id="focus-session" class="focus-session" role="status" hidden></p>
           <div id="next-card" class="next-card empty"></div>
+        </section>
+        <section class="now-overview" aria-labelledby="overview-title">
+          <div class="overview-heading"><div><p class="eyebrow">A QUICK LOOK</p><h2 id="overview-title">Your workspace</h2></div><button type="button" class="ghost compact" data-screen="work">Open My work</button></div>
+          <div class="overview-links">
+            <button type="button" class="overview-link" data-screen="work"><strong id="now-open-count">0</strong><span>Open steps</span></button>
+            <button type="button" class="overview-link" data-screen="progress"><strong id="now-done-count">0</strong><span>Finished this week</span></button>
+            <button type="button" class="overview-link" data-screen="work"><strong id="now-project-count">0</strong><span>Projects</span></button>
+          </div>
+          <p id="now-overview-caption" class="overview-caption"></p>
         </section>
         <section id="now-reminders" class="reminder-strip" hidden></section>
       </section>
@@ -128,11 +137,14 @@
         <div class="rail-head">
           <h2>Projects</h2>
           <div class="rail-head-actions">
-            <button type="button" class="ghost compact" id="btn-organise-projects" title="Suggest tags">Organise</button>
+            <button type="button" class="ghost compact" id="btn-organise-projects" title="Suggest tags">Suggest tags</button>
             <button type="button" class="primary compact" id="btn-new-project">New</button>
           </div>
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
+        <label class="project-search-label" for="project-search">Find a project</label>
+        <input id="project-search" type="search" placeholder="Search projects…" autocomplete="off" />
+        <p id="project-results" class="project-results" role="status"></p>
         <label class="tag-filter-label" for="tag-filter">Tag filter</label>
         <select id="tag-filter" aria-label="Filter projects by tag">
           <option value="">All tags</option>
@@ -252,6 +264,18 @@
                     <span>Dark</span>
                   </button>
                 </div>
+                <fieldset class="accent-settings">
+                  <legend>Accent colour</legend>
+                  <p class="hint" id="accent-hint">Choose a colour for buttons and highlights. We adjust its shade to stay readable in each theme.</p>
+                  <div class="accent-presets" role="group" aria-label="Accent presets">
+                    <button type="button" class="ghost compact" data-accent="" aria-pressed="true">Default</button>
+                    <button type="button" class="ghost compact" data-accent="#176b60" aria-pressed="false"><span class="accent-dot accent-teal" aria-hidden="true"></span>Teal</button>
+                    <button type="button" class="ghost compact" data-accent="#2563eb" aria-pressed="false"><span class="accent-dot accent-blue" aria-hidden="true"></span>Blue</button>
+                    <button type="button" class="ghost compact" data-accent="#be185d" aria-pressed="false"><span class="accent-dot accent-rose" aria-hidden="true"></span>Rose</button>
+                    <button type="button" class="ghost compact" data-accent="#b45309" aria-pressed="false"><span class="accent-dot accent-amber" aria-hidden="true"></span>Amber</button>
+                  </div>
+                  <div class="accent-custom"><label for="accent-colour">Custom colour</label><input type="color" id="accent-colour" value="#4f46c8" aria-describedby="accent-hint" /><span id="accent-value" class="hint">Default palette</span></div>
+                </fieldset>
                 <div class="preference-row"><div><strong>Gentle rewards</strong><p class="hint">Ranks, badges, and shareable wins. No streaks to lose.</p></div><label class="switch"><input type="checkbox" id="rewards-enabled" /> <span>Enable rewards</span></label></div>
                 <label>Daily goal <select id="daily-goal"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select></label>
                 <div class="settings-divider"><label for="timezone">Hub timezone</label><select id="timezone"></select><p class="hint">Used for daily activity across this hub.</p><button type="button" class="primary" id="btn-save-settings">Save</button></div>
@@ -259,7 +283,7 @@
                 <div class="settings-divider">
                   <h3>AI scan-lines</h3>
                   <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>.</p>
-                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save, and you can refresh one thread from More options.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
+                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save, and you can refresh one thread from Actions.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
                   <div class="form-grid">
                     <label class="span2">Base URL <input id="ai_base_url" type="url" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" /></label>
                     <label>Model <select id="ai_model"><option value="llama3.2">llama3.2</option></select></label>

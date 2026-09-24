@@ -21,14 +21,14 @@ Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wo
 
 | Role | Light | Dark | Use |
 | --- | --- | --- | --- |
-| Canvas | `#F5F7F8` | `#11171C` | Page and header background |
-| Primary surface | White `#FFFFFF` | `#192127` | Grouped work, settings, and readers |
-| Secondary surface | `#EDF1F3` | `#222D34` | Quiet supporting controls |
-| Text | `#22313B` | `#E7EDF1` | Headings and body |
-| Secondary text | `#5E6D77` | `#A5B3BD` | Supporting text |
-| Primary action | Teal `#176B60` | Mint `#87D4BF` | Action, focus and selection |
-| Selected subtle background | `#E9F3F0` | `#1D3531` | Selected rows/tabs |
-| Divider | `#DCE3E7` | `#34424B` | Thin boundaries |
+| Canvas | `#F7F7FA` | `#14141C` | Page and header background |
+| Primary surface | White `#FFFFFF` | `#1E1E29` | Grouped work, settings, and readers |
+| Secondary surface | `#EEEEF4` | `#292937` | Quiet supporting controls |
+| Text | `#252536` | `#EDECF6` | Headings and body |
+| Secondary text | `#666579` | `#B0AFC4` | Supporting text |
+| Primary action | Indigo `#4F46C8` | Periwinkle `#B7BEFF` | Action, focus and selection |
+| Selected subtle background | `#EEEDFC` | `#2C2C47` | Selected rows/tabs |
+| Divider | `#DDDDE8` | `#3B3A4C` | Thin boundaries |
 | Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
 | Destructive action | `#AB3546` | `#F3A3AE` | Delete and irreversible actions |
 
@@ -38,9 +38,9 @@ Gold `#EFC978` is a small accent, not body text on white. Use colour with labels
 
 Use the local system sans-serif stack; no font download is required. Body: 15 px / 1.6. Headings: 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. All-caps eyebrows are short landmarks, never paragraphs or instructions.
 
-Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 12 px corners; controls use 8–10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
+Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 14 px corners; controls use 12 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
 
-- **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
+- **Primary:** indigo/periwinkle fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
 - **Secondary:** quiet outline with text. Use for alternatives such as Choose another, Copy text, or Settings.
 - **Destructive:** berry/rose with an explicit action label and confirmation where data will be lost.
 - **Close:** a visible 44 × 44 px × button with an accessible label. Settings keeps it visible while content scrolls.

@@ -138,6 +138,9 @@ def main() -> None:
                     page.evaluate("theme => localStorage.setItem('adhd_hub_theme', theme)", theme)
                     page.reload()
                     expect(page.locator("html")).to_have_attribute("data-theme", theme)
+                    expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
+                        "content", "#14141c" if theme == "dark" else "#f7f7fa"
+                    )
                     for width, height, label in ((1440, 900, "desktop"), (768, 1024, "tablet"), (390, 844, "mobile")):
                         page.set_viewport_size({"width": width, "height": height})
                         for screen in ("now", "work", "progress", "settings"):
@@ -168,14 +171,57 @@ def main() -> None:
                     page.keyboard.press("Enter")
                     assert not actions.evaluate("el => el.open"), "More actions disclosure did not close"
                 open_screen("work")
+                page.locator("#project-search").fill("website")
+                expect(page.locator("#project-list .proj")).to_have_count(1)
+                page.locator("#tag-filter").select_option("personal")
+                expect(page.locator("#project-list")).to_contain_text("No matching projects")
+                page.locator("#project-search").fill("")
+                expect(page.locator("#project-list .proj")).to_have_count(1)
+                page.locator("#tag-filter").select_option("")
+                expect(page.locator("#project-list .proj")).to_have_count(4)
+                utility = page.locator(".thread-utility").first
+                utility.locator("summary").focus()
+                page.keyboard.press("Enter")
+                expect(utility.locator(".thread-utility-panel")).to_be_visible()
+                page.screenshot(path=str(screenshots / "thread-actions-dark-desktop.png"), animations="disabled")
+                page.keyboard.press("Escape")
+                expect(utility.locator(".thread-utility-panel")).to_be_hidden()
+                expect(utility.locator("summary")).to_be_focused()
+                open_screen("now")
+                expect(page.locator("#now-open-count")).to_have_text("5")
+                expect(page.locator("#now-done-count")).to_have_text("2")
+                page.locator("#btn-focus-mode").click()
+                expect(page.locator(".now-overview")).to_be_hidden()
+                page.locator("#btn-focus-mode").click()
+                expect(page.locator(".now-overview")).to_be_visible()
+                open_screen("work")
                 page.locator("#btn-organise-projects").click()
                 expect(page.locator("#organise-dialog")).to_be_visible()
                 expect(page.locator("#organise-list")).not_to_contain_text("Loading suggestions")
                 assert page.locator("#organise-list [data-organise-index]").count(), "Expected seeded organiser suggestions"
                 page.screenshot(path=str(screenshots / "organise-dark-desktop.png"), animations="disabled")
+                page.keyboard.press("Escape")
+                open_screen("settings")
+                page.locator('[data-accent="#176b60"]').click()
+                expect(page.locator('[data-accent="#176b60"]')).to_have_attribute("aria-pressed", "true")
+                page.locator("#accent-colour").fill("#ffff00")
+                expect(page.locator("#accent-value")).to_have_text("#FFFF00")
+                page.reload()
+                open_screen("settings")
+                expect(page.locator("#accent-colour")).to_have_value("#ffff00")
+                dark_accent = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent')")
+                page.get_by_role("radio", name="Light theme", exact=True).click()
+                light_accent = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent')")
+                assert light_accent != dark_accent, "Custom accent must adapt to its theme"
+                page.set_viewport_size({"width": 390, "height": 844})
+                assert page.evaluate("document.documentElement.scrollWidth - innerWidth") <= 1
+                page.screenshot(path=str(screenshots / "accent-custom-light-mobile.png"), full_page=True, animations="disabled")
+                page.locator('[data-accent=""]').click()
+                expect(page.locator("#accent-value")).to_have_text("Default palette")
+                assert page.evaluate("document.documentElement.style.getPropertyValue('--accent')") == ""
                 assert not errors, f"Browser JavaScript errors: {errors}"
                 browser.close()
-                print(f"PASS: 24 screen/theme/viewport combinations, keyboard actions and organiser; screenshots: {screenshots}")
+                print(f"PASS: 24 screen/theme/viewport combinations, keyboard actions, organiser and custom accents; screenshots: {screenshots}")
         finally:
             server.terminate()
             server.wait(timeout=10)
