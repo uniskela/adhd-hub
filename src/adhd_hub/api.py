@@ -14,6 +14,7 @@ from adhd_hub.models import (
     OrganiseApplyRequest,
     PauseRequest,
     ProgressUpsert,
+    ProjectMove,
     ProjectRename,
     ProjectUpsert,
     ReminderCreate,
@@ -219,6 +220,15 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         if not detail:
             raise HTTPException(404, "Project not found")
         return detail
+
+    @router.post("/projects/{slug}/move", dependencies=[Depends(auth_dep)])
+    def move_project(slug: str, payload: ProjectMove):
+        try:
+            return service.move_project(slug, payload)
+        except KeyError:
+            raise HTTPException(404, "Project not found") from None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     @router.post("/projects/{slug}/rename", dependencies=[Depends(auth_dep)])
     def rename_project(slug: str, payload: ProjectRename):

@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
@@ -285,6 +285,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 bindThemeControls();
+wireProjectsDrawer();
 $("rewards-enabled").checked = preferences.getItem("adhd_hub_rewards") === "true";
 const savedGoal = preferences.getItem("adhd_hub_daily_goal") || "1";
 $("daily-goal").value = ["1", "3", "5"].includes(savedGoal) ? savedGoal : "1";
