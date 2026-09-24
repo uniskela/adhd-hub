@@ -241,6 +241,12 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "rewriteAllProjectScanLines" in work
     assert "/projects/" in work and "scan-lines" in work
     assert "Are you sure?" in work
+    assert "rewrite-scan-lines" in work
+    assert "sticky: true" in work
+    assert "refreshSiblingTabCounts" in work
+    state = (root / "src/adhd_hub/ui/js/state.js").read_text(encoding="utf-8")
+    assert "_toastApplyTimer" in state
+    assert "opts.sticky" in state
     css = (root / "src/adhd_hub/ui/app.css").read_text(encoding="utf-8")
     assert "text-overflow: ellipsis" in css
     assert ".thread-scan" in css

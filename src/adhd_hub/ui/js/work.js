@@ -91,7 +91,7 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
       : "";
     const handle = canDrag
       ? `<span class="proj-drag-handle" draggable="true" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder" aria-label="Drag ${title}">
-          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
         </span>`
       : "";
     return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}${open ? "" : " is-empty"}" data-depth="${depth}" data-slug="${escapeHtml(p.slug)}" style="--depth: ${depth}">
@@ -790,12 +790,38 @@ export async function openSourceRefresh(threadId) {
       }
     };
   }
+function setTabCount(view, total) {
+    const tabCount = document.querySelector(`[data-tab-count="${view}"]`);
+    if (tabCount) tabCount.textContent = String(total);
+  }
+
+function threadsQueryParams(view) {
+    const params = new URLSearchParams();
+    if (view === "stale") params.set("stale", "true");
+    else params.set("status", view === "done" ? "done" : "open");
+    if (state.projectFilter) params.set("project_slug", state.projectFilter);
+    params.set("limit", "100");
+    return params;
+  }
+
+/** Populate sibling tab badges without requiring a click on each tab. */
+async function refreshSiblingTabCounts(request) {
+    const siblings = ["open", "stale", "done"].filter((view) => view !== state.currentView);
+    const results = await Promise.all(
+      siblings.map(async (view) => {
+        const threads = await api("/threads?" + threadsQueryParams(view).toString());
+        return [view, Array.isArray(threads) ? threads.length : 0];
+      })
+    );
+    if (request !== state.threadsRequest) return;
+    for (const [view, total] of results) setTabCount(view, total);
+  }
+
 export function renderThreads(threads) {
     closeNotesReader({ restoreFocus: false });
     const query = $("thread-search").value.trim().toLowerCase();
     const total = threads.length;
-    const tabCount = document.querySelector(`[data-tab-count="${state.currentView}"]`);
-    if (tabCount) tabCount.textContent = String(total);
+    setTabCount(state.currentView, total);
     const searchRow = $("thread-search-row");
     const searchToggle = $("btn-toggle-thread-search");
     const largeList = total >= 12;
@@ -974,13 +1000,19 @@ export async function rewriteAllProjectScanLines() {
       btn.disabled = true;
       btn.textContent = "Rewriting…";
     }
-    const openCount = (state.threadsCache || []).filter(
-      (t) => String(t.status || "open") === "open"
-    ).length;
+    const toastKey = "rewrite-scan-lines";
+    const openCount =
+      Number(state.detailCache?.counts?.open) ||
+      (state.threadsCache || []).filter(
+        (t) => String(t.status || "open") === "open"
+      ).length;
+    // Sticky keyed toast: stay visible for the whole batch (info toasts otherwise
+    // auto-dismiss at 4.5s while the request is still in flight).
     setMsg(
       openCount > 0
-        ? `Rewriting scan lines… (0/${openCount} started)`
-        : "Rewriting scan lines…"
+        ? `Rewriting scan lines… (0/${openCount})`
+        : "Rewriting scan lines…",
+      { key: toastKey, sticky: true, variant: "info" }
     );
     try {
       const out = await api(`/projects/${encodeURIComponent(slug)}/scan-lines`, {
@@ -1001,9 +1033,15 @@ export async function rewriteAllProjectScanLines() {
         typeof out.total === "number" && out.total > 0
           ? ` (${out.completed || 0}/${out.total})`
           : "";
-      setMsg((out.message || "Scan lines updated.") + progress);
+      setMsg((out.message || "Scan lines updated.") + progress, {
+        key: toastKey,
+        variant: "info",
+      });
     } catch (e) {
-      setMsg(e.message || "Could not rewrite project scan lines.");
+      setMsg(e.message || "Could not rewrite project scan lines.", {
+        key: toastKey,
+        variant: "error",
+      });
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -1014,15 +1052,14 @@ export async function rewriteAllProjectScanLines() {
 
 export async function loadThreads() {
     const request = ++state.threadsRequest;
-    const params = new URLSearchParams();
-    if (state.currentView === "stale") params.set("stale", "true");
-    else params.set("status", state.currentView === "done" ? "done" : "open");
-    if (state.projectFilter) params.set("project_slug", state.projectFilter);
-    params.set("limit", "100");
-    const threads = await api("/threads?" + params.toString());
+    const threads = await api(
+      "/threads?" + threadsQueryParams(state.currentView).toString()
+    );
     if (request !== state.threadsRequest) return;
     state.threadsCache = threads;
     renderThreads(state.threadsCache);
+    // Fill sibling tab badges in the background (do not block the list).
+    refreshSiblingTabCounts(request).catch(() => {});
   }
 export async function selectProject(slug) {
     const request = ++state.projectRequest;
