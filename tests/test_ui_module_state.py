@@ -279,11 +279,16 @@ def test_work_tab_counts_and_rewrite_toast_markers():
     assert "completed > 0" in work
     assert "rewriteAllInFlight" in work
     assert "restoreRewriteAllInFlightUi" in work
+    assert "aiScanLinesEnabled" in work
+    assert "syncAiRewriteUi" in work
     assert "midFlightSame" in work
     assert "opts.sticky" in state
     assert "dataset.key" in state
     assert "_toastApplyTimer" in state
     assert "rewriteAllInFlight" in state
+    assert "aiConfigCache" in state
+    settings = (UI_JS / "settings.js").read_text()
+    assert "syncAiRewriteUi" in settings
 
 
 def test_mobile_overflow_menu_and_notes_focus_markers():

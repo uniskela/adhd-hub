@@ -839,6 +839,14 @@ function setRewriteAllButtons({ hidden, disabled, text } = {}) {
     }
   }
 
+/** True when Settings → Enable AI is on and a base URL is configured (matches server ai_configured). */
+function aiScanLinesEnabled() {
+    const cfg = state.aiConfigCache;
+    if (!cfg) return false;
+    if (cfg.active != null) return Boolean(cfg.active);
+    return Boolean(cfg.enabled && String(cfg.base_url || "").trim());
+  }
+
 function rewriteAllInFlightFor(slug) {
     return Boolean(slug) && state.rewriteAllInFlight === slug;
   }
@@ -856,6 +864,26 @@ function restoreRewriteAllInFlightUi() {
       sticky: true,
       variant: "info",
     });
+  }
+
+/** Refresh rewrite-all header + per-thread rewrite actions after AI config changes. */
+export function syncAiRewriteUi() {
+    if (state.detailCache && state.projectFilter) {
+      renderProjectHeader(state.detailCache);
+    } else if (!state.projectFilter) {
+      renderProjectHeader(null);
+    } else if (rewriteAllInFlightFor(state.projectFilter)) {
+      restoreRewriteAllInFlightUi();
+    } else {
+      setRewriteAllButtons({
+        hidden: !aiScanLinesEnabled(),
+        disabled: false,
+        text: "Rewrite all scan lines",
+      });
+    }
+    if (Array.isArray(state.threadsCache) && state.activeScreen === "work") {
+      renderThreads(state.threadsCache);
+    }
   }
 
 export function renderProjectHeader(p) {
@@ -912,8 +940,10 @@ export function renderProjectHeader(p) {
       wireOverflowMenu(mobileActions);
     }
     const inFlight = rewriteAllInFlightFor(p.slug || state.projectFilter);
+    // Hide rewrite-all when Enable AI is off (unless a batch is already in flight).
+    const showRewrite = inFlight || aiScanLinesEnabled();
     setRewriteAllButtons({
-      hidden: false,
+      hidden: !showRewrite,
       disabled: inFlight,
       text: inFlight ? "Rewriting…" : "Rewrite all scan lines",
     });
@@ -1144,7 +1174,11 @@ export function renderThreads(threads) {
                 : ""
             }
             ${t.source_issue_url ? `<button type="button" class="ghost compact" data-refresh-source="${escapeHtml(t.id)}">Refresh from source issue</button>` : ""}
-            <button type="button" class="ghost compact" data-rewrite-scan="${escapeHtml(t.id)}">Rewrite scan line</button>
+            ${
+              aiScanLinesEnabled()
+                ? `<button type="button" class="ghost compact" data-rewrite-scan="${escapeHtml(t.id)}">Rewrite scan line</button>`
+                : ""
+            }
             <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
             </div>
             </div>
@@ -1187,6 +1221,10 @@ export function renderThreads(threads) {
 
 export async function rewriteScanLine(threadId) {
     if (!threadId) return;
+    if (!aiScanLinesEnabled()) {
+      setMsg("Enable AI in Settings → Preferences to rewrite scan lines.");
+      return;
+    }
     const btn = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
     if (btn) {
       btn.disabled = true;
@@ -1220,6 +1258,11 @@ export async function rewriteAllProjectScanLines() {
     const slug = state.projectFilter;
     if (!slug) {
       setMsg("Select a project first to rewrite its scan lines.");
+      return;
+    }
+    if (!aiScanLinesEnabled()) {
+      setMsg("Enable AI in Settings → Preferences to rewrite scan lines.");
+      setRewriteAllButtons({ hidden: true });
       return;
     }
     // Guard before confirm so a second click cannot reopen the dialog mid-batch.
@@ -1285,10 +1328,14 @@ export async function rewriteAllProjectScanLines() {
         state.rewriteAllInFlight = null;
       }
       if (state.projectFilter === slug) {
-        setRewriteAllButtons({
-          disabled: false,
-          text: "Rewrite all scan lines",
-        });
+        if (aiScanLinesEnabled()) {
+          setRewriteAllButtons({
+            disabled: false,
+            text: "Rewrite all scan lines",
+          });
+        } else {
+          setRewriteAllButtons({ hidden: true });
+        }
       }
     }
   }

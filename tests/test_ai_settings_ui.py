@@ -247,6 +247,8 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "This may take a moment." in work
     assert "rewriteAllInFlight" in work
     assert "restoreRewriteAllInFlightUi" in work
+    assert "aiScanLinesEnabled" in work
+    assert "syncAiRewriteUi" in work
     assert "completed > 0" in work
     assert "(0/${" not in work
     assert "out.completed || 0" not in work
@@ -254,17 +256,11 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "refreshSiblingTabCounts" in work
     state = (root / "src/adhd_hub/ui/js/state.js").read_text(encoding="utf-8")
     assert "rewriteAllInFlight" in state
+    assert "aiConfigCache" in state
     assert "_toastApplyTimer" in state
     assert "opts.sticky" in state
-    css = (root / "src/adhd_hub/ui/app.css").read_text(encoding="utf-8")
-    assert "text-overflow: ellipsis" in css
-    assert ".thread-scan" in css
-    assert "line-clamp: 2" in css
-    assert "-webkit-line-clamp: 2" in css
-    for chunk in css.split(".thread-scan"):
-        block = chunk.split("}", 1)[0]
-        assert "white-space: nowrap" not in block
     settings = (root / "src/adhd_hub/ui/js/settings.js").read_text(encoding="utf-8")
+    assert "syncAiRewriteUi" in settings
     assert "loadAiConfig" in settings
     assert "/ai/config" in settings
     assert "testAndLoadAiModels" in settings
@@ -280,6 +276,14 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "(saved)" in settings
     assert "fromSelect" not in settings
     assert 'const sel = $("ai_model")' in settings
+    css = (root / "src/adhd_hub/ui/app.css").read_text(encoding="utf-8")
+    assert "text-overflow: ellipsis" in css
+    assert ".thread-scan" in css
+    assert "line-clamp: 2" in css
+    assert "-webkit-line-clamp: 2" in css
+    for chunk in css.split(".thread-scan"):
+        block = chunk.split("}", 1)[0]
+        assert "white-space: nowrap" not in block
     boot = (root / "src/adhd_hub/ui/js/boot.js").read_text(encoding="utf-8")
     assert "rewriteAllProjectScanLines" in boot
     assert "btn-rewrite-all-scan" in boot
