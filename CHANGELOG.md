@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/uniskela/adhd-hub/compare/v0.16.0...v0.16.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **ui:** guard rewrite-all against double-run and fake 0/N ([#216](https://github.com/uniskela/adhd-hub/issues/216)) ([ff1cdbb](https://github.com/uniskela/adhd-hub/commit/ff1cdbbafa4740d0c8323443f2150edaf50ecfe3))
+
 ## [0.16.0](https://github.com/uniskela/adhd-hub/compare/v0.15.0...v0.16.0) (2026-09-24)
 
 
