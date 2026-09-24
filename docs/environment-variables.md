@@ -63,7 +63,7 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 
 Soft default: **off** until enabled. Heuristic scan-lines always work.
 
-You can enable AI from **Settings → Preferences → AI scan-lines** (base URL, model, optional API key, timeout). UI-saved values live in `data/ai.json`; the API key is encrypted with the Hub access token (same pattern as OpenClaw) and is never returned to the browser. Environment variables still bootstrap a fresh instance; a non-empty `ADHD_HUB_AI_BASE_URL` opts in until you save different Settings.
+You can enable AI from **Settings → Preferences → AI scan-lines** (base URL, model, optional API key, timeout). Use **Test & Load Models** after entering a base URL to call the provider’s OpenAI-compatible `/models` endpoint and fill the model suggestions (button stays off until a URL is present; it does not save settings). UI-saved values live in `data/ai.json`; the API key is encrypted with the Hub access token (same pattern as OpenClaw) and is never returned to the browser. Environment variables still bootstrap a fresh instance; a non-empty `ADHD_HUB_AI_BASE_URL` opts in until you save different Settings.
 
 Uses an OpenAI-compatible `/chat/completions` endpoint (local Ollama or similar preferred). Only bounded, scrubbed structured thread fields are sent — never progress bodies or transcript references. Common credential, URL, and machine-path patterns are redacted before the request and again on the response; keep sensitive material out of continuity fields. On failure or when unset, heuristic scan-lines are used.
 

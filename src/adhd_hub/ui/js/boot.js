@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -172,6 +172,15 @@ $("btn-save-ai")?.addEventListener("click", () =>
     else setMsg(String(e));
   })
 );
+$("btn-load-ai-models")?.addEventListener("click", () =>
+  testAndLoadAiModels().catch((e) => {
+    const msg = $("ai-msg");
+    if (msg) msg.textContent = e.message;
+    else setMsg(String(e));
+  })
+);
+$("ai_base_url")?.addEventListener("input", () => syncAiLoadModelsButton());
+$("ai_base_url")?.addEventListener("change", () => syncAiLoadModelsButton());
 $("btn-save-forge").addEventListener("click", () =>
   saveForge().catch((e) => setMsg(String(e)))
 );

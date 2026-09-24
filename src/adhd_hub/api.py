@@ -480,6 +480,52 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             )
         return service.save_ai_config(config).public_dict()
 
+    @router.post("/ai/models", dependencies=[Depends(auth_dep)])
+    def post_ai_models(payload: dict | None = None):
+        """Draft-friendly GET {base}/models — does not persist settings."""
+        from adhd_hub.ai_client import list_ai_models
+
+        body = payload or {}
+        current = service.ai_config()
+        base_url = str(body.get("base_url") or current.base_url or "").strip()
+        if not base_url:
+            raise HTTPException(400, "add a base URL before loading models")
+        try:
+            validated = AiConfig(base_url=base_url, model=current.model or "llama3.2")
+        except ValidationError as exc:
+            detail = "; ".join(
+                str(error.get("msg", "Invalid AI setting")).removeprefix("Value error, ")
+                for error in exc.errors(include_input=False)
+            )
+            raise HTTPException(400, detail) from exc
+        url_changed = validated.base_url != current.base_url
+        if "api_key" in body:
+            api_key = str(body.get("api_key") or "").strip()
+        elif url_changed:
+            # Never send a previously saved key to a newly typed host.
+            api_key = ""
+        else:
+            api_key = current.api_key
+        timeout_raw = body.get("timeout_seconds")
+        try:
+            timeout_seconds = (
+                float(timeout_raw)
+                if timeout_raw is not None
+                else float(current.timeout_seconds)
+            )
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, "timeout must be a number of seconds") from exc
+        if timeout_seconds <= 0 or timeout_seconds > 30:
+            raise HTTPException(400, "timeout must be between 0 and 30 seconds")
+        result = list_ai_models(
+            base_url=validated.base_url,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+        )
+        if not result["ok"]:
+            raise HTTPException(502, str(result["message"]))
+        return result
+
     @router.get("/openclaw/pair", dependencies=[Depends(auth_dep)])
     def get_openclaw_pair():
         return service.openclaw_pair_status()

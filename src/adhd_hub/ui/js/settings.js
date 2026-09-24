@@ -93,6 +93,31 @@ function formatAiStatus(config) {
     return "AI: off — heuristic scan-lines only";
   }
 
+export function syncAiLoadModelsButton() {
+    const btn = $("btn-load-ai-models");
+    if (!btn) return;
+    btn.disabled = !($("ai_base_url")?.value || "").trim();
+  }
+
+export function fillAiModelList(models, preferred) {
+    const list = $("ai_model_list");
+    const input = $("ai_model");
+    if (!list || !input) return;
+    list.replaceChildren();
+    const ids = Array.isArray(models) ? models.map((m) => String(m).trim()).filter(Boolean) : [];
+    for (const id of ids) {
+      const opt = document.createElement("option");
+      opt.value = id;
+      list.appendChild(opt);
+    }
+    const current = (preferred ?? input.value ?? "").trim();
+    if (current && ids.includes(current)) {
+      input.value = current;
+    } else if (!current && ids.length) {
+      input.value = ids[0];
+    }
+  }
+
 export async function loadAiConfig() {
     const status = $("ai-status");
     const keyStatus = $("ai_key_status");
@@ -112,9 +137,11 @@ export async function loadAiConfig() {
       }
       if (status) status.textContent = formatAiStatus(config);
       state.aiConfigCache = config;
+      syncAiLoadModelsButton();
       return config;
     } catch (_e) {
       if (status) status.textContent = "AI: could not load settings";
+      syncAiLoadModelsButton();
       return null;
     }
   }
@@ -144,8 +171,38 @@ export async function saveAiConfig() {
       : "No saved API key.";
     $("ai-status").textContent = formatAiStatus(config);
     state.aiConfigCache = config;
+    syncAiLoadModelsButton();
     if (msg) msg.textContent = "AI settings saved.";
     return config;
+  }
+
+export async function testAndLoadAiModels() {
+    const msg = $("ai-msg");
+    const status = $("ai-status");
+    syncAiLoadModelsButton();
+    const baseUrl = ($("ai_base_url")?.value || "").trim();
+    if (!baseUrl) {
+      if (msg) msg.textContent = "Add a base URL before loading models.";
+      return null;
+    }
+    if (msg) msg.textContent = "Testing connection…";
+    const payload = {
+      base_url: baseUrl,
+      timeout_seconds: Number($("ai_timeout")?.value) || 2.5,
+    };
+    const key = ($("ai_api_key")?.value || "").trim();
+    if (key) payload.api_key = key;
+    else if ($("ai_clear_key")?.checked) payload.api_key = "";
+    const result = await api("/ai/models", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    fillAiModelList(result.models || [], ($("ai_model")?.value || "").trim());
+    const host = baseUrl.replace(/^https?:\/\//, "") || "provider";
+    const count = Array.isArray(result.models) ? result.models.length : 0;
+    if (status) status.textContent = `AI: connection OK · ${count} models via ${host}`;
+    if (msg) msg.textContent = result.message || "Models loaded.";
+    return result;
   }
 
 export function selectedConnectAgents() {
