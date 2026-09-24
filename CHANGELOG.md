@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.16.0](https://github.com/uniskela/adhd-hub/compare/v0.15.0...v0.16.0) (2026-09-24)
+
+
+### Features
+
+* **ai:** base URL presets and replace models on load ([#181](https://github.com/uniskela/adhd-hub/issues/181)) ([f4c4b4d](https://github.com/uniskela/adhd-hub/commit/f4c4b4d6faa57a9f6d71dab1fe45dae93a4d83af))
+* **ai:** opt-in local LLM thread scan-lines ([#161](https://github.com/uniskela/adhd-hub/issues/161)) ([80f77b5](https://github.com/uniskela/adhd-hub/commit/80f77b56379c7c6d73110b531c00a252c87d2d23))
+* **ai:** rewrite all project scan lines and full-width cards ([#199](https://github.com/uniskela/adhd-hub/issues/199)) ([2762270](https://github.com/uniskela/adhd-hub/commit/2762270899aef0349538f0bd582ef9946a2abdb2))
+* **ai:** Settings UI and manual scan-line rewrite ([#173](https://github.com/uniskela/adhd-hub/issues/173)) ([2d63d46](https://github.com/uniskela/adhd-hub/commit/2d63d46f29ff84d69762da32bcfcd9a4a1b660c2))
+* **ai:** Test & Load Models in AI settings ([#175](https://github.com/uniskela/adhd-hub/issues/175)) ([2a71c79](https://github.com/uniskela/adhd-hub/commit/2a71c79f285221c1c3da9ea87749eb14b2875549))
+* **notes:** AI Summarise card on notes reader ([#207](https://github.com/uniskela/adhd-hub/issues/207)) ([c05e1ea](https://github.com/uniskela/adhd-hub/commit/c05e1ea3817f25f3304133b0406bfbf694edd0e6))
+* **projects:** Notion-style parent/child hierarchy in Projects rail ([#182](https://github.com/uniskela/adhd-hub/issues/182)) ([deaccc7](https://github.com/uniskela/adhd-hub/commit/deaccc7e7750a5061c3267a677cf3516a4be1296))
+* **projects:** organisation / no-repository project option ([#198](https://github.com/uniskela/adhd-hub/issues/198)) ([9ffd00b](https://github.com/uniskela/adhd-hub/commit/9ffd00b6ef682f521b68ea72d0d8f975c8582d3a))
+* **projects:** Wave 6 organiser suggestions with confirm ([#162](https://github.com/uniskela/adhd-hub/issues/162)) ([f85faac](https://github.com/uniskela/adhd-hub/commit/f85faac738340ca3d93051a826f707dffca1da1d))
+* **projects:** Wave 6 tags, filters and last-touch cues ([#160](https://github.com/uniskela/adhd-hub/issues/160)) ([15f1700](https://github.com/uniskela/adhd-hub/commit/15f1700756634b49329cfdbf45f4b3b7f2559461))
+* **projects:** wider rail, mobile drawer, and DnD nesting ([#187](https://github.com/uniskela/adhd-hub/issues/187)) ([16e235d](https://github.com/uniskela/adhd-hub/commit/16e235df5c6c764025e153dd3cb501ca6c23a0a5))
+* **ui:** cycle Appearance themes with one header click ([#172](https://github.com/uniskela/adhd-hub/issues/172)) ([35c05d3](https://github.com/uniskela/adhd-hub/commit/35c05d341af191b1671f5f9bf58d442814b2181a))
+* **ui:** improve mobile My Work and Projects UX ([#197](https://github.com/uniskela/adhd-hub/issues/197)) ([bd65d24](https://github.com/uniskela/adhd-hub/commit/bd65d247673984e8527d376ab2479db3526986d6))
+* **ui:** personalize colours and simplify workspace navigation ([#178](https://github.com/uniskela/adhd-hub/issues/178)) ([18c02ee](https://github.com/uniskela/adhd-hub/commit/18c02ee94798de0c0dbbb578b6ea54cea9215010))
+* **ui:** Wave 6 heuristic thread scan-lines ([#159](https://github.com/uniskela/adhd-hub/issues/159)) ([1b7cc81](https://github.com/uniskela/adhd-hub/commit/1b7cc8187df53b83b65fb253549e125cab9ef216))
+
+
+### Bug Fixes
+
+* **ai:** clearer Gemini chat 404 diagnostics ([#188](https://github.com/uniskela/adhd-hub/issues/188)) ([a1f6172](https://github.com/uniskela/adhd-hub/commit/a1f617269248a633daec117d19eb7b889f56bb9b))
+* **ai:** preset restore matching and 15s default timeout ([#191](https://github.com/uniskela/adhd-hub/issues/191)) ([20de5f6](https://github.com/uniskela/adhd-hub/commit/20de5f65c0e88ccc7123739027b38f1576cac465))
+* **ai:** reject low-quality scan lines and prefer heuristic ([#190](https://github.com/uniskela/adhd-hub/issues/190)) ([9c1307d](https://github.com/uniskela/adhd-hub/commit/9c1307dca1f68af55ce657354b13ec077caa71f5))
+* **ai:** strip models/ prefix for Gemini OpenAI-compat ([#184](https://github.com/uniskela/adhd-hub/issues/184)) ([fe6d6c0](https://github.com/uniskela/adhd-hub/commit/fe6d6c041e5e1c4f4d548336f90fb2315dc6f3a3))
+* **ui:** keep projects drawer open after DnD ([#211](https://github.com/uniskela/adhd-hub/issues/211)) ([88556f6](https://github.com/uniskela/adhd-hub/commit/88556f61f5451fec34283a33994f14d980f1bd82))
+* **ui:** mobile menus, notes Focus, rewrite toast, drawer DnD ([#209](https://github.com/uniskela/adhd-hub/issues/209)) ([bfd9801](https://github.com/uniskela/adhd-hub/commit/bfd980118a49c311a432d7f80ede1265da9d1e27))
+* **ui:** refine dashboard hierarchy and responsive navigation ([#169](https://github.com/uniskela/adhd-hub/issues/169)) ([fcdbd28](https://github.com/uniskela/adhd-hub/commit/fcdbd289fbac6a85edbdea777bf98faef8f75669))
+* **ui:** tab counts, rewrite toast, and rail grips ([#206](https://github.com/uniskela/adhd-hub/issues/206)) ([b0ba81a](https://github.com/uniskela/adhd-hub/commit/b0ba81a6bd8733143a56c8e8239e852a06ceec15))
+* **ui:** tighten rail grip spacing and two-line scan clamps ([#202](https://github.com/uniskela/adhd-hub/issues/202)) ([76d0af1](https://github.com/uniskela/adhd-hub/commit/76d0af1e0147d1f55f3996fdd4c10ed3b4edd59f))
+* **ui:** use styled select for AI Model dropdown ([#177](https://github.com/uniskela/adhd-hub/issues/177)) ([5266bb8](https://github.com/uniskela/adhd-hub/commit/5266bb8b94b5b6eeb14525e7ce58f3cd4a0bc81f))
+
+
+### Documentation
+
+* catch up README and roadmap for v0.15.0 ([#156](https://github.com/uniskela/adhd-hub/issues/156)) ([5a7bf59](https://github.com/uniskela/adhd-hub/commit/5a7bf591587f590e1b7d149f4db1e701f839b0b6))
+* catch up README and roadmap for v0.16.0 ([#167](https://github.com/uniskela/adhd-hub/issues/167)) ([0768675](https://github.com/uniskela/adhd-hub/commit/0768675285442b024fccb1c1b8f37508a4f392e0))
+
 ## [0.15.0](https://github.com/uniskela/adhd-hub/compare/v0.14.0...v0.15.0) (2026-09-23)
 
 
