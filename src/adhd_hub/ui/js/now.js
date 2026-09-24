@@ -277,11 +277,13 @@ export async function summariseNotes() {
     }
     const btn = $("btn-notes-summarise");
     const body = $("notes-reader-body");
+    const toastKey = "notes-summarise";
     if (btn) {
       btn.disabled = true;
       btn.textContent = "Summarising…";
     }
-    setMsg("Summarising notes…");
+    // Sticky keyed toast: AI calls can outlast the default info dismiss window.
+    setMsg("Summarising notes…", { key: toastKey, sticky: true, variant: "info" });
     try {
       const out = await api(`/threads/${encodeURIComponent(threadId)}/notes-summary`, {
         method: "POST",
@@ -291,7 +293,10 @@ export async function summariseNotes() {
         body.innerHTML = out.progress_html;
         wireNotesActions(body);
       }
-      setMsg(out.message || "Summary updated.");
+      setMsg(out.message || "Summary updated.", {
+        key: toastKey,
+        variant: out.settings_hint ? "warning" : "info",
+      });
       if (out.settings_hint) {
         showScreen("settings");
         // Soft cue into Preferences → AI (avoid importing settings.js — circular via load.js).
@@ -307,7 +312,10 @@ export async function summariseNotes() {
         }
       }
     } catch (error) {
-      setMsg(error.message || "Could not summarise notes.");
+      setMsg(error.message || "Could not summarise notes.", {
+        key: toastKey,
+        variant: "error",
+      });
     } finally {
       if (btn) {
         btn.disabled = false;
