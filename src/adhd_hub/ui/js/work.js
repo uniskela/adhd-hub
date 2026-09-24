@@ -758,3 +758,78 @@ export async function deleteProject() {
       setMsg("Delete failed: " + e.message);
     }
   }
+
+export async function openOrganiseDialog() {
+    const dialog = $("organise-dialog");
+    const list = $("organise-list");
+    const empty = $("organise-empty");
+    list.innerHTML = `<p class="hint">Loading suggestions…</p>`;
+    empty.hidden = true;
+    empty.textContent = "No new tag suggestions right now.";
+    dialog.showModal();
+    try {
+      const data = await api("/projects/organise/suggestions");
+      const suggestions = data.suggestions || [];
+      if (!suggestions.length) {
+        list.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      list.innerHTML = suggestions
+        .map((item, index) => {
+          const suggested = (item.suggested_tags || []).join(", ");
+          const current = (item.current_tags || []).join(", ") || "none";
+          const reason = (item.reasons || []).join("; ");
+          return `<div class="organise-row">
+            <input type="checkbox" data-organise-index="${index}" aria-label="Apply tags to ${escapeHtml(item.title || item.slug)}" checked />
+            <span class="organise-copy">
+              <strong>${escapeHtml(item.title || item.slug)}</strong>
+              <span class="meta">Current: ${escapeHtml(current)}</span>
+              <span class="meta">${reason ? escapeHtml(reason) : "Suggested tags"}</span>
+              <input type="text" data-organise-tags="${index}" value="${escapeHtml(suggested)}" aria-label="Tags for ${escapeHtml(item.slug)}" />
+              <input type="hidden" data-organise-slug="${index}" value="${escapeHtml(item.slug)}" />
+            </span>
+          </div>`;
+        })
+        .join("");
+    } catch (e) {
+      list.innerHTML = "";
+      empty.hidden = false;
+      empty.textContent = "Could not load suggestions: " + e.message;
+    }
+  }
+
+export async function applyOrganiseSelection() {
+    const list = $("organise-list");
+    const items = [];
+    list.querySelectorAll("[data-organise-index]").forEach((box) => {
+      if (!box.checked) return;
+      const index = box.dataset.organiseIndex;
+      const slug = list.querySelector(`[data-organise-slug="${index}"]`)?.value;
+      const raw = list.querySelector(`[data-organise-tags="${index}"]`)?.value || "";
+      const tags = raw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (slug && tags.length) items.push({ slug, tags });
+    });
+    if (!items.length) {
+      setMsg("Select at least one suggestion with tags to apply.");
+      return;
+    }
+    try {
+      const out = await api("/projects/organise/apply", {
+        method: "POST",
+        body: JSON.stringify({ items }),
+      });
+      $("organise-dialog").close();
+      const n = (out.applied || []).length;
+      const skipped = (out.skipped || []).length;
+      setMsg((n ? `Applied tags to ${n} project${n === 1 ? "" : "s"}.` : "Nothing applied.") +
+        (skipped ? ` ${skipped} skipped; reopen Organise to review current projects and tag limits.` : ""));
+      await loadAll();
+    } catch (e) {
+      setMsg("Could not apply organisation: " + e.message);
+    }
+  }

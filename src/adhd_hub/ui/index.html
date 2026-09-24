@@ -124,7 +124,10 @@
       <aside class="rail" aria-label="Projects">
         <div class="rail-head">
           <h2>Projects</h2>
-          <button type="button" class="primary compact" id="btn-new-project">New</button>
+          <div class="rail-head-actions">
+            <button type="button" class="ghost compact" id="btn-organise-projects" title="Suggest tags">Organise</button>
+            <button type="button" class="primary compact" id="btn-new-project">New</button>
+          </div>
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
         <label class="tag-filter-label" for="tag-filter">Tag filter</label>
@@ -476,6 +479,22 @@
         <button type="button" class="ghost" id="btn-rename-project">Rename slug…</button>
         <button type="button" class="danger" id="btn-delete-project">Delete…</button>
         <button type="button" class="ghost" id="btn-close-project">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="organise-dialog" aria-labelledby="organise-title">
+    <form method="dialog" id="organise-form" class="dialog-card">
+      <div class="section-heading">
+        <h2 id="organise-title">Suggest project tags</h2>
+        <button type="submit" class="icon-button" value="cancel" aria-label="Close">×</button>
+      </div>
+      <p class="hint">Review suggestions before applying. Nothing is saved until you confirm.</p>
+      <div id="organise-list" class="organise-list"></div>
+      <p id="organise-empty" class="hint" hidden>No new tag suggestions right now.</p>
+      <div class="actions">
+        <button type="button" class="primary" id="btn-organise-apply">Apply selected</button>
+        <button type="submit" class="ghost" value="cancel">Cancel</button>
       </div>
     </form>
   </dialog>
