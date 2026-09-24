@@ -21,26 +21,24 @@ Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wo
 
 | Role | Light | Dark | Use |
 | --- | --- | --- | --- |
-| Canvas | `#F7F6F1` | `#0D1210` | Page background |
-| Header / navigation | White `#FFFFFF` | `#101613` | Primary chrome |
-| Primary surface | White `#FFFFFF` | `#151D19` | Intentional grouped content |
-| Elevated surface | White `#FFFFFF` | `#1B2520` | Dialogs and popovers |
-| Text | `#20332C` | `#E7EEEA` | Headings and body |
-| Secondary text | `#617069` | `#98A89F` | Supporting text |
-| Primary action | Teal `#176B60` | Mint `#7ACDB6` | Action, focus and selection |
-| Selected subtle background | `#EFF1EC` | `#172A24` | Selected rows/tabs |
-| Divider | `#D7DDD8` | `#2A3731` | Thin boundaries |
+| Canvas | `#F5F7F8` | `#11171C` | Page and header background |
+| Primary surface | White `#FFFFFF` | `#192127` | Grouped work, settings, and readers |
+| Secondary surface | `#EDF1F3` | `#222D34` | Quiet supporting controls |
+| Text | `#22313B` | `#E7EDF1` | Headings and body |
+| Secondary text | `#5E6D77` | `#A5B3BD` | Supporting text |
+| Primary action | Teal `#176B60` | Mint `#87D4BF` | Action, focus and selection |
+| Selected subtle background | `#E9F3F0` | `#1D3531` | Selected rows/tabs |
+| Divider | `#DCE3E7` | `#34424B` | Thin boundaries |
 | Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
-| Destructive action | `#AB3546` | `#F08C99` | Delete and irreversible actions |
-| Destructive action | Berry `#AB3546` | Rose `#FFACB8` | Delete and irreversible actions |
+| Destructive action | `#AB3546` | `#F3A3AE` | Delete and irreversible actions |
 
 Gold `#EFC978` is a small accent, not body text on white. Use colour with labels and state text: earned badges say **Earned**, tabs expose selection, and destructive buttons name the action. Primary labels and normal body/secondary text should meet WCAG AA contrast in both modes; focus outlines should remain visible. The interface follows the system theme unless the user chooses otherwise.
 
 ## Type, spacing, and buttons
 
-Use the local system sans-serif stack; no font download is required. Body: 15 px / 1.6. Headings: 1.2 line height. Section headings: about 18–20 px. Main headings: 29–41 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. All-caps eyebrows are short landmarks, never paragraphs or instructions.
+Use the local system sans-serif stack; no font download is required. Body: 15 px / 1.6. Headings: 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. All-caps eyebrows are short landmarks, never paragraphs or instructions.
 
-Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces and controls use roughly 8–10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
+Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 12 px corners; controls use 8–10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
 
 - **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
 - **Secondary:** quiet outline with text. Use for alternatives such as Choose another, Copy text, or Settings.
@@ -49,7 +47,7 @@ Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, 
 - **Focus:** 3 px accent outline with space around it. Never remove keyboard focus styling.
 - **Motion:** brief colour transitions only; honour reduced-motion preferences. No animated XP counters, confetti, audio, or pulsing reminders.
 
-Controls target at least 44 px height. Settings tabs support Left/Right, Home/End, and Tab; Escape closes the dialog. On mobile, keep all four tab names visible and scroll content inside the dialog.
+Controls target at least 44 px height. Settings tabs support Left/Right, Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Tablet headers wrap navigation onto its own row. Page changes do not animate; colour transitions honour reduced-motion preferences.
 
 ## Voice and attention
 

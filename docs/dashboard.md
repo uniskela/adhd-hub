@@ -2,9 +2,9 @@
 
 On desktop, use the compact **Appearance** menu in the app header for System, Light, or Dark. The same control is available under **Settings → Preferences**; on mobile, use Settings. The preference is saved in this browser and follows operating-system changes when set to System. If browser storage is blocked, the dashboard still works and preferences last for the current page visit.
 
-The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Choose this step** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
+The home screen is **Now**: one chosen task, its next step, and one clear **Start** button. Your choice is remembered in this browser. **Start** (or **Pause here** while working) and **Done** stay visible; **More actions** holds **Choose another** and **Copy agent prompt**. With no task selected, choose one from your work or use **Help me choose** for a suggestion. **My work** is the browsing view for projects and threads; choosing **Focus on this** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
 
-On My work, each thread card shows a short **scan line** under the title when Focus, Resume, Goal, Next, or a safe progress snippet saved on that thread is available (heuristic by default; optional local LLM rewrite when `ADHD_HUB_AI_BASE_URL` is set — see [environment variables](environment-variables.md)). Full detail stays in Notes. **Notes & context** opens a reader for that thread’s saved continuity (Goal, Focus, Next, Blocked, Resume, notes, and forge activity). See [Notes & context](notes.md).
+On My work, each thread card shows a short **scan line** under the title when Focus, Resume, Goal, Next, or a safe progress snippet saved on that thread is available (heuristic by default; optional local LLM rewrite when `ADHD_HUB_AI_BASE_URL` is set — see [environment variables](environment-variables.md)). Full detail stays in Notes. Each row keeps **Focus on this** and **Read notes** visible. **More options** holds source links, refresh, and copy-link controls; source conflicts and refresh alerts remain visible without opening it. Only meaningful states, such as **In focus** or **Finished**, get a badge. **Read notes** opens the Notes & context reader for that thread’s saved continuity (Goal, Focus, Next, Blocked, Resume, notes, and forge activity). See [Notes & context](notes.md).
 
 Open Hub pages listen for authenticated live updates (SSE) and refresh relevant data shortly after Hub-side changes; if the live connection drops, ordinary Refresh / API use still works. Under **Settings → Forge**, **Sync health** shows last successful or failed forge reconciliation, concise errors, Needs review conflicts, recent change history from the activity ledger, and a Retry sync path beside Forge jobs.
 
@@ -35,7 +35,10 @@ The smoke script uses a temporary hub, a temporary database, and sample projects
 ```bash
 uv run --with playwright playwright install chromium
 uv run --with playwright python scripts/browser_smoke.py
+uv run --with playwright python scripts/ui_polish_smoke.py
 ```
+
+The UI polish check exercises the four screens in both themes at desktop, tablet, and phone widths, checks navigation and keyboard disclosures, and captures screenshots.
 
 Set `ADHD_HUB_BROWSER_EXECUTABLE` to use an existing Chromium binary. Screenshots default to `/tmp/adhd-hub-preview`; override with `ADHD_HUB_SCREENSHOT_DIR`.
 

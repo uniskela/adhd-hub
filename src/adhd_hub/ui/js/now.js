@@ -376,7 +376,7 @@ export function renderFocus() {
           : state.focusState === "paused"
             ? "SAVED FOR YOUR RETURN"
             : "YOUR CHOICE"
-    } · ${thread.project_slug === "unclassified" ? "Inbox" : thread.project_slug || ""}`;
+    } · ${projectTitleForSlug(thread.project_slug)}`;
     $("focus-title").textContent = thread.summary;
     card.className = "next-card has-item";
     const resumeBlock = thread.resume_step
@@ -387,10 +387,12 @@ export function renderFocus() {
       ${state.focusState === "working" ? `<p class="work-state" role="status">${state.focusModeOn ? "Focus mode is on — stay with this project when you can." : "This is your focus. No timer, no rush."}</p>` : ""}
       <div class="next-actions">
         <button type="button" class="primary" id="btn-start">${state.focusState === "working" ? "Pause here" : returning || state.focusState === "paused" ? "Resume" : "Start"}</button>
-        <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
         <button type="button" class="ghost" data-done="${escapeHtml(thread.id)}">Done</button>
-        <button type="button" class="ghost" id="btn-copy-agent-prompt" title="Copy as prompt for Coding Agent to begin work">Copy agent prompt</button>
       </div>
+      <details class="focus-options"><summary>More actions</summary><div class="actions">
+        <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
+        <button type="button" class="ghost" id="btn-copy-agent-prompt" title="Copy as prompt for Coding Agent to begin work">Copy agent prompt</button>
+      </div></details>
       <details class="progress-details"><summary>Project notes</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
     $("btn-start").addEventListener("click", () => {
       if (state.focusState === "working") { openPause(); return; }
