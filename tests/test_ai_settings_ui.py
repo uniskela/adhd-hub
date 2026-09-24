@@ -243,7 +243,11 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "rewriteAllProjectScanLines" in work
     assert "/projects/" in work and "scan-lines" in work
     assert "Are you sure?" in work
-    assert "rewrite-scan-lines" in work
+    assert "rewriteAllToastKey" in work
+    assert "rewrite-scan-lines:${slug}" in work
+    assert "rewriteAllInFlight.has(slug)" in work
+    assert "rewriteAllInFlight.add(slug)" in work
+    assert "rewriteAllInFlight.delete(slug)" in work
     assert "This may take a moment." in work
     assert "rewriteAllInFlight" in work
     assert "restoreRewriteAllInFlightUi" in work
@@ -256,6 +260,7 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "refreshSiblingTabCounts" in work
     state = (root / "src/adhd_hub/ui/js/state.js").read_text(encoding="utf-8")
     assert "rewriteAllInFlight" in state
+    assert "rewriteAllInFlight: new Set()" in state
     assert "aiConfigCache" in state
     assert "_toastApplyTimer" in state
     assert "opts.sticky" in state

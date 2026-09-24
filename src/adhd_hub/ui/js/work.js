@@ -848,19 +848,23 @@ function aiScanLinesEnabled() {
   }
 
 function rewriteAllInFlightFor(slug) {
-    return Boolean(slug) && state.rewriteAllInFlight === slug;
+    return Boolean(slug) && state.rewriteAllInFlight.has(slug);
+  }
+
+function rewriteAllToastKey(slug) {
+    return `rewrite-scan-lines:${slug}`;
   }
 
 function restoreRewriteAllInFlightUi() {
-    const slug = state.rewriteAllInFlight;
-    if (!slug || state.projectFilter !== slug) return;
+    const slug = state.projectFilter;
+    if (!rewriteAllInFlightFor(slug)) return;
     setRewriteAllButtons({
       hidden: false,
       disabled: true,
       text: "Rewriting…",
     });
     setMsg("Rewriting scan lines… This may take a moment.", {
-      key: "rewrite-scan-lines",
+      key: rewriteAllToastKey(slug),
       sticky: true,
       variant: "info",
     });
@@ -1281,11 +1285,11 @@ export async function rewriteAllProjectScanLines() {
       restoreRewriteAllInFlightUi();
       return;
     }
-    state.rewriteAllInFlight = slug;
+    state.rewriteAllInFlight.add(slug);
     const mobileMenu = $("project-mobile-actions");
     if (mobileMenu) mobileMenu.open = false;
     setRewriteAllButtons({ disabled: true, text: "Rewriting…" });
-    const toastKey = "rewrite-scan-lines";
+    const toastKey = rewriteAllToastKey(slug);
     // One batch POST — no incremental 0/N (the server does not stream progress).
     setMsg("Rewriting scan lines… This may take a moment.", {
       key: toastKey,
@@ -1324,9 +1328,7 @@ export async function rewriteAllProjectScanLines() {
         variant: "error",
       });
     } finally {
-      if (state.rewriteAllInFlight === slug) {
-        state.rewriteAllInFlight = null;
-      }
+      state.rewriteAllInFlight.delete(slug);
       if (state.projectFilter === slug) {
         if (aiScanLinesEnabled()) {
           setRewriteAllButtons({

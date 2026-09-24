@@ -271,7 +271,13 @@ def test_work_tab_counts_and_rewrite_toast_markers():
     assert 'data-tab-count="done"' in html
     assert 'key: toastKey' in work
     assert "sticky: true" in work
-    assert "rewrite-scan-lines" in work
+    assert "rewriteAllToastKey" in work
+    assert "rewrite-scan-lines:${slug}" in work
+    # Concurrent batches: Set of slugs, not a single overwritten slug.
+    assert "rewriteAllInFlight.has(slug)" in work
+    assert "rewriteAllInFlight.add(slug)" in work
+    assert "rewriteAllInFlight.delete(slug)" in work
+    assert "rewriteAllInFlight: new Set()" in state
     # Batch POST has no streamed progress — avoid fake 0/N while pending / on AI-off.
     assert "This may take a moment." in work
     assert "(0/${" not in work
