@@ -181,7 +181,14 @@ function wireProjectDnD(list, visible) {
     };
 
     const highlightUnderPoint = (clientX, clientY) => {
+      const dragging = list.querySelectorAll(".is-dragging");
+      dragging.forEach((el) => {
+        el.style.pointerEvents = "none";
+      });
       const el = document.elementFromPoint(clientX, clientY);
+      dragging.forEach((el) => {
+        el.style.pointerEvents = "";
+      });
       clearProjDropIndicators();
       if (!el || !list.contains(el)) return null;
       const gap = el.closest(".proj-drop-gap");
