@@ -8,6 +8,18 @@ Self-hosted **source of truth** for half-finished plans, migrations, and setups 
 
 Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP over Streamable HTTP (plus an optional local stdio transport) + REST, optional OpenClaw notifications, and an optional local transcript indexer (summaries only).
 
+## Screenshots
+
+My work with the Notes & context reader (projects rail, thread card, Summarise):
+
+![My work with Notes & context](docs/images/notes-reader-desktop.png)
+
+| Now | My work | Progress | Settings |
+| --- | --- | --- | --- |
+| ![Now](docs/images/now-desktop.png) | ![My work](docs/images/my-work-desktop.png) | ![Progress](docs/images/progress-desktop.png) | ![Settings](docs/images/settings-desktop.png) |
+
+Dummy demo data only — no real projects or secrets. More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
+
 ## Why
 
 You start a Proxmox migration / homelab setup / refactor in Cursor Cloud, continue on a Dev LXC, forget for a week, then rediscover a half-finished chat — or you don’t. The hub keeps:
