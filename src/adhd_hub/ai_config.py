@@ -50,7 +50,9 @@ class AiConfig(BaseModel):
     @field_validator("model")
     @classmethod
     def validate_model(cls, value: str) -> str:
-        cleaned = (value or "").strip()
+        from adhd_hub.ai_client import normalize_openai_model_id
+
+        cleaned = normalize_openai_model_id(value or "")
         return cleaned or DEFAULT_AI_MODEL
 
     def is_active(self) -> bool:

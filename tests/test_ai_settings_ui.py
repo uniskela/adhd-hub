@@ -266,6 +266,7 @@ def test_list_ai_models_parses_openai_compatible_payload() -> None:
                     {"id": "llama3.2"},
                     {"id": "mistral"},
                     {"id": "llama3.2"},
+                    {"id": "models/gemini-2.5-flash"},
                     {"object": "model"},
                 ]
             },
@@ -278,8 +279,8 @@ def test_list_ai_models_parses_openai_compatible_payload() -> None:
             client=client,
         )
     assert result["ok"] is True
-    assert result["models"] == ["llama3.2", "mistral"]
-    assert "2 models" in result["message"]
+    assert result["models"] == ["gemini-2.5-flash", "llama3.2", "mistral"]
+    assert "3 models" in result["message"]
 
 
 def test_list_ai_models_calm_failure_without_secrets() -> None:
