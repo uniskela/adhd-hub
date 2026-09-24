@@ -526,6 +526,11 @@
         <label class="span2">Workspace path <input id="p_path" placeholder="Z:\Projects\…" /></label>
         <label class="span2">Description <textarea id="p_desc"></textarea></label>
         <label class="span2">Tags <input id="p_tags" placeholder="homelab, docs, client (comma-separated)" /></label>
+        <label class="span2">Parent
+          <select id="p_parent_slug" aria-label="Parent project">
+            <option value="">None (top-level)</option>
+          </select>
+        </label>
       </div>
       <details class="advanced">
         <summary>Advanced forge overrides</summary>

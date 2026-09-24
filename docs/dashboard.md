@@ -14,7 +14,7 @@ The **Where you left off** area renders saved Markdown (headings, lists, emphasi
 
 Search narrows the loaded thread list in My work. **Pick up later** shows older open work without an overdue warning.
 
-Select a project to show its title. The pencil button beside the title opens project editing in a focused dialog. Projects can carry light **tags** (comma-separated in project settings) and the rail can filter by tag. Use **Organise** to review heuristic tag suggestions and apply only what you confirm. Each project shows open-step count and a calm last-touch cue. Add an HTTP(S) repository URL to show an **Open repo** button beside the title; repository URLs containing credentials are rejected.
+Select a project to show its title. The pencil button beside the title opens project editing in a focused dialog. Projects can nest one level under a top-level **parent** (Notion-style tree in the left rail; chevron expands, row click selects). Tags stay orthogonal (comma-separated labels and rail filter). Use **Organise** to review heuristic tag suggestions and apply only what you confirm. Each project shows open-step count and a calm last-touch cue. Add an HTTP(S) repository URL to show an **Open repo** button beside the title; repository URLs containing credentials are rejected.
 
 ## Optional small wins
 
@@ -54,14 +54,14 @@ See the [brand guide](brand-guide.md) for palette, assets, buttons, milestone th
 
 The Settings footer links to the public GitHub repository and shows the running server’s version from `/api/health`. Share text includes the public repository link, and PNG cards print its URL in the footer. Your private hub address is never used for that attribution.
 
-Project tags are preserved when you rename a project slug.
-The organiser adds only the selected tags and preserves project settings. Projects archived after suggestions were loaded, or selections exceeding the eight-tag limit, are skipped so you can review them again.
+Project tags and parent links are preserved when you rename a project slug. Archiving a parent clears children’s parent links so they become top-level again.
+The organiser adds only the selected tags and preserves project settings (including parent). Projects archived after suggestions were loaded, or selections exceeding the eight-tag limit, are skipped so you can review them again.
 
 ### Workspace overview and controls
 
 Now includes open-step, weekly completion, and project counts below the chosen step. Focus mode hides the overview to keep a single task in view. Counts use the same live overview as Progress.
 
-My work has project search (name, slug, or tag) combined with the tag filter, plus a visible result count and empty state. Project rows show open-step counts; the selected project exposes its tags. **Suggest tags** opens the existing editable preview before applying suggestions.
+My work has project search (name, slug, or tag) combined with the tag filter, plus a visible result count and empty state. The Projects rail shows a collapsible parent/child tree (expand state remembered in this browser). Project rows show open-step counts; the selected project exposes its tags. **Suggest tags** opens the existing editable preview before applying suggestions.
 
 Thread **Actions** opens a compact panel without expanding the row. Only one panel stays open, Escape closes it and returns focus, and tabbing away closes it. Focus and Read notes remain directly available; source conflicts stay visible. AI scan-line rewriting and source refresh remain in Actions.
 
