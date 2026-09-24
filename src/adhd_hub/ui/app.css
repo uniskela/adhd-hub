@@ -2053,3 +2053,343 @@ body.focus-mode .now-overview { display: none; }
 .accent-custom { margin-top: .85rem; }
 .accent-custom label { margin: 0 .25rem 0 0; }
 #accent-colour { width: 48px; height: 44px; min-height: 44px; padding: .3rem; cursor: pointer; }
+
+
+/* Mobile My Work: project-first context, compact scanning, secondary controls on demand. */
+.project-mobile-actions,
+.rail-mobile-actions {
+  display: none;
+}
+.thread-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.thread-list-toolbar #thread-count {
+  flex: 1 1 auto;
+  margin: .55rem 0;
+}
+.thread-search-row {
+  display: block;
+  max-width: 560px;
+}
+.thread-search-toggle {
+  display: none;
+}
+.tab-count:empty {
+  display: none;
+}
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  margin-left: .3rem;
+  padding: 0 .3rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: .68rem;
+  line-height: 1;
+}
+.tab.active .tab-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.thread-notes-menu {
+  display: none !important;
+}
+.thread-utility-dots {
+  margin-right: .25rem;
+  letter-spacing: .08em;
+}
+
+@media (max-width: 760px) {
+  #work-view .work-heading-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: .65rem;
+    margin-bottom: .75rem;
+  }
+  #work-view .work-heading-copy-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  #work-view .work-heading-row .eyebrow,
+  #work-view .work-heading-copy {
+    display: none;
+  }
+  #work-view .work-heading-row h1 {
+    margin: 0;
+    font-size: 1.55rem;
+    line-height: 1.15;
+  }
+  #work-view .work-heading-row > #btn-new-reminder {
+    flex: 0 0 auto;
+    min-height: 40px;
+    margin-left: auto;
+    padding: .45rem .65rem;
+    border-color: transparent;
+    font-size: .78rem;
+  }
+
+  #work-view .work-heading {
+    padding-bottom: .55rem;
+  }
+  #work-view .project-title-row {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    width: 100%;
+  }
+  #work-title,
+  #btn-edit-project,
+  #btn-open-project-repo {
+    display: none !important;
+  }
+  .projects-drawer-open.project-switcher {
+    display: inline-flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: space-between;
+    gap: .6rem;
+    padding: .55rem .75rem;
+    color: var(--ink);
+    border-color: var(--control-line);
+    background: var(--card);
+    font-size: .95rem;
+    font-weight: 650;
+    text-align: left;
+  }
+  #work-title-mobile {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .project-switcher-chevron {
+    flex: 0 0 auto;
+    color: var(--muted);
+  }
+  .project-mobile-actions:not([hidden]) {
+    display: block;
+    position: relative;
+    flex: 0 0 auto;
+  }
+  .project-mobile-actions > summary,
+  .rail-mobile-actions > summary {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--control-line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+  }
+  .project-mobile-actions > summary::-webkit-details-marker,
+  .rail-mobile-actions > summary::-webkit-details-marker {
+    display: none;
+  }
+  .project-mobile-actions[open] > summary,
+  .rail-mobile-actions[open] > summary {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .project-mobile-actions-panel,
+  .rail-mobile-actions-panel {
+    position: absolute;
+    z-index: 30;
+    right: 0;
+    top: calc(100% + .35rem);
+    min-width: 180px;
+    padding: .4rem;
+    border: 1px solid var(--control-line);
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .project-mobile-actions-panel .btn,
+  .project-mobile-actions-panel button,
+  .rail-mobile-actions-panel button {
+    display: flex;
+    width: 100%;
+    justify-content: flex-start;
+    border-color: transparent;
+    background: transparent;
+    text-align: left;
+  }
+
+  #work-view .threads-panel {
+    padding: .7rem;
+  }
+  #work-view .tabs {
+    margin-bottom: .45rem;
+  }
+  #work-view .tab {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding-inline: .45rem;
+    white-space: nowrap;
+  }
+  #work-view .tab-count {
+    min-width: 1.2rem;
+    min-height: 1.2rem;
+    padding-inline: .25rem;
+    font-size: .64rem;
+  }
+  .thread-list-toolbar {
+    min-height: 42px;
+    margin: 0;
+  }
+  .thread-list-toolbar #thread-count {
+    margin: .35rem 0;
+  }
+  .thread-search-toggle:not([hidden]) {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    min-height: 40px;
+    padding: .4rem .55rem;
+    border-color: transparent;
+    color: var(--accent);
+  }
+  .thread-search-row {
+    display: none;
+    max-width: none;
+    margin: .15rem 0 .65rem;
+  }
+  .thread-search-row.is-open,
+  .thread-search-row.is-large-list {
+    display: block;
+  }
+  #thread-search {
+    max-width: none;
+    width: 100%;
+  }
+
+  #threads {
+    margin-top: .15rem;
+  }
+  #work-view .thread {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: .45rem;
+    padding: .8rem .1rem;
+  }
+  #work-view .thread.chosen {
+    padding-inline: .7rem;
+  }
+  #work-view .thread-main h3 {
+    margin: .3rem 0 .2rem;
+    line-height: 1.4;
+  }
+  #work-view .thread-scan {
+    display: -webkit-box;
+    margin-bottom: .35rem;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 1.45;
+  }
+  #work-view .thread-meta {
+    font-size: .7rem;
+  }
+  #work-view .thread-actions {
+    grid-column: 1;
+    gap: .35rem;
+    margin-top: .5rem;
+    align-self: end;
+  }
+  #work-view .thread-actions .thread-primary {
+    min-height: 40px;
+    padding: .48rem .7rem;
+  }
+  #work-view .thread-notes-inline {
+    display: none !important;
+  }
+  #work-view .thread-notes-menu {
+    display: flex !important;
+  }
+  #work-view .thread-utility,
+  #work-view .thread-utility[open] {
+    grid-column: 2;
+    align-self: end;
+    justify-self: end;
+    margin: .5rem 0 0;
+    border: 0;
+  }
+  #work-view .thread-utility > summary {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+  #work-view .thread-utility-label {
+    display: none;
+  }
+  #work-view .thread-utility-dots {
+    margin: 0;
+  }
+  #work-view .thread-utility-panel {
+    right: 0;
+    top: calc(100% + .25rem);
+    max-width: min(280px, calc(100vw - 2rem));
+  }
+
+  #work-view .rail-head-actions {
+    gap: .3rem;
+  }
+  #work-view #btn-organise-projects {
+    display: none;
+  }
+  #work-view .rail-mobile-actions {
+    display: block;
+    position: relative;
+  }
+  #work-view .proj-drag-handle,
+  #work-view .proj-drop-gap,
+  #work-view .proj-dnd-hint {
+    display: none !important;
+  }
+  #work-view .proj-row > .proj-chevron-spacer:first-child {
+    display: none;
+  }
+  #work-view .proj-tree-item[data-depth] {
+    width: 100%;
+    margin-left: 0;
+    padding-left: min(2rem, calc(var(--depth, 0) * .65rem));
+    border-left: 0;
+    box-sizing: border-box;
+  }
+  #work-view .proj {
+    min-height: 48px;
+    padding: .5rem .45rem;
+  }
+  #work-view .proj .meta,
+  #work-view .proj-tags {
+    line-height: 1.35;
+  }
+  #work-view .proj-row.is-empty:not(:has(.proj.active)) {
+    opacity: .62;
+  }
+  #work-view #project-list {
+    overflow-x: hidden;
+  }
+}
