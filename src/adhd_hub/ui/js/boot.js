@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -180,8 +180,15 @@ $("btn-load-ai-models")?.addEventListener("click", () =>
     else setMsg(String(e));
   })
 );
-$("ai_base_url")?.addEventListener("input", () => syncAiLoadModelsButton());
-$("ai_base_url")?.addEventListener("change", () => syncAiLoadModelsButton());
+$("ai_base_url_preset")?.addEventListener("change", () => applyAiBaseUrlPreset());
+$("ai_base_url")?.addEventListener("input", () => {
+  syncAiBaseUrlPreset();
+  syncAiLoadModelsButton();
+});
+$("ai_base_url")?.addEventListener("change", () => {
+  syncAiBaseUrlPreset();
+  syncAiLoadModelsButton();
+});
 $("btn-save-forge").addEventListener("click", () =>
   saveForge().catch((e) => setMsg(String(e)))
 );
