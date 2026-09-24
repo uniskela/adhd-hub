@@ -149,6 +149,57 @@ function wireProjectDnD(list, visible) {
       return false;
     };
 
+    const finishDragVisual = () => {
+      list.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+      clearProjDropIndicators();
+    };
+
+    const applyReorderDrop = (slug, gap) => {
+      const parent = gap.dataset.parentSlug || null;
+      const before = gap.dataset.beforeSlug || null;
+      if (before === slug) return;
+      const parentKey = parent || null;
+      if (parentKey === slug || isDescendant(slug, parentKey)) {
+        setMsg("Cannot nest a project under itself or its child.");
+        return;
+      }
+      moveProjectViaApi(slug, { parent_slug: parentKey, before_slug: before }).catch((e) =>
+        setMsg(e.message)
+      );
+    };
+
+    const applyNestDrop = (slug, row) => {
+      const target = row.dataset.slug;
+      if (!slug || !target || slug === target) return;
+      if (isDescendant(slug, target)) {
+        setMsg("Cannot nest a project under itself or its child.");
+        return;
+      }
+      moveProjectViaApi(slug, { parent_slug: target, before_slug: null }).catch((e) =>
+        setMsg(e.message)
+      );
+    };
+
+    const highlightUnderPoint = (clientX, clientY) => {
+      const el = document.elementFromPoint(clientX, clientY);
+      clearProjDropIndicators();
+      if (!el || !list.contains(el)) return null;
+      const gap = el.closest(".proj-drop-gap");
+      if (gap && list.contains(gap)) {
+        gap.classList.add("proj-drop-active");
+        return { kind: "gap", gap };
+      }
+      const row = el.closest('.proj-row[data-drop="nest"]');
+      if (row && list.contains(row)) {
+        const target = row.dataset.slug;
+        if (target && target !== dragSlug && !isDescendant(dragSlug, target)) {
+          row.classList.add("proj-drop-nest");
+          return { kind: "nest", row };
+        }
+      }
+      return null;
+    };
+
     list.querySelectorAll(".proj-drag-handle").forEach((handle) => {
       handle.addEventListener("dragstart", (event) => {
         dragSlug = handle.dataset.dragSlug || null;
@@ -160,9 +211,47 @@ function wireProjectDnD(list, visible) {
       });
       handle.addEventListener("dragend", () => {
         dragSlug = null;
-        list.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
-        clearProjDropIndicators();
+        finishDragVisual();
       });
+
+      // Touch / pen: HTML5 DnD is unreliable (especially iOS). Pointer path
+      // reuses the same gap/nest targets as mouse drag.
+      let pointerActive = false;
+      let pointerId = null;
+      handle.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "mouse") return;
+        if (typeof event.button === "number" && event.button !== 0) return;
+        dragSlug = handle.dataset.dragSlug || null;
+        if (!dragSlug) return;
+        pointerActive = true;
+        pointerId = event.pointerId;
+        try {
+          handle.setPointerCapture(pointerId);
+        } catch (_) {
+          /* Capture optional. */
+        }
+        const item = handle.closest(".proj-tree-item");
+        if (item) item.classList.add("is-dragging");
+        event.preventDefault();
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (!pointerActive || event.pointerId !== pointerId || !dragSlug) return;
+        highlightUnderPoint(event.clientX, event.clientY);
+      });
+      const endPointerDrag = (event) => {
+        if (!pointerActive || event.pointerId !== pointerId) return;
+        const slug = dragSlug;
+        const hit = highlightUnderPoint(event.clientX, event.clientY);
+        pointerActive = false;
+        pointerId = null;
+        dragSlug = null;
+        finishDragVisual();
+        if (!slug || !hit) return;
+        if (hit.kind === "gap") applyReorderDrop(slug, hit.gap);
+        else if (hit.kind === "nest") applyNestDrop(slug, hit.row);
+      };
+      handle.addEventListener("pointerup", endPointerDrag);
+      handle.addEventListener("pointercancel", endPointerDrag);
     });
 
     list.querySelectorAll(".proj-drop-gap").forEach((gap) => {
@@ -179,15 +268,7 @@ function wireProjectDnD(list, visible) {
         const slug = dragSlug || event.dataTransfer.getData("text/plain");
         clearProjDropIndicators();
         if (!slug) return;
-        const parent = gap.dataset.parentSlug || null;
-        const before = gap.dataset.beforeSlug || null;
-        if (before === slug) return;
-        const parentKey = parent || null;
-        if (parentKey === slug || isDescendant(slug, parentKey)) {
-          setMsg("Cannot nest a project under itself or its child.");
-          return;
-        }
-        moveProjectViaApi(slug, { parent_slug: parentKey, before_slug: before }).catch((e) => setMsg(e.message));
+        applyReorderDrop(slug, gap);
       });
     });
 
@@ -207,14 +288,8 @@ function wireProjectDnD(list, visible) {
         event.preventDefault();
         event.stopPropagation();
         const slug = dragSlug || event.dataTransfer.getData("text/plain");
-        const target = row.dataset.slug;
         clearProjDropIndicators();
-        if (!slug || !target || slug === target) return;
-        if (isDescendant(slug, target)) {
-          setMsg("Cannot nest a project under itself or its child.");
-          return;
-        }
-        moveProjectViaApi(slug, { parent_slug: target, before_slug: null }).catch((e) => setMsg(e.message));
+        applyNestDrop(slug, row);
       });
     });
   }

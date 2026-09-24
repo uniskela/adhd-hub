@@ -223,6 +223,9 @@ def test_project_rail_hierarchy_tree_markers():
     assert "parent_slug" in work
     assert "sort_order" in work
     assert "wireProjectDnD" in work
+    assert "pointerdown" in work
+    assert "setPointerCapture" in work
+    assert "elementFromPoint" in work
     assert "/projects/" in work and "/move" in work
     assert "openProjectsDrawer" in work
     assert 'id="p_parent_slug"' in html
