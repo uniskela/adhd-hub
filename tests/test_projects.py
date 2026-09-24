@@ -139,11 +139,11 @@ def test_project_parent_hierarchy_depth_and_cycle(tmp_path: Path) -> None:
     )
     assert hub.parent_slug == "work"
 
-    # Parent must be top-level (max depth 2).
-    with pytest.raises(ValueError, match="parent_must_be_top_level"):
-        service.upsert_project(
-            ProjectUpsert(title="Too Deep", slug="too-deep", parent_slug="adhd-hub")
-        )
+    # Unlimited depth: nest under a child.
+    deep = service.upsert_project(
+        ProjectUpsert(title="Too Deep", slug="too-deep", parent_slug="adhd-hub")
+    )
+    assert deep.parent_slug == "adhd-hub"
 
     with pytest.raises(ValueError, match="cannot_nest_under_self"):
         service.upsert_project(
@@ -155,17 +155,57 @@ def test_project_parent_hierarchy_depth_and_cycle(tmp_path: Path) -> None:
             ProjectUpsert(title="Orphan", slug="orphan", parent_slug="missing-parent")
         )
 
-    # A project with children cannot itself become a child.
-    service.upsert_project(ProjectUpsert(title="Personal", slug="personal"))
-    with pytest.raises(ValueError, match="project_has_children"):
+    # Cycle: cannot nest an ancestor under a descendant.
+    with pytest.raises(ValueError, match="cycle_detected"):
         service.upsert_project(
-            ProjectUpsert(title="Work", slug="work", parent_slug="personal")
+            ProjectUpsert(title="Work", slug="work", parent_slug="too-deep")
         )
+
+    # Projects with children may still become children of another branch.
+    service.upsert_project(ProjectUpsert(title="Personal", slug="personal"))
+    moved = service.upsert_project(
+        ProjectUpsert(title="Work", slug="work", parent_slug="personal")
+    )
+    assert moved.parent_slug == "personal"
+    assert service.store.get_project("adhd-hub").parent_slug == "work"
 
     overview = service.overview()
     by_slug = {p["slug"]: p for p in overview["projects"]}
     assert by_slug["adhd-hub"]["parent_slug"] == "work"
-    assert by_slug["work"]["parent_slug"] is None
+    assert by_slug["work"]["parent_slug"] == "personal"
+    assert by_slug["too-deep"]["parent_slug"] == "adhd-hub"
+    assert "sort_order" in by_slug["work"]
+
+
+def test_project_move_reorders_siblings(tmp_path: Path) -> None:
+    import pytest
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="Alpha", slug="alpha"))
+    service.upsert_project(ProjectUpsert(title="Beta", slug="beta"))
+    service.upsert_project(ProjectUpsert(title="Gamma", slug="gamma"))
+
+    # Nest beta under alpha, then gamma under alpha before beta.
+    service.move_project("beta", {"parent_slug": "alpha"})
+    service.move_project("gamma", {"parent_slug": "alpha", "before_slug": "beta"})
+    children = service.store.list_child_slugs("alpha")
+    assert children == ["gamma", "beta"]
+
+    # Reorder gamma after beta (append).
+    service.move_project("gamma", {"parent_slug": "alpha", "before_slug": None})
+    assert service.store.list_child_slugs("alpha") == ["beta", "gamma"]
+
+    # Promote beta to top-level before alpha.
+    service.move_project("beta", {"parent_slug": None, "before_slug": "alpha"})
+    roots = [
+        p.slug
+        for p in service.store.list_projects()
+        if not p.parent_slug
+    ]
+    assert roots.index("beta") < roots.index("alpha")
+
+    with pytest.raises(ValueError, match="cycle_detected"):
+        service.move_project("alpha", {"parent_slug": "gamma"})
 
 
 def test_project_rename_preserves_parent_links(tmp_path: Path) -> None:

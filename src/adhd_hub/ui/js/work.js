@@ -63,7 +63,12 @@ function buildProjectForest(projects) {
       else roots.push(node);
     }
     const sortNodes = (nodes) => {
-      nodes.sort((a, b) => String(a.title || a.slug).localeCompare(String(b.title || b.slug), undefined, { sensitivity: "base" }));
+      nodes.sort((a, b) => {
+        const ao = Number(a.sort_order ?? 0);
+        const bo = Number(b.sort_order ?? 0);
+        if (ao !== bo) return ao - bo;
+        return String(a.title || a.slug).localeCompare(String(b.title || b.slug), undefined, { sensitivity: "base" });
+      });
       nodes.forEach((n) => sortNodes(n.children));
     };
     sortNodes(roots);
@@ -77,13 +82,20 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
     const tagLine = tags ? `<div class="proj-tags">${tags}</div>` : "";
     const title = escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug);
     const isOpen = expanded.has(p.slug);
+    const canDrag = !p.unregistered && p.slug !== "unclassified";
     const chevron = hasChildren
       ? `<button type="button" class="proj-chevron" data-toggle-slug="${escapeHtml(p.slug)}" aria-expanded="${isOpen}" aria-label="${isOpen ? "Collapse" : "Expand"} ${title}">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="${isOpen ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6"}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>`
       : `<span class="proj-chevron-spacer" aria-hidden="true"></span>`;
-    return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}" data-depth="${depth}">
-      <div class="proj-row ${isActive}" data-slug="${escapeHtml(p.slug)}">
+    const handle = canDrag
+      ? `<span class="proj-drag-handle" draggable="true" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder" aria-label="Drag ${title}">
+          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
+        </span>`
+      : `<span class="proj-chevron-spacer" aria-hidden="true"></span>`;
+    return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}" data-depth="${depth}" data-slug="${escapeHtml(p.slug)}" style="--depth: ${depth}">
+      <div class="proj-row ${isActive}" data-slug="${escapeHtml(p.slug)}" data-parent-slug="${escapeHtml(p.parent_slug || "")}" data-drop="nest">
+        ${handle}
         ${chevron}
         <button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
           <div class="proj-title-line"><span class="proj-title">${title}</span><span class="proj-count">${open}</span></div>
@@ -105,6 +117,105 @@ function flattenVisibleTree(roots, expanded) {
     };
     walk(roots, 0);
     return rows;
+  }
+
+function clearProjDropIndicators() {
+    document.querySelectorAll(".proj-drop-active, .proj-drop-nest").forEach((el) => {
+      el.classList.remove("proj-drop-active", "proj-drop-nest");
+    });
+  }
+
+async function moveProjectViaApi(slug, { parent_slug = null, before_slug = null } = {}) {
+    await api(`/projects/${encodeURIComponent(slug)}/move`, {
+      method: "POST",
+      body: JSON.stringify({ parent_slug, before_slug }),
+    });
+    await loadAll();
+  }
+
+function wireProjectDnD(list, visible) {
+    let dragSlug = null;
+    const bySlug = new Map(visible.map(({ project }) => [project.slug, project]));
+
+    const isDescendant = (ancestor, maybeChild) => {
+      let cursor = bySlug.get(maybeChild);
+      const seen = new Set();
+      while (cursor?.parent_slug && !seen.has(cursor.slug)) {
+        if (cursor.parent_slug === ancestor) return true;
+        seen.add(cursor.slug);
+        cursor = bySlug.get(cursor.parent_slug);
+      }
+      return false;
+    };
+
+    list.querySelectorAll(".proj-drag-handle").forEach((handle) => {
+      handle.addEventListener("dragstart", (event) => {
+        dragSlug = handle.dataset.dragSlug || null;
+        if (!dragSlug) return;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", dragSlug);
+        const item = handle.closest(".proj-tree-item");
+        if (item) item.classList.add("is-dragging");
+      });
+      handle.addEventListener("dragend", () => {
+        dragSlug = null;
+        list.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+        clearProjDropIndicators();
+      });
+    });
+
+    list.querySelectorAll(".proj-drop-gap").forEach((gap) => {
+      gap.addEventListener("dragover", (event) => {
+        if (!dragSlug) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        clearProjDropIndicators();
+        gap.classList.add("proj-drop-active");
+      });
+      gap.addEventListener("dragleave", () => gap.classList.remove("proj-drop-active"));
+      gap.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const slug = dragSlug || event.dataTransfer.getData("text/plain");
+        clearProjDropIndicators();
+        if (!slug) return;
+        const parent = gap.dataset.parentSlug || null;
+        const before = gap.dataset.beforeSlug || null;
+        if (before === slug) return;
+        const parentKey = parent || null;
+        if (parentKey === slug || isDescendant(slug, parentKey)) {
+          setMsg("Cannot nest a project under itself or its child.");
+          return;
+        }
+        moveProjectViaApi(slug, { parent_slug: parentKey, before_slug: before }).catch((e) => setMsg(e.message));
+      });
+    });
+
+    list.querySelectorAll('.proj-row[data-drop="nest"]').forEach((row) => {
+      row.addEventListener("dragover", (event) => {
+        if (!dragSlug) return;
+        const target = row.dataset.slug;
+        if (!target || target === dragSlug) return;
+        if (isDescendant(dragSlug, target)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        clearProjDropIndicators();
+        row.classList.add("proj-drop-nest");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("proj-drop-nest"));
+      row.addEventListener("drop", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const slug = dragSlug || event.dataTransfer.getData("text/plain");
+        const target = row.dataset.slug;
+        clearProjDropIndicators();
+        if (!slug || !target || slug === target) return;
+        if (isDescendant(slug, target)) {
+          setMsg("Cannot nest a project under itself or its child.");
+          return;
+        }
+        moveProjectViaApi(slug, { parent_slug: target, before_slug: null }).catch((e) => setMsg(e.message));
+      });
+    });
   }
 
 export function renderProjects(projects) {
@@ -134,11 +245,20 @@ export function renderProjects(projects) {
       }
     }
     const visible = flattenVisibleTree(forest, expanded);
-    list.innerHTML = visible
-      .map(({ project, depth, hasChildren }) =>
-        renderProjectTreeRow(project, { depth, expanded, hasChildren })
-      )
-      .join("");
+    const parts = [];
+    const gapHtml = (parentSlug, beforeSlug) =>
+      `<div class="proj-drop-gap" data-parent-slug="${escapeHtml(parentSlug || "")}" data-before-slug="${escapeHtml(beforeSlug || "")}" aria-hidden="true"></div>`;
+    for (let i = 0; i < visible.length; i++) {
+      const { project, depth, hasChildren } = visible[i];
+      parts.push(gapHtml(project.parent_slug || "", project.slug));
+      parts.push(renderProjectTreeRow(project, { depth, expanded, hasChildren }));
+    }
+    if (visible.length) {
+      // Trailing gap under last visible root/child: same parent as last row → append.
+      const last = visible[visible.length - 1].project;
+      parts.push(gapHtml(last.parent_slug || "", ""));
+    }
+    list.innerHTML = parts.join("");
     if (!visible.length) list.innerHTML = '<p class="hint">No matching projects. Try another search or tag.</p>';
     $("proj-all").classList.toggle("active", !state.projectFilter);
     $("proj-all").setAttribute("aria-pressed", String(!state.projectFilter));
@@ -158,6 +278,7 @@ export function renderProjects(projects) {
         renderProjects(state.overviewCache?.projects || []);
       });
     });
+    if (!query) wireProjectDnD(list, visible);
     renderArchivedProjects();
   }
 
@@ -258,25 +379,53 @@ function fillParentSelect(current) {
     if (!sel) return;
     const projects = (state.overviewCache?.projects || []).filter((p) => !p.archived);
     const selfSlug = current?.slug || "";
-    const childSlugs = new Set(
-      projects.filter((p) => p.parent_slug === selfSlug).map((p) => p.slug)
+    const bySlug = new Map(projects.map((p) => [p.slug, p]));
+    const descendantOfSelf = new Set();
+    if (selfSlug) {
+      const walk = (slug) => {
+        for (const p of projects) {
+          if (p.parent_slug === slug && !descendantOfSelf.has(p.slug)) {
+            descendantOfSelf.add(p.slug);
+            walk(p.slug);
+          }
+        }
+      };
+      walk(selfSlug);
+    }
+    const options = projects.filter(
+      (p) =>
+        p.slug !== selfSlug &&
+        p.slug !== "unclassified" &&
+        !p.unregistered &&
+        !descendantOfSelf.has(p.slug)
     );
-    const hasChildren = childSlugs.size > 0;
-    // Only top-level projects (no parent) may be parents; exclude self.
-    const tops = projects.filter(
-      (p) => !p.parent_slug && p.slug !== selfSlug && p.slug !== "unclassified"
+    options.sort((a, b) =>
+      String(a.title || a.slug).localeCompare(String(b.title || b.slug), undefined, {
+        sensitivity: "base",
+      })
     );
     const selected = current?.parent_slug || "";
+    const labelFor = (p) => {
+      const depthParts = [];
+      let cursor = p;
+      const seen = new Set();
+      while (cursor?.parent_slug && bySlug.has(cursor.parent_slug) && !seen.has(cursor.slug)) {
+        seen.add(cursor.slug);
+        cursor = bySlug.get(cursor.parent_slug);
+        if (cursor) depthParts.unshift(cursor.title || cursor.slug);
+      }
+      const prefix = depthParts.length ? `${depthParts.join(" / ")} / ` : "";
+      return `${prefix}${p.title || p.slug}`;
+    };
     sel.innerHTML =
       `<option value="">None (top-level)</option>` +
-      tops
+      options
         .map(
           (p) =>
-            `<option value="${escapeHtml(p.slug)}">${escapeHtml(p.title || p.slug)}</option>`
+            `<option value="${escapeHtml(p.slug)}">${escapeHtml(labelFor(p))}</option>`
         )
         .join("");
-    // Keep current parent visible even if it somehow is not top-level in cache.
-    if (selected && !tops.some((p) => p.slug === selected)) {
+    if (selected && !options.some((p) => p.slug === selected)) {
       const orphan = projects.find((p) => p.slug === selected);
       if (orphan) {
         sel.insertAdjacentHTML(
@@ -286,10 +435,8 @@ function fillParentSelect(current) {
       }
     }
     sel.value = selected;
-    sel.disabled = hasChildren;
-    sel.title = hasChildren
-      ? "Move or reparent children before nesting this project under another."
-      : "Nest under a top-level project (max depth 2).";
+    sel.disabled = false;
+    sel.title = "Fallback: nest under any project that is not a descendant (drag-and-drop preferred).";
   }
 
 function fillForgeConnectionSelect(selectedId) {
@@ -721,6 +868,7 @@ export async function selectProject(slug) {
 
     renderProjects(state.overviewCache?.projects || []);
     renderProjectHeader(null);
+    closeProjectsDrawer({ restoreFocus: false });
     $("threads").textContent = "Loading your steps…";
     $("thread-count").textContent = "";
     $("focus-links").replaceChildren();
@@ -1066,4 +1214,87 @@ export async function applyOrganiseSelection() {
     } catch (e) {
       setMsg("Could not apply organisation: " + e.message);
     }
+  }
+
+let projectsDrawerPrevFocus = null;
+let projectsDrawerKeyHandler = null;
+
+function projectsDrawerFocusables(rail) {
+    return [...rail.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )].filter((el) => el.offsetParent !== null || el === document.activeElement);
+  }
+
+export function openProjectsDrawer() {
+    const rail = $("projects-rail");
+    const backdrop = $("projects-drawer-backdrop");
+    const openBtn = $("btn-open-projects-drawer");
+    if (!rail || document.body.classList.contains("projects-drawer-open")) return;
+    projectsDrawerPrevFocus = document.activeElement;
+    document.body.classList.add("projects-drawer-open");
+    if (backdrop) {
+      backdrop.hidden = false;
+      backdrop.removeAttribute("hidden");
+    }
+    rail.setAttribute("role", "dialog");
+    rail.setAttribute("aria-modal", "true");
+    rail.setAttribute("aria-labelledby", "projects-rail-title");
+    if (openBtn) openBtn.setAttribute("aria-expanded", "true");
+    const focusables = projectsDrawerFocusables(rail);
+    (focusables[0] || rail).focus?.();
+    projectsDrawerKeyHandler = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeProjectsDrawer();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = projectsDrawerFocusables(rail);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", projectsDrawerKeyHandler);
+  }
+
+export function closeProjectsDrawer({ restoreFocus = true } = {}) {
+    const rail = $("projects-rail");
+    const backdrop = $("projects-drawer-backdrop");
+    const openBtn = $("btn-open-projects-drawer");
+    if (!document.body.classList.contains("projects-drawer-open")) return;
+    document.body.classList.remove("projects-drawer-open");
+    if (backdrop) backdrop.hidden = true;
+    if (rail) {
+      rail.removeAttribute("role");
+      rail.removeAttribute("aria-modal");
+      rail.removeAttribute("aria-labelledby");
+    }
+    if (openBtn) openBtn.setAttribute("aria-expanded", "false");
+    if (projectsDrawerKeyHandler) {
+      document.removeEventListener("keydown", projectsDrawerKeyHandler);
+      projectsDrawerKeyHandler = null;
+    }
+    if (restoreFocus) {
+      const target = projectsDrawerPrevFocus || openBtn;
+      target?.focus?.();
+    }
+    projectsDrawerPrevFocus = null;
+  }
+
+export function wireProjectsDrawer() {
+    $("btn-open-projects-drawer")?.addEventListener("click", () => openProjectsDrawer());
+    $("btn-close-projects-drawer")?.addEventListener("click", () => closeProjectsDrawer());
+    $("projects-drawer-backdrop")?.addEventListener("click", () => closeProjectsDrawer());
+    $("proj-all")?.addEventListener("click", () => {
+      if (document.body.classList.contains("projects-drawer-open")) {
+        closeProjectsDrawer({ restoreFocus: false });
+      }
+    });
   }

@@ -119,7 +119,7 @@ def build_mcp(service: HubService) -> MCPServer:
         """Create or update a project registry entry and its explicit metadata.
 
         Use when setting title, workspace path, repository, energy, parent, or forge
-        targeting. parent_slug nests under a top-level project only (max depth 2).
+        targeting. parent_slug nests under any project (unlimited depth; cycles rejected).
         This persists local Hub project configuration; it does not by itself create,
         rename, or delete a remote forge repository.
         """

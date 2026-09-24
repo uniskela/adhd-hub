@@ -650,32 +650,52 @@ class HubService:
                 }
             )
         if "parent_slug" in payload.model_fields_set:
-            self._validate_project_parent(payload)
+            self._validate_project_parent(
+                slugify_hint=payload.slug or payload.title,
+                parent_slug=payload.parent_slug,
+            )
         return self.store.upsert_project(payload)
 
-    def _validate_project_parent(self, payload: ProjectUpsert) -> None:
-        """Enforce max depth 2 and reject cycles / nesting under children."""
+    def move_project(self, slug: str, payload) -> dict:
+        """DnD reparent/reorder: set parent and sibling position; reject cycles."""
+        from adhd_hub.models import ProjectMove
         from adhd_hub.store import slugify as _slugify
 
-        raw_parent = payload.parent_slug
-        if not raw_parent:
+        if not isinstance(payload, ProjectMove):
+            payload = ProjectMove.model_validate(payload)
+        safe = _slugify(slug)
+        if not safe:
+            raise KeyError(safe)
+        proj = self.store.get_project(safe)
+        if not proj:
+            raise KeyError(safe)
+        parent_key = _slugify(payload.parent_slug) if payload.parent_slug else None
+        before_key = _slugify(payload.before_slug) if payload.before_slug else None
+        self._validate_project_parent(slugify_hint=safe, parent_slug=parent_key)
+        moved = self.store.move_project(
+            safe, parent_slug=parent_key, before_slug=before_key
+        )
+        return moved.model_dump(mode="json")
+
+    def _validate_project_parent(
+        self, *, slugify_hint: str | None, parent_slug: str | None
+    ) -> None:
+        """Reject missing parents, self-nest, and ancestor/descendant cycles."""
+        from adhd_hub.store import slugify as _slugify
+
+        if not parent_slug:
             return
-        parent_key = _slugify(raw_parent)
-        self_slug = _slugify(payload.slug or payload.title)
+        parent_key = _slugify(parent_slug)
+        self_slug = _slugify(slugify_hint or "")
         if not parent_key:
             raise ValueError("parent_not_found")
-        if parent_key == self_slug:
+        if self_slug and parent_key == self_slug:
             raise ValueError("cannot_nest_under_self")
         parent = self.store.get_project(parent_key)
         if not parent:
             raise ValueError("parent_not_found")
-        if parent.parent_slug:
-            raise ValueError("parent_must_be_top_level")
-        # A project that already has children cannot become a child (depth 3).
-        if self.store.get_project(self_slug) and self.store.count_project_children(self_slug):
-            raise ValueError("project_has_children")
-        # Walk up from the chosen parent (depth-2 graph: at most one hop).
-        seen = {self_slug}
+        # Walk ancestors of the chosen parent; must never hit self (cycle).
+        seen: set[str] = {self_slug} if self_slug else set()
         cursor: str | None = parent_key
         while cursor:
             if cursor in seen:
@@ -987,6 +1007,7 @@ class HubService:
                         "workspace_paths": [],
                         "tags": [],
                         "parent_slug": None,
+                        "sort_order": 0,
                         "default_energy": "unknown",
                         "forge_owner": None,
                         "forge_repo": None,

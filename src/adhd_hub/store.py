@@ -185,6 +185,7 @@ class Store:
                     forge_wiki_path TEXT,
                     forge_project_id TEXT,
                     parent_slug TEXT REFERENCES projects(slug) ON DELETE SET NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -227,6 +228,10 @@ class Store:
                 conn.execute(
                     "ALTER TABLE projects ADD COLUMN parent_slug TEXT "
                     "REFERENCES projects(slug) ON DELETE SET NULL"
+                )
+            if "sort_order" not in cols:
+                conn.execute(
+                    "ALTER TABLE projects ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
                 )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_slug)"
@@ -1771,6 +1776,7 @@ class Store:
             workspace_paths=[str(p) for p in paths],
             tags=normalize_project_tags([str(t) for t in tags]),
             parent_slug=dict(row).get("parent_slug") or None,
+            sort_order=int(dict(row).get("sort_order") or 0),
             default_energy=EnergyLevel(row["default_energy"] or "unknown"),
             default_work_source=WorkSource(
                 dict(row).get("default_work_source") or WorkSource.local.value
@@ -1824,11 +1830,16 @@ class Store:
                     parent_slug = slugify(payload.parent_slug) if payload.parent_slug else None
                 else:
                     parent_slug = dict(existing).get("parent_slug") or None
+                if "sort_order" in payload.model_fields_set and payload.sort_order is not None:
+                    sort_order = int(payload.sort_order)
+                else:
+                    sort_order = int(dict(existing).get("sort_order") or 0)
                 conn.execute(
                     """
                     UPDATE projects SET
                         title = ?, description = COALESCE(?, description), repo_url = ?,
-                        workspace_paths = ?, tags = ?, parent_slug = ?, default_energy = ?,
+                        workspace_paths = ?, tags = ?, parent_slug = ?, sort_order = ?,
+                        default_energy = ?,
                         default_work_source = ?,
                         forge_owner = COALESCE(?, forge_owner),
                         forge_repo = COALESCE(?, forge_repo),
@@ -1845,6 +1856,7 @@ class Store:
                         json.dumps(merged),
                         tags_json,
                         parent_slug,
+                        sort_order,
                         payload.default_energy.value,
                         default_work_source,
                         payload.forge_owner,
@@ -1864,17 +1876,28 @@ class Store:
                 parent_slug = (
                     slugify(payload.parent_slug) if payload.parent_slug else None
                 )
+                if "sort_order" in payload.model_fields_set and payload.sort_order is not None:
+                    sort_order = int(payload.sort_order)
+                else:
+                    sibling_row = conn.execute(
+                        """
+                        SELECT COALESCE(MAX(sort_order), -1) AS m FROM projects
+                        WHERE IFNULL(parent_slug, '') = IFNULL(?, '')
+                        """,
+                        (parent_slug,),
+                    ).fetchone()
+                    sort_order = int(sibling_row["m"] if sibling_row else -1) + 1
                 conn.execute(
                     """
                     INSERT INTO projects (
                         slug, title, description, repo_url, workspace_paths, tags,
-                        parent_slug,
+                        parent_slug, sort_order,
                         default_energy,
                         default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slug,
@@ -1884,6 +1907,7 @@ class Store:
                         json.dumps(paths),
                         json.dumps(payload.tags or []),
                         parent_slug,
+                        sort_order,
                         payload.default_energy.value,
                         (payload.default_work_source or WorkSource.local).value,
                         payload.forge_owner,
@@ -1910,7 +1934,10 @@ class Store:
         with self._conn() as conn:
             if include_archived:
                 rows = conn.execute(
-                    "SELECT * FROM projects ORDER BY title COLLATE NOCASE ASC LIMIT ?",
+                    """
+                    SELECT * FROM projects
+                    ORDER BY sort_order ASC, title COLLATE NOCASE ASC LIMIT ?
+                    """,
                     (limit,),
                 ).fetchall()
             else:
@@ -1918,7 +1945,7 @@ class Store:
                     """
                     SELECT * FROM projects
                     WHERE archived_at IS NULL
-                    ORDER BY title COLLATE NOCASE ASC LIMIT ?
+                    ORDER BY sort_order ASC, title COLLATE NOCASE ASC LIMIT ?
                     """,
                     (limit,),
                 ).fetchall()
@@ -1980,10 +2007,82 @@ class Store:
         safe = slugify(slug)
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT slug FROM projects WHERE parent_slug = ? ORDER BY title COLLATE NOCASE",
+                """
+                SELECT slug FROM projects
+                WHERE parent_slug = ?
+                ORDER BY sort_order ASC, title COLLATE NOCASE
+                """,
                 (safe,),
             ).fetchall()
         return [str(r["slug"]) for r in rows]
+
+    def move_project(
+        self,
+        slug: str,
+        *,
+        parent_slug: str | None,
+        before_slug: str | None = None,
+    ) -> Project:
+        """Set parent and insert among siblings (before_slug or append)."""
+        safe = slugify(slug)
+        parent_key = slugify(parent_slug) if parent_slug else None
+        before_key = slugify(before_slug) if before_slug else None
+        now = utcnow().isoformat()
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
+            if not row:
+                raise KeyError(safe)
+            if parent_key:
+                parent_row = conn.execute(
+                    "SELECT slug FROM projects WHERE slug = ?", (parent_key,)
+                ).fetchone()
+                if not parent_row:
+                    raise ValueError("parent_not_found")
+            # Sibling list for the destination parent, excluding the moved row.
+            if parent_key is None:
+                siblings = conn.execute(
+                    """
+                    SELECT slug FROM projects
+                    WHERE parent_slug IS NULL AND slug != ?
+                    ORDER BY sort_order ASC, title COLLATE NOCASE
+                    """,
+                    (safe,),
+                ).fetchall()
+            else:
+                siblings = conn.execute(
+                    """
+                    SELECT slug FROM projects
+                    WHERE parent_slug = ? AND slug != ?
+                    ORDER BY sort_order ASC, title COLLATE NOCASE
+                    """,
+                    (parent_key, safe),
+                ).fetchall()
+            order = [str(r["slug"]) for r in siblings]
+            if before_key:
+                if before_key == safe:
+                    raise ValueError("invalid_before_slug")
+                if before_key not in order:
+                    raise ValueError("before_not_sibling")
+                insert_at = order.index(before_key)
+                order.insert(insert_at, safe)
+            else:
+                order.append(safe)
+            conn.execute(
+                """
+                UPDATE projects SET parent_slug = ?, updated_at = ? WHERE slug = ?
+                """,
+                (parent_key, now, safe),
+            )
+            for index, sibling_slug in enumerate(order):
+                conn.execute(
+                    """
+                    UPDATE projects SET sort_order = ?, updated_at = ? WHERE slug = ?
+                    """,
+                    (index, now, sibling_slug),
+                )
+            out = conn.execute("SELECT * FROM projects WHERE slug = ?", (safe,)).fetchone()
+        assert out is not None
+        return self._row_project(out)
 
     def set_project_forge_connection_profile(
         self, slug: str, profile_id: str | None
@@ -2106,12 +2205,12 @@ class Store:
                     """
                     INSERT INTO projects (
                         slug, title, description, repo_url, workspace_paths, tags,
-                        parent_slug,
+                        parent_slug, sort_order,
                         default_energy, default_work_source,
                         forge_owner, forge_repo, forge_wiki_path, forge_project_id,
                         forge_connection_profile_id, archived_at,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new,
@@ -2121,6 +2220,7 @@ class Store:
                         row["workspace_paths"],
                         row["tags"],
                         dict(row).get("parent_slug"),
+                        int(dict(row).get("sort_order") or 0),
                         row["default_energy"],
                         dict(row).get("default_work_source") or WorkSource.local.value,
                         row["forge_owner"],

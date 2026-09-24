@@ -61,7 +61,7 @@ The organiser adds only the selected tags and preserves project settings (includ
 
 Now includes open-step, weekly completion, and project counts below the chosen step. Focus mode hides the overview to keep a single task in view. Counts use the same live overview as Progress.
 
-My work has project search (name, slug, or tag) combined with the tag filter, plus a visible result count and empty state. The Projects rail shows a collapsible parent/child tree (expand state remembered in this browser). Project rows show open-step counts; the selected project exposes its tags. **Suggest tags** opens the existing editable preview before applying suggestions.
+My work has project search (name, slug, or tag) combined with the tag filter, plus a visible result count and empty state. The Projects rail shows a collapsible parent/child tree with **unlimited nesting** (expand state remembered in this browser). Drag a project onto another to nest it, or into the gap between rows to reorder siblings; `parent_slug` and `sort_order` persist. On small screens the rail opens as a full-screen left drawer (backdrop, Escape, focus trap). Project rows show open-step counts; the selected project exposes its tags. **Suggest tags** opens the existing editable preview before applying suggestions. The edit form Parent select remains as a fallback.
 
 Thread **Actions** opens a compact panel without expanding the row. Only one panel stays open, Escape closes it and returns focus, and tabbing away closes it. Focus and Read notes remain directly available; source conflicts stay visible. AI scan-line rewriting and source refresh remain in Actions.
 

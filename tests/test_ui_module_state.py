@@ -213,12 +213,22 @@ def test_project_rail_hierarchy_tree_markers():
     """Projects rail builds a collapsible parent/child tree with persisted expand state."""
     work = (UI_JS / "work.js").read_text()
     html = (UI_JS.parent / "index.html").read_text()
+    css = (UI_JS.parent / "app.css").read_text()
     assert "adhd_hub_project_expand" in work
     assert "buildProjectForest" in work
     assert "proj-chevron" in work
     assert "parent_slug" in work
+    assert "sort_order" in work
+    assert "wireProjectDnD" in work
+    assert "/projects/" in work and "/move" in work
+    assert "openProjectsDrawer" in work
     assert 'id="p_parent_slug"' in html
+    assert 'id="btn-open-projects-drawer"' in html
+    assert 'id="projects-drawer-backdrop"' in html
     assert "None (top-level)" in html
+    assert "--rail-width" in css
+    assert "--work-max" in css
+    assert "projects-drawer-open" in css
 
 
 

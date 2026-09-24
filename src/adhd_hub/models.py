@@ -204,8 +204,10 @@ class Project(BaseModel):
     repo_url: str | None = None
     workspace_paths: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
-    # Nullable parent for Notion-style nesting (max depth 2). Tags stay orthogonal.
+    # Nullable parent for Notion-style nesting (unlimited depth; cycles rejected).
+    # Tags stay orthogonal. sort_order orders siblings under the same parent.
     parent_slug: str | None = None
+    sort_order: int = 0
     default_energy: EnergyLevel = EnergyLevel.unknown
     default_work_source: WorkSource = WorkSource.local
     # Optional per-project forge override for issue/code repo binding
@@ -239,6 +241,7 @@ class ProjectUpsert(BaseModel):
     workspace_paths: list[str] = Field(default_factory=list)
     tags: list[str] | None = None
     parent_slug: str | None = None
+    sort_order: int | None = None
     default_energy: EnergyLevel = EnergyLevel.unknown
     default_work_source: WorkSource | None = None
     forge_owner: str | None = None
@@ -262,6 +265,21 @@ class ProjectUpsert(BaseModel):
     @field_validator("parent_slug")
     @classmethod
     def validate_parent_slug(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned or None
+
+
+class ProjectMove(BaseModel):
+    """Reparent and/or reorder a project among siblings (DnD nesting)."""
+
+    parent_slug: str | None = None
+    before_slug: str | None = None
+
+    @field_validator("parent_slug", "before_slug")
+    @classmethod
+    def empty_to_none(cls, value: str | None) -> str | None:
         if value is None:
             return None
         cleaned = str(value).strip()
