@@ -88,12 +88,12 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
       ? `<button type="button" class="proj-chevron" data-toggle-slug="${escapeHtml(p.slug)}" aria-expanded="${isOpen}" aria-label="${isOpen ? "Collapse" : "Expand"} ${title}">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="${isOpen ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6"}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>`
-      : `<span class="proj-chevron-spacer" aria-hidden="true"></span>`;
+      : "";
     const handle = canDrag
       ? `<span class="proj-drag-handle" draggable="true" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder" aria-label="Drag ${title}">
           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
         </span>`
-      : `<span class="proj-chevron-spacer" aria-hidden="true"></span>`;
+      : "";
     return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}${open ? "" : " is-empty"}" data-depth="${depth}" data-slug="${escapeHtml(p.slug)}" style="--depth: ${depth}">
       <div class="proj-row ${isActive}${open ? "" : " is-empty"}" data-slug="${escapeHtml(p.slug)}" data-parent-slug="${escapeHtml(p.parent_slug || "")}" data-drop="nest">
         ${handle}
