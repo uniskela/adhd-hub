@@ -229,6 +229,10 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "http://127.0.0.1:11434/v1" in index
     assert '<select id="ai_model">' in index
     assert 'list="ai_base_url_list"' in index
+    assert 'id="ai_timeout"' in index
+    assert 'value="15"' in index
+    assert 'min="1"' in index
+    assert 'max="30"' in index
     work = (root / "src/adhd_hub/ui/js/work.js").read_text(encoding="utf-8")
     assert "data-rewrite-scan" in work
     assert "Rewrite scan line" in work
@@ -241,6 +245,10 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "AI_BASE_URL_PRESETS" in settings
     assert "syncAiBaseUrlPreset" in settings
     assert "applyAiBaseUrlPreset" in settings
+    assert "normalizeAiBaseUrl" in settings
+    assert "matchAiBaseUrlPreset" in settings
+    assert "never a stale preset" in settings or "URL field is source of truth" in settings
+    assert "do not wipe a typed custom URL" in settings
     assert "(saved)" in settings
     assert "fromSelect" not in settings
     assert 'const sel = $("ai_model")' in settings
@@ -250,6 +258,28 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "applyAiBaseUrlPreset" in boot
     assert "syncAiBaseUrlPreset" in boot
     assert "ai_base_url_preset" in boot
+
+
+def test_ai_base_url_preset_match_logic_in_settings_js() -> None:
+    """Preset restore: exact-after-normalize match; unknown → Custom (empty)."""
+    from pathlib import Path
+
+    settings = (
+        Path(__file__).resolve().parents[1] / "src/adhd_hub/ui/js/settings.js"
+    ).read_text(encoding="utf-8")
+    # Gemini preset has trailing slash; AiConfig persists without — must still match.
+    assert "normalizeAiBaseUrl" in settings
+    assert "replace(/\\/+$/, \"\")" in settings or "replace(/\\/+$/," in settings
+    assert "matchAiBaseUrlPreset" in settings
+    assert "AI_BASE_URL_PRESETS.find" in settings
+    # Custom leaves typed URL alone
+    assert "do not wipe a typed custom URL" in settings
+    # Save / Test use field, not preset select
+    assert 'base_url: $("ai_base_url")?.value.trim()' in settings
+    assert 'base_url: baseUrl' in settings
+    assert "ai_base_url_preset" not in settings.split("aiConfigPayload")[1].split(
+        "export async function saveAiConfig"
+    )[0]
 
 
 def test_list_ai_models_parses_openai_compatible_payload() -> None:

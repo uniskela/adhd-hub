@@ -415,6 +415,36 @@ def test_generate_ai_scan_line_falls_back_on_error():
     assert "sk-" not in result.fail_hint
 
 
+def test_generate_ai_scan_line_timeout_hint():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:9/v1",
+        ai_timeout_seconds=1.0,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(settings, _thread(), client=client)
+    assert result.text is None
+    assert result.fail_hint is not None
+    assert "timed out" in result.fail_hint.lower()
+    assert "Timeout" in result.fail_hint
+    assert "heuristic" in result.fail_hint.lower()
+
+
+def test_default_ai_timeout_is_fifteen_seconds():
+    from adhd_hub.ai_config import DEFAULT_AI_TIMEOUT, MAX_AI_TIMEOUT, AiConfig
+    from adhd_hub.config import Settings
+
+    assert DEFAULT_AI_TIMEOUT == 15.0
+    assert MAX_AI_TIMEOUT == 30.0
+    assert Settings().ai_timeout_seconds == 15.0
+    assert AiConfig().timeout_seconds == 15.0
+
+
 def test_generate_ai_scan_line_404_bare_model_hint_does_not_blame_prefix():
     settings = Settings(
         data_dir=Path("/tmp/unused"),

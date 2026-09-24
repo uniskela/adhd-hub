@@ -103,6 +103,24 @@ export const AI_BASE_URL_PRESETS = [
     "https://api.groq.com/openai/v1",
   ];
 
+/** Strip trailing slashes so saved URLs match preset option values. */
+export function normalizeAiBaseUrl(url) {
+    return String(url || "").trim().replace(/\/+$/, "");
+}
+
+/**
+ * Return the preset option value that matches ``url``, or "" for Custom….
+ * Compares without trailing slashes (AiConfig persists URLs without them).
+ */
+export function matchAiBaseUrlPreset(url) {
+    const normalized = normalizeAiBaseUrl(url);
+    if (!normalized) return "";
+    const match = AI_BASE_URL_PRESETS.find(
+      (p) => normalizeAiBaseUrl(p) === normalized
+    );
+    return match || "";
+}
+
 export function syncAiLoadModelsButton() {
     const btn = $("btn-load-ai-models");
     if (!btn) return;
@@ -114,18 +132,20 @@ export function syncAiBaseUrlPreset() {
     const sel = $("ai_base_url_preset");
     const input = $("ai_base_url");
     if (!sel || !input) return;
-    const url = (input.value || "").trim();
-    const match = AI_BASE_URL_PRESETS.find((p) => p === url);
-    sel.value = match || "";
+    sel.value = matchAiBaseUrlPreset(input.value);
   }
 
-/** Apply the selected preset into the Base URL field (Custom… leaves the field alone). */
+/**
+ * Apply the selected preset into the Base URL field.
+ * Custom… leaves a typed URL alone (only clears when the field is empty).
+ */
 export function applyAiBaseUrlPreset() {
     const sel = $("ai_base_url_preset");
     const input = $("ai_base_url");
     if (!sel || !input) return;
     const value = (sel.value || "").trim();
     if (!value) {
+      // Custom… — do not wipe a typed custom URL.
       syncAiLoadModelsButton();
       return;
     }
@@ -178,10 +198,11 @@ export async function loadAiConfig() {
     try {
       const config = await api("/ai/config");
       $("ai_enabled").checked = !!config.enabled;
+      // URL field is source of truth; preset select is derived from it.
       $("ai_base_url").value = config.base_url || "";
       syncAiBaseUrlPreset();
       fillAiModelList([], config.model || "llama3.2");
-      $("ai_timeout").value = config.timeout_seconds ?? 2.5;
+      $("ai_timeout").value = config.timeout_seconds ?? 15;
       $("ai_api_key").value = "";
       $("ai_clear_key").checked = false;
       if (keyStatus) {
@@ -201,11 +222,12 @@ export async function loadAiConfig() {
   }
 
 export function aiConfigPayload() {
+    // Always send the URL field value — never a stale preset selection.
     return {
       enabled: !!$("ai_enabled")?.checked,
       base_url: $("ai_base_url")?.value.trim() || "",
       model: ($("ai_model")?.value || "").trim() || "llama3.2",
-      timeout_seconds: Number($("ai_timeout")?.value) || 2.5,
+      timeout_seconds: Number($("ai_timeout")?.value) || 15,
       api_key: $("ai_api_key")?.value.trim() || null,
       clear_api_key: !!$("ai_clear_key")?.checked,
     };
@@ -242,7 +264,7 @@ export async function testAndLoadAiModels() {
     if (msg) msg.textContent = "Testing connection…";
     const payload = {
       base_url: baseUrl,
-      timeout_seconds: Number($("ai_timeout")?.value) || 2.5,
+      timeout_seconds: Number($("ai_timeout")?.value) || 15,
     };
     const key = ($("ai_api_key")?.value || "").trim();
     if (key) payload.api_key = key;

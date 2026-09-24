@@ -312,9 +312,9 @@
                         <option value="https://api.groq.com/openai/v1" label="Groq"></option>
                       </datalist>
                     </label>
-                    <p id="ai-base-url-hint" class="hint span2">Pick a common OpenAI-compatible endpoint or enter a custom base URL (must end with the API root your provider expects).</p>
+                    <p id="ai-base-url-hint" class="hint span2">Pick a common OpenAI-compatible endpoint or enter a custom base URL (must end with the API root your provider expects). Saved URLs that do not match a preset open as Custom… with the URL filled in.</p>
                     <label>Model <select id="ai_model"><option value="llama3.2">llama3.2</option></select></label>
-                    <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="0.1" max="30" step="0.1" value="2.5" /></label>
+                    <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="1" max="30" step="1" value="15" /></label>
                     <label class="span2">API key <span class="hint">· optional</span><input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" /></label>
                   </div>
                   <p id="ai_key_status" class="hint">No saved API key.</p>

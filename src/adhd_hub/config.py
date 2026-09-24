@@ -102,7 +102,7 @@ class Settings(BaseSettings):
     ai_base_url: str | None = None
     ai_api_key: str | None = None
     ai_model: str = "llama3.2"
-    ai_timeout_seconds: float = Field(default=2.5, gt=0, le=30, allow_inf_nan=False)
+    ai_timeout_seconds: float = Field(default=15.0, gt=0, le=30, allow_inf_nan=False)
 
     # Optional forge (GitHub / Gitea) — UI can override via data/forge.json
     forge_provider: str = "none"  # none | github | gitea

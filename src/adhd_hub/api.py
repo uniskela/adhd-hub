@@ -528,8 +528,12 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             )
         except (TypeError, ValueError) as exc:
             raise HTTPException(400, "timeout must be a number of seconds") from exc
-        if timeout_seconds <= 0 or timeout_seconds > 30:
-            raise HTTPException(400, "timeout must be between 0 and 30 seconds")
+        from adhd_hub.ai_config import MAX_AI_TIMEOUT
+
+        if timeout_seconds <= 0 or timeout_seconds > MAX_AI_TIMEOUT:
+            raise HTTPException(
+                400, f"timeout must be between 0 and {int(MAX_AI_TIMEOUT)} seconds"
+            )
         result = list_ai_models(
             base_url=validated.base_url,
             api_key=api_key,

@@ -75,7 +75,7 @@ On My work, **More options → Rewrite scan line** forces a refresh for one thre
 | `ADHD_HUB_AI_BASE_URL` | unset | URL | OpenAI-compatible API base ending before `/chat/completions`, e.g. `http://127.0.0.1:11434/v1`. When set and no `data/ai.json` yet, AI starts enabled. |
 | `ADHD_HUB_AI_MODEL` | `llama3.2` | string | Model id passed to the provider. Gemini OpenAI-compat list ids may include a `models/` prefix; Hub strips that (and a leading `google/`) for chat and when filling the Model dropdown. Non-chat list entries (embeddings, Imagen, image/TTS variants) are hidden, and Gemini flash ids known to be unavailable to new users are filtered from the list. Prefer bare current chat ids like `gemini-3.6-flash`. |
 | `ADHD_HUB_AI_API_KEY` | unset | secret string | Optional bearer token for remote providers. Prefer Settings for ongoing secrets. |
-| `ADHD_HUB_AI_TIMEOUT_SECONDS` | `2.5` | float | HTTP timeout for a scan-line rewrite (greater than 0, at most 30 seconds). Rewrites run during thread/progress saves and manual refresh, so keep this short. |
+| `ADHD_HUB_AI_TIMEOUT_SECONDS` | `15` | float | HTTP timeout for a scan-line rewrite (greater than 0, at most 30 seconds). Local or proxy models (Ollama, Codex-lb, etc.) often need a higher timeout than cloud APIs; raise this in Settings if you see ReadTimeout / “AI timed out”. |
 
 For a TLS reverse proxy, a typical configuration is:
 
