@@ -435,8 +435,10 @@ def main():
                 blocked.get_by_role("button", name="Sign in", exact=True).click()
                 expect(blocked.locator("#app-shell")).to_be_visible()
                 expect(blocked.locator("#now-view")).to_be_visible()
-                blocked.locator("#appearance-menu").get_by_text("Appearance", exact=True).click(); blocked.locator("#appearance-menu [data-theme-value=\"light\"]").click()
+                # Header cycle: System → Light → Dark → System (starts at System).
+                blocked.locator("#appearance-menu").click()
                 expect(blocked.locator("html")).to_have_attribute("data-theme", "light")
+                expect(blocked.locator("#appearance-menu")).to_contain_text("Light")
                 blocked.get_by_role("button", name="Settings", exact=True).click()
                 blocked.locator("#rewards-enabled").uncheck()
                 blocked.keyboard.press("Escape")
