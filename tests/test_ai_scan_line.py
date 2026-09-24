@@ -17,6 +17,7 @@ from adhd_hub.ai_client import (
     list_ai_models,
     normalize_openai_model_id,
     openai_compat_url,
+    structured_scan_prompt,
 )
 from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, SCAN_LINE_SOURCE_HEURISTIC
 from adhd_hub.config import Settings
@@ -98,6 +99,91 @@ def test_is_likely_chat_model(model_id: str, expected: bool) -> None:
 )
 def test_openai_compat_url_avoids_double_slash(base: str, suffix: str, expected: str) -> None:
     assert openai_compat_url(base, suffix) == expected
+
+
+def test_structured_scan_prompt_caps_fields_and_skips_forge_conflict_walls() -> None:
+    forge_wall = (
+        "Thread upserted from Cursor — Title — Desc — more ritual\n"
+        + ("forge conflict dump line\n" * 80)
+        + ("x" * 2000)
+    )
+    thread = _thread(
+        focus="Keep AI prompts small enough to finish under the timeout",
+        resume_step=forge_wall,
+        goal="Ship scan-line quality without provider timeouts",
+        next_steps=["Cap prompt fields", "Reject short AI", "Ignore forge walls"],
+        source_conflicts={
+            "resume_step": {
+                "previous": "older hub resume",
+                "hub": "Run focused pytest for scan-line prompt caps",
+                "forge": forge_wall,
+            }
+        },
+    )
+    prompt = structured_scan_prompt(thread)
+    assert "Run focused pytest for scan-line prompt caps" in prompt
+    assert "Thread upserted from" not in prompt
+    assert "forge conflict dump" not in prompt
+    assert forge_wall[:40] not in prompt
+    assert "source_conflicts" not in prompt
+    resume_line = next(line for line in prompt.splitlines() if line.startswith("Resume:"))
+    assert len(resume_line) <= len("Resume: ") + 120 + 1  # truncate may add …
+    assert len(prompt) < 1200
+
+
+def test_structured_scan_prompt_drops_ritual_resume_without_feeding_wall() -> None:
+    ritual = "Thread upserted from Codex — Ship AI — " + ("wall " * 400)
+    thread = _thread(resume_step=ritual, focus="Prefer short hub focus when resume is ritual")
+    prompt = structured_scan_prompt(thread)
+    assert "Thread upserted from" not in prompt
+    assert "Prefer short hub focus" in prompt
+    assert "Resume:" not in prompt
+
+
+def test_generate_ai_scan_line_sends_capped_prompt_not_forge_blob() -> None:
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:11434/v1",
+    )
+    forge_wall = "Thread upserted from Cursor\n" + ("conflict resume blob\n" * 100)
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        prompt = body["messages"][-1]["content"]
+        seen["prompt"] = prompt
+        assert "conflict resume blob" not in prompt
+        assert len(prompt) < 1200
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                "Keep rewriting calm ADHD-friendly scan lines for My work cards"
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    thread = _thread(
+        focus="Keep rewriting calm ADHD-friendly scan lines",
+        resume_step=forge_wall,
+        source_conflicts={
+            "resume_step": {
+                "hub": "Finish prompt caps then re-test rewrite",
+                "forge": forge_wall,
+            }
+        },
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(settings, thread, client=client)
+    assert result.text is not None
+    assert "Finish prompt caps" in seen["prompt"]
 
 
 def test_list_ai_models_strips_gemini_models_prefix() -> None:

@@ -24,6 +24,7 @@ from adhd_hub.clarity import (
 )
 from adhd_hub.config import Settings
 from adhd_hub.models import Thread
+from adhd_hub.notes_compaction import is_boilerplate_freeform
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,13 @@ _DEPRECATED_MODEL_HINT_RE = re.compile(
 
 # Room for one complete ~80–140 char sentence (tokens ≠ chars; keep headroom).
 _SCAN_LINE_MAX_TOKENS = 220
+
+# Keep AI prompts tiny — huge forge/ritual resume walls cause provider timeouts.
+_PROMPT_TITLE_MAX = 80
+_PROMPT_FIELD_MAX = 120
+_PROMPT_WALL_CHARS = 400
+_PROMPT_WALL_LINES = 3
+_PROMPT_WALL_EMDASHES = 3
 
 # OpenAI-compat ``/models`` lists embeddings, Imagen, etc. that cannot chat.
 _NON_CHAT_MODEL_MARKERS = (
@@ -144,7 +152,88 @@ def ai_configured(settings: Settings) -> bool:
     return bool(enabled) and has_url
 
 
-def _structured_prompt(thread: Thread) -> str:
+def _raw_looks_like_ritual_wall(text: str) -> bool:
+    """True when a continuity field looks like forge/agent ritual dump, not a resume."""
+    if len(text) > _PROMPT_WALL_CHARS:
+        return True
+    if text.count("\n") >= _PROMPT_WALL_LINES:
+        return True
+    if text.count("—") >= _PROMPT_WALL_EMDASHES:
+        return True
+    low = text.casefold()
+    return (
+        "thread upserted from" in low
+        or "source_conflicts" in low
+        or "checkpointed from" in low
+    )
+
+
+def _first_usable_prompt_line(text: str) -> str | None:
+    for line in text.splitlines():
+        cleaned = line.strip().lstrip("#*-• ").strip()
+        if cleaned and not is_boilerplate_freeform(cleaned):
+            return cleaned
+    first = text.strip().split("\n", 1)[0].strip()
+    return first or None
+
+
+def _sanitize_prompt_field(value: str | None, *, limit: int) -> str | None:
+    """Scrub + tightly cap one continuity field for the AI prompt (never forge walls)."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if is_boilerplate_freeform(text):
+        return None
+    if _raw_looks_like_ritual_wall(text):
+        text = _first_usable_prompt_line(text) or ""
+        if not text or is_boilerplate_freeform(text) or _raw_looks_like_ritual_wall(text):
+            return None
+    cleaned = scrub_scan_text(text)
+    if not cleaned:
+        return None
+    return truncate_scan_text(cleaned, limit=limit)
+
+
+def _hub_preferred_field(thread: Thread, name: str, current: str | None) -> str | None:
+    """Prefer Hub side of a forge conflict; never feed forge conflict blobs to AI."""
+    conflict = (thread.source_conflicts or {}).get(name)
+    if not isinstance(conflict, dict):
+        return current
+    hub = conflict.get("hub")
+    if isinstance(hub, str) and hub.strip():
+        return hub
+    # Conflict present but no usable Hub value — skip rather than using forge text.
+    forge = conflict.get("forge")
+    if isinstance(forge, str) and forge.strip():
+        return None
+    return current
+
+
+def _next_steps_for_prompt(thread: Thread) -> str | None:
+    raw_steps = thread.next_steps[:2] if thread.next_steps else []
+    conflict = (thread.source_conflicts or {}).get("next_steps")
+    if isinstance(conflict, dict):
+        hub = conflict.get("hub")
+        if isinstance(hub, list):
+            raw_steps = [str(s) for s in hub[:2] if str(s).strip()]
+        elif isinstance(hub, str) and hub.strip():
+            raw_steps = [hub]
+        elif conflict.get("forge") is not None:
+            raw_steps = []
+    parts: list[str] = []
+    for step in raw_steps:
+        cleaned = _sanitize_prompt_field(step, limit=_PROMPT_FIELD_MAX)
+        if cleaned:
+            parts.append(cleaned)
+    if not parts:
+        return None
+    return "; ".join(parts)
+
+
+def structured_scan_prompt(thread: Thread) -> str:
+    """Build a small, scrubbed continuity prompt (no forge conflict / ritual walls)."""
     parts = [
         "Write one complete calm ADHD-friendly scan line for this Hub thread.",
         "Target about 80–140 characters as one finished scannable sentence.",
@@ -153,20 +242,37 @@ def _structured_prompt(thread: Thread) -> str:
         "Return plain text only — no quotes, labels, or markdown.",
     ]
     fields = [
-        ("Title", thread.summary),
-        ("Focus", thread.focus),
-        ("Resume", thread.resume_step),
-        ("Goal", thread.goal),
-        ("Next", "; ".join(thread.next_steps[:3])),
-        ("Blocked", thread.blocked_reason),
+        ("Title", _hub_preferred_field(thread, "summary", thread.summary), _PROMPT_TITLE_MAX),
+        ("Focus", _hub_preferred_field(thread, "focus", thread.focus), _PROMPT_FIELD_MAX),
+        (
+            "Resume",
+            _hub_preferred_field(thread, "resume_step", thread.resume_step),
+            _PROMPT_FIELD_MAX,
+        ),
+        ("Goal", _hub_preferred_field(thread, "goal", thread.goal), _PROMPT_FIELD_MAX),
+        ("Next", _next_steps_for_prompt(thread), _PROMPT_FIELD_MAX * 2),
+        (
+            "Blocked",
+            _hub_preferred_field(thread, "blocked_reason", thread.blocked_reason),
+            _PROMPT_FIELD_MAX,
+        ),
     ]
-    for label, value in fields:
-        # Redact before crossing the provider boundary and before truncating
-        # quoted secrets. Do not read progress bodies or transcript references.
-        cleaned = scrub_scan_text(value)
+    for label, value, limit in fields:
+        # Redact before crossing the provider boundary. Never send source_conflicts,
+        # progress bodies, or transcript references.
+        if label == "Next":
+            cleaned = value if isinstance(value, str) else None
+            if cleaned:
+                cleaned = truncate_scan_text(cleaned, limit=limit)
+        else:
+            cleaned = _sanitize_prompt_field(value, limit=limit)
         if cleaned:
-            parts.append(f"{label}: {truncate_scan_text(cleaned, limit=500)}")
+            parts.append(f"{label}: {cleaned}")
     return "\n".join(parts)
+
+
+def _structured_prompt(thread: Thread) -> str:
+    return structured_scan_prompt(thread)
 
 
 def _provider_error_snippet(response: httpx.Response) -> str | None:
