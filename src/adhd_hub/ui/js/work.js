@@ -1,6 +1,6 @@
 import { state, $, setMsg, escapeHtml, preferences } from './state.js';
 import { api } from './api.js';
-import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink } from './dom.js';
+import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink, wireOverflowMenu } from './dom.js';
 import { loadAll } from './load.js';
 import { chooseThread, closeNotesReader, wireNotes } from './now.js';
 import {
@@ -134,8 +134,38 @@ async function moveProjectViaApi(slug, { parent_slug = null, before_slug = null 
     await loadAll();
   }
 
+/** After a DnD gesture, ignore the ghost click that would select a project and close the drawer. */
+let suppressProjectSelectUntil = 0;
+function suppressProjectSelectBriefly() {
+    suppressProjectSelectUntil = Date.now() + 500;
+  }
+function shouldSuppressProjectSelect() {
+    return Date.now() < suppressProjectSelectUntil;
+  }
+
+function projectsListScroller(list) {
+    return list?.closest(".rail-scroll") || list?.parentElement || null;
+  }
+
+function autoScrollProjectsList(list, clientY) {
+    const scroller = projectsListScroller(list);
+    if (!scroller) return;
+    const rect = scroller.getBoundingClientRect();
+    const edge = 56;
+    const maxStep = 22;
+    if (clientY < rect.top + edge) {
+      const intensity = Math.min(1, (rect.top + edge - clientY) / edge);
+      scroller.scrollTop -= Math.max(2, Math.ceil(maxStep * intensity));
+    } else if (clientY > rect.bottom - edge) {
+      const intensity = Math.min(1, (clientY - (rect.bottom - edge)) / edge);
+      scroller.scrollTop += Math.max(2, Math.ceil(maxStep * intensity));
+    }
+  }
+
 function wireProjectDnD(list, visible) {
     let dragSlug = null;
+    let autoScrollRaf = null;
+    let lastDragY = 0;
     const bySlug = new Map(visible.map(({ project }) => [project.slug, project]));
 
     const isDescendant = (ancestor, maybeChild) => {
@@ -149,7 +179,25 @@ function wireProjectDnD(list, visible) {
       return false;
     };
 
+    const stopAutoScroll = () => {
+      if (autoScrollRaf) {
+        cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = null;
+      }
+    };
+
+    const startAutoScroll = (clientY) => {
+      lastDragY = clientY;
+      if (autoScrollRaf) return;
+      const tick = () => {
+        autoScrollProjectsList(list, lastDragY);
+        autoScrollRaf = requestAnimationFrame(tick);
+      };
+      autoScrollRaf = requestAnimationFrame(tick);
+    };
+
     const finishDragVisual = () => {
+      stopAutoScroll();
       list.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
       clearProjDropIndicators();
     };
@@ -163,6 +211,8 @@ function wireProjectDnD(list, visible) {
         setMsg("Cannot nest a project under itself or its child.");
         return;
       }
+      // Keep the mobile projects drawer open after a successful move so organising can continue.
+      suppressProjectSelectBriefly();
       moveProjectViaApi(slug, { parent_slug: parentKey, before_slug: before }).catch((e) =>
         setMsg(e.message)
       );
@@ -175,6 +225,7 @@ function wireProjectDnD(list, visible) {
         setMsg("Cannot nest a project under itself or its child.");
         return;
       }
+      suppressProjectSelectBriefly();
       moveProjectViaApi(slug, { parent_slug: target, before_slug: null }).catch((e) =>
         setMsg(e.message)
       );
@@ -207,6 +258,12 @@ function wireProjectDnD(list, visible) {
       return null;
     };
 
+    list.addEventListener("dragover", (event) => {
+      if (!dragSlug) return;
+      event.preventDefault();
+      startAutoScroll(event.clientY);
+    });
+
     list.querySelectorAll(".proj-drag-handle").forEach((handle) => {
       handle.addEventListener("dragstart", (event) => {
         dragSlug = handle.dataset.dragSlug || null;
@@ -225,6 +282,9 @@ function wireProjectDnD(list, visible) {
       // reuses the same gap/nest targets as mouse drag.
       let pointerActive = false;
       let pointerId = null;
+      let pointerDragMoved = false;
+      let pointerStartX = 0;
+      let pointerStartY = 0;
       handle.addEventListener("pointerdown", (event) => {
         if (event.pointerType === "mouse") return;
         if (typeof event.button === "number" && event.button !== 0) return;
@@ -232,6 +292,9 @@ function wireProjectDnD(list, visible) {
         if (!dragSlug) return;
         pointerActive = true;
         pointerId = event.pointerId;
+        pointerDragMoved = false;
+        pointerStartX = event.clientX;
+        pointerStartY = event.clientY;
         try {
           handle.setPointerCapture(pointerId);
         } catch (_) {
@@ -243,16 +306,24 @@ function wireProjectDnD(list, visible) {
       });
       handle.addEventListener("pointermove", (event) => {
         if (!pointerActive || event.pointerId !== pointerId || !dragSlug) return;
+        const dx = event.clientX - pointerStartX;
+        const dy = event.clientY - pointerStartY;
+        if (!pointerDragMoved && dx * dx + dy * dy > 64) pointerDragMoved = true;
+        startAutoScroll(event.clientY);
         highlightUnderPoint(event.clientX, event.clientY);
       });
       const endPointerDrag = (event) => {
         if (!pointerActive || event.pointerId !== pointerId) return;
         const slug = dragSlug;
         const hit = highlightUnderPoint(event.clientX, event.clientY);
+        const moved = pointerDragMoved;
         pointerActive = false;
         pointerId = null;
+        pointerDragMoved = false;
         dragSlug = null;
         finishDragVisual();
+        // Ghost click after pointer drag would select a project and close the drawer.
+        if (moved || hit) suppressProjectSelectBriefly();
         if (!slug || !hit) return;
         if (hit.kind === "gap") applyReorderDrop(slug, hit.gap);
         else if (hit.kind === "nest") applyNestDrop(slug, hit.row);
@@ -268,6 +339,7 @@ function wireProjectDnD(list, visible) {
         event.dataTransfer.dropEffect = "move";
         clearProjDropIndicators();
         gap.classList.add("proj-drop-active");
+        startAutoScroll(event.clientY);
       });
       gap.addEventListener("dragleave", () => gap.classList.remove("proj-drop-active"));
       gap.addEventListener("drop", (event) => {
@@ -289,6 +361,7 @@ function wireProjectDnD(list, visible) {
         event.dataTransfer.dropEffect = "move";
         clearProjDropIndicators();
         row.classList.add("proj-drop-nest");
+        startAutoScroll(event.clientY);
       });
       row.addEventListener("dragleave", () => row.classList.remove("proj-drop-nest"));
       row.addEventListener("drop", (event) => {
@@ -346,7 +419,14 @@ export function renderProjects(projects) {
     $("proj-all").classList.toggle("active", !state.projectFilter);
     $("proj-all").setAttribute("aria-pressed", String(!state.projectFilter));
     list.querySelectorAll(".proj").forEach((el) => {
-      el.addEventListener("click", () => selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message)));
+      el.addEventListener("click", (event) => {
+        if (shouldSuppressProjectSelect()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        selectProject(el.dataset.slug || null).catch((e) => setMsg(e.message));
+      });
     });
     list.querySelectorAll(".proj-chevron").forEach((el) => {
       el.addEventListener("click", (event) => {
@@ -720,13 +800,22 @@ function setWorkTitle(title) {
     if (mobile) mobile.textContent = value;
   }
 
+function setRewriteAllButtons({ hidden, disabled, text } = {}) {
+    for (const id of ["btn-rewrite-all-scan", "btn-rewrite-all-scan-mobile"]) {
+      const btn = $(id);
+      if (!btn) continue;
+      if (hidden !== undefined) btn.hidden = hidden;
+      if (disabled !== undefined) btn.disabled = disabled;
+      if (text !== undefined) btn.textContent = text;
+    }
+  }
+
 export function renderProjectHeader(p) {
     const edit = $("btn-edit-project");
     const editMobile = $("btn-edit-project-mobile");
     const repo = $("btn-open-project-repo");
     const repoMobile = $("btn-open-project-repo-mobile");
     const mobileActions = $("project-mobile-actions");
-    const rewriteAll = $("btn-rewrite-all-scan");
     if (!p) {
       edit.hidden = true;
       if (editMobile) editMobile.hidden = true;
@@ -740,7 +829,7 @@ export function renderProjectHeader(p) {
         mobileActions.hidden = true;
         mobileActions.open = false;
       }
-      if (rewriteAll) rewriteAll.hidden = true;
+      setRewriteAllButtons({ hidden: true });
       return;
     }
     const editLabel = p.unregistered ? "Register project" : `Edit ${p.title || p.slug}`;
@@ -761,12 +850,15 @@ export function renderProjectHeader(p) {
       if (href) repoMobile.href = href;
       else repoMobile.removeAttribute("href");
     }
-    if (mobileActions) mobileActions.hidden = false;
-    if (rewriteAll) {
-      rewriteAll.hidden = false;
-      rewriteAll.disabled = false;
-      rewriteAll.textContent = "Rewrite all scan lines";
+    if (mobileActions) {
+      mobileActions.hidden = false;
+      wireOverflowMenu(mobileActions);
     }
+    setRewriteAllButtons({
+      hidden: false,
+      disabled: false,
+      text: "Rewrite all scan lines",
+    });
   }
 export function openProjectDialog(project) {
     if (!project) return;
@@ -1003,6 +1095,7 @@ export function renderThreads(threads) {
       })
       .join("");
     root.querySelectorAll(".thread-utility").forEach((panel) => {
+      wireOverflowMenu(panel);
       panel.addEventListener("toggle", () => {
         if (panel.open) root.querySelectorAll(".thread-utility[open]").forEach((other) => {
           if (other !== panel) other.open = false;
@@ -1077,25 +1170,16 @@ export async function rewriteAllProjectScanLines() {
         "This calls the configured AI for each open thread in this project. It may use API quota, hit rate limits, and take a while. Cancel to leave scan lines as they are.",
     });
     if (!ok) return;
-    const btn = $("btn-rewrite-all-scan");
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "Rewriting…";
-    }
+    const mobileMenu = $("project-mobile-actions");
+    if (mobileMenu) mobileMenu.open = false;
+    setRewriteAllButtons({ disabled: true, text: "Rewriting…" });
     const toastKey = "rewrite-scan-lines";
-    const openCount =
-      Number(state.detailCache?.counts?.open) ||
-      (state.threadsCache || []).filter(
-        (t) => String(t.status || "open") === "open"
-      ).length;
-    // Sticky keyed toast: stay visible for the whole batch (info toasts otherwise
-    // auto-dismiss at 4.5s while the request is still in flight).
-    setMsg(
-      openCount > 0
-        ? `Rewriting scan lines… (0/${openCount})`
-        : "Rewriting scan lines…",
-      { key: toastKey, sticky: true, variant: "info" }
-    );
+    // One batch POST — no incremental 0/N (the server does not stream progress).
+    setMsg("Rewriting scan lines… This may take a moment.", {
+      key: toastKey,
+      sticky: true,
+      variant: "info",
+    });
     try {
       const out = await api(`/projects/${encodeURIComponent(slug)}/scan-lines`, {
         method: "POST",
@@ -1125,10 +1209,10 @@ export async function rewriteAllProjectScanLines() {
         variant: "error",
       });
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Rewrite all scan lines";
-      }
+      setRewriteAllButtons({
+        disabled: false,
+        text: "Rewrite all scan lines",
+      });
     }
   }
 

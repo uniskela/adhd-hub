@@ -95,6 +95,64 @@ export function formatNotesTimes(root) {
       if (label) el.textContent = label;
     });
   }
+/** Viewport floor for overflow menus (above mobile bottom nav when visible). */
+function overflowMenuFloor() {
+    const nav = document.querySelector(".mobile-nav");
+    if (nav) {
+      const cs = getComputedStyle(nav);
+      if (cs.display !== "none" && cs.visibility !== "hidden") {
+        return Math.min(window.innerHeight, nav.getBoundingClientRect().top);
+      }
+    }
+    return window.innerHeight;
+  }
+
+/**
+ * Flip / clamp an absolute overflow panel so it stays reachable without
+ * scrolling the page (prefer open-down; flip up when space below is short).
+ */
+export function positionOverflowMenu(details) {
+    const panel = details?.querySelector(
+      ":scope > .thread-utility-panel, :scope > .project-mobile-actions-panel, :scope > .rail-mobile-actions-panel"
+    );
+    if (!panel) return;
+    panel.classList.remove("opens-up");
+    panel.style.removeProperty("--overflow-menu-max-h");
+    if (!details.open) return;
+
+    const summary = details.querySelector(":scope > summary");
+    if (!summary) return;
+
+    // Measure with default (open-down) placement from CSS.
+    const summaryRect = summary.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const panelH = Math.ceil(panelRect.height);
+    const gap = 8;
+    const floor = overflowMenuFloor();
+    const spaceBelow = floor - summaryRect.bottom - gap;
+    const spaceAbove = summaryRect.top - gap;
+    const preferUp = spaceBelow < panelH && spaceAbove > spaceBelow;
+    if (preferUp) panel.classList.add("opens-up");
+
+    const available = Math.max(0, preferUp ? spaceAbove : spaceBelow);
+    if (panelH > available && available >= 96) {
+      panel.style.setProperty("--overflow-menu-max-h", `${Math.floor(available)}px`);
+    }
+  }
+
+/** Wire toggle reposition for a details-based overflow menu (idempotent). */
+export function wireOverflowMenu(details) {
+    if (!details || details.dataset.overflowWired === "true") return;
+    details.dataset.overflowWired = "true";
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        requestAnimationFrame(() => positionOverflowMenu(details));
+      } else {
+        positionOverflowMenu(details);
+      }
+    });
+  }
+
 export function confirmDialog({ title, body, extraHtml }) {
     return new Promise((resolve) => {
       $("confirm-title").textContent = title;

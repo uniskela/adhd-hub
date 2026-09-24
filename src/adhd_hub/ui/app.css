@@ -1347,6 +1347,7 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
     padding-left: max(1rem, env(safe-area-inset-left));
   }
   .notes-reader-actions .ghost { display: none; }
+  .notes-reader-actions #btn-notes-focus.ghost,
   .notes-reader-actions #btn-notes-summarise.ghost { display: inline-flex; }
   .notes-reader-body {
     flex: 1 1 auto;
@@ -2127,7 +2128,8 @@ body.focus-mode .now-overview { display: none; }
 .thread-utility > summary { padding: .6rem .75rem; border-radius: 10px; list-style: none; }
 .thread-utility > summary::-webkit-details-marker { display: none; }
 .thread-utility > summary:hover, .thread-utility[open] > summary { background: var(--surface); color: var(--ink); }
-.thread-utility-panel { position: absolute; z-index: 15; right: 0; top: 100%; width: 260px; max-width: calc(100vw - 3rem); padding: .75rem; background: var(--card); border: 1px solid var(--control-line); border-radius: 12px; box-shadow: var(--shadow); }
+.thread-utility-panel { position: absolute; z-index: 15; right: 0; top: 100%; width: 260px; max-width: calc(100vw - 3rem); max-height: var(--overflow-menu-max-h, none); overflow-x: hidden; overflow-y: auto; padding: .75rem; background: var(--card); border: 1px solid var(--control-line); border-radius: 12px; box-shadow: var(--shadow); }
+.thread-utility-panel.opens-up { top: auto; bottom: calc(100% + .25rem); }
 .thread-utility-panel > .hint { margin: 0 0 .5rem; padding: 0 .5rem; }
 .thread-utility-actions { display: grid; gap: .25rem; padding: 0; }
 .thread-utility-actions .btn, .thread-utility-actions button { justify-content: flex-start; text-align: left; border-color: transparent; background: transparent; }
@@ -2240,19 +2242,23 @@ body.focus-mode .now-overview { display: none; }
   }
   #work-view .project-title-row {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     gap: .45rem;
     width: 100%;
+    min-width: 0;
   }
   #work-title,
   #btn-edit-project,
-  #btn-open-project-repo {
+  #btn-open-project-repo,
+  #btn-rewrite-all-scan {
     display: none !important;
   }
   .projects-drawer-open.project-switcher {
     display: inline-flex;
     flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
     min-height: 44px;
     justify-content: space-between;
     gap: .6rem;
@@ -2265,6 +2271,8 @@ body.focus-mode .now-overview { display: none; }
     text-align: left;
   }
   #work-title-mobile {
+    display: block;
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2278,6 +2286,7 @@ body.focus-mode .now-overview { display: none; }
     display: block;
     position: relative;
     flex: 0 0 auto;
+    flex-shrink: 0;
   }
   .project-mobile-actions > summary,
   .rail-mobile-actions > summary {
@@ -2313,11 +2322,20 @@ body.focus-mode .now-overview { display: none; }
     right: 0;
     top: calc(100% + .35rem);
     min-width: 180px;
+    max-width: min(280px, calc(100vw - 2rem));
+    max-height: var(--overflow-menu-max-h, none);
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: .4rem;
     border: 1px solid var(--control-line);
     border-radius: 12px;
     background: var(--card);
     box-shadow: var(--shadow);
+  }
+  .project-mobile-actions-panel.opens-up,
+  .rail-mobile-actions-panel.opens-up {
+    top: auto;
+    bottom: calc(100% + .35rem);
   }
   .project-mobile-actions-panel .btn,
   .project-mobile-actions-panel button,
@@ -2450,6 +2468,10 @@ body.focus-mode .now-overview { display: none; }
     right: 0;
     top: calc(100% + .25rem);
     max-width: min(280px, calc(100vw - 2rem));
+  }
+  #work-view .thread-utility-panel.opens-up {
+    top: auto;
+    bottom: calc(100% + .25rem);
   }
 
   #work-view .rail-head-actions {

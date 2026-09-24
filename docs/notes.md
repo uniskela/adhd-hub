@@ -6,7 +6,7 @@ The reader shows what is already stored. It does not edit Goal, Focus, Next, Blo
 
 ## Summarise (AI)
 
-When a thread’s notes are open, the reader toolbar offers **Summarise**. With AI enabled in **Settings → Preferences** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
+When a thread’s notes are open, the reader toolbar offers **Focus on this** (same choose-thread behaviour as the My work card — hidden for finished threads; label becomes **Return to focus** when already chosen) beside **Summarise**. With AI enabled in **Settings → Preferences** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
 
 1. **Done**
 2. **Plan · Focus**

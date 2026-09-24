@@ -241,6 +241,8 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
       summariseBtn.disabled = false;
       summariseBtn.textContent = "Summarise";
     }
+    const focusBtn = $("btn-notes-focus");
+    if (focusBtn) focusBtn.hidden = true;
     reader.hidden = true;
     reader.closest(".layout")?.classList.remove("notes-docked", "notes-expanded");
     document.body.classList.remove("notes-reader-open");
@@ -342,6 +344,17 @@ async function openNotesReader(trigger) {
       summariseBtn.disabled = false;
       summariseBtn.textContent = "Summarise";
     }
+    const focusBtn = $("btn-notes-focus");
+    if (focusBtn) {
+      // Reuse the thread-card Focus control: same chooseThread path and labels.
+      const cardChoose = thread?.querySelector("button[data-choose]");
+      if (cardChoose && notesThreadId) {
+        focusBtn.hidden = false;
+        focusBtn.textContent = cardChoose.textContent || "Focus on this";
+      } else {
+        focusBtn.hidden = true;
+      }
+    }
     $("notes-reader-title").textContent = thread?.querySelector("h3")?.textContent || "Saved context";
     $("notes-reader-meta").textContent = [...(thread?.querySelectorAll(".thread-meta span") || [])]
       .map((item) => item.textContent.trim())
@@ -368,6 +381,12 @@ function wireNotesReaderControls() {
     reader.dataset.wired = "true";
     $("btn-notes-summarise")?.addEventListener("click", () => {
       summariseNotes().catch((error) => setMsg(error.message));
+    });
+    $("btn-notes-focus")?.addEventListener("click", () => {
+      const id = notesThreadId;
+      if (!id) return;
+      closeNotesReader({ restoreFocus: false });
+      chooseThread(id).catch((error) => setMsg(error.message));
     });
     $("btn-notes-dock")?.addEventListener("click", () => setNotesMode("docked"));
     $("btn-notes-expand")?.addEventListener("click", () => setNotesMode("expanded"));

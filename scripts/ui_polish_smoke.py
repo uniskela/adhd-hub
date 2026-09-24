@@ -167,6 +167,26 @@ def main() -> None:
                 page.locator('#project-list .proj[data-slug="website"]').click()
                 expect(page.locator("#work-title-mobile")).to_have_text("Personal website")
                 expect(page.locator('[data-tab-count="open"]')).to_have_text("2")
+                expect(page.locator("#btn-rewrite-all-scan")).to_be_hidden()
+                expect(page.locator("#project-mobile-actions")).to_be_visible()
+                # Long titles must not push the project ⋯ off-screen.
+                long_title = "imPikeh YouTube Archive " + ("X" * 40)
+                page.evaluate(
+                    """(title) => {
+                      const mobile = document.getElementById('work-title-mobile');
+                      const desktop = document.getElementById('work-title');
+                      if (mobile) mobile.textContent = title;
+                      if (desktop) desktop.textContent = title;
+                    }""",
+                    long_title,
+                )
+                overflow_btn = page.locator("#project-mobile-actions > summary")
+                box = overflow_btn.bounding_box()
+                assert box and box["x"] + box["width"] <= 390 + 1, "Project ⋯ must stay on-screen with a long title"
+                page.locator("#project-mobile-actions > summary").click()
+                expect(page.locator("#btn-rewrite-all-scan-mobile")).to_be_visible()
+                expect(page.locator("#btn-edit-project-mobile")).to_be_visible()
+                page.locator("#project-mobile-actions > summary").click()
                 page.locator("#btn-toggle-thread-search").click()
                 expect(page.locator("#thread-search-row")).to_be_visible()
                 page.locator("#thread-search").fill("homepage")
@@ -176,8 +196,10 @@ def main() -> None:
                 expect(page.locator(".thread-notes-inline:visible")).to_have_count(0)
                 mobile_utility.locator("summary").click()
                 expect(mobile_utility.locator(".thread-notes-menu")).to_be_visible()
+                # Near the bottom nav, the Actions panel should flip upward when needed.
+                panel = mobile_utility.locator(".thread-utility-panel")
+                expect(panel).to_be_visible()
                 page.keyboard.press("Escape")
-
                 page.set_viewport_size({"width": 1440, "height": 900})
                 open_screen("now")
                 # Tab focus must make a user action available without using a pointer.
