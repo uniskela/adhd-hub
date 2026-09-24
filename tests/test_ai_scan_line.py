@@ -13,8 +13,10 @@ from pydantic import ValidationError
 from adhd_hub.ai_client import (
     AiScanLineResult,
     generate_ai_scan_line,
+    is_likely_chat_model,
     list_ai_models,
     normalize_openai_model_id,
+    openai_compat_url,
 )
 from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, SCAN_LINE_SOURCE_HEURISTIC
 from adhd_hub.config import Settings
@@ -44,6 +46,8 @@ def _thread(**kwargs) -> Thread:
         ("Models/gemini-3.8-flash", "gemini-3.8-flash"),
         ("gemini-2.5-flash", "gemini-2.5-flash"),
         ("  models/gemini-2.5-flash  ", "gemini-2.5-flash"),
+        ("google/gemini-2.5-flash", "gemini-2.5-flash"),
+        ("models/google/gemini-2.5-pro", "gemini-2.5-pro"),
         ("llama3.2", "llama3.2"),
         ("models/", "models/"),
         ("", ""),
@@ -51,6 +55,49 @@ def _thread(**kwargs) -> Thread:
 )
 def test_normalize_openai_model_id_strips_models_prefix(raw: str, expected: str) -> None:
     assert normalize_openai_model_id(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("model_id", "expected"),
+    [
+        ("gemini-2.5-flash", True),
+        ("gemini-2.5-pro", True),
+        ("llama3.2", True),
+        ("mistral", True),
+        ("text-embedding-004", False),
+        ("models/gemini-embedding-001", False),
+        ("imagen-3.0-generate-002", False),
+        ("gemini-2.5-flash-image", False),
+        ("gemini-2.5-flash-preview-tts", False),
+    ],
+)
+def test_is_likely_chat_model(model_id: str, expected: bool) -> None:
+    assert is_likely_chat_model(model_id) is expected
+
+
+@pytest.mark.parametrize(
+    ("base", "suffix", "expected"),
+    [
+        (
+            "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "chat/completions",
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        ),
+        (
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            "/chat/completions",
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        ),
+        (
+            "https://generativelanguage.googleapis.com/v1beta/openai//",
+            "models",
+            "https://generativelanguage.googleapis.com/v1beta/openai/models",
+        ),
+        ("http://127.0.0.1:11434/v1", "chat/completions", "http://127.0.0.1:11434/v1/chat/completions"),
+    ],
+)
+def test_openai_compat_url_avoids_double_slash(base: str, suffix: str, expected: str) -> None:
+    assert openai_compat_url(base, suffix) == expected
 
 
 def test_list_ai_models_strips_gemini_models_prefix() -> None:
@@ -64,6 +111,9 @@ def test_list_ai_models_strips_gemini_models_prefix() -> None:
                     {"id": "models/gemini-2.5-pro"},
                     {"id": "gemini-2.0-flash"},
                     {"id": "models/gemini-2.5-flash"},
+                    {"id": "models/text-embedding-004"},
+                    {"id": "models/imagen-3.0-generate-002"},
+                    {"id": "gemini-2.5-flash-image"},
                 ]
             },
         )
@@ -80,21 +130,27 @@ def test_list_ai_models_strips_gemini_models_prefix() -> None:
         "gemini-2.5-flash",
         "gemini-2.5-pro",
     ]
+    assert "hid 3 non-chat" in result["message"]
 
 
 def test_generate_ai_scan_line_strips_models_prefix_before_post():
     settings = Settings(
         data_dir=Path("/tmp/unused"),
         auth_token="t",
-        ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         ai_model="models/gemini-2.5-flash",
+        ai_api_key="sk-test",
     )
     seen: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         seen["model"] = body.get("model")
-        assert request.url.path.endswith("/chat/completions")
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers.get("Authorization")
+        assert request.url.path == "/v1beta/openai/chat/completions"
+        assert body["model"] == "gemini-2.5-flash"
+        assert set(body) >= {"model", "messages", "temperature", "max_tokens"}
         return httpx.Response(
             200,
             json={
@@ -107,9 +163,12 @@ def test_generate_ai_scan_line_strips_models_prefix_before_post():
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         result = generate_ai_scan_line(settings, _thread(), client=client)
     assert seen["model"] == "gemini-2.5-flash"
+    assert seen["url"] == (
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    )
+    assert seen["auth"] == "Bearer sk-test"
     assert result.text == "Calm next step: Gemini chat works"
     assert result.fail_hint is None
-
 
 def test_generate_ai_scan_line_uses_openai_compatible_response(monkeypatch):
     settings = Settings(
@@ -158,18 +217,26 @@ def test_generate_ai_scan_line_falls_back_on_error():
     assert "sk-" not in result.fail_hint
 
 
-def test_generate_ai_scan_line_404_model_not_found_hint():
+def test_generate_ai_scan_line_404_bare_model_hint_does_not_blame_prefix():
     settings = Settings(
         data_dir=Path("/tmp/unused"),
         auth_token="t",
         ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-        ai_model="models/gemini-2.5-flash",
+        ai_model="gemini-2.5-flash",
         ai_api_key="sk-secret-value",
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            404, json={"error": {"message": "model not found sk-secret-value"}}
+            404,
+            json={
+                "error": {
+                    "message": (
+                        "This model models/gemini-2.5-flash is no longer available. "
+                        "Please update your code. key=sk-secret-value"
+                    )
+                }
+            },
         )
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
@@ -177,7 +244,32 @@ def test_generate_ai_scan_line_404_model_not_found_hint():
     assert result.text is None
     assert result.fail_hint is not None
     assert "404" in result.fail_hint
-    assert "models/" in result.fail_hint
+    assert "gemini-2.5-flash" in result.fail_hint
+    assert "without a models/ prefix" not in result.fail_hint
+    assert "v1beta/openai" in result.fail_hint
+    assert "Provider:" in result.fail_hint
+    assert "sk-secret" not in result.fail_hint
+
+
+def test_generate_ai_scan_line_404_mentions_prefix_only_when_still_present():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        # Bypass AiConfig validator so we can assert the rare still-prefixed path.
+        ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        ai_model="models/",
+        ai_api_key="sk-secret-value",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["model"] == "models/"
+        return httpx.Response(404, json={"error": {"message": "not found"}})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(settings, _thread(), client=client)
+    assert result.fail_hint is not None
+    assert "models/ prefix" in result.fail_hint
     assert "sk-secret" not in result.fail_hint
 
 
@@ -315,15 +407,18 @@ def test_rewrite_scan_line_surfaces_404_hint(tmp_path: Path, monkeypatch) -> Non
             data_dir=tmp_path / "data",
             auth_token="t",
             ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-            ai_model="models/gemini-2.5-flash",
+            ai_model="gemini-2.5-flash",
         )
     )
     monkeypatch.setattr(
         "adhd_hub.ai_client.generate_ai_scan_line",
         lambda *a, **k: AiScanLineResult(
             fail_hint=(
-                "Model not found (404) — check the model id "
-                "(use gemini-… without a models/ prefix)."
+                "Chat returned 404 for model 'gemini-2.5-flash' at "
+                "generativelanguage.googleapis.com/v1beta/openai/chat/completions. "
+                "Confirm the base URL ends at …/v1beta/openai (Gemini) or your "
+                "provider’s OpenAI-compat root, the model supports chat, and AI "
+                "settings were saved."
             )
         ),
     )
@@ -333,6 +428,7 @@ def test_rewrite_scan_line_surfaces_404_hint(tmp_path: Path, monkeypatch) -> Non
     out = service.rewrite_scan_line(thread.id)
     assert out["ai_attempted"] is True
     assert "404" in out["message"]
-    assert "models/" in out["message"]
+    assert "gemini-2.5-flash" in out["message"]
+    assert "without a models/ prefix" not in out["message"]
     assert out["thread"]["scan_line"] == "Heuristic focus"
     assert out["thread"]["scan_line_source"] == SCAN_LINE_SOURCE_HEURISTIC
