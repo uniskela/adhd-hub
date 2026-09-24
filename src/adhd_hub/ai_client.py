@@ -15,7 +15,13 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from adhd_hub.clarity import SCAN_LINE_MAX, scrub_scan_text, truncate_scan_text
+from adhd_hub.clarity import (
+    SCAN_LINE_MAX,
+    ai_scan_line_reject_reason,
+    build_scan_line,
+    scrub_scan_text,
+    truncate_scan_text,
+)
 from adhd_hub.config import Settings
 from adhd_hub.models import Thread
 
@@ -27,6 +33,27 @@ _MODELS_RESOURCE_PREFIX = "models/"
 
 # Provider/model refs some UIs prepend (e.g. ``google/gemini-2.5-flash``).
 _PROVIDER_MODEL_PREFIX_RE = re.compile(r"^google/", re.IGNORECASE)
+
+# Current Gemini flash id for new users (list may still advertise older flash ids).
+PREFERRED_GEMINI_FLASH = "gemini-3.6-flash"
+
+# Known Gemini chat ids that 404 for new users while still appearing in ``/models``.
+_GEMINI_DEPRECATED_FOR_NEW_USERS = frozenset(
+    {
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash-preview-05-20",
+        "gemini-2.5-flash-preview-04-17",
+    }
+)
+
+_DEPRECATED_MODEL_HINT_RE = re.compile(
+    r"no longer available|deprecated for new users|not available to new",
+    re.IGNORECASE,
+)
+
+# Room for one complete ~80–140 char sentence (tokens ≠ chars; keep headroom).
+_SCAN_LINE_MAX_TOKENS = 220
 
 # OpenAI-compat ``/models`` lists embeddings, Imagen, etc. that cannot chat.
 _NON_CHAT_MODEL_MARKERS = (
@@ -74,6 +101,23 @@ def is_likely_chat_model(model_id: str) -> bool:
     return not any(marker in cleaned for marker in _NON_CHAT_MODEL_MARKERS)
 
 
+def is_gemini_deprecated_for_new_users(
+    model_id: str,
+    *,
+    description: str | None = None,
+) -> bool:
+    """True when a Gemini id is known-dead for new users or described as unavailable."""
+    cleaned = normalize_openai_model_id(model_id).casefold()
+    if not cleaned:
+        return False
+    if cleaned in _GEMINI_DEPRECATED_FOR_NEW_USERS:
+        return True
+    blob = f"{cleaned} {description or ''}"
+    if "gemini" not in blob.casefold():
+        return False
+    return bool(_DEPRECATED_MODEL_HINT_RE.search(blob))
+
+
 def openai_compat_url(base_url: str, suffix: str) -> str:
     """Join ``base_url`` + ``suffix`` without a double slash (trailing slash safe)."""
     base = (base_url or "").strip().rstrip("/")
@@ -102,9 +146,11 @@ def ai_configured(settings: Settings) -> bool:
 
 def _structured_prompt(thread: Thread) -> str:
     parts = [
-        "Write one calm ADHD-friendly scan line (max 140 characters) for this Hub thread.",
+        "Write one complete calm ADHD-friendly scan line for this Hub thread.",
+        "Target about 80–140 characters as one finished scannable sentence.",
+        "Do not truncate mid-phrase; finish the thought. Prefer a full clause over a stub.",
         "Use only the structured fields below. No secrets, paths, URLs, or transcripts.",
-        "Return plain text only — no quotes or labels.",
+        "Return plain text only — no quotes, labels, or markdown.",
     ]
     fields = [
         ("Title", thread.summary),
@@ -187,6 +233,11 @@ def _http_fail_hint(
             "Model not found (404) — outbound model id still has a models/ prefix; "
             "use the bare id (gemini-…)."
         )
+    elif snippet and _DEPRECATED_MODEL_HINT_RE.search(snippet):
+        hint = (
+            f"Model {model!r} is no longer available for new users. "
+            f"Try {PREFERRED_GEMINI_FLASH} (or another current Gemini flash id)."
+        )
     else:
         hint = (
             f"Chat returned 404 for model {model!r} at {path}. "
@@ -194,6 +245,11 @@ def _http_fail_hint(
             "provider’s OpenAI-compat root, the model supports chat, and AI "
             "settings were saved."
         )
+        if "gemini" in model.casefold():
+            hint = (
+                f"{hint} For Gemini, prefer {PREFERRED_GEMINI_FLASH} when older "
+                "flash ids 404."
+            )
     if snippet:
         return f"{hint} Provider: {snippet}"
     return hint
@@ -217,13 +273,15 @@ def generate_ai_scan_line(
     body: dict[str, Any] = {
         "model": model or "llama3.2",
         "temperature": 0.2,
-        "max_tokens": 80,
+        "max_tokens": _SCAN_LINE_MAX_TOKENS,
         "messages": [
             {
                 "role": "system",
                 "content": (
-                    "You rewrite Hub continuity into one short calm scan line. "
-                    "Never invent secrets, absolute paths, or private URLs."
+                    "You rewrite Hub continuity into one complete calm scan line "
+                    "(about 80–140 characters). Finish the sentence; never return "
+                    "a stub or truncated phrase. Never invent secrets, absolute "
+                    "paths, or private URLs. Plain text only."
                 ),
             },
             {"role": "user", "content": _structured_prompt(thread)},
@@ -252,7 +310,12 @@ def generate_ai_scan_line(
             return AiScanLineResult(
                 fail_hint="AI reply was empty after scrubbing — showing the heuristic line."
             )
-        return AiScanLineResult(text=truncate_scan_text(cleaned, limit=SCAN_LINE_MAX))
+        line = truncate_scan_text(cleaned, limit=SCAN_LINE_MAX)
+        heuristic, _ = build_scan_line(thread)
+        reject = ai_scan_line_reject_reason(line, heuristic=heuristic)
+        if reject:
+            return AiScanLineResult(fail_hint=reject)
+        return AiScanLineResult(text=line)
     except httpx.HTTPStatusError as exc:
         code = exc.response.status_code
         snippet = _provider_error_snippet(exc.response)
@@ -326,6 +389,7 @@ def list_ai_models(
     ids: list[str] = []
     seen: set[str] = set()
     skipped_non_chat = 0
+    skipped_deprecated = 0
     for item in raw_items:
         if not isinstance(item, dict):
             continue
@@ -338,17 +402,31 @@ def list_ai_models(
         if not is_likely_chat_model(cleaned):
             skipped_non_chat += 1
             continue
+        description = item.get("description") or item.get("display_name")
+        desc = description if isinstance(description, str) else None
+        if is_gemini_deprecated_for_new_users(cleaned, description=desc):
+            skipped_deprecated += 1
+            continue
         seen.add(cleaned)
         ids.append(cleaned)
     ids.sort(key=str.lower)
     count = len(ids)
     noun = "model" if count == 1 else "models"
     message = f"Connected · {count} {noun}"
+    extras: list[str] = []
     if skipped_non_chat:
-        message = (
-            f"{message} (hid {skipped_non_chat} non-chat "
-            f"{'id' if skipped_non_chat == 1 else 'ids'})"
+        extras.append(
+            f"hid {skipped_non_chat} non-chat "
+            f"{'id' if skipped_non_chat == 1 else 'ids'}"
         )
+    if skipped_deprecated:
+        extras.append(
+            f"hid {skipped_deprecated} deprecated-for-new-users "
+            f"{'id' if skipped_deprecated == 1 else 'ids'}; "
+            f"prefer {PREFERRED_GEMINI_FLASH}"
+        )
+    if extras:
+        message = f"{message} ({'; '.join(extras)})"
     return {
         "ok": True,
         "models": ids,

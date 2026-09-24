@@ -36,6 +36,33 @@ def test_scrub_redacts_secrets_paths_and_private_urls():
     assert scrub_scan_text("   ") is None
 
 
+def test_scrub_strips_markdown_emphasis_without_killing_identifiers():
+    assert scrub_scan_text(".**") is None
+    assert scrub_scan_text("Ship **scan_line** quality") == "Ship scan_line quality"
+    assert scrub_scan_text("Draft PR ready **") == "Draft PR ready"
+
+
+def test_ai_scan_line_reject_reason_short_and_prefer_heuristic():
+    from adhd_hub.clarity import ai_scan_line_reject_reason
+
+    assert "too short" in (ai_scan_line_reject_reason("Run") or "")
+    assert "incomplete" in (
+        ai_scan_line_reject_reason("Draft the pull request ready to") or ""
+    )
+    long_h = (
+        "Finish the AI scan-line quality gate so short stubs never replace a full "
+        "heuristic resume step"
+    )
+    assert "too short" in (
+        ai_scan_line_reject_reason(
+            "Ship the next calm rewrite now please", heuristic=long_h
+        )
+        or ""
+    )
+    good = "Keep rewriting calm ADHD-friendly scan lines for My work"
+    assert ai_scan_line_reject_reason(good, heuristic="Keep summaries calm") is None
+
+
 def test_scrub_handles_headers_quoted_secrets_and_markdown_paths():
     for value in (
         "Retry Authorization: Bearer example-sensitive-value next",
