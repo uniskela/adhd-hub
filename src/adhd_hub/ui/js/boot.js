@@ -48,6 +48,11 @@ $("tag-filter")?.addEventListener("change", () => onTagFilterChange());
 $("btn-organise-projects")?.addEventListener("click", () =>
   openOrganiseDialog().catch((e) => setMsg(e.message))
 );
+$("btn-organise-projects-mobile")?.addEventListener("click", () => {
+  const menu = document.querySelector(".rail-mobile-actions");
+  if (menu) menu.open = false;
+  openOrganiseDialog().catch((e) => setMsg(e.message));
+});
 $("btn-organise-apply")?.addEventListener("click", () =>
   applyOrganiseSelection().catch((e) => setMsg(e.message))
 );
@@ -240,6 +245,11 @@ $("project-form").addEventListener("submit", (event) => {
 });
 $("btn-close-project").addEventListener("click", () => $("project-dialog").close());
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
+$("btn-edit-project-mobile")?.addEventListener("click", () => {
+  const menu = $("project-mobile-actions");
+  if (menu) menu.open = false;
+  openProjectDialog(state.detailCache);
+});
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
 $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));
@@ -271,6 +281,21 @@ $("btn-new-project").addEventListener("click", () => {
 });
 
 $("thread-search").addEventListener("input", () => renderThreads(state.threadsCache));
+$("btn-toggle-thread-search")?.addEventListener("click", () => {
+  const row = $("thread-search-row");
+  const button = $("btn-toggle-thread-search");
+  if (!row || row.classList.contains("is-large-list")) return;
+  const open = !row.classList.contains("is-open");
+  row.classList.toggle("is-open", open);
+  button?.setAttribute("aria-expanded", String(open));
+  if (open) $("thread-search").focus();
+});
+$("thread-search").addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || $("thread-search").value || $("thread-search-row")?.classList.contains("is-large-list")) return;
+  $("thread-search-row")?.classList.remove("is-open");
+  $("btn-toggle-thread-search")?.setAttribute("aria-expanded", "false");
+  $("btn-toggle-thread-search")?.focus();
+});
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((t) => {
@@ -300,6 +325,8 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
       state.currentView = "open";
       $("project-search").value = "";
       $("thread-search").value = "";
+      $("thread-search-row")?.classList.remove("is-open");
+      $("btn-toggle-thread-search")?.setAttribute("aria-expanded", "false");
       document.querySelectorAll(".tab").forEach((tab) => {
         const active = tab.dataset.view === "open";
         tab.classList.toggle("active", active);
