@@ -545,7 +545,14 @@
       <div class="form-grid">
         <label>Title <input id="p_title" required /></label>
         <label>Slug <input id="p_slug" placeholder="my-project" /></label>
-        <label class="span2">Repository URL <input id="p_repo_url" type="url" placeholder="https://github.com/owner/repository" /></label>
+        <label class="span2 checkbox-row" id="p_org_norepo_label">
+          <input type="checkbox" id="p_org_norepo" />
+          Organisation / no repository
+        </label>
+        <p id="p_org_norepo_hint" class="hint span2" hidden>
+          Container for nesting other projects. No forge or repository URL required.
+        </p>
+        <label class="span2" id="p_repo_url_label">Repository URL <input id="p_repo_url" type="url" placeholder="https://github.com/owner/repository" /></label>
         <label class="span2">Forge connection
           <select id="p_forge_connection_profile_id">
             <option value="">None (local-only)</option>

@@ -410,6 +410,24 @@ def host_from_repo_url(repo_url: str | None) -> str | None:
         return None
 
 
+def project_has_forge_repo_binding(
+    *,
+    repo_url: str | None = None,
+    forge_owner: str | None = None,
+    forge_repo: str | None = None,
+) -> bool:
+    """True when a project binds an issue/code repository.
+
+    Organisation / no-repository projects omit ``repo_url`` and forge owner/repo;
+    forge sync must no-op for those rather than inventing a fake target.
+    """
+    owner = (forge_owner or "").strip()
+    repo = (forge_repo or "").strip()
+    if owner and repo:
+        return True
+    return parse_owner_repo_from_url(repo_url) is not None
+
+
 def parse_owner_repo_from_url(value: str | None) -> tuple[str, str] | None:
     """Extract (owner, repo) from a forge URL or owner/repo path. None if unusable.
 

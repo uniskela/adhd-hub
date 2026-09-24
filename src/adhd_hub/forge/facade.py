@@ -276,6 +276,7 @@ class ForgeFacade:
         return out
 
     def sync_forge_now(self, project_slug: str | None = None) -> dict:
+        from adhd_hub.forge.config import project_has_forge_repo_binding
         from adhd_hub.forge.repo_sync import (
             credentials_apply_to_pinned,
             discover_issue_payloads,
@@ -294,6 +295,21 @@ class ForgeFacade:
             proj = self._hub.store.get_project(scope_slug)
             if not proj:
                 raise KeyError(scope_slug)
+            if not project_has_forge_repo_binding(
+                repo_url=proj.repo_url,
+                forge_owner=proj.forge_owner,
+                forge_repo=proj.forge_repo,
+            ):
+                return {
+                    "ok": True,
+                    "skipped": True,
+                    "reason": "no_repository",
+                    "project_slug": scope_slug,
+                    "hint": (
+                        "Organisation / no-repository projects have nothing to sync "
+                        "on the forge."
+                    ),
+                }
             if not proj.forge_connection_profile_id:
                 return {
                     "ok": False,
@@ -413,6 +429,12 @@ class ForgeFacade:
             targets = [(None, cfg)]
             for proj in projects:
                 if not proj.forge_connection_profile_id:
+                    continue
+                if not project_has_forge_repo_binding(
+                    repo_url=proj.repo_url,
+                    forge_owner=proj.forge_owner,
+                    forge_repo=proj.forge_repo,
+                ):
                     continue
                 pcfg = self.forge_config(proj.slug)
                 targets.append((proj.slug, pcfg))
