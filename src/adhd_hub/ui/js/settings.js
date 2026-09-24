@@ -93,38 +93,82 @@ function formatAiStatus(config) {
     return "AI: off — heuristic scan-lines only";
   }
 
+/** Well-known OpenAI-compatible API roots for the Base URL preset select + datalist. */
+export const AI_BASE_URL_PRESETS = [
+    "http://127.0.0.1:11434/v1",
+    "http://127.0.0.1:1234/v1",
+    "https://api.openai.com/v1",
+    "https://generativelanguage.googleapis.com/v1beta/openai/",
+    "https://openrouter.ai/api/v1",
+    "https://api.groq.com/openai/v1",
+  ];
+
 export function syncAiLoadModelsButton() {
     const btn = $("btn-load-ai-models");
     if (!btn) return;
     btn.disabled = !($("ai_base_url")?.value || "").trim();
   }
 
+/** Match the Base URL input to a preset option, or Custom… when unknown. */
+export function syncAiBaseUrlPreset() {
+    const sel = $("ai_base_url_preset");
+    const input = $("ai_base_url");
+    if (!sel || !input) return;
+    const url = (input.value || "").trim();
+    const match = AI_BASE_URL_PRESETS.find((p) => p === url);
+    sel.value = match || "";
+  }
+
+/** Apply the selected preset into the Base URL field (Custom… leaves the field alone). */
+export function applyAiBaseUrlPreset() {
+    const sel = $("ai_base_url_preset");
+    const input = $("ai_base_url");
+    if (!sel || !input) return;
+    const value = (sel.value || "").trim();
+    if (!value) {
+      syncAiLoadModelsButton();
+      return;
+    }
+    input.value = value;
+    syncAiLoadModelsButton();
+  }
+
+/**
+ * Replace model `<select>` options with the given list (no merge from prior providers).
+ * Keeps the current/saved model when missing from the list, labeled "(saved)".
+ */
 export function fillAiModelList(models, preferred) {
     const sel = $("ai_model");
     if (!sel) return;
     const fromModels = Array.isArray(models)
       ? models.map((m) => String(m).trim()).filter(Boolean)
       : [];
-    const fromSelect = [...sel.options]
-      .map((o) => String(o.value || "").trim())
-      .filter(Boolean);
     const current = (preferred ?? sel.value ?? "").trim();
     const ordered = [];
     const seen = new Set();
-    for (const id of [current, ...fromModels, ...fromSelect]) {
+    for (const id of fromModels) {
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      ordered.push(id);
+      ordered.push({ id, label: id });
     }
-    if (!ordered.length) ordered.push("llama3.2");
+    if (current && !seen.has(current)) {
+      seen.add(current);
+      const label = fromModels.length ? `${current} (saved)` : current;
+      ordered.unshift({ id: current, label });
+    }
+    if (!ordered.length) {
+      const fallback = current || "llama3.2";
+      ordered.push({ id: fallback, label: fallback });
+      seen.add(fallback);
+    }
     sel.replaceChildren();
-    for (const id of ordered) {
+    for (const { id, label } of ordered) {
       const opt = document.createElement("option");
       opt.value = id;
-      opt.textContent = id;
+      opt.textContent = label;
       sel.appendChild(opt);
     }
-    sel.value = current && seen.has(current) ? current : ordered[0];
+    sel.value = current && seen.has(current) ? current : ordered[0].id;
   }
 
 export async function loadAiConfig() {
@@ -135,6 +179,7 @@ export async function loadAiConfig() {
       const config = await api("/ai/config");
       $("ai_enabled").checked = !!config.enabled;
       $("ai_base_url").value = config.base_url || "";
+      syncAiBaseUrlPreset();
       fillAiModelList([], config.model || "llama3.2");
       $("ai_timeout").value = config.timeout_seconds ?? 2.5;
       $("ai_api_key").value = "";

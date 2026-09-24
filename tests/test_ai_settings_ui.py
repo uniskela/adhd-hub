@@ -222,9 +222,13 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert 'id="ai_enabled"' in index
     assert 'id="btn-save-ai"' in index
     assert 'id="btn-load-ai-models"' in index
+    assert 'id="ai_base_url_preset"' in index
+    assert 'id="ai_base_url_list"' in index
+    assert "https://api.openai.com/v1" in index
+    assert "https://generativelanguage.googleapis.com/v1beta/openai/" in index
+    assert "http://127.0.0.1:11434/v1" in index
     assert '<select id="ai_model">' in index
-    assert "ai_model_list" not in index
-    assert 'list="ai_model_list"' not in index
+    assert 'list="ai_base_url_list"' in index
     work = (root / "src/adhd_hub/ui/js/work.js").read_text(encoding="utf-8")
     assert "data-rewrite-scan" in work
     assert "Rewrite scan line" in work
@@ -234,11 +238,18 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "testAndLoadAiModels" in settings
     assert "/ai/models" in settings
     assert "fillAiModelList" in settings
+    assert "AI_BASE_URL_PRESETS" in settings
+    assert "syncAiBaseUrlPreset" in settings
+    assert "applyAiBaseUrlPreset" in settings
+    assert "(saved)" in settings
+    assert "fromSelect" not in settings
     assert 'const sel = $("ai_model")' in settings
-    assert "ai_model_list" not in settings
     boot = (root / "src/adhd_hub/ui/js/boot.js").read_text(encoding="utf-8")
     assert "btn-load-ai-models" in boot
     assert "testAndLoadAiModels" in boot
+    assert "applyAiBaseUrlPreset" in boot
+    assert "syncAiBaseUrlPreset" in boot
+    assert "ai_base_url_preset" in boot
 
 
 def test_list_ai_models_parses_openai_compatible_payload() -> None:

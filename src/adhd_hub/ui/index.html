@@ -285,7 +285,29 @@
                   <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>.</p>
                   <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save, and you can refresh one thread from Actions.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
                   <div class="form-grid">
-                    <label class="span2">Base URL <input id="ai_base_url" type="url" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" /></label>
+                    <label class="span2">Base URL preset
+                      <select id="ai_base_url_preset" aria-describedby="ai-base-url-hint">
+                        <option value="http://127.0.0.1:11434/v1">Ollama (local)</option>
+                        <option value="http://127.0.0.1:1234/v1">LM Studio (local)</option>
+                        <option value="https://api.openai.com/v1">OpenAI</option>
+                        <option value="https://generativelanguage.googleapis.com/v1beta/openai/">Gemini (OpenAI-compatible)</option>
+                        <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+                        <option value="https://api.groq.com/openai/v1">Groq</option>
+                        <option value="">Custom…</option>
+                      </select>
+                    </label>
+                    <label class="span2">Base URL
+                      <input id="ai_base_url" type="url" list="ai_base_url_list" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" />
+                      <datalist id="ai_base_url_list">
+                        <option value="http://127.0.0.1:11434/v1" label="Ollama (local)"></option>
+                        <option value="http://127.0.0.1:1234/v1" label="LM Studio (local)"></option>
+                        <option value="https://api.openai.com/v1" label="OpenAI"></option>
+                        <option value="https://generativelanguage.googleapis.com/v1beta/openai/" label="Gemini (OpenAI-compatible)"></option>
+                        <option value="https://openrouter.ai/api/v1" label="OpenRouter"></option>
+                        <option value="https://api.groq.com/openai/v1" label="Groq"></option>
+                      </datalist>
+                    </label>
+                    <p id="ai-base-url-hint" class="hint span2">Pick a common OpenAI-compatible endpoint or enter a custom base URL (must end with the API root your provider expects).</p>
                     <label>Model <select id="ai_model"><option value="llama3.2">llama3.2</option></select></label>
                     <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="0.1" max="30" step="0.1" value="2.5" /></label>
                     <label class="span2">API key <span class="hint">· optional</span><input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" /></label>
