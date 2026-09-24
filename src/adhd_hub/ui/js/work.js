@@ -466,6 +466,7 @@ export function renderThreads(threads) {
                 : ""
             }
             ${t.source_issue_url ? `<button type="button" class="ghost compact" data-refresh-source="${escapeHtml(t.id)}">Refresh from source issue</button>` : ""}
+            <button type="button" class="ghost compact" data-rewrite-scan="${escapeHtml(t.id)}">Rewrite scan line</button>
             <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
             </div>
           </details>
@@ -482,7 +483,42 @@ export function renderThreads(threads) {
     root.querySelectorAll("[data-refresh-source]").forEach((btn) =>
       btn.addEventListener("click", () => openSourceRefresh(btn.dataset.refreshSource))
     );
+    root.querySelectorAll("[data-rewrite-scan]").forEach((btn) =>
+      btn.addEventListener("click", () => rewriteScanLine(btn.dataset.rewriteScan))
+    );
   }
+
+export async function rewriteScanLine(threadId) {
+    if (!threadId) return;
+    const btn = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Rewriting…";
+    }
+    try {
+      const out = await api(`/threads/${encodeURIComponent(threadId)}/scan-line`, {
+        method: "POST",
+        body: "{}",
+      });
+      const updated = out.thread;
+      if (updated && Array.isArray(state.threadsCache)) {
+        state.threadsCache = state.threadsCache.map((t) =>
+          t.id === threadId ? { ...t, ...updated } : t
+        );
+        renderThreads(state.threadsCache);
+      }
+      setMsg(out.message || "Scan line updated.");
+    } catch (e) {
+      setMsg(e.message || "Could not rewrite scan line.");
+    } finally {
+      const again = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
+      if (again) {
+        again.disabled = false;
+        again.textContent = "Rewrite scan line";
+      }
+    }
+  }
+
 export async function loadThreads() {
     const request = ++state.threadsRequest;
     const params = new URLSearchParams();

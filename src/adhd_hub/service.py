@@ -5,6 +5,14 @@ import random
 from collections.abc import Callable
 from datetime import UTC
 
+from adhd_hub.ai_config import (
+    AiConfig,
+    ai_from_settings,
+    load_ai_config,
+)
+from adhd_hub.ai_config import (
+    save_ai_config as persist_ai_config,
+)
 from adhd_hub.config import Settings
 from adhd_hub.events import (
     FORGE_RECONCILE_FAILED,
@@ -95,6 +103,13 @@ class HubService:
         self.wiki = Wiki(settings.wiki_dir, timezone=self._prefs.timezone)
         self._forge = ForgeFacade(self)
         self._openclaw_ops = OpenClawFacade(self)
+        self._apply_ai_config(
+            load_ai_config(
+                settings.data_dir,
+                env_defaults=ai_from_settings(settings),
+                auth_token=settings.auth_token,
+            )
+        )
         self._forge_jobs = ForgeJobQueue(self._run_forge_job)
         self.event_bus = EventBus()
         self.store.migrate_work_identity(self._confident_forge_target)
@@ -524,6 +539,26 @@ class HubService:
 
     def save_openclaw_config(self, config: OpenClawConfig) -> OpenClawConfig:
         return self._openclaw_ops.save_openclaw_config(config)
+
+    def ai_config(self) -> AiConfig:
+        return self._ai_config
+
+    def save_ai_config(self, config: AiConfig) -> AiConfig:
+        persist_ai_config(
+            self.settings.data_dir,
+            config,
+            auth_token=self.settings.auth_token,
+        )
+        self._apply_ai_config(config)
+        return config
+
+    def _apply_ai_config(self, config: AiConfig) -> None:
+        self._ai_config = config
+        self.settings.ai_enabled = config.enabled
+        self.settings.ai_base_url = config.base_url or None
+        self.settings.ai_api_key = config.api_key or None
+        self.settings.ai_model = config.model
+        self.settings.ai_timeout_seconds = config.timeout_seconds
 
     def openclaw_pair_status(self) -> dict:
         return self._openclaw_ops.openclaw_pair_status()
@@ -1481,7 +1516,9 @@ class HubService:
         from adhd_hub.thread_state import state_fingerprint
 
         fp = state_fingerprint(thread)
-        cached = self._read_scan_cache(thread.id) if self.settings.ai_base_url else None
+        from adhd_hub.ai_client import ai_configured
+
+        cached = self._read_scan_cache(thread.id) if ai_configured(self.settings) else None
         attach_scan_line(
             data,
             thread,
@@ -1520,7 +1557,7 @@ class HubService:
             },
         )
 
-    def refresh_scan_line_ai(self, thread: Thread) -> None:
+    def refresh_scan_line_ai(self, thread: Thread, *, force: bool = False) -> None:
         """Best-effort AI rewrite when configured; stores cache for later reads."""
         from adhd_hub.ai_client import ai_configured, generate_ai_scan_line
         from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
@@ -1531,7 +1568,8 @@ class HubService:
         fp = state_fingerprint(thread)
         cached = self._read_scan_cache(thread.id)
         if (
-            cached
+            not force
+            and cached
             and cached.get("fingerprint") == fp
             and cached.get("source") == SCAN_LINE_SOURCE_AI
             and cached.get("scan_line")
@@ -1542,6 +1580,46 @@ class HubService:
             self._write_scan_cache(
                 thread.id, fingerprint=fp, scan_line=line, source=SCAN_LINE_SOURCE_AI
             )
+
+    def rewrite_scan_line(self, thread_id: str) -> dict:
+        """Manual AI rewrite for the UI. Falls back to heuristic on failure/off."""
+        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line
+        from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
+        from adhd_hub.thread_state import state_fingerprint
+
+        thread = self.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError(thread_id)
+        if not ai_configured(self.settings):
+            pub = self.thread_public_dict(thread)
+            return {
+                "ok": True,
+                "ai_attempted": False,
+                "message": "AI scan-lines are off — showing the heuristic line.",
+                "thread": pub,
+            }
+        fp = state_fingerprint(thread)
+        line = generate_ai_scan_line(self.settings, thread)
+        if line:
+            self._write_scan_cache(
+                thread.id, fingerprint=fp, scan_line=line, source=SCAN_LINE_SOURCE_AI
+            )
+            pub = self.thread_public_dict(thread)
+            return {
+                "ok": True,
+                "ai_attempted": True,
+                "message": "AI scan line updated.",
+                "thread": pub,
+            }
+        # Failure: drop stale AI cache so the heuristic line is visible.
+        self.store.delete_meta(self._scan_cache_key(thread.id))
+        pub = self.thread_public_dict(thread)
+        return {
+            "ok": True,
+            "ai_attempted": True,
+            "message": "AI unavailable — showing the heuristic line.",
+            "thread": pub,
+        }
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:
         data = compact_thread_dict(thread)

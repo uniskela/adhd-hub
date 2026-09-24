@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import ValidationError
 
+from adhd_hub.ai_config import AiConfig
 from adhd_hub.models import (
     EnergyLevel,
     IndexerBatch,
@@ -98,6 +99,14 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         return service.thread_public_dict(thread)
+
+    @router.post("/threads/{thread_id}/scan-line", dependencies=[Depends(auth_dep)])
+    def rewrite_thread_scan_line(thread_id: str):
+        """Force an AI scan-line rewrite (heuristic fallback when AI is off/unavailable)."""
+        try:
+            return service.rewrite_scan_line(thread_id)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
 
     @router.get("/overview", dependencies=[Depends(auth_dep)])
     def overview():
@@ -434,6 +443,42 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         if not result["ok"]:
             raise HTTPException(502, str(result["message"]))
         return result
+
+    @router.get("/ai/config", dependencies=[Depends(auth_dep)])
+    def get_ai_config():
+        return service.ai_config().public_dict()
+
+    @router.put("/ai/config", dependencies=[Depends(auth_dep)])
+    def put_ai_config(payload: dict):
+        current = service.ai_config()
+        data = current.model_dump()
+        supplied_key = payload.pop("api_key", None)
+        clear_key = bool(payload.pop("clear_api_key", False))
+        url_changed = (
+            "base_url" in payload
+            and str(payload.get("base_url") or "").strip().rstrip("/") != current.base_url
+        )
+        data.update({k: v for k, v in payload.items() if v is not None})
+        if clear_key:
+            data["api_key"] = ""
+        elif isinstance(supplied_key, str) and supplied_key.strip():
+            data["api_key"] = supplied_key.strip()
+        elif url_changed:
+            # Never send a previously saved key to a newly supplied host.
+            data["api_key"] = ""
+        try:
+            config = AiConfig.model_validate(data)
+        except ValidationError as exc:
+            detail = "; ".join(
+                str(error.get("msg", "Invalid AI setting")).removeprefix("Value error, ")
+                for error in exc.errors(include_input=False)
+            )
+            raise HTTPException(400, detail) from exc
+        if config.enabled and not config.base_url:
+            raise HTTPException(
+                400, "add an AI base URL before enabling AI scan-lines"
+            )
+        return service.save_ai_config(config).public_dict()
 
     @router.get("/openclaw/pair", dependencies=[Depends(auth_dep)])
     def get_openclaw_pair():

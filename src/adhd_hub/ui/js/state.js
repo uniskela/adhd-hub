@@ -140,6 +140,7 @@ export const state = {
   repoUrl: "",
   repoDisplayUrl: "",
   forgeConfigCache: null,
+  aiConfigCache: null,
 };
 
 export function initRepoLinks() {
