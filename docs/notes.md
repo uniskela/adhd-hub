@@ -4,6 +4,18 @@
 
 The reader shows what is already stored. It does not edit Goal, Focus, Next, Blocked, or Resume. Use **Now** (**Pause here**, **Save continuity**) or your agent’s `upsert_progress` for that.
 
+## Summarise (AI)
+
+When a thread’s notes are open, the reader toolbar offers **Summarise**. With AI enabled in **Settings → Preferences** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
+
+1. **Done**
+2. **Plan · Focus**
+3. **Next** — at most three steps
+4. **Blocked** — only when something is waiting
+5. **Resume** — optional one concrete action
+
+The card is **persisted on the thread** so it survives reopen. **Regenerate** (press Summarise again) replaces only that card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
+
 ## Project overview
 
 The strip at the top stays visible:

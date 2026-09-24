@@ -1199,6 +1199,11 @@ class HubService:
             "</p></section>"
         )
 
+        # 1b. Persisted AI summary card (replaceable; never rewrites notes)
+        summary_html = self._notes_summary_card_html(thread.id)
+        if summary_html:
+            parts.append(summary_html)
+
         # 2. This thread continuity card (always visible)
         parts.append(self._notes_continuity_card_html(thread, heading="This thread"))
 
@@ -1816,6 +1821,98 @@ class HubService:
             "message": message,
             "threads": updated,
             "errors": errors,
+        }
+
+    def _notes_summary_cache_key(self, thread_id: str) -> str:
+        from adhd_hub.notes_summary import notes_summary_cache_key
+
+        return notes_summary_cache_key(thread_id)
+
+    def _read_notes_summary(self, thread_id: str):
+        import json
+
+        from adhd_hub.notes_summary import parse_notes_summary_payload
+
+        raw = self.store.get_meta(self._notes_summary_cache_key(thread_id))
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+        except json.JSONDecodeError:
+            return None
+        return parse_notes_summary_payload(data)
+
+    def _write_notes_summary(self, thread_id: str, card) -> None:
+        self.store.set_meta(
+            self._notes_summary_cache_key(thread_id),
+            card.to_store_dict(),
+        )
+
+    def _notes_summary_card_html(self, thread_id: str) -> str:
+        from adhd_hub.notes_summary import notes_summary_card_html
+
+        card = self._read_notes_summary(thread_id)
+        if not card:
+            return ""
+        return notes_summary_card_html(card)
+
+    def summarise_notes(self, thread_id: str) -> dict:
+        """One-shot AI Notes summarise for the reader. Never rewrites progress notes."""
+        from adhd_hub.ai_client import ai_configured, generate_notes_summary
+
+        thread = self.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError(thread_id)
+
+        existing = self._read_notes_summary(thread.id)
+        pub = self.thread_public_dict(thread)
+        progress_html = self.thread_notes_context_html(thread)
+
+        if not ai_configured(self.settings):
+            return {
+                "ok": True,
+                "ai_attempted": False,
+                "settings_hint": True,
+                "message": (
+                    "AI is off — enable it in Settings → Preferences "
+                    "(AI scan-lines) to summarise notes."
+                ),
+                "summary": existing.to_store_dict() if existing else None,
+                "progress_html": progress_html,
+                "thread": pub,
+            }
+
+        note_contents: list[str] = []
+        slug = thread.project_slug
+        if slug:
+            notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
+            note_contents = [n.get("content") or "" for n in notes]
+
+        result = generate_notes_summary(
+            self.settings, thread, note_contents=note_contents
+        )
+        if result.card is not None:
+            self._write_notes_summary(thread.id, result.card)
+            progress_html = self.thread_notes_context_html(thread)
+            return {
+                "ok": True,
+                "ai_attempted": True,
+                "settings_hint": False,
+                "message": "AI summary updated.",
+                "summary": result.card.to_store_dict(),
+                "progress_html": progress_html,
+                "thread": pub,
+            }
+
+        # Failure: keep any prior card; never invent content or rewrite notes.
+        return {
+            "ok": True,
+            "ai_attempted": True,
+            "settings_hint": False,
+            "message": result.fail_hint or "AI unavailable — notes unchanged.",
+            "summary": existing.to_store_dict() if existing else None,
+            "progress_html": progress_html,
+            "thread": pub,
         }
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:

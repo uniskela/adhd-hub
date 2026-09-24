@@ -6,6 +6,8 @@ import { celebrate } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
 
+/** Thread id currently shown in the Notes reader (for Summarise). */
+let notesThreadId = null;
 /** Resolve display title for a project slug from the overview cache. */
 export function projectTitleForSlug(slug) {
     if (!slug || slug === "unclassified") return "Inbox";
@@ -232,6 +234,13 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
     const reader = $("notes-reader");
     if (!reader || reader.hidden) return;
     ++notesRequest;
+    notesThreadId = null;
+    const summariseBtn = $("btn-notes-summarise");
+    if (summariseBtn) {
+      summariseBtn.hidden = true;
+      summariseBtn.disabled = false;
+      summariseBtn.textContent = "Summarise";
+    }
     reader.hidden = true;
     reader.closest(".layout")?.classList.remove("notes-docked", "notes-expanded");
     document.body.classList.remove("notes-reader-open");
@@ -260,6 +269,61 @@ function wireNotesActions(root) {
     });
   }
 
+export async function summariseNotes() {
+    const threadId = notesThreadId;
+    if (!threadId) {
+      setMsg("Open a thread’s notes first.");
+      return;
+    }
+    const btn = $("btn-notes-summarise");
+    const body = $("notes-reader-body");
+    const toastKey = "notes-summarise";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Summarising…";
+    }
+    // Sticky keyed toast: AI calls can outlast the default info dismiss window.
+    setMsg("Summarising notes…", { key: toastKey, sticky: true, variant: "info" });
+    try {
+      const out = await api(`/threads/${encodeURIComponent(threadId)}/notes-summary`, {
+        method: "POST",
+        body: "{}",
+      });
+      if (out.progress_html && body && notesThreadId === threadId) {
+        body.innerHTML = out.progress_html;
+        wireNotesActions(body);
+      }
+      setMsg(out.message || "Summary updated.", {
+        key: toastKey,
+        variant: out.settings_hint ? "warning" : "info",
+      });
+      if (out.settings_hint) {
+        showScreen("settings");
+        // Soft cue into Preferences → AI (avoid importing settings.js — circular via load.js).
+        const prefsTab = document.querySelector('[data-settings-tab="preferences"]');
+        prefsTab?.click();
+        const aiBlock = $("ai_enabled");
+        if (aiBlock) {
+          try {
+            aiBlock.focus({ preventScroll: true });
+          } catch (_) {
+            aiBlock.focus();
+          }
+        }
+      }
+    } catch (error) {
+      setMsg(error.message || "Could not summarise notes.", {
+        key: toastKey,
+        variant: "error",
+      });
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Summarise";
+      }
+    }
+  }
+
 async function openNotesReader(trigger) {
     const reader = $("notes-reader");
     const body = $("notes-reader-body");
@@ -271,6 +335,13 @@ async function openNotesReader(trigger) {
     notesTrigger = trigger;
     trigger.setAttribute("aria-expanded", "true");
     const thread = trigger.closest(".thread");
+    notesThreadId = trigger.dataset.notes || null;
+    const summariseBtn = $("btn-notes-summarise");
+    if (summariseBtn) {
+      summariseBtn.hidden = !notesThreadId;
+      summariseBtn.disabled = false;
+      summariseBtn.textContent = "Summarise";
+    }
     $("notes-reader-title").textContent = thread?.querySelector("h3")?.textContent || "Saved context";
     $("notes-reader-meta").textContent = [...(thread?.querySelectorAll(".thread-meta span") || [])]
       .map((item) => item.textContent.trim())
@@ -295,6 +366,9 @@ function wireNotesReaderControls() {
     const reader = $("notes-reader");
     if (!reader || reader.dataset.wired) return;
     reader.dataset.wired = "true";
+    $("btn-notes-summarise")?.addEventListener("click", () => {
+      summariseNotes().catch((error) => setMsg(error.message));
+    });
     $("btn-notes-dock")?.addEventListener("click", () => setNotesMode("docked"));
     $("btn-notes-expand")?.addEventListener("click", () => setNotesMode("expanded"));
     $("btn-notes-close")?.addEventListener("click", () => closeNotesReader());

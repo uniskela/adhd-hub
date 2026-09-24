@@ -1347,6 +1347,7 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
     padding-left: max(1rem, env(safe-area-inset-left));
   }
   .notes-reader-actions .ghost { display: none; }
+  .notes-reader-actions #btn-notes-summarise.ghost { display: inline-flex; }
   .notes-reader-body {
     flex: 1 1 auto;
     height: auto;
@@ -1496,6 +1497,30 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
   margin: 0 0 1rem;
   padding: .85rem 0 1rem;
   border-bottom: 1px solid var(--line);
+}
+.notes-summary-card {
+  margin: 0 0 1rem;
+  padding: .85rem 0 1rem;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--accent-soft, transparent) 0%, transparent 72%);
+  border-radius: 8px;
+  padding-inline: .15rem;
+}
+.notes-summary-head {
+  margin: 0 0 .75rem;
+}
+.notes-summary-eyebrow {
+  margin: 0;
+  color: var(--ink);
+  font-size: .78rem;
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.notes-summary-hint {
+  margin: .25rem 0 0;
+  color: var(--muted);
+  font-size: .72rem;
 }
 .notes-continuity-compact {
   margin: 0;
