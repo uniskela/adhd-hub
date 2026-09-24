@@ -40,6 +40,12 @@ def test_scrub_strips_markdown_emphasis_without_killing_identifiers():
     assert scrub_scan_text(".**") is None
     assert scrub_scan_text("Ship **scan_line** quality") == "Ship scan_line quality"
     assert scrub_scan_text("Draft PR ready **") == "Draft PR ready"
+    # Globs, math, and dunders must survive shared scrub (heuristic + AI).
+    assert scrub_scan_text("Run pytest -k test_*") == "Run pytest -k test_*"
+    assert scrub_scan_text("glob *.py files") == "glob *.py files"
+    assert scrub_scan_text("Multiply 2*3 result") == "Multiply 2*3 result"
+    assert scrub_scan_text("Call __init__ then continue") == "Call __init__ then continue"
+    assert scrub_scan_text("file__name__ check") == "file__name__ check"
 
 
 def test_ai_scan_line_reject_reason_short_and_prefer_heuristic():
@@ -49,6 +55,11 @@ def test_ai_scan_line_reject_reason_short_and_prefer_heuristic():
     assert "incomplete" in (
         ai_scan_line_reject_reason("Draft the pull request ready to") or ""
     )
+    # Complete lines ending in on/in must not false-reject.
+    assert (
+        ai_scan_line_reject_reason("Leave the feature flag on for this ship") is None
+    )
+    assert ai_scan_line_reject_reason("Save the API key and log in") is None
     long_h = (
         "Finish the AI scan-line quality gate so short stubs never replace a full "
         "heuristic resume step"
