@@ -217,6 +217,7 @@
                 <p id="notes-reader-meta" class="notes-reader-meta"></p>
               </div>
               <div class="notes-reader-actions" aria-label="Reader layout">
+                <button type="button" class="ghost compact" id="btn-notes-summarise" hidden title="Summarise notes with AI">Summarise</button>
                 <button type="button" class="ghost compact" id="btn-notes-dock" aria-pressed="true" title="Dock reader on the right">Dock right</button>
                 <button type="button" class="ghost compact" id="btn-notes-expand" aria-pressed="false" title="Expand reader">Expand</button>
                 <button type="button" class="notes-reader-close" id="btn-notes-close" aria-label="Close notes reader" title="Close">×</button>
@@ -312,8 +313,8 @@
 
                 <div class="settings-divider">
                   <h3>AI scan-lines</h3>
-                  <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. For Gemini, prefer <code>gemini-3.6-flash</code> — older flash ids may still appear in lists but 404 for new users. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>.</p>
-                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save. Refresh one thread from Actions, or rewrite all open threads for a selected project from the project header.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
+                  <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. For Gemini, prefer <code>gemini-3.6-flash</code> — older flash ids may still appear in lists but 404 for new users. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>. The same setting powers Notes reader <strong>Summarise</strong>.</p>
+                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save. Refresh one thread from Actions, or rewrite all open threads for a selected project from the project header. Notes <strong>Summarise</strong> uses the same endpoint for a persisted Done / Plan·Focus / Next card (notes feed unchanged).</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
                   <div class="form-grid">
                     <label class="span2">Base URL preset
                       <select id="ai_base_url_preset" aria-describedby="ai-base-url-hint">

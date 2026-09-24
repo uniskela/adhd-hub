@@ -1,8 +1,9 @@
 """Opt-in OpenAI-compatible chat completions client (local LLM preferred).
 
-Used only for Wave 6 scan-line rewriting. Never send transcripts or secrets.
-Disabled unless AI is enabled and a base URL is configured (Settings and/or
-``ADHD_HUB_AI_BASE_URL``). Soft default: off until enabled.
+Used for Wave 6 scan-line rewriting and Notes reader summarise (v1).
+Never send transcripts or secrets. Disabled unless AI is enabled and a base URL
+is configured (Settings and/or ``ADHD_HUB_AI_BASE_URL``). Soft default: off
+until enabled.
 """
 
 from __future__ import annotations
@@ -24,7 +25,8 @@ from adhd_hub.clarity import (
 )
 from adhd_hub.config import Settings
 from adhd_hub.models import Thread
-from adhd_hub.notes_compaction import is_boilerplate_freeform
+from adhd_hub.notes_compaction import is_boilerplate_freeform, is_milestone_note
+from adhd_hub.notes_summary import NotesSummaryCard, card_from_ai_text
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +57,11 @@ _DEPRECATED_MODEL_HINT_RE = re.compile(
 
 # Room for one complete ~80–140 char sentence (tokens ≠ chars; keep headroom).
 _SCAN_LINE_MAX_TOKENS = 220
+# Notes summarise needs a small JSON object (Done / Plan·Focus / Next / …).
+_NOTES_SUMMARY_MAX_TOKENS = 450
+_NOTES_PROMPT_NOTE_MAX = 180
+_NOTES_PROMPT_NOTES_MAX = 8
+_NOTES_PROMPT_TOTAL_CHARS = 2400
 
 # Keep AI prompts tiny — huge forge/ritual resume walls cause provider timeouts.
 _PROMPT_TITLE_MAX = 80
@@ -140,6 +147,14 @@ class AiScanLineResult:
     """Outcome of a best-effort AI scan-line rewrite (no secrets)."""
 
     text: str | None = None
+    fail_hint: str | None = None
+
+
+@dataclass(frozen=True)
+class AiNotesSummaryResult:
+    """Outcome of a best-effort Notes summarise call (no secrets)."""
+
+    card: NotesSummaryCard | None = None
     fail_hint: str | None = None
 
 
@@ -454,6 +469,187 @@ def generate_ai_scan_line(
         return AiScanLineResult(
             fail_hint="AI unavailable — showing the heuristic line."
         )
+    finally:
+        if owns_client:
+            http.close()
+
+
+def _note_snippet_for_prompt(text: str) -> str | None:
+    """Scrub one freeform note into a short prompt line (skip ritual/milestones)."""
+    if not text or is_boilerplate_freeform(text) or is_milestone_note(text):
+        return None
+    lines: list[str] = []
+    for line in text.splitlines():
+        cleaned = line.strip().lstrip("#").strip()
+        cleaned = cleaned.lstrip("*-• ").strip()
+        if not cleaned:
+            continue
+        if is_boilerplate_freeform(cleaned):
+            continue
+        piece = _sanitize_prompt_field(cleaned, limit=_NOTES_PROMPT_NOTE_MAX)
+        if piece and piece not in lines:
+            lines.append(piece)
+        if sum(len(p) for p in lines) >= _NOTES_PROMPT_NOTE_MAX:
+            break
+    if not lines:
+        return None
+    joined = " — ".join(lines)
+    return truncate_scan_text(joined, limit=_NOTES_PROMPT_NOTE_MAX)
+
+
+def structured_notes_summary_prompt(
+    thread: Thread,
+    *,
+    note_contents: list[str] | None = None,
+) -> str:
+    """Build a scrubbed continuity + notes prompt for the Notes summarise card."""
+    parts = [
+        "Summarise this Hub thread into a short ADHD continuity card.",
+        "Return ONLY a JSON object with keys:",
+        '  "done" (string, what already happened),',
+        '  "plan_focus" (string, combined plan and focus),',
+        '  "next" (array of at most 3 short strings),',
+        '  "blocked" (string or null),',
+        '  "resume" (string or null, one concrete next action).',
+        "Omit or null empty fields. No markdown fences, no extra keys, no commentary.",
+        "Use only the fields and notes below. No secrets, absolute paths, URLs, or transcripts.",
+        "Do not invent work that is not implied by the input.",
+    ]
+    fields = [
+        ("Title", _hub_preferred_field(thread, "summary", thread.summary), _PROMPT_TITLE_MAX),
+        ("Focus", _hub_preferred_field(thread, "focus", thread.focus), _PROMPT_FIELD_MAX),
+        (
+            "Resume",
+            _hub_preferred_field(thread, "resume_step", thread.resume_step),
+            _PROMPT_FIELD_MAX,
+        ),
+        ("Goal", _hub_preferred_field(thread, "goal", thread.goal), _PROMPT_FIELD_MAX),
+        ("Next", _next_steps_for_prompt(thread), _PROMPT_FIELD_MAX * 2),
+        (
+            "Blocked",
+            _hub_preferred_field(thread, "blocked_reason", thread.blocked_reason),
+            _PROMPT_FIELD_MAX,
+        ),
+    ]
+    for label, value, limit in fields:
+        if label == "Next":
+            cleaned = value if isinstance(value, str) else None
+            if cleaned:
+                cleaned = truncate_scan_text(cleaned, limit=limit)
+        else:
+            cleaned = _sanitize_prompt_field(value, limit=limit)
+        if cleaned:
+            parts.append(f"{label}: {cleaned}")
+
+    usable_notes: list[str] = []
+    for raw in note_contents or []:
+        snippet = _note_snippet_for_prompt(raw or "")
+        if snippet and snippet not in usable_notes:
+            usable_notes.append(snippet)
+        if len(usable_notes) >= _NOTES_PROMPT_NOTES_MAX:
+            break
+    if usable_notes:
+        parts.append("Notes (newest first, freeform only):")
+        for note in usable_notes:
+            parts.append(f"- {note}")
+
+    prompt = "\n".join(parts)
+    if len(prompt) > _NOTES_PROMPT_TOTAL_CHARS:
+        prompt = prompt[: _NOTES_PROMPT_TOTAL_CHARS - 1].rstrip() + "…"
+    return prompt
+
+
+def generate_notes_summary(
+    settings: Settings,
+    thread: Thread,
+    *,
+    note_contents: list[str] | None = None,
+    client: httpx.Client | None = None,
+) -> AiNotesSummaryResult:
+    """Call OpenAI-compatible chat; return a NotesSummaryCard or calm fail hint."""
+    base = (settings.ai_base_url or "").strip().rstrip("/")
+    if not base:
+        return AiNotesSummaryResult(fail_hint="AI base URL is not configured.")
+    url = openai_compat_url(base, "chat/completions")
+    headers = {"Content-Type": "application/json"}
+    if settings.ai_api_key:
+        headers["Authorization"] = f"Bearer {settings.ai_api_key}"
+    model = normalize_openai_model_id(settings.ai_model or "llama3.2")
+    body: dict[str, Any] = {
+        "model": model or "llama3.2",
+        "temperature": 0.2,
+        "max_tokens": _NOTES_SUMMARY_MAX_TOKENS,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You write short ADHD Hub notes summaries as JSON only. "
+                    "Keys: done, plan_focus, next (≤3 strings), blocked, resume. "
+                    "Never invent secrets, absolute paths, or private URLs. "
+                    "Do not rewrite or quote long note bodies."
+                ),
+            },
+            {
+                "role": "user",
+                "content": structured_notes_summary_prompt(
+                    thread, note_contents=note_contents
+                ),
+            },
+        ],
+    }
+    from adhd_hub.ai_config import DEFAULT_AI_TIMEOUT
+
+    timeout = float(settings.ai_timeout_seconds or DEFAULT_AI_TIMEOUT)
+    owns_client = client is None
+    http = client or httpx.Client(timeout=timeout)
+    try:
+        resp = http.post(url, headers=headers, json=body, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        choices = data.get("choices") or []
+        if not choices:
+            return AiNotesSummaryResult(
+                fail_hint="AI returned no choices — notes unchanged."
+            )
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if not isinstance(content, str):
+            return AiNotesSummaryResult(
+                fail_hint="AI returned an empty reply — notes unchanged."
+            )
+        card, reject = card_from_ai_text(content)
+        if reject or card is None:
+            return AiNotesSummaryResult(
+                fail_hint=reject or "AI summary was empty — notes unchanged."
+            )
+        return AiNotesSummaryResult(card=card)
+    except httpx.TimeoutException:
+        log.info("AI notes summary skipped (ReadTimeout)")
+        return AiNotesSummaryResult(
+            fail_hint=(
+                "AI timed out — notes unchanged. "
+                "Try raising Timeout in AI settings."
+            )
+        )
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code
+        snippet = _provider_error_snippet(exc.response)
+        outbound = model or "llama3.2"
+        log.info(
+            "AI notes summary skipped (HTTP %s model=%s path=%s body=%s)",
+            code,
+            outbound,
+            _request_path_for_log(url),
+            snippet or "-",
+        )
+        # Reuse scan-line HTTP hint wording but swap heuristic framing.
+        hint = _http_fail_hint(code, model=outbound, url=url, snippet=snippet)
+        hint = hint.replace(" — showing the heuristic line.", " — notes unchanged.")
+        hint = hint.replace("showing the heuristic line", "notes unchanged")
+        return AiNotesSummaryResult(fail_hint=hint)
+    except Exception as exc:  # noqa: BLE001 — AI is best-effort
+        log.info("AI notes summary skipped (%s)", type(exc).__name__)
+        return AiNotesSummaryResult(fail_hint="AI unavailable — notes unchanged.")
     finally:
         if owns_client:
             http.close()
