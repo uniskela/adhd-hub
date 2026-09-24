@@ -244,6 +244,11 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     css = (root / "src/adhd_hub/ui/app.css").read_text(encoding="utf-8")
     assert "text-overflow: ellipsis" in css
     assert ".thread-scan" in css
+    assert "line-clamp: 2" in css
+    assert "-webkit-line-clamp: 2" in css
+    for chunk in css.split(".thread-scan"):
+        block = chunk.split("}", 1)[0]
+        assert "white-space: nowrap" not in block
     settings = (root / "src/adhd_hub/ui/js/settings.js").read_text(encoding="utf-8")
     assert "loadAiConfig" in settings
     assert "/ai/config" in settings

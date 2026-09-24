@@ -280,7 +280,7 @@ summary::marker { color: var(--muted); }
 .proj-row {
   display: flex;
   align-items: stretch;
-  gap: .15rem;
+  gap: .25rem;
   border-radius: 7px;
 }
 .proj-row.active,
@@ -290,6 +290,7 @@ summary::marker { color: var(--muted); }
   margin: 0;
   min-width: 0;
   background: transparent;
+  padding-left: .35rem;
 }
 .proj-row .proj.active { background: transparent; }
 .proj-chevron,
@@ -403,14 +404,16 @@ progress::-moz-progress-bar { background: var(--ok); border-radius: 10px; }
   max-width: none;
   width: 100%;
   min-width: 0;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 .thread h3, .next-card h3, .meta, .proj { overflow-wrap: anywhere; }
-.thread-scan { overflow-wrap: normal; word-break: normal; }
 .thread-topline { display: flex; align-items: center; gap: .45rem; min-width: 0; }
 .thread-number { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: .72rem; font-weight: 750; }
 .thread-project { min-width: 0; overflow-wrap: anywhere; color: var(--accent); font-size: .73rem; font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }
@@ -1763,10 +1766,13 @@ dialog::backdrop { background: rgb(5 8 7 / .66); backdrop-filter: none; }
   min-width: 0;
   line-height: 1.65;
   margin-bottom: .6rem;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 .thread-actions { gap: .75rem; grid-column: 1; }

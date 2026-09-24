@@ -217,6 +217,9 @@ def test_project_rail_hierarchy_tree_markers():
     assert "adhd_hub_project_expand" in work
     assert "buildProjectForest" in work
     assert "proj-chevron" in work
+    assert "proj-drag-handle" in work
+    # Leaf / Inbox rows omit empty chevron/handle spacers so title sits near the grip.
+    assert "proj-chevron-spacer" not in work
     assert "parent_slug" in work
     assert "sort_order" in work
     assert "wireProjectDnD" in work
@@ -227,6 +230,7 @@ def test_project_rail_hierarchy_tree_markers():
     assert 'id="projects-drawer-backdrop"' in html
     assert "None (top-level)" in html
     assert "--rail-width" in css
+    assert "padding-left: .35rem" in css
     assert "--work-max" in css
     assert "projects-drawer-open" in css
 
