@@ -95,7 +95,10 @@ class Settings(BaseSettings):
     oauth_enabled: bool = True
 
     # Opt-in Wave 6 AI scan-lines (OpenAI-compatible; local/Ollama preferred).
-    # Disabled when ai_base_url is unset. Never send transcripts.
+    # Soft default off: needs ai_enabled + base URL (Settings UI and/or env).
+    # Env URL bootstraps enabled=True via ai_config.ai_from_settings. Never send transcripts.
+    # Runtime may also load overrides from data/ai.json (encrypted API key).
+    ai_enabled: bool = False
     ai_base_url: str | None = None
     ai_api_key: str | None = None
     ai_model: str = "llama3.2"

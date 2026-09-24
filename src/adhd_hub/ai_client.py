@@ -1,7 +1,8 @@
 """Opt-in OpenAI-compatible chat completions client (local LLM preferred).
 
 Used only for Wave 6 scan-line rewriting. Never send transcripts or secrets.
-Disabled unless ``ADHD_HUB_AI_BASE_URL`` is set.
+Disabled unless AI is enabled and a base URL is configured (Settings and/or
+``ADHD_HUB_AI_BASE_URL``). Soft default: off until enabled.
 """
 
 from __future__ import annotations
@@ -19,7 +20,12 @@ log = logging.getLogger(__name__)
 
 
 def ai_configured(settings: Settings) -> bool:
-    return bool((settings.ai_base_url or "").strip())
+    """True when AI scan-lines may run (enabled flag + non-empty base URL)."""
+    enabled = getattr(settings, "ai_enabled", None)
+    has_url = bool((settings.ai_base_url or "").strip())
+    if enabled is None:
+        return has_url
+    return bool(enabled) and has_url
 
 
 def _structured_prompt(thread: Thread) -> str:

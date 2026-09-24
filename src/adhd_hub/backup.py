@@ -22,6 +22,7 @@ _INCLUDE_NAMES = {
     "forge.json",
     "prefs.json",
     "openclaw.json",
+    "ai.json",
 }
 
 _ENC_MAGIC = b"ADHDHUB1"

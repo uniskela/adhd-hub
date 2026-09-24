@@ -61,14 +61,21 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 
 ## Wave 6 AI scan-lines (opt-in)
 
-Disabled unless `ADHD_HUB_AI_BASE_URL` is set. Uses an OpenAI-compatible `/chat/completions` endpoint (local Ollama or similar preferred). Only bounded, scrubbed structured thread fields are sent — never progress bodies or transcript references. Common credential, URL, and machine-path patterns are redacted before the request and again on the response; keep sensitive material out of continuity fields. On failure or when unset, heuristic scan-lines are used.
+Soft default: **off** until enabled. Heuristic scan-lines always work.
+
+You can enable AI from **Settings → Preferences → AI scan-lines** (base URL, model, optional API key, timeout). UI-saved values live in `data/ai.json`; the API key is encrypted with the Hub access token (same pattern as OpenClaw) and is never returned to the browser. Environment variables still bootstrap a fresh instance; a non-empty `ADHD_HUB_AI_BASE_URL` opts in until you save different Settings.
+
+Uses an OpenAI-compatible `/chat/completions` endpoint (local Ollama or similar preferred). Only bounded, scrubbed structured thread fields are sent — never progress bodies or transcript references. Common credential, URL, and machine-path patterns are redacted before the request and again on the response; keep sensitive material out of continuity fields. On failure or when unset, heuristic scan-lines are used.
+
+On My work, **More options → Rewrite scan line** forces a refresh for one thread (`POST /api/threads/{id}/scan-line`). Automatic rewrites still run on thread/progress save when AI is active.
 
 | Variable | Default | Type | Purpose |
 | --- | --- | --- | --- |
-| `ADHD_HUB_AI_BASE_URL` | unset | URL | OpenAI-compatible API base ending before `/chat/completions`, e.g. `http://127.0.0.1:11434/v1`. |
+| `ADHD_HUB_AI_ENABLED` | `false` | boolean | Soft enable gate on `Settings`. A non-empty `ADHD_HUB_AI_BASE_URL` still bootstraps enabled when no `data/ai.json` exists yet. Prefer **Settings → Preferences → AI scan-lines** for ongoing on/off. Alone (without a base URL) does not activate AI. |
+| `ADHD_HUB_AI_BASE_URL` | unset | URL | OpenAI-compatible API base ending before `/chat/completions`, e.g. `http://127.0.0.1:11434/v1`. When set and no `data/ai.json` yet, AI starts enabled. |
 | `ADHD_HUB_AI_MODEL` | `llama3.2` | string | Model id passed to the provider. |
-| `ADHD_HUB_AI_API_KEY` | unset | secret string | Optional bearer token for remote providers. |
-| `ADHD_HUB_AI_TIMEOUT_SECONDS` | `2.5` | float | HTTP timeout for a scan-line rewrite (greater than 0, at most 30 seconds). Rewrites run during thread/progress saves, so keep this short. |
+| `ADHD_HUB_AI_API_KEY` | unset | secret string | Optional bearer token for remote providers. Prefer Settings for ongoing secrets. |
+| `ADHD_HUB_AI_TIMEOUT_SECONDS` | `2.5` | float | HTTP timeout for a scan-line rewrite (greater than 0, at most 30 seconds). Rewrites run during thread/progress saves and manual refresh, so keep this short. |
 
 For a TLS reverse proxy, a typical configuration is:
 

@@ -79,7 +79,75 @@ export async function loadPrefs() {
     preferences.setItem(tzKey, state.currentTz);
     preferences.setItem(tzKey + "_initialized", "1");
     fillTimezoneSelect(state.currentTz);
+    await loadAiConfig().catch(() => {});
   }
+
+function formatAiStatus(config) {
+    if (!config) return "AI: status unavailable";
+    if (config.active) {
+      const model = config.model || "model";
+      const host = (config.base_url || "").replace(/^https?:\/\//, "") || "provider";
+      return `AI: on · ${model} via ${host}`;
+    }
+    if (config.enabled && !config.base_url) return "AI: enable needs a base URL";
+    return "AI: off — heuristic scan-lines only";
+  }
+
+export async function loadAiConfig() {
+    const status = $("ai-status");
+    const keyStatus = $("ai_key_status");
+    if (!$("ai_enabled")) return null;
+    try {
+      const config = await api("/ai/config");
+      $("ai_enabled").checked = !!config.enabled;
+      $("ai_base_url").value = config.base_url || "";
+      $("ai_model").value = config.model || "llama3.2";
+      $("ai_timeout").value = config.timeout_seconds ?? 2.5;
+      $("ai_api_key").value = "";
+      $("ai_clear_key").checked = false;
+      if (keyStatus) {
+        keyStatus.textContent = config.api_key_configured
+          ? "An API key is saved. Enter a new one only to replace it."
+          : "No saved API key.";
+      }
+      if (status) status.textContent = formatAiStatus(config);
+      state.aiConfigCache = config;
+      return config;
+    } catch (_e) {
+      if (status) status.textContent = "AI: could not load settings";
+      return null;
+    }
+  }
+
+export function aiConfigPayload() {
+    return {
+      enabled: !!$("ai_enabled")?.checked,
+      base_url: $("ai_base_url")?.value.trim() || "",
+      model: $("ai_model")?.value.trim() || "llama3.2",
+      timeout_seconds: Number($("ai_timeout")?.value) || 2.5,
+      api_key: $("ai_api_key")?.value.trim() || null,
+      clear_api_key: !!$("ai_clear_key")?.checked,
+    };
+  }
+
+export async function saveAiConfig() {
+    const msg = $("ai-msg");
+    if (msg) msg.textContent = "Saving…";
+    const config = await api("/ai/config", {
+      method: "PUT",
+      body: JSON.stringify(aiConfigPayload()),
+    });
+    $("ai_api_key").value = "";
+    $("ai_clear_key").checked = false;
+    $("ai_key_status").textContent = config.api_key_configured
+      ? "An API key is saved. Enter a new one only to replace it."
+      : "No saved API key.";
+    $("ai-status").textContent = formatAiStatus(config);
+    state.aiConfigCache = config;
+    if (msg) msg.textContent = "AI settings saved.";
+    return config;
+  }
+
 export function selectedConnectAgents() {
     const all = $("ca_all")?.checked;
     if (all) return ["*"];

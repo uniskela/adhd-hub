@@ -1067,6 +1067,10 @@ class Store:
                 (key, value),
             )
 
+    def delete_meta(self, key: str) -> None:
+        with self._conn() as conn:
+            conn.execute("DELETE FROM meta WHERE key = ?", (key,))
+
     def list_meta_prefix(self, prefix: str) -> dict[str, str]:
         with self._conn() as conn:
             rows = conn.execute(

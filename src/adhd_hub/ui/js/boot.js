@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, offerPendingConnect, saveConnectAgents, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, syncForge, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, loadThreads, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -64,6 +64,7 @@ $("btn-settings").addEventListener("click", () => {
   loadOpenClawSecureStatus().catch((error) => setMsg(error.message));
   loadCliSessions().catch(() => {});
   loadPrefs().catch(() => {});
+  loadAiConfig().catch(() => {});
   if (matchMedia("(max-width: 760px)").matches) showSettingsIndex();
   else selectSettingsTab("preferences");
   $("mcp-url").value = location.origin + "/mcp";
@@ -164,6 +165,13 @@ $("btn-save-settings").addEventListener("click", (e) => {
   e.preventDefault();
   saveSettings();
 });
+$("btn-save-ai")?.addEventListener("click", () =>
+  saveAiConfig().catch((e) => {
+    const msg = $("ai-msg");
+    if (msg) msg.textContent = e.message;
+    else setMsg(String(e));
+  })
+);
 $("btn-save-forge").addEventListener("click", () =>
   saveForge().catch((e) => setMsg(String(e)))
 );

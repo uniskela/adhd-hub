@@ -255,6 +255,23 @@
                 <div class="preference-row"><div><strong>Gentle rewards</strong><p class="hint">Ranks, badges, and shareable wins. No streaks to lose.</p></div><label class="switch"><input type="checkbox" id="rewards-enabled" /> <span>Enable rewards</span></label></div>
                 <label>Daily goal <select id="daily-goal"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select></label>
                 <div class="settings-divider"><label for="timezone">Hub timezone</label><select id="timezone"></select><p class="hint">Used for daily activity across this hub.</p><button type="button" class="primary" id="btn-save-settings">Save</button></div>
+
+                <div class="settings-divider">
+                  <h3>AI scan-lines</h3>
+                  <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>.</p>
+                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, Hub may rewrite the short line under each My work title on save, and you can refresh one thread from More options.</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
+                  <div class="form-grid">
+                    <label class="span2">Base URL <input id="ai_base_url" type="url" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" /></label>
+                    <label>Model <input id="ai_model" placeholder="llama3.2" autocomplete="off" /></label>
+                    <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="0.1" max="30" step="0.1" value="2.5" /></label>
+                    <label class="span2">API key <span class="hint">· optional</span><input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" /></label>
+                  </div>
+                  <p id="ai_key_status" class="hint">No saved API key.</p>
+                  <label><input type="checkbox" id="ai_clear_key" /> Remove the saved API key</label>
+                  <p id="ai-status" class="hint" role="status">AI: off</p>
+                  <div class="actions"><button type="button" class="primary" id="btn-save-ai">Save AI settings</button></div>
+                  <p id="ai-msg" class="msg" role="status"></p>
+                </div>
               </section>
               <section id="settings-account" role="tabpanel" aria-labelledby="tab-account" tabindex="0" hidden>
                 <h2>Sign-in &amp; security</h2>
