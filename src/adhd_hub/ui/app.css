@@ -254,8 +254,8 @@ summary::marker { color: var(--muted); }
   background: var(--accent-soft);
 }
 .proj-drag-handle {
-  flex: 0 0 1.35rem;
-  width: 1.35rem;
+  flex: 0 0 1.7rem;
+  width: 1.7rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -267,11 +267,52 @@ summary::marker { color: var(--muted); }
   color: var(--muted);
   cursor: grab;
   border-radius: 6px;
-  min-height: 1.6rem;
+  min-height: 1.85rem;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.proj-drag-handle svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 .proj-drag-handle:active { cursor: grabbing; }
-.proj-drag-handle:hover { color: var(--ink); background: var(--surface); }
+.proj-drag-handle:hover,
+.proj-drag-handle:focus-visible {
+  color: var(--ink);
+  background: var(--surface);
+}
+.proj-drag-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Fine pointer desktops: grips appear on row hover to reduce clutter. */
+@media (hover: hover) and (pointer: fine) {
+  .proj-drag-handle {
+    opacity: 0;
+  }
+  .proj-row:hover .proj-drag-handle,
+  .proj-row:focus-within .proj-drag-handle,
+  .proj-tree-item.is-dragging .proj-drag-handle {
+    opacity: 1;
+  }
+}
+/* Touch / coarse pointers: always-visible larger hit target for organise. */
+@media (pointer: coarse) {
+  .proj-drag-handle {
+    flex: 0 0 2.5rem;
+    width: 2.5rem;
+    min-height: 2.75rem;
+    min-width: 2.5rem;
+    opacity: 1;
+    color: color-mix(in srgb, var(--muted) 88%, var(--ink));
+  }
+  .proj-drag-handle svg {
+    width: 18px;
+    height: 18px;
+  }
+}
 .proj-tree-item.is-dragging { opacity: .45; }
 .proj-dnd-hint { font-size: .72rem; margin: .15rem 0 .45rem; }
 .projects-drawer-open { display: none; }
@@ -2396,10 +2437,25 @@ body.focus-mode .now-overview { display: none; }
     display: block;
     position: relative;
   }
-  #work-view .proj-drag-handle,
-  #work-view .proj-drop-gap,
+  /* Keep grips + drop gaps so projects can still be nested/reordered on mobile. */
+  #work-view .proj-drag-handle {
+    display: inline-flex !important;
+    flex: 0 0 2.5rem;
+    width: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.75rem;
+    opacity: 1;
+  }
+  #work-view .proj-drag-handle svg {
+    width: 18px;
+    height: 18px;
+  }
+  #work-view .proj-drop-gap {
+    display: block;
+    min-height: 8px;
+  }
   #work-view .proj-dnd-hint {
-    display: none !important;
+    display: block;
   }
   #work-view .proj-row > .proj-chevron-spacer:first-child {
     display: none;

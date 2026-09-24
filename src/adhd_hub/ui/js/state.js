@@ -37,6 +37,18 @@ function _toastVariant(text, opts) {
   return "info";
 }
 
+function _toastApplyTimer(el, variant, opts = {}) {
+  clearTimeout(Number(el.dataset.timer || 0) || undefined);
+  el.dataset.timer = "";
+  const sticky = Boolean(opts.sticky || opts.persist);
+  const ms = sticky
+    ? 0
+    : (opts.duration ?? TOAST_DEFAULT_MS[variant] ?? TOAST_DEFAULT_MS.info);
+  if (ms > 0) {
+    el.dataset.timer = String(setTimeout(() => el.remove(), ms));
+  }
+}
+
 export const setMsg = (t, opts = {}) => {
   const host = $("toast-host");
   const legacyMsg = $("msg");
@@ -50,22 +62,37 @@ export const setMsg = (t, opts = {}) => {
     legacySettings.hidden = true;
   }
   if (!host) return;
-  if (!t) return;
+  const key = opts.key ? String(opts.key) : "";
+  if (!t) {
+    if (key && opts.dismiss) {
+      [...host.querySelectorAll(".toast")].forEach((el) => {
+        if (el.dataset.key === key) {
+          clearTimeout(Number(el.dataset.timer || 0) || undefined);
+          el.remove();
+        }
+      });
+    }
+    return;
+  }
 
   const variant = _toastVariant(t, opts);
   const text = String(t);
-  const existing = [...host.querySelectorAll(".toast")].find(
-    (el) => el.dataset.variant === variant && el.dataset.text === text
-  );
-  if (existing) {
-    existing.classList.add("toast-bump");
-    clearTimeout(Number(existing.dataset.timer || 0) || undefined);
-    const ms = TOAST_DEFAULT_MS[variant] ?? TOAST_DEFAULT_MS.info;
-    if (ms > 0) {
-      existing.dataset.timer = String(
-        setTimeout(() => existing.remove(), ms)
+  const existing = key
+    ? [...host.querySelectorAll(".toast")].find((el) => el.dataset.key === key)
+    : [...host.querySelectorAll(".toast")].find(
+        (el) => el.dataset.variant === variant && el.dataset.text === text
       );
-    }
+  if (existing) {
+    existing.className = `toast toast-${variant}`;
+    existing.dataset.variant = variant;
+    existing.dataset.text = text;
+    if (key) existing.dataset.key = key;
+    existing.setAttribute("role", variant === "error" ? "alert" : "status");
+    existing.setAttribute("aria-live", variant === "error" ? "assertive" : "polite");
+    const body = existing.querySelector(".toast-body");
+    if (body) body.textContent = text;
+    existing.classList.add("toast-bump");
+    _toastApplyTimer(existing, variant, opts);
     return;
   }
 
@@ -75,6 +102,7 @@ export const setMsg = (t, opts = {}) => {
   el.id = id;
   el.dataset.variant = variant;
   el.dataset.text = text;
+  if (key) el.dataset.key = key;
   el.setAttribute("role", variant === "error" ? "alert" : "status");
   el.setAttribute("aria-live", variant === "error" ? "assertive" : "polite");
 
@@ -95,10 +123,7 @@ export const setMsg = (t, opts = {}) => {
   el.append(body, close);
   host.append(el);
 
-  const ms = TOAST_DEFAULT_MS[variant] ?? TOAST_DEFAULT_MS.info;
-  if (ms > 0) {
-    el.dataset.timer = String(setTimeout(() => el.remove(), ms));
-  }
+  _toastApplyTimer(el, variant, opts);
 };
 export const escapeHtml = (s) =>
   String(s ?? "")

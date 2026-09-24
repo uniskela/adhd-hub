@@ -223,6 +223,9 @@ def test_project_rail_hierarchy_tree_markers():
     assert "parent_slug" in work
     assert "sort_order" in work
     assert "wireProjectDnD" in work
+    assert "pointerdown" in work
+    assert "setPointerCapture" in work
+    assert "elementFromPoint" in work
     assert "/projects/" in work and "/move" in work
     assert "openProjectsDrawer" in work
     assert 'id="p_parent_slug"' in html
@@ -233,7 +236,30 @@ def test_project_rail_hierarchy_tree_markers():
     assert "padding-left: .35rem" in css
     assert "--work-max" in css
     assert "projects-drawer-open" in css
+    # Mobile keeps grips for organise; fine pointers reveal grips on row hover.
+    assert "@media (hover: hover) and (pointer: fine)" in css
+    assert "@media (pointer: coarse)" in css
+    assert "display: inline-flex !important" in css
+    assert "#work-view .proj-drag-handle,\n  #work-view .proj-drop-gap,\n  #work-view .proj-dnd-hint {\n    display: none !important;" not in css
+    assert 'width="16" height="16"' in work
 
+
+def test_work_tab_counts_and_rewrite_toast_markers():
+    """Open/Later/Finished badges fill without a click; rewrite-all toast stays sticky."""
+    work = (UI_JS / "work.js").read_text()
+    state = (UI_JS / "state.js").read_text()
+    html = (UI_JS.parent / "index.html").read_text()
+    assert "refreshSiblingTabCounts" in work
+    assert "setTabCount" in work
+    assert 'data-tab-count="open"' in html
+    assert 'data-tab-count="stale"' in html
+    assert 'data-tab-count="done"' in html
+    assert 'key: toastKey' in work
+    assert "sticky: true" in work
+    assert "rewrite-scan-lines" in work
+    assert "opts.sticky" in state
+    assert "dataset.key" in state
+    assert "_toastApplyTimer" in state
 
 def test_organisation_norepo_project_ui_markers():
     """Create Project offers Organisation / no repository and toggles repo fields."""
