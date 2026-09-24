@@ -19,7 +19,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v18" in sw.text
+        assert "adhd-hub-shell-v19" in sw.text
         assert "/ui/js/boot.js" in sw.text
         assert "/ui/js/help.js" in sw.text
         assert "/ui/js/forge-jobs.js" in sw.text
@@ -50,6 +50,9 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'id="btn-notes-dock"' in home.content
         assert b'id="btn-notes-expand"' in home.content
         assert b'id="btn-notes-close"' in home.content
+        assert b'data-theme-cycle' in home.content
+        assert b"appearance-popover" not in home.content
+        assert b'data-theme-cycle-label' in home.content
 
         root = client.get("/")
         assert root.json()["ui"] == "/ui/"
