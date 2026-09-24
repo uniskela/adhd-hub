@@ -85,3 +85,85 @@ def test_pr_title_gate_cli_paths_mode(capsys):
     )
     err = capsys.readouterr().out
     assert "Release Please" in err or "feat:" in err
+
+
+def test_is_release_please_pr_branch_and_author():
+    gate = _load_pr_title_gate()
+
+    assert gate.is_release_please_pr(
+        head_ref="release-please--branches--main--components--adhd-hub"
+    )
+    assert gate.is_release_please_pr(author="release-please[bot]")
+    assert gate.is_release_please_pr(author="app/release-please")
+    assert not gate.is_release_please_pr(
+        author="app/github-actions",
+        head_ref="cursor/some-feature",
+    )
+    assert not gate.is_release_please_pr(
+        author="human-dev",
+        head_ref="feat/notes",
+    )
+
+
+def test_pr_title_gate_skips_release_please_prs():
+    gate = _load_pr_title_gate()
+    # Same shape as failing #153: chore release title + release-surface paths
+    paths = ["src/adhd_hub/service.py", "CHANGELOG.md", "pyproject.toml"]
+
+    ok, message = gate.check_pr_title(
+        "chore(main): release 0.15.0",
+        paths,
+        head_ref="release-please--branches--main--components--adhd-hub",
+        author="app/github-actions",
+    )
+    assert ok
+    assert "exempt" in message
+
+    ok, message = gate.check_pr_title(
+        "chore(main): release 0.15.0",
+        paths,
+        author="release-please[bot]",
+        head_ref="some-other-branch",
+    )
+    assert ok
+    assert "exempt" in message
+
+    # Human/agent still enforced
+    ok, message = gate.check_pr_title(
+        "chore(main): release 0.15.0",
+        paths,
+        author="cursor-agent",
+        head_ref="cursor/fake-release",
+    )
+    assert not ok
+
+
+def test_pr_title_gate_cli_release_please_exempt(capsys):
+    gate = _load_pr_title_gate()
+
+    assert (
+        gate.main(
+            [
+                "--title",
+                "chore(main): release 0.15.0",
+                "--paths",
+                "src/adhd_hub/app.py",
+                "--head-ref",
+                "release-please--branches--main",
+                "--author",
+                "app/github-actions",
+            ]
+        )
+        == 0
+    )
+    assert "exempt" in capsys.readouterr().out
+
+
+def test_release_branch_does_not_exempt_ordinary_feature_titles():
+    gate = _load_pr_title_gate()
+    ok, _ = gate.check_pr_title(
+        "chore: change application behaviour",
+        ["src/adhd_hub/service.py"],
+        head_ref="release-please--branches--main--components--adhd-hub",
+    )
+    assert not ok

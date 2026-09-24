@@ -61,9 +61,11 @@ multi-commit squashes unless the merger edits it).
   `revert:` (optional scope) or `type!:` for breaking changes.
 - Docs / chore / CI / test-only PRs may use `docs:`, `chore:`, `ci:`, `test:`, etc.
 - CI enforces the release-surface rule via `.github/workflows/pr-title.yml`
-  (`scripts/pr_title_gate.py`, same surfaces as `scripts/release_gate.py`).
+ (`scripts/pr_title_gate.py`, same surfaces as `scripts/release_gate.py`).
+ Release Please release PRs (`release-please--branches--*` / release-please
+ bot author) are exempt — their `chore(…): release …` titles are intentional.
 - Soft-skip of `release_gate` on `main` for non-releasable subjects (docs/chore)
-  is intentional — it skips Release Please rather than failing the push.
+ is intentional — it skips Release Please rather than failing the push.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the PR template.
 

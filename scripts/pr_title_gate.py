@@ -4,14 +4,37 @@ GitHub squash-merge with COMMIT_OR_PR_TITLE uses the PR title as the merge
 subject. Body bullets and branch commit subjects do not count. This gate
 matches ``scripts/release_gate.py`` release-surface paths and releasable
 subject rules so a human-readable PR title cannot silently skip a release.
+
+Release Please's own release PRs are exempt: they intentionally use
+``chore(…): release …`` titles while bumping release surfaces. Detection
+prefers head-branch / author signals over title matching.
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib.util
+import re
 import sys
 from pathlib import Path
+
+# Authors used by googleapis/release-please-action / release-please[bot].
+# Prefer combining with branch detection: GHA-token PRs may show as
+# ``app/github-actions`` rather than release-please itself.
+_RELEASE_PLEASE_AUTHORS = frozenset(
+    {
+        "release-please[bot]",
+        "app/release-please",
+        "release-please",
+    }
+)
+
+# Default release-please-action branch prefix (manifest/component suites append
+# more segments after ``release-please--branches--``).
+_RELEASE_PLEASE_BRANCH_PREFIX = "release-please--branches--"
+_RELEASE_TITLE_RE = re.compile(
+    r"^chore(?:\([^)]+\))?: release \d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$"
+)
 
 
 def _load_release_gate():
@@ -24,8 +47,48 @@ def _load_release_gate():
     return module
 
 
-def check_pr_title(title: str, paths: list[str]) -> tuple[bool, str]:
+def is_release_please_pr(
+    *,
+    author: str | None = None,
+    head_ref: str | None = None,
+) -> bool:
+    """True when this PR is a Release Please release PR (skip title gate).
+
+    Prefer head-branch prefix (stable across token identities) and known
+    release-please bot logins. Do not rely on title alone.
+    """
+    ref = (head_ref or "").strip()
+    if ref.startswith(_RELEASE_PLEASE_BRANCH_PREFIX):
+        return True
+
+    login = (author or "").strip().lower()
+    if not login:
+        return False
+    if login in {a.lower() for a in _RELEASE_PLEASE_AUTHORS}:
+        return True
+    # e.g. release-please-manifest[bot] if naming drifts
+    return "release-please" in login and (
+        login.endswith("[bot]") or login.startswith("app/")
+    )
+
+
+def check_pr_title(
+    title: str,
+    paths: list[str],
+    *,
+    author: str | None = None,
+    head_ref: str | None = None,
+) -> tuple[bool, str]:
     """Return whether a PR title is allowed for the given changed paths."""
+    if (
+        is_release_please_pr(author=author, head_ref=head_ref)
+        and _RELEASE_TITLE_RE.fullmatch(title.strip())
+    ):
+        return (
+            True,
+            "ok: release-please PR exempt from conventional title gate",
+        )
+
     gate = _load_release_gate()
     subject = title.strip()
     touches_release = any(gate.is_release_surface(path) for path in paths)
@@ -73,6 +136,16 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Changed paths (skip git when provided)",
     )
+    parser.add_argument(
+        "--author",
+        default="",
+        help="PR author login (e.g. release-please[bot]); used for RP exempt",
+    )
+    parser.add_argument(
+        "--head-ref",
+        default="",
+        help="PR head branch name; release-please--branches--* skips the gate",
+    )
     args = parser.parse_args(argv)
 
     if args.paths is not None and (args.base or args.head):
@@ -86,7 +159,12 @@ def main(argv: list[str] | None = None) -> int:
     else:
         paths = list(args.paths)
 
-    ok, message = check_pr_title(args.title, paths)
+    ok, message = check_pr_title(
+        args.title,
+        paths,
+        author=args.author or None,
+        head_ref=args.head_ref or None,
+    )
     print(message)
     return 0 if ok else 1
 

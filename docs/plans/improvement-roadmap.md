@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-23** at package **v0.14.0** (Foundation B3 shipped via PR [#152](https://github.com/uniskela/adhd-hub/pull/152)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-23** at package **v0.15.0** (Foundation B3 shipped via PR [#152](https://github.com/uniskela/adhd-hub/pull/152)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -128,7 +128,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 These can land without changing the product-wave sequence:
 
 - [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 6 train; land separately when capacity allows.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.14.0**; do not treat version-string drift as open product work.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.15.0**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 
@@ -142,7 +142,7 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
 | Done | Foundation B3 #75 | Event ledger / live UI / sync health (#152) |
 | **Now** | **Wave 6 #52** | AI clarity + project organisation |
-| Then | Wave 7 #54 | Continuity intelligence |
+| Next | Wave 7 #54 | Continuity intelligence |
 | Then | Wave 8 #55 | Find & capture |
 | Later | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
