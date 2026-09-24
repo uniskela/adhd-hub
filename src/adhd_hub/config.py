@@ -94,6 +94,13 @@ class Settings(BaseSettings):
     # MCP OAuth discovery + challenge; disable to roll back Auth-button discovery.
     oauth_enabled: bool = True
 
+    # Opt-in Wave 6 AI scan-lines (OpenAI-compatible; local/Ollama preferred).
+    # Disabled when ai_base_url is unset. Never send transcripts.
+    ai_base_url: str | None = None
+    ai_api_key: str | None = None
+    ai_model: str = "llama3.2"
+    ai_timeout_seconds: float = Field(default=2.5, gt=0, le=30, allow_inf_nan=False)
+
     # Optional forge (GitHub / Gitea) — UI can override via data/forge.json
     forge_provider: str = "none"  # none | github | gitea
     forge_base_url: str = "https://api.github.com"

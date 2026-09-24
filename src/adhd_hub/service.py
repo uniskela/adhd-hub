@@ -1410,8 +1410,70 @@ class HubService:
                 if snippet:
                     data["progress_snippet"] = snippet[-800:]
         from adhd_hub.clarity import attach_scan_line
+        from adhd_hub.thread_state import state_fingerprint
 
-        return attach_scan_line(data, thread, progress_snippet=scan_progress_snippet)
+        fp = state_fingerprint(thread)
+        cached = self._read_scan_cache(thread.id) if self.settings.ai_base_url else None
+        attach_scan_line(
+            data,
+            thread,
+            progress_snippet=scan_progress_snippet,
+            cached_line=(cached or {}).get("scan_line"),
+            cached_source=(cached or {}).get("source"),
+            cached_fingerprint=(cached or {}).get("fingerprint"),
+            fingerprint=fp,
+        )
+        return data
+
+    def _scan_cache_key(self, thread_id: str) -> str:
+        return f"scan_line_cache:{thread_id}"
+
+    def _read_scan_cache(self, thread_id: str) -> dict | None:
+        import json
+
+        raw = self.store.get_meta(self._scan_cache_key(thread_id))
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _write_scan_cache(
+        self, thread_id: str, *, fingerprint: str, scan_line: str, source: str
+    ) -> None:
+        self.store.set_meta(
+            self._scan_cache_key(thread_id),
+            {
+                "fingerprint": fingerprint,
+                "scan_line": scan_line,
+                "source": source,
+            },
+        )
+
+    def refresh_scan_line_ai(self, thread: Thread) -> None:
+        """Best-effort AI rewrite when configured; stores cache for later reads."""
+        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line
+        from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
+        from adhd_hub.thread_state import state_fingerprint
+
+        if not ai_configured(self.settings):
+            return
+        fp = state_fingerprint(thread)
+        cached = self._read_scan_cache(thread.id)
+        if (
+            cached
+            and cached.get("fingerprint") == fp
+            and cached.get("source") == SCAN_LINE_SOURCE_AI
+            and cached.get("scan_line")
+        ):
+            return
+        line = generate_ai_scan_line(self.settings, thread)
+        if line:
+            self._write_scan_cache(
+                thread.id, fingerprint=fp, scan_line=line, source=SCAN_LINE_SOURCE_AI
+            )
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:
         data = compact_thread_dict(thread)
@@ -1969,6 +2031,10 @@ class HubService:
             self._sync_project_progress(slug, title=thread.summary, thread=thread)
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         self._forge_after_thread(thread)
+        try:
+            self.refresh_scan_line_ai(thread)
+        except Exception as exc:  # noqa: BLE001 — never block mutations on AI
+            log.debug("scan-line AI refresh skipped: %s", exc)
         return thread
 
     def list_open_threads(
@@ -2200,6 +2266,10 @@ class HubService:
                     source=source,
                     metadata={"created_thread": False},
                 )
+            try:
+                self.refresh_scan_line_ai(thread)
+            except Exception as exc:  # noqa: BLE001 — never block mutations on AI
+                log.debug("scan-line AI refresh skipped: %s", exc)
         return {
             "project_slug": slug,
             "progress_path": path,
