@@ -121,10 +121,10 @@
       </section>
       <section id="work-view" class="view" aria-label="My work" hidden>
         <div class="view-heading work-heading-row">
-          <div>
+          <div class="work-heading-copy-wrap">
             <p class="eyebrow">A PLACE FOR EVERYTHING</p>
             <h1>My work</h1>
-            <p>Find your next step. The context is here when you need it.</p>
+            <p class="work-heading-copy">Find your next step. The context is here when you need it.</p>
           </div>
           <button type="button" class="ghost" id="btn-new-reminder">Leave a reminder</button>
         </div>
@@ -140,6 +140,12 @@
             <button type="button" class="ghost compact projects-drawer-close" id="btn-close-projects-drawer" aria-label="Close projects">Close</button>
             <button type="button" class="ghost compact" id="btn-organise-projects" title="Suggest tags">Suggest tags</button>
             <button type="button" class="primary compact" id="btn-new-project">New</button>
+            <details class="rail-mobile-actions">
+              <summary aria-label="More project list actions" title="More project list actions">•••</summary>
+              <div class="rail-mobile-actions-panel">
+                <button type="button" class="ghost compact" id="btn-organise-projects-mobile">Suggest tags</button>
+              </div>
+            </details>
           </div>
         </div>
         <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
@@ -163,24 +169,42 @@
           <div class="work-content">
             <div class="work-heading">
               <div class="project-title-row">
-                <button type="button" class="ghost compact projects-drawer-open" id="btn-open-projects-drawer" aria-controls="projects-rail" aria-expanded="false" aria-haspopup="dialog">Projects</button>
+                <button type="button" class="ghost compact projects-drawer-open project-switcher" id="btn-open-projects-drawer" aria-controls="projects-rail" aria-expanded="false" aria-haspopup="dialog">
+                  <span id="work-title-mobile">All projects</span>
+                  <svg class="project-switcher-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
                 <h2 id="work-title">All projects</h2>
                 <button type="button" class="edit-project-button" id="btn-edit-project" aria-label="Edit project" title="Edit project" hidden>
                   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 16.5V20h3.5L18.3 9.2l-3.5-3.5L4 16.5Zm16.7-9.7a1 1 0 0 0 0-1.4l-2.1-2.1a1 1 0 0 0-1.4 0l-1.6 1.6 3.5 3.5 1.6-1.6Z"/></svg>
                 </button>
                 <a class="btn ghost compact" id="btn-open-project-repo" target="_blank" rel="noopener noreferrer" hidden>Open repo</a>
+                <details class="project-mobile-actions" id="project-mobile-actions" hidden>
+                  <summary aria-label="Project actions" title="Project actions">•••</summary>
+                  <div class="project-mobile-actions-panel">
+                    <button type="button" class="ghost compact" id="btn-edit-project-mobile">Edit project</button>
+                    <a class="btn ghost compact" id="btn-open-project-repo-mobile" target="_blank" rel="noopener noreferrer" hidden>Open repo</a>
+                  </div>
+                </details>
               </div>
               <div id="focus-links" class="focus-links"></div>
             </div>
         <section class="threads-panel">
           <div class="tabs" role="group" aria-label="Thread status">
-            <button type="button" class="tab active" data-view="open" aria-pressed="true">Open</button>
-            <button type="button" class="tab" data-view="stale" aria-pressed="false">Pick up later</button>
-            <button type="button" class="tab" data-view="done" aria-pressed="false">Finished</button>
+            <button type="button" class="tab active" data-view="open" aria-pressed="true"><span>Open</span><span class="tab-count" data-tab-count="open" aria-hidden="true"></span></button>
+            <button type="button" class="tab" data-view="stale" aria-pressed="false"><span>Later</span><span class="tab-count" data-tab-count="stale" aria-hidden="true"></span></button>
+            <button type="button" class="tab" data-view="done" aria-pressed="false"><span>Finished</span><span class="tab-count" data-tab-count="done" aria-hidden="true"></span></button>
           </div>
-          <label for="thread-search" class="visually-hidden">Search loaded threads</label>
-          <input id="thread-search" type="search" placeholder="Search work, projects, or progress…" />
-          <p id="thread-count" class="hint" role="status"></p>
+          <div class="thread-list-toolbar">
+            <p id="thread-count" class="hint" role="status"></p>
+            <button type="button" class="ghost compact thread-search-toggle" id="btn-toggle-thread-search" aria-expanded="false" aria-controls="thread-search-row">
+              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>Search</span>
+            </button>
+          </div>
+          <div class="thread-search-row" id="thread-search-row">
+            <label for="thread-search" class="visually-hidden">Search loaded threads</label>
+            <input id="thread-search" type="search" placeholder="Search work, projects, or progress…" />
+          </div>
           <div id="threads"></div>
         </section>
           </div>

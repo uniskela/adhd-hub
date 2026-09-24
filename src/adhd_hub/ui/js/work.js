@@ -83,6 +83,7 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
     const title = escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug);
     const isOpen = expanded.has(p.slug);
     const canDrag = !p.unregistered && p.slug !== "unclassified";
+    const lastTouch = p.last_touch_at ? `Updated ${formatWhen(p.last_touch_at)}` : (open ? "Open work" : "No open work");
     const chevron = hasChildren
       ? `<button type="button" class="proj-chevron" data-toggle-slug="${escapeHtml(p.slug)}" aria-expanded="${isOpen}" aria-label="${isOpen ? "Collapse" : "Expand"} ${title}">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="${isOpen ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6"}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -93,13 +94,13 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
         </span>`
       : `<span class="proj-chevron-spacer" aria-hidden="true"></span>`;
-    return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}" data-depth="${depth}" data-slug="${escapeHtml(p.slug)}" style="--depth: ${depth}">
-      <div class="proj-row ${isActive}" data-slug="${escapeHtml(p.slug)}" data-parent-slug="${escapeHtml(p.parent_slug || "")}" data-drop="nest">
+    return `<div class="proj-tree-item depth-${depth}${hasChildren ? " has-children" : ""}${open ? "" : " is-empty"}" data-depth="${depth}" data-slug="${escapeHtml(p.slug)}" style="--depth: ${depth}">
+      <div class="proj-row ${isActive}${open ? "" : " is-empty"}" data-slug="${escapeHtml(p.slug)}" data-parent-slug="${escapeHtml(p.parent_slug || "")}" data-drop="nest">
         ${handle}
         ${chevron}
         <button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
-          <div class="proj-title-line"><span class="proj-title">${title}</span><span class="proj-count">${open}</span></div>
-          <div class="meta">${open} open ${open === 1 ? "step" : "steps"}</div>
+          <div class="proj-title-line"><span class="proj-title">${title}</span><span class="proj-count" aria-label="${open} open ${open === 1 ? "step" : "steps"}">${open}</span></div>
+          <div class="meta proj-last-touch">${escapeHtml(lastTouch)}</div>
           ${tagLine}
         </button>
       </div>
@@ -576,22 +577,54 @@ export async function suggestProjectForgeConnection() {
       sel.value = matches[0].id;
     }
   }
+function setWorkTitle(title) {
+    const value = title || "All projects";
+    const desktop = $("work-title");
+    const mobile = $("work-title-mobile");
+    if (desktop) desktop.textContent = value;
+    if (mobile) mobile.textContent = value;
+  }
+
 export function renderProjectHeader(p) {
     const edit = $("btn-edit-project");
+    const editMobile = $("btn-edit-project-mobile");
     const repo = $("btn-open-project-repo");
+    const repoMobile = $("btn-open-project-repo-mobile");
+    const mobileActions = $("project-mobile-actions");
     if (!p) {
       edit.hidden = true;
+      if (editMobile) editMobile.hidden = true;
       repo.hidden = true;
       repo.removeAttribute("href");
+      if (repoMobile) {
+        repoMobile.hidden = true;
+        repoMobile.removeAttribute("href");
+      }
+      if (mobileActions) {
+        mobileActions.hidden = true;
+        mobileActions.open = false;
+      }
       return;
     }
+    const editLabel = p.unregistered ? "Register project" : `Edit ${p.title || p.slug}`;
     edit.hidden = false;
-    edit.setAttribute("aria-label", p.unregistered ? "Register project" : `Edit ${p.title || p.slug}`);
+    edit.setAttribute("aria-label", editLabel);
     edit.title = p.unregistered ? "Register project" : "Edit project";
+    if (editMobile) {
+      editMobile.hidden = false;
+      editMobile.textContent = p.unregistered ? "Register project" : "Edit project";
+      editMobile.setAttribute("aria-label", editLabel);
+    }
     const href = safeHttpUrl(p.repo_url);
     repo.hidden = !href;
     if (href) repo.href = href;
     else repo.removeAttribute("href");
+    if (repoMobile) {
+      repoMobile.hidden = !href;
+      if (href) repoMobile.href = href;
+      else repoMobile.removeAttribute("href");
+    }
+    if (mobileActions) mobileActions.hidden = false;
   }
 export function openProjectDialog(project) {
     if (!project) return;
@@ -701,6 +734,22 @@ export function renderThreads(threads) {
     closeNotesReader({ restoreFocus: false });
     const query = $("thread-search").value.trim().toLowerCase();
     const total = threads.length;
+    const tabCount = document.querySelector(`[data-tab-count="${state.currentView}"]`);
+    if (tabCount) tabCount.textContent = String(total);
+    const searchRow = $("thread-search-row");
+    const searchToggle = $("btn-toggle-thread-search");
+    const largeList = total >= 12;
+    if (searchRow) {
+      searchRow.classList.toggle("is-large-list", largeList);
+      if (query) searchRow.classList.add("is-open");
+    }
+    if (searchToggle) {
+      searchToggle.hidden = largeList;
+      searchToggle.setAttribute(
+        "aria-expanded",
+        String(largeList || Boolean(searchRow?.classList.contains("is-open")))
+      );
+    }
     threads = threads.filter((thread) =>
       [thread.summary, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
         String(value || "").toLowerCase().includes(query)
@@ -732,7 +781,7 @@ export function renderThreads(threads) {
     root.innerHTML = threads
       .map((t, index) => {
         const isChosen = t.id === state.chosenId;
-        const statusLabel = isChosen ? "In focus" : t.status === "done" ? "Finished" : state.currentView === "stale" ? "Pick up later" : "";
+        const statusLabel = isChosen ? "In focus" : t.status === "done" ? "Finished" : state.currentView === "stale" ? "Later" : "";
         const sourceState = ({
           current: "Source current",
           refresh_available: "Refresh available",
@@ -762,13 +811,14 @@ export function renderThreads(threads) {
                 ? `<button type="button" class="thread-primary compact" data-choose="${escapeHtml(t.id)}">${isChosen ? "Return to focus" : "Focus on this"}</button>`
                 : ""
             }
-            <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Read notes</span></button>
+            <button type="button" class="notes-trigger thread-notes-inline" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Read notes</span></button>
           </div>
           <details class="thread-utility">
-            <summary aria-label="Actions for ${escapeHtml(t.summary)}">⋯ Actions</summary>
+            <summary aria-label="Actions for ${escapeHtml(t.summary)}"><span class="thread-utility-dots" aria-hidden="true">•••</span><span class="thread-utility-label">Actions</span></summary>
             <div class="thread-utility-panel">
             <p class="hint">${escapeHtml(sourceName(t.source_tool || t.origin))}</p>
             <div class="actions thread-utility-actions">
+            <button type="button" class="ghost compact notes-trigger thread-notes-menu" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false">Read notes</button>
             ${!sourceNeedsAttention ? sourceSync : ""}
             ${
               t.forge_issue_url
@@ -865,6 +915,7 @@ export async function selectProject(slug) {
     state.projectFilter = slug || null;
     state.detailCache = null;
     state.threadsCache = [];
+    document.querySelectorAll("[data-tab-count]").forEach((count) => { count.textContent = ""; });
 
     renderProjects(state.overviewCache?.projects || []);
     renderProjectHeader(null);
@@ -873,21 +924,21 @@ export async function selectProject(slug) {
     $("thread-count").textContent = "";
     $("focus-links").replaceChildren();
     if (!state.projectFilter) {
-      $("work-title").textContent = "All projects";
+      setWorkTitle("All projects");
       await loadThreads();
       return;
     }
-    $("work-title").textContent = "Loading project…";
+    setWorkTitle("Loading project…");
     try {
       const detail = await api("/projects/" + encodeURIComponent(state.projectFilter));
       if (request !== state.projectRequest) return;
       state.detailCache = detail;
       fillProjectForm(state.detailCache);
-      $("work-title").textContent = state.detailCache.slug === "unclassified" ? "Inbox" : state.detailCache.title || state.detailCache.slug;
+      setWorkTitle(state.detailCache.slug === "unclassified" ? "Inbox" : state.detailCache.title || state.detailCache.slug);
       renderProjectHeader(state.detailCache);
     } catch (e) {
       if (request !== state.projectRequest) return;
-      $("work-title").textContent = "Project unavailable";
+      setWorkTitle("Project unavailable");
       setMsg("Could not load project: " + e.message);
     }
     if (request === state.projectRequest) await loadThreads();

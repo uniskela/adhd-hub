@@ -148,10 +148,35 @@ def main() -> None:
                             page.screenshot(path=str(screenshots / f"{screen}-{theme}-{label}.png"), full_page=True, animations="disabled")
                             overflow = page.evaluate("document.documentElement.scrollWidth - innerWidth")
                             assert overflow <= 1, f"{screen} {theme} {label}: horizontal overflow {overflow}px"
-                            if screen == "work" and width == 390:
-                                assert page.locator("#project-list").evaluate(
-                                    "el => el.scrollWidth > el.clientWidth"
-                                ), "Mobile projects should remain horizontally browsable"
+                page.set_viewport_size({"width": 390, "height": 844})
+                open_screen("work")
+                expect(page.locator(".work-heading-copy")).to_be_hidden()
+                expect(page.locator("#btn-open-projects-drawer")).to_be_visible()
+                expect(page.locator("#thread-search-row")).to_be_hidden()
+                expect(page.locator("#btn-toggle-thread-search")).to_be_visible()
+                page.locator("#btn-open-projects-drawer").click()
+                expect(page.locator("#projects-rail")).to_be_visible()
+                assert page.locator("#project-list").evaluate(
+                    "el => el.scrollWidth <= el.clientWidth + 1"
+                ), "Mobile project list must not require horizontal scrolling"
+                expect(page.locator("#project-list .proj-drag-handle:visible")).to_have_count(0)
+                expect(page.locator("#btn-organise-projects")).to_be_hidden()
+                page.locator(".rail-mobile-actions > summary").click()
+                expect(page.locator("#btn-organise-projects-mobile")).to_be_visible()
+                page.locator(".rail-mobile-actions > summary").click()
+                page.locator('#project-list .proj[data-slug="website"]').click()
+                expect(page.locator("#work-title-mobile")).to_have_text("Personal website")
+                expect(page.locator('[data-tab-count="open"]')).to_have_text("2")
+                page.locator("#btn-toggle-thread-search").click()
+                expect(page.locator("#thread-search-row")).to_be_visible()
+                page.locator("#thread-search").fill("homepage")
+                expect(page.locator("#threads")).to_contain_text("homepage")
+                page.locator("#thread-search").fill("")
+                mobile_utility = page.locator(".thread-utility").first
+                expect(page.locator(".thread-notes-inline:visible")).to_have_count(0)
+                mobile_utility.locator("summary").click()
+                expect(mobile_utility.locator(".thread-notes-menu")).to_be_visible()
+                page.keyboard.press("Escape")
 
                 page.set_viewport_size({"width": 1440, "height": 900})
                 open_screen("now")
