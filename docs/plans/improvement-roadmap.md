@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-23** at package **v0.15.0** (Foundation B3 shipped via PR [#152](https://github.com/uniskela/adhd-hub/pull/152)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-24** for upcoming **v0.16.0** (Wave 6 shipped on `main` via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) pending; package on `main` is still **v0.15.0**). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -23,9 +23,10 @@ The Hub already includes:
 - canonical public-roadmap/docs cleanup (#120);
 - docs-sync notification wiring for the Uniskela site (#121);
 - ADHD-friendly Notes & context reader (#136);
-- Foundation B3 activity ledger, SSE live invalidation, and sync health (#75 / [#152](https://github.com/uniskela/adhd-hub/pull/152)).
+- Foundation B3 activity ledger, SSE live invalidation, and sync health (#75 / [#152](https://github.com/uniskela/adhd-hub/pull/152));
+- Wave 6 heuristic and opt-in local LLM thread scan-lines, project tags/filters, last-touch cues, and organiser suggestions with confirm (#52 / [#159](https://github.com/uniskela/adhd-hub/pull/159)–[#162](https://github.com/uniskela/adhd-hub/pull/162)).
 
-Those newer integration/reliability/documentation changes do **not** replace the remaining product roadmap below. **NOW** is Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52).
+Shipped work above does **not** replace the remaining product roadmap below. **NOW** is Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54).
 
 ## Product principles
 
@@ -65,11 +66,9 @@ GitHub/Gitea can remain authoritative for repo-backed task state while the Hub k
 
 Durable structured activity events, authenticated SSE live invalidation (API refetch remains displayed truth), and sync/connection health are on `main`. This is the history substrate for later activity insights (#72).
 
-## Current priority
+### Wave 6 — AI clarity & project organisation ✅
 
-### Wave 6 — AI clarity & project organisation 🔄 **NOW**
-
-[#52](https://github.com/uniskela/adhd-hub/issues/52) — **after B3**.
+[#52](https://github.com/uniskela/adhd-hub/issues/52), shipped on `main` for upcoming v0.16.0 via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162). Release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) is pending.
 
 - short AI or heuristic thread summaries;
 - calmer project list with tags/categories and useful filters;
@@ -77,9 +76,9 @@ Durable structured activity events, authenticated SSE live invalidation (API ref
 
 Remote AI remains opt-in and must not leak secrets, raw transcripts, private URLs or machine paths. Prefer B3 events for freshness; do not create a competing history mechanism. Keep [#117](https://github.com/uniskela/adhd-hub/issues/117) as independent maintenance.
 
-## Next product sequence
+## Current priority
 
-### Wave 7 — continuity intelligence
+### Wave 7 — continuity intelligence 🔄 **NOW**
 
 [#54](https://github.com/uniskela/adhd-hub/issues/54) — after Wave 6.
 
@@ -89,6 +88,8 @@ Remote AI remains opt-in and must not leak secrets, raw transcripts, private URL
 - better return-cue guidance.
 
 Richer stale-reminder context/direct CTAs are a narrower reminder UX improvement and do not complete this wave; Wave 7 still owns triage/snooze, ranking, merge suggestions and return-cue quality coaching.
+
+## Next product sequence
 
 ### Wave 8 — find & capture
 
@@ -113,7 +114,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 
 ### Wave 9 — shared surfaces & discoverability
 
-[#56](https://github.com/uniskela/adhd-hub/issues/56) — later, after Waves 6–8 are stable.
+[#56](https://github.com/uniskela/adhd-hub/issues/56) — later, after Waves 7–8 are stable.
 
 - optional related-work map;
 - soft household multi-profile;
@@ -127,7 +128,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 
 These can land without changing the product-wave sequence:
 
-- [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 6 train; land separately when capacity allows.
+- [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 7 train; land separately when capacity allows.
 - [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.15.0**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
@@ -141,13 +142,13 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation B1 #73 | Shipped in v0.8.0 |
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
 | Done | Foundation B3 #75 | Event ledger / live UI / sync health (#152) |
-| **Now** | **Wave 6 #52** | AI clarity + project organisation |
-| Next | Wave 7 #54 | Continuity intelligence |
-| Then | Wave 8 #55 | Find & capture |
-| Later | Activity insights #72 | Uses B3 history |
+| Done | Wave 6 #52 | Shipped on main for v0.16.0 (#159–#162); release #163 pending |
+| **Now** | **Wave 7 #54** | Continuity intelligence |
+| Next | Wave 8 #55 | Find & capture |
+| Then | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
-| Independent | MCP schema quality #117 | Land separately from Wave 6 |
+| Independent | MCP schema quality #117 | Land separately from Wave 7 |
 | Independent | CI lockfile cleanup #102 | Remaining maintenance |
 
 ## Keeping this page from drifting
