@@ -228,7 +228,7 @@ def main():
                 page.locator("#rewards-enabled").check()
                 page.locator("#daily-goal").select_option("3")
                 page.get_by_role("button", name="Save", exact=True).click()
-                expect(page.locator("#settings-msg")).to_contain_text("Settings saved")
+                expect(page.locator("#toast-host")).to_contain_text("Settings saved")
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.locator("#next-card").get_by_role("button", name="Done", exact=True).click()
                 expect(page.get_by_role("button", name="Choose a task", exact=True)).to_be_visible()
@@ -333,8 +333,8 @@ def main():
                 page.locator("#btn-close-project").click()
                 page.get_by_role("button", name="All projects", exact=True).click()
                 expect(page.locator("#threads .thread-project").first).to_be_visible()
-                expect(page.locator("#threads .thread-status").first).to_have_text("Ready")
-                expect(page.get_by_role("button", name="Choose this step").first).to_be_visible()
+                expect(page.locator("#threads .thread-status").first).to_have_text("In focus")
+                expect(page.get_by_role("button", name="Focus on this").first).to_be_visible()
                 page.screenshot(path=str(screenshots / "my-work-dense-list.png"), full_page=True)
                 # Deliver project A after B; B must remain selected and editable.
                 held = []

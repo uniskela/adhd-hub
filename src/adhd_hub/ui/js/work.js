@@ -397,7 +397,9 @@ export function renderThreads(threads) {
         String(value || "").toLowerCase().includes(query)
       )
     );
-    $("thread-count").textContent = `${threads.length} of ${total} loaded threads${total === 100 ? " (latest 100)" : ""}`;
+    $("thread-count").textContent = query
+      ? `${threads.length} ${threads.length === 1 ? "match" : "matches"} out of ${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · searching the latest 100" : ""}`
+      : `${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · latest 100" : ""}`;
     const root = $("threads");
     if (!threads.length) {
       const message = query ? "No matches. Try a different search." :
@@ -421,7 +423,7 @@ export function renderThreads(threads) {
     root.innerHTML = threads
       .map((t, index) => {
         const isChosen = t.id === state.chosenId;
-        const statusLabel = t.status === "done" ? "Finished" : state.currentView === "stale" ? "Waiting" : "Ready";
+        const statusLabel = isChosen ? "In focus" : t.status === "done" ? "Finished" : state.currentView === "stale" ? "Pick up later" : "";
         const sourceState = ({
           current: "Source current",
           refresh_available: "Refresh available",
@@ -429,31 +431,44 @@ export function renderThreads(threads) {
           unavailable: "Source unavailable",
           untracked: "Source linked",
         })[t.source_sync_state] || "";
+        const sourceNeedsAttention = ["refresh_available", "conflicted", "unavailable"].includes(t.source_sync_state);
+        const sourceSync = sourceState
+          ? `<span class="source-sync source-sync-${escapeHtml(t.source_sync_state)}">${escapeHtml(sourceState)}${(t.display_source_at || t.source_imported_at) ? ` · ${escapeHtml(formatWhen(t.display_source_at || t.source_imported_at))}` : ""}</span>`
+          : "";
         return `<article class="thread${isChosen ? " chosen" : ""}" aria-labelledby="thread-title-${index}">
           <div class="thread-topline">
             <span class="thread-number">${index + 1}</span>
             <span class="thread-project">${escapeHtml(projectName(t.project_slug))}</span>
-            <span class="thread-status">${escapeHtml(statusLabel)}</span>
+            ${statusLabel ? `<span class="thread-status">${escapeHtml(statusLabel)}</span>` : ""}
           </div>
-          <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
-          ${t.scan_line ? `<p class="thread-scan">${escapeHtml(t.scan_line)}</p>` : ""}
-          <div class="thread-meta"><span>${escapeHtml(sourceName(t.source_tool || t.origin))}</span><span>Updated ${escapeHtml(formatWhen(t.display_updated_at || t.updated_at))}</span></div>
-          ${sourceState ? `<div class="source-sync source-sync-${escapeHtml(t.source_sync_state)}">${escapeHtml(sourceState)}${(t.display_source_at || t.source_imported_at) ? ` · ${escapeHtml(formatWhen(t.display_source_at || t.source_imported_at))}` : ""}</div>` : ""}
-          <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Notes &amp; context</span></button>
+          <div class="thread-main">
+            <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
+            ${t.scan_line ? `<p class="thread-scan">${escapeHtml(t.scan_line)}</p>` : ""}
+          </div>
+          <div class="thread-meta"><span>Updated ${escapeHtml(formatWhen(t.display_updated_at || t.updated_at))}</span></div>
+          ${sourceNeedsAttention ? sourceSync : ""}
           <div class="actions thread-actions">
             ${
               t.status !== "done"
-                ? `<button type="button" class="thread-primary compact" data-choose="${escapeHtml(t.id)}">${isChosen ? "Return to Now" : "Choose this step"}</button>`
+                ? `<button type="button" class="thread-primary compact" data-choose="${escapeHtml(t.id)}">${isChosen ? "Return to focus" : "Focus on this"}</button>`
                 : ""
             }
+            <button type="button" class="notes-trigger" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Read notes</span></button>
+          </div>
+          <details class="thread-utility">
+            <summary>More options</summary>
+            <p class="hint">${escapeHtml(sourceName(t.source_tool || t.origin))}</p>
+            <div class="actions thread-utility-actions">
+            ${!sourceNeedsAttention ? sourceSync : ""}
             ${
               t.forge_issue_url
-                ? `<a class="btn ghost compact" href="${safeLink(t.forge_issue_url)}" target="_blank" rel="noopener">Issue #${escapeHtml(t.forge_issue_number)}</a>`
+                ? `<a class="btn ghost compact" href="${safeLink(t.forge_issue_url)}" target="_blank" rel="noopener">Open issue #${escapeHtml(t.forge_issue_number)}</a>`
                 : ""
             }
             ${t.source_issue_url ? `<button type="button" class="ghost compact" data-refresh-source="${escapeHtml(t.id)}">Refresh from source issue</button>` : ""}
             <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
-          </div>
+            </div>
+          </details>
         </article>`;
       })
       .join("");
@@ -765,7 +780,7 @@ export async function openOrganiseDialog() {
     const empty = $("organise-empty");
     list.innerHTML = `<p class="hint">Loading suggestions…</p>`;
     empty.hidden = true;
-    empty.textContent = "No new tag suggestions right now.";
+    empty.textContent = "No new tag suggestions right now. You can still edit tags in project settings.";
     dialog.showModal();
     try {
       const data = await api("/projects/organise/suggestions");
@@ -779,15 +794,16 @@ export async function openOrganiseDialog() {
       list.innerHTML = suggestions
         .map((item, index) => {
           const suggested = (item.suggested_tags || []).join(", ");
-          const current = (item.current_tags || []).join(", ") || "none";
+          const current = (item.current_tags || []).join(", ") || "No tags yet";
           const reason = (item.reasons || []).join("; ");
           return `<div class="organise-row">
-            <input type="checkbox" data-organise-index="${index}" aria-label="Apply tags to ${escapeHtml(item.title || item.slug)}" checked />
+            <input type="checkbox" data-organise-index="${index}" id="organise-select-${index}" aria-label="Add suggested tags to ${escapeHtml(item.title || item.slug)}" checked />
             <span class="organise-copy">
-              <strong>${escapeHtml(item.title || item.slug)}</strong>
-              <span class="meta">Current: ${escapeHtml(current)}</span>
-              <span class="meta">${reason ? escapeHtml(reason) : "Suggested tags"}</span>
-              <input type="text" data-organise-tags="${index}" value="${escapeHtml(suggested)}" aria-label="Tags for ${escapeHtml(item.slug)}" />
+              <label for="organise-select-${index}" class="organise-project-name">${escapeHtml(item.title || item.slug)}</label>
+              <span class="meta">Current tags: ${escapeHtml(current)}</span>
+              ${reason ? `<span class="meta organise-reason">Why these tags: ${escapeHtml(reason)}</span>` : ""}
+              <label for="organise-tags-${index}" class="organise-tags-label">Suggested tags to add</label>
+              <input type="text" id="organise-tags-${index}" data-organise-tags="${index}" value="${escapeHtml(suggested)}" />
               <input type="hidden" data-organise-slug="${index}" value="${escapeHtml(item.slug)}" />
             </span>
           </div>`;
