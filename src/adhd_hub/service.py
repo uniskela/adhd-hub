@@ -1612,11 +1612,28 @@ class HubService:
             and cached.get("scan_line")
         ):
             return
-        line = generate_ai_scan_line(self.settings, thread)
-        if line:
+        raw = generate_ai_scan_line(self.settings, thread)
+        result = self._coerce_ai_scan_result(raw)
+        if result.text:
             self._write_scan_cache(
-                thread.id, fingerprint=fp, scan_line=line, source=SCAN_LINE_SOURCE_AI
+                thread.id,
+                fingerprint=fp,
+                scan_line=result.text,
+                source=SCAN_LINE_SOURCE_AI,
             )
+
+    @staticmethod
+    def _coerce_ai_scan_result(raw: object):
+        """Accept AiScanLineResult or legacy str/None from tests/monkeypatches."""
+        from adhd_hub.ai_client import AiScanLineResult
+
+        if isinstance(raw, AiScanLineResult):
+            return raw
+        if isinstance(raw, str) and raw.strip():
+            return AiScanLineResult(text=raw)
+        return AiScanLineResult(
+            fail_hint="AI unavailable — showing the heuristic line."
+        )
 
     def rewrite_scan_line(self, thread_id: str) -> dict:
         """Manual AI rewrite for the UI. Falls back to heuristic on failure/off."""
@@ -1636,10 +1653,14 @@ class HubService:
                 "thread": pub,
             }
         fp = state_fingerprint(thread)
-        line = generate_ai_scan_line(self.settings, thread)
-        if line:
+        raw = generate_ai_scan_line(self.settings, thread)
+        result = self._coerce_ai_scan_result(raw)
+        if result.text:
             self._write_scan_cache(
-                thread.id, fingerprint=fp, scan_line=line, source=SCAN_LINE_SOURCE_AI
+                thread.id,
+                fingerprint=fp,
+                scan_line=result.text,
+                source=SCAN_LINE_SOURCE_AI,
             )
             pub = self.thread_public_dict(thread)
             return {
@@ -1654,7 +1675,8 @@ class HubService:
         return {
             "ok": True,
             "ai_attempted": True,
-            "message": "AI unavailable — showing the heuristic line.",
+            "message": result.fail_hint
+            or "AI unavailable — showing the heuristic line.",
             "thread": pub,
         }
 
