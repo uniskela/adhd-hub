@@ -67,7 +67,7 @@ Stdio is an **optional local mode**: it uses the configured Hub data directory a
 
 Published images (only after a manual release-PR merge by `uniskela`):
 
-- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.14.0`, `0.14`)
+- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.15.0`, `0.15`)
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger. **Squash merges use the PR title as the subject** (body bullets do not count); keep titles conventional for release-surface work — see [AGENTS.md](AGENTS.md) / [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -77,7 +77,7 @@ Documentation, chore, test, and CI-only merges do not open a release PR, even if
 
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
-docker pull ghcr.io/uniskela/adhd-hub:0.14.0
+docker pull ghcr.io/uniskela/adhd-hub:0.15.0
 ```
 
 Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).
@@ -251,9 +251,9 @@ The single public roadmap lives in [docs/plans/improvement-roadmap.md](docs/plan
 
 Current sequence:
 
-- **Now — Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75):** durable activity/event history, live UI invalidation, sync health and history.
-- **Next — Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52):** AI/heuristic thread summaries and calmer project organisation.
-- **Then — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** stale triage, cross-project Next-up, merge/dedupe and return cues.
+- **Shipped — Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75)** in v0.15.0 via [#152](https://github.com/uniskela/adhd-hub/pull/152): durable activity/event history, live UI invalidation, sync health and history.
+- **Now — Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52):** AI/heuristic thread summaries and calmer project organisation.
+- **Next — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** stale triage, cross-project Next-up, merge/dedupe and return cues.
 - **Then — Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55):** progress compaction, local search, mobile capture and energy/context modes.
 - **Later:** activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72) and shared/discovery surfaces [#56](https://github.com/uniskela/adhd-hub/issues/56).
 - **Deferred/opt-in:** Slack/Discord/calendar integrations [#20](https://github.com/uniskela/adhd-hub/issues/20).
