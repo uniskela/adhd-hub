@@ -2,7 +2,7 @@
 
 Keep enough context to resume unfinished work without reconstructing your last session.
 
-![My work with Notes & context](images/notes-reader-desktop.png)
+![My work with Notes & context](images/my-work-notes-hero.png)
 
 [Install](installation.md) · [Connect an agent](connect.md) · [View on GitHub](https://github.com/uniskela/adhd-hub) · [Screenshots](../README.md#screenshots)
 

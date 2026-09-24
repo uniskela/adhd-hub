@@ -12,13 +12,13 @@ Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRI
 
 My work with the Notes & context reader (projects rail, thread card, Summarise):
 
-![My work with Notes & context](docs/images/notes-reader-desktop.png)
+![My work with Notes & context](docs/images/my-work-notes-hero.png)
 
 | Now | My work | Progress | Settings |
 | --- | --- | --- | --- |
 | ![Now](docs/images/now-desktop.png) | ![My work](docs/images/my-work-desktop.png) | ![Progress](docs/images/progress-desktop.png) | ![Settings](docs/images/settings-desktop.png) |
 
-Dummy demo data only — no real projects or secrets. More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
+Gallery shots use dummy demo data. More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
 
 ## Why
 

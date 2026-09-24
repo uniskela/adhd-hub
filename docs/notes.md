@@ -1,6 +1,6 @@
 # Notes & context
 
-![Notes & context reader](images/notes-reader-desktop.png)
+![Notes & context reader](images/my-work-notes-hero.png)
 
 **Notes & context** is the reader for one thread’s saved continuity. Open it from **My work**: each thread has a **Read notes** button. On the list itself, a short **scan line** under the title (when Focus / Resume / Goal / Next is set) keeps the card scannable; the reader still holds the full continuity. The reader sits beside the thread list on a wide screen (**Dock right**). **Expand** uses the work area for reading; **Dock right** returns to the split layout. On a narrow screen the reader opens expanded. Close it with × or Escape.
 
