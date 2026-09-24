@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 
@@ -253,6 +253,9 @@ $("btn-edit-project-mobile")?.addEventListener("click", () => {
   if (menu) menu.open = false;
   openProjectDialog(state.detailCache);
 });
+$("btn-rewrite-all-scan")?.addEventListener("click", () =>
+  rewriteAllProjectScanLines().catch((e) => setMsg(String(e)))
+);
 $("btn-rename-project").addEventListener("click", () => renameProject());
 $("btn-delete-project").addEventListener("click", () => deleteProject());
 $("btn-archive-project").addEventListener("click", () => archiveProject().catch((e) => setMsg(String(e))));

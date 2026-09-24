@@ -400,9 +400,17 @@ progress::-moz-progress-bar { background: var(--ok); border-radius: 10px; }
   color: var(--muted);
   font-size: .88rem;
   line-height: 1.4;
-  max-width: 42rem;
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
 }
-.thread h3, .thread-scan, .next-card h3, .meta, .proj { overflow-wrap: anywhere; }
+.thread h3, .next-card h3, .meta, .proj { overflow-wrap: anywhere; }
+.thread-scan { overflow-wrap: normal; word-break: normal; }
 .thread-topline { display: flex; align-items: center; gap: .45rem; min-width: 0; }
 .thread-number { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: .72rem; font-weight: 750; }
 .thread-project { min-width: 0; overflow-wrap: anywhere; color: var(--accent); font-size: .73rem; font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }
@@ -1748,7 +1756,19 @@ dialog::backdrop { background: rgb(5 8 7 / .66); backdrop-filter: none; }
 .thread > * { grid-column: 1 / -1; min-width: 0; }
 .thread.chosen { box-shadow: inset 3px 0 0 var(--accent); padding-inline: 1rem; }
 .thread-main h3 { font-size: 1rem; font-weight: 650; line-height: 1.5; margin: .5rem 0; }
-.thread-scan { max-width: 66ch; line-height: 1.65; margin-bottom: .6rem; }
+.thread-main { grid-column: 1 / -1; min-width: 0; width: 100%; }
+.thread-scan {
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  line-height: 1.65;
+  margin-bottom: .6rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+}
 .thread-actions { gap: .75rem; grid-column: 1; }
 .thread-actions .notes-trigger { margin: 0; padding: .5rem .75rem; }
 .thread-actions .thread-primary { background: var(--accent-soft); color: var(--accent); }
