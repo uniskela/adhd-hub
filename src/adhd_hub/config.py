@@ -10,6 +10,8 @@ from dotenv import dotenv_values
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from adhd_hub.data_dir import apply_container_data_dir
+
 # Loopback binds only — keep in sync with oauth._LOOPBACK_HOSTS.
 _LOOPBACK_BIND_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
@@ -231,4 +233,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
         if key in file_vals and isinstance(file_vals[key], str):
             file_vals[key] = Path(file_vals[key]).expanduser()
 
-    return Settings(**file_vals)
+    settings = Settings(**file_vals)
+    # Containers: remap relative ./data → /data and recover /app/data leftovers.
+    settings.data_dir = apply_container_data_dir(settings.data_dir)
+    return settings
