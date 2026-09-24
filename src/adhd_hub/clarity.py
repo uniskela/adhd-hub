@@ -14,6 +14,8 @@ from typing import Any
 from adhd_hub.models import Thread
 
 SCAN_LINE_MAX = 140
+SCAN_LINE_MIN_CHARS = 24
+SCAN_LINE_MIN_WORDS = 4
 SCAN_LINE_SOURCE_HEURISTIC = "heuristic"
 SCAN_LINE_SOURCE_AI = "ai"
 
@@ -34,6 +36,29 @@ _LOCALHOST_HOST_RE = re.compile(
     re.IGNORECASE,
 )
 _WHITESPACE_RE = re.compile(r"\s+")
+# Markdown **bold** only — never unwrap __dunder__ tokens.
+_MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+# Single-asterisk italics with word boundaries (skips globs like test_* / *.py).
+_MD_ITALIC_RE = re.compile(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)")
+# Orphan emphasis left by truncation — edges only; keep globs like test_* / *.py.
+_MD_ORPHAN_LEADING_RE = re.compile(r"^\*{1,3}")
+_MD_ORPHAN_TRAILING_RE = re.compile(r"\*{2,3}$|(?<=\s)\*$")
+# Clear incomplete cut-offs only — omit on/in/from (valid “log in” / “move on”).
+_MID_PHRASE_ENDERS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "for",
+        "into",
+        "of",
+        "or",
+        "the",
+        "to",
+        "with",
+        "without",
+    }
+)
 
 
 def scrub_scan_text(value: str | None) -> str | None:
@@ -53,10 +78,59 @@ def scrub_scan_text(value: str | None) -> str | None:
         return "[url]"
 
     text = _URL_RE.sub(_url_sub, text)
+    text = _MD_BOLD_RE.sub(r"\1", text)
+    text = _MD_ITALIC_RE.sub(r"\1", text)
+    text = _MD_ORPHAN_LEADING_RE.sub("", text)
+    text = _MD_ORPHAN_TRAILING_RE.sub("", text)
     text = _WHITESPACE_RE.sub(" ", text).strip(" -|;,")
     if not text or text in {"[redacted]", "[path]", "[private-url]", "[url]"}:
         return None
+    alnum = sum(1 for ch in text if ch.isalnum())
+    if alnum < 2 or alnum / max(len(text), 1) < 0.35:
+        return None
     return text
+
+
+def scan_line_word_count(text: str) -> int:
+    return len([part for part in text.split() if any(ch.isalnum() for ch in part)])
+
+
+def ends_mid_phrase(text: str) -> bool:
+    """True when the line looks cut off mid-thought (e.g. ends with \"to\")."""
+    stripped = text.rstrip()
+    # Complete sentences with terminal punctuation are never mid-phrase cuts.
+    if stripped.endswith((".", "!", "?")):
+        return False
+    cleaned = stripped.rstrip(" …")
+    if not cleaned:
+        return True
+    last = cleaned.rsplit(None, 1)[-1].casefold().strip("\"'`")
+    return last in _MID_PHRASE_ENDERS
+
+
+def ai_scan_line_reject_reason(
+    text: str,
+    *,
+    heuristic: str | None = None,
+) -> str | None:
+    """Return a calm fail hint when an AI scan line should not be cached."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return "AI reply was empty after scrubbing — showing the heuristic line."
+    words = scan_line_word_count(cleaned)
+    if len(cleaned) < SCAN_LINE_MIN_CHARS or words < SCAN_LINE_MIN_WORDS:
+        return "AI reply too short — showing the heuristic line."
+    if ends_mid_phrase(cleaned):
+        return "AI reply looked incomplete — showing the heuristic line."
+    alnum = sum(1 for ch in cleaned if ch.isalnum())
+    if alnum / max(len(cleaned), 1) < 0.5:
+        return "AI reply too short — showing the heuristic line."
+    if heuristic:
+        heur = heuristic.strip()
+        # Prefer heuristic when AI is much shorter for the same fields.
+        if len(heur) >= SCAN_LINE_MIN_CHARS and len(cleaned) * 2 < len(heur):
+            return "AI reply too short — showing the heuristic line."
+    return None
 
 
 def truncate_scan_text(text: str, *, limit: int = SCAN_LINE_MAX) -> str:

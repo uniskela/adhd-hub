@@ -17,6 +17,7 @@ from adhd_hub.ai_client import (
     list_ai_models,
     normalize_openai_model_id,
     openai_compat_url,
+    structured_scan_prompt,
 )
 from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, SCAN_LINE_SOURCE_HEURISTIC
 from adhd_hub.config import Settings
@@ -100,6 +101,91 @@ def test_openai_compat_url_avoids_double_slash(base: str, suffix: str, expected:
     assert openai_compat_url(base, suffix) == expected
 
 
+def test_structured_scan_prompt_caps_fields_and_skips_forge_conflict_walls() -> None:
+    forge_wall = (
+        "Thread upserted from Cursor — Title — Desc — more ritual\n"
+        + ("forge conflict dump line\n" * 80)
+        + ("x" * 2000)
+    )
+    thread = _thread(
+        focus="Keep AI prompts small enough to finish under the timeout",
+        resume_step=forge_wall,
+        goal="Ship scan-line quality without provider timeouts",
+        next_steps=["Cap prompt fields", "Reject short AI", "Ignore forge walls"],
+        source_conflicts={
+            "resume_step": {
+                "previous": "older hub resume",
+                "hub": "Run focused pytest for scan-line prompt caps",
+                "forge": forge_wall,
+            }
+        },
+    )
+    prompt = structured_scan_prompt(thread)
+    assert "Run focused pytest for scan-line prompt caps" in prompt
+    assert "Thread upserted from" not in prompt
+    assert "forge conflict dump" not in prompt
+    assert forge_wall[:40] not in prompt
+    assert "source_conflicts" not in prompt
+    resume_line = next(line for line in prompt.splitlines() if line.startswith("Resume:"))
+    assert len(resume_line) <= len("Resume: ") + 120 + 1  # truncate may add …
+    assert len(prompt) < 1200
+
+
+def test_structured_scan_prompt_drops_ritual_resume_without_feeding_wall() -> None:
+    ritual = "Thread upserted from Codex — Ship AI — " + ("wall " * 400)
+    thread = _thread(resume_step=ritual, focus="Prefer short hub focus when resume is ritual")
+    prompt = structured_scan_prompt(thread)
+    assert "Thread upserted from" not in prompt
+    assert "Prefer short hub focus" in prompt
+    assert "Resume:" not in prompt
+
+
+def test_generate_ai_scan_line_sends_capped_prompt_not_forge_blob() -> None:
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:11434/v1",
+    )
+    forge_wall = "Thread upserted from Cursor\n" + ("conflict resume blob\n" * 100)
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        prompt = body["messages"][-1]["content"]
+        seen["prompt"] = prompt
+        assert "conflict resume blob" not in prompt
+        assert len(prompt) < 1200
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                "Keep rewriting calm ADHD-friendly scan lines for My work cards"
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    thread = _thread(
+        focus="Keep rewriting calm ADHD-friendly scan lines",
+        resume_step=forge_wall,
+        source_conflicts={
+            "resume_step": {
+                "hub": "Finish prompt caps then re-test rewrite",
+                "forge": forge_wall,
+            }
+        },
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(settings, thread, client=client)
+    assert result.text is not None
+    assert "Finish prompt caps" in seen["prompt"]
+
+
 def test_list_ai_models_strips_gemini_models_prefix() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url).endswith("/v1beta/openai/models")
@@ -110,10 +196,15 @@ def test_list_ai_models_strips_gemini_models_prefix() -> None:
                     {"id": "models/gemini-2.5-flash"},
                     {"id": "models/gemini-2.5-pro"},
                     {"id": "gemini-2.0-flash"},
+                    {"id": "models/gemini-3.6-flash"},
                     {"id": "models/gemini-2.5-flash"},
                     {"id": "models/text-embedding-004"},
                     {"id": "models/imagen-3.0-generate-002"},
                     {"id": "gemini-2.5-flash-image"},
+                    {
+                        "id": "models/gemini-exp-dead",
+                        "description": "no longer available to new users",
+                    },
                 ]
             },
         )
@@ -127,10 +218,117 @@ def test_list_ai_models_strips_gemini_models_prefix() -> None:
     assert result["ok"] is True
     assert result["models"] == [
         "gemini-2.0-flash",
-        "gemini-2.5-flash",
         "gemini-2.5-pro",
+        "gemini-3.6-flash",
     ]
     assert "hid 3 non-chat" in result["message"]
+    assert "deprecated-for-new-users" in result["message"]
+    assert "gemini-3.6-flash" in result["message"]
+
+
+def test_generate_ai_scan_line_rejects_short_stub():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:11434/v1",
+        ai_model="llama3.2",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["max_tokens"] >= 200
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": "Run"}}]}
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(
+            settings,
+            _thread(focus="Keep rewriting calm ADHD-friendly scan lines"),
+            client=client,
+        )
+    assert result.text is None
+    assert result.fail_hint is not None
+    assert "too short" in result.fail_hint
+
+
+def test_generate_ai_scan_line_prefers_heuristic_when_ai_much_shorter():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:11434/v1",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"content": "Ship the next calm rewrite now please"}}
+                ]
+            },
+        )
+
+    # AI is long enough on its own, but much shorter than the heuristic focus —
+    # wait: "Ship the next calm rewrite now please" is ~38 chars; heuristic needs
+    # to be > 76 chars for 2x rule. Use a long focus.
+    focus = (
+        "Finish the AI scan-line quality gate so short stubs never replace a full "
+        "heuristic resume step on My work cards"
+    )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(
+            settings, _thread(focus=focus), client=client
+        )
+    assert result.text is None
+    assert result.fail_hint is not None
+    assert "too short" in result.fail_hint
+
+
+def test_generate_ai_scan_line_accepts_good_complete_line():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:11434/v1",
+    )
+    good = "Keep rewriting calm ADHD-friendly scan lines for My work cards"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": good}}]}
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(
+            settings, _thread(focus="Keep summaries calm"), client=client
+        )
+    assert result.text == good
+    assert result.fail_hint is None
+
+
+def test_generate_ai_scan_line_rejects_incomplete_mid_phrase():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="http://127.0.0.1:11434/v1",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"content": "Draft the pull request ready to"}}
+                ]
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(settings, _thread(), client=client)
+    assert result.text is None
+    assert result.fail_hint is not None
+    assert "incomplete" in result.fail_hint
 
 
 def test_generate_ai_scan_line_strips_models_prefix_before_post():
@@ -233,7 +431,8 @@ def test_generate_ai_scan_line_404_bare_model_hint_does_not_blame_prefix():
                 "error": {
                     "message": (
                         "This model models/gemini-2.5-flash is no longer available. "
-                        "Please update your code. key=sk-secret-value"
+                        "Please update your code to use models/gemini-3.6-flash. "
+                        "key=sk-secret-value"
                     )
                 }
             },
@@ -243,11 +442,31 @@ def test_generate_ai_scan_line_404_bare_model_hint_does_not_blame_prefix():
         result = generate_ai_scan_line(settings, _thread(), client=client)
     assert result.text is None
     assert result.fail_hint is not None
-    assert "404" in result.fail_hint
-    assert "gemini-2.5-flash" in result.fail_hint
+    assert "no longer available" in result.fail_hint
+    assert "gemini-3.6-flash" in result.fail_hint
     assert "without a models/ prefix" not in result.fail_hint
-    assert "v1beta/openai" in result.fail_hint
     assert "Provider:" in result.fail_hint
+    assert "sk-secret" not in result.fail_hint
+
+
+def test_generate_ai_scan_line_404_generic_mentions_current_flash():
+    settings = Settings(
+        data_dir=Path("/tmp/unused"),
+        auth_token="t",
+        ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        ai_model="gemini-3.6-flash",
+        ai_api_key="sk-secret-value",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"error": {"message": "model not found"}})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = generate_ai_scan_line(settings, _thread(), client=client)
+    assert result.fail_hint is not None
+    assert "404" in result.fail_hint
+    assert "gemini-3.6-flash" in result.fail_hint
+    assert "v1beta/openai" in result.fail_hint
     assert "sk-secret" not in result.fail_hint
 
 
@@ -300,12 +519,24 @@ def test_ai_request_scrubs_every_field_before_sending():
             assert forbidden not in prompt
         assert "[redacted]" in prompt
         return httpx.Response(
-            200, json={"choices": [{"message": {"content": "Safe step"}}]}
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": "Safe next step after scrubbing sensitive fields"
+                        }
+                    }
+                ]
+            },
         )
 
     # Exceptions in the client are best-effort, so also assert the successful result.
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        assert generate_ai_scan_line(settings, thread, client=client).text == "Safe step"
+        assert (
+            generate_ai_scan_line(settings, thread, client=client).text
+            == "Safe next step after scrubbing sensitive fields"
+        )
 
 
 def test_disabled_without_base_url_uses_heuristic(tmp_path: Path) -> None:
