@@ -342,12 +342,47 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Use for abandoned, superseded, or no-longer-relevant work. Use mark_done
         when the intended outcome was completed, or pause_thread when it will be
-        resumed later.
+        resumed later. Prefer confirm_thread_relevant / snooze_thread_triage for
+        a calm stale-work check — never auto-dismiss from those tools.
         """
         thread = service.mark_dismissed(thread_id, note)
         if not thread:
             return {"error": "not_found", "id": thread_id}
-        return thread.model_dump(mode="json")
+        return service.thread_public_dict(thread)
+
+    @mcp.tool()
+    def confirm_thread_relevant(thread_id: str) -> dict[str, Any]:
+        """Confirm a stale open thread is still relevant (Wave 7 soft triage).
+
+        Quiets the “still relevant?” prompt via reminder cooldown. Does not
+        change status and never dismisses. Use snooze_thread_triage to ask again
+        later, or dismiss_thread only when the human intentionally abandons it.
+        """
+        try:
+            thread = service.confirm_thread_relevant(thread_id)
+        except KeyError:
+            return {"error": "not_found", "id": thread_id}
+        except ValueError as exc:
+            return {"error": str(exc), "id": thread_id}
+        return service.thread_public_dict(thread)
+
+    @mcp.tool()
+    def snooze_thread_triage(
+        thread_id: str,
+        days: Annotated[int, Field(ge=1, le=30)] = 7,
+    ) -> dict[str, Any]:
+        """Snooze stale-thread triage prompts for a few days (default 7).
+
+        Soft only — thread stays open. Never auto-dismisses. Use
+        confirm_thread_relevant when the outcome is still wanted now.
+        """
+        try:
+            thread = service.snooze_thread_triage(thread_id, days=days)
+        except KeyError:
+            return {"error": "not_found", "id": thread_id}
+        except ValueError as exc:
+            return {"error": str(exc), "id": thread_id}
+        return service.thread_public_dict(thread)
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_reminders(

@@ -260,6 +260,7 @@ class Store:
                 "source_snapshot",
                 "source_sync_state",
                 "source_conflicts",
+                "triage_snooze_until",
             ):
                 if column not in thread_cols:
                     conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
@@ -386,6 +387,11 @@ class Store:
             created_at=_parse_dt(row["created_at"]) or utcnow(),
             updated_at=_parse_dt(row["updated_at"]) or utcnow(),
             last_reminded_at=_parse_dt(row["last_reminded_at"]) if row["last_reminded_at"] else None,
+            triage_snooze_until=(
+                _parse_dt(row["triage_snooze_until"])
+                if "triage_snooze_until" in keys and row["triage_snooze_until"]
+                else None
+            ),
             goal=row["goal"] if "goal" in keys else None,
             focus=row["focus"] if "focus" in keys else None,
             next_steps=next_steps,
@@ -680,6 +686,45 @@ class Store:
                     "UPDATE threads SET last_reminded_at = ? WHERE id = ?",
                     (now, tid),
                 )
+
+    def confirm_thread_relevant(self, thread_id: str) -> Thread:
+        """Acknowledge a stale thread is still relevant — never auto-dismisses."""
+        now = utcnow().isoformat()
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+            if not row:
+                raise KeyError(thread_id)
+            if row["status"] not in {"open", "blocked"}:
+                raise ValueError("Only unfinished work can be triaged")
+            conn.execute(
+                """
+                UPDATE threads
+                SET last_reminded_at = ?, triage_snooze_until = NULL
+                WHERE id = ?
+                """,
+                (now, thread_id),
+            )
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+        return self._row_thread(row)
+
+    def snooze_thread_triage(self, thread_id: str, *, days: int = 7) -> Thread:
+        """Quiet stale-thread triage prompts until ``days`` from now."""
+        from datetime import timedelta
+
+        quiet_days = max(1, min(30, int(days)))
+        until = (utcnow() + timedelta(days=quiet_days)).isoformat()
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+            if not row:
+                raise KeyError(thread_id)
+            if row["status"] not in {"open", "blocked"}:
+                raise ValueError("Only unfinished work can be triaged")
+            conn.execute(
+                "UPDATE threads SET triage_snooze_until = ? WHERE id = ?",
+                (until, thread_id),
+            )
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+        return self._row_thread(row)
 
     def list_forge_activity(
         self, thread_id: str, *, limit: int = 50

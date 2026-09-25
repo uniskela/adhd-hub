@@ -704,6 +704,12 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
 .reminder-banner, .drift-banner { margin-bottom: 1rem; }
 .reminder-strip { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .reminder-strip p { margin: .35rem 0; }
+.triage-strip { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.triage-strip .triage-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .75rem; margin: .65rem 0; }
+.triage-strip .triage-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; }
+.thread-triage { margin: .65rem 0 .35rem; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, var(--accent, #6b7c93) 8%); }
+.thread-triage p { margin: 0 0 .45rem; }
+.triage-banner .pending-item { align-items: flex-start; }
 .work-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; min-width: 0; }
 .work-heading-row > :first-child { min-width: 0; flex: 1 1 auto; }
 .archived-projects { margin-top: 1rem; }
