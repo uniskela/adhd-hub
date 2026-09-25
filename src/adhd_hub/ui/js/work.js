@@ -2,7 +2,7 @@ import { state, $, setMsg, escapeHtml, preferences } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink, wireOverflowMenu } from './dom.js';
 import { loadAll } from './load.js';
-import { chooseThread, closeNotesReader, wireNotes } from './now.js';
+import { chooseThread, closeNotesReader, confirmThreadTriage, snoozeThreadTriage, wireNotes } from './now.js';
 import {
   IMPORT_POLICY_HINTS,
   IMPORT_POLICY_LABELS,
@@ -1233,6 +1233,17 @@ export function renderThreads(threads) {
           </div>
           <div class="thread-meta"><span>Updated ${escapeHtml(formatWhen(t.display_updated_at || t.updated_at))}</span></div>
           ${sourceNeedsAttention ? sourceSync : ""}
+          ${
+            t.needs_triage
+              ? `<div class="thread-triage" role="group" aria-label="Still relevant check for ${escapeHtml(t.summary)}">
+                  <p class="hint">Still relevant? Soft check — confirm or ask later. Nothing dismisses itself.</p>
+                  <div class="actions triage-actions" style="margin:0">
+                    <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
+                    <button type="button" class="ghost compact" data-triage-snooze="${escapeHtml(t.id)}">Ask in a week</button>
+                  </div>
+                </div>`
+              : ""
+          }
           <div class="actions thread-actions">
             ${
               t.status !== "done"
@@ -1296,6 +1307,12 @@ export function renderThreads(threads) {
     );
     root.querySelectorAll("[data-rewrite-scan]").forEach((btn) =>
       btn.addEventListener("click", () => rewriteScanLine(btn.dataset.rewriteScan))
+    );
+    root.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
+      btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
+    );
+    root.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
+      btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
     );
     if (aiAutoReviewScanEnabled()) {
       const needs = (threads || []).filter((t) => t && t.id && t.scan_line_needs_ai);

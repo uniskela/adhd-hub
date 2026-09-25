@@ -649,6 +649,100 @@ export function renderReminders(due, all) {
       strip.innerHTML = "";
     }
   }
+
+export function renderTriage(candidates) {
+    const banner = $("triage-banner");
+    const strip = $("now-triage");
+    const items = (candidates || []).filter((t) => t && t.id && t.needs_triage !== false);
+    if (!items.length) {
+      if (banner) {
+        banner.hidden = true;
+        banner.innerHTML = "";
+      }
+      if (strip) {
+        strip.hidden = true;
+        strip.innerHTML = "";
+      }
+      return;
+    }
+    const row = (t) => `
+      <div class="pending-item triage-item" data-triage="${escapeHtml(t.id)}">
+        <div>
+          <div>${escapeHtml(t.summary || "Open step")}</div>
+          <div class="meta">Still relevant? Confirm or ask again later — never auto-dismissed.</div>
+        </div>
+        <div class="actions triage-actions" style="margin:0">
+          <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
+          <button type="button" class="ghost compact" data-triage-snooze="${escapeHtml(t.id)}">Ask in a week</button>
+        </div>
+      </div>`;
+    if (banner) {
+      banner.hidden = false;
+      banner.innerHTML = `<h2>Quiet check-in</h2><p class="hint">Older open steps — soft only; nothing closes itself.</p>${items.map(row).join("")}`;
+      banner.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
+        btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
+      );
+      banner.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
+        btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
+      );
+    }
+    if (strip) {
+      if (state.activeScreen === "now") {
+        strip.hidden = false;
+        strip.innerHTML = `<p class="eyebrow">STILL RELEVANT?</p>${items
+          .slice(0, 2)
+          .map(
+            (t) => `<div class="triage-item">
+            <div><strong>${escapeHtml(t.summary || "Open step")}</strong>
+            <p class="hint">A calm check — confirm or snooze. Nothing dismisses itself.</p></div>
+            <div class="actions triage-actions">
+              <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
+              <button type="button" class="ghost compact" data-triage-snooze="${escapeHtml(t.id)}">Ask in a week</button>
+            </div>
+          </div>`
+          )
+          .join("")}`;
+        strip.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
+          btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
+        );
+        strip.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
+          btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
+        );
+      } else {
+        strip.hidden = true;
+        strip.innerHTML = "";
+      }
+    }
+  }
+
+export async function confirmThreadTriage(id) {
+    if (!id) return;
+    try {
+      await api(`/threads/${encodeURIComponent(id)}/triage/confirm`, {
+        method: "POST",
+        body: "{}",
+      });
+      setMsg("Marked still relevant. We’ll stay quiet for a bit.");
+      await loadAll();
+    } catch (e) {
+      setMsg("Could not confirm triage: " + e.message);
+    }
+  }
+
+export async function snoozeThreadTriage(id, days = 7) {
+    if (!id) return;
+    try {
+      await api(`/threads/${encodeURIComponent(id)}/triage/snooze`, {
+        method: "POST",
+        body: JSON.stringify({ days }),
+      });
+      setMsg("We’ll ask again in about a week. The step stays open.");
+      await loadAll();
+    } catch (e) {
+      setMsg("Could not snooze triage: " + e.message);
+    }
+  }
+
 export function renderDriftBanner() {
     const el = $("drift-banner");
     if (!state.focusModeOn || state.activeScreen !== "work" || !state.chosenThread) {

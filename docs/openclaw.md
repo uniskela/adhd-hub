@@ -115,7 +115,7 @@ Restart the Hub after changing `.env`; changes saved in the web UI apply immedia
 
 ## 3. Choose the alert rhythm
 
-The Hub checks for stale open threads every day at 09:00 by default. It sends nothing when there is no stale work, and it uses the Hub's reminder cooldown to avoid repeats.
+The Hub checks for stale open threads every day at 09:00 by default. It sends nothing when there is no stale work, and it uses the Hub's reminder cooldown plus optional triage snooze to avoid repeats. Soft UI triage (**Still relevant?** / ask later) never auto-dismisses a thread; intentional abandon still uses dismiss.
 
 Choose the schedule, stale age, repeat cooldown, and maximum items in **Settings → OpenClaw**. Changes take effect immediately. For an environment-provisioned schedule, set this on the Hub server and restart it:
 

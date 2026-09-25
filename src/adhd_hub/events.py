@@ -33,6 +33,8 @@ THREAD_CREATED = "thread.created"
 THREAD_PROGRESS_UPDATED = "thread.progress_updated"
 THREAD_COMPLETED = "thread.completed"
 THREAD_PAUSED = "thread.paused"
+THREAD_TRIAGE_CONFIRMED = "thread.triage_confirmed"
+THREAD_TRIAGE_SNOOZED = "thread.triage_snoozed"
 FORGE_RECONCILE_SUCCEEDED = "forge.reconcile_succeeded"
 FORGE_RECONCILE_FAILED = "forge.reconcile_failed"
 

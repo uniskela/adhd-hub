@@ -85,6 +85,8 @@ class Thread(BaseModel):
     resume_step: str | None = None
     paused_at: datetime | None = None
     last_reminded_at: datetime | None = None
+    # Soft Wave 7 triage: quiet "still relevant?" until this instant (never auto-dismiss).
+    triage_snooze_until: datetime | None = None
     goal: str | None = None
     focus: str | None = None
     next_steps: list[str] = Field(default_factory=list)
@@ -346,6 +348,12 @@ class ReminderCreate(BaseModel):
 
 class ReminderSnooze(BaseModel):
     minutes: int = Field(default=60, ge=5, le=60 * 24 * 14)
+
+
+class ThreadTriageSnooze(BaseModel):
+    """Soft snooze for stale-thread triage prompts (days, not minutes)."""
+
+    days: int = Field(default=7, ge=1, le=30)
 
 
 class OverlapHit(BaseModel):

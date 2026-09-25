@@ -20,6 +20,7 @@ from adhd_hub.models import (
     ReminderCreate,
     ReminderSnooze,
     ThreadStatus,
+    ThreadTriageSnooze,
     ThreadUpsert,
 )
 from adhd_hub.openclaw_config import OpenClawConfig
@@ -96,6 +97,29 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     def pause_thread(thread_id: str, payload: PauseRequest):
         try:
             thread = service.pause_thread(thread_id, payload.next_step)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return service.thread_public_dict(thread)
+
+    @router.post("/threads/{thread_id}/triage/confirm", dependencies=[Depends(auth_dep)])
+    def confirm_thread_triage(thread_id: str):
+        """Soft “still relevant?” confirm — keeps the thread open; never auto-dismisses."""
+        try:
+            thread = service.confirm_thread_relevant(thread_id)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return service.thread_public_dict(thread)
+
+    @router.post("/threads/{thread_id}/triage/snooze", dependencies=[Depends(auth_dep)])
+    def snooze_thread_triage(thread_id: str, payload: ThreadTriageSnooze | None = None):
+        """Quiet stale-thread triage prompts for a few days; thread stays open."""
+        days = payload.days if payload else 7
+        try:
+            thread = service.snooze_thread_triage(thread_id, days=days)
         except KeyError:
             raise HTTPException(404, "Thread not found") from None
         except ValueError as exc:
