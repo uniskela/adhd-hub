@@ -571,6 +571,8 @@ class Store:
         energy: EnergyLevel | None = None,
         limit: int = 100,
         offset: int = 0,
+        order_by_id: bool = False,
+        after_id: str | None = None,
     ) -> list[Thread]:
         clauses: list[str] = []
         args: list[Any] = []
@@ -599,11 +601,20 @@ class Store:
         if energy:
             clauses.append("energy = ?")
             args.append(energy.value)
+        # ID keyset is for stable multi-page walks (rewrite-all); default stays
+        # updated_at DESC + OFFSET for UI/recency callers.
+        if order_by_id and after_id is not None:
+            clauses.append("id > ?")
+            args.append(after_id)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         page = max(0, int(limit))
-        start = max(0, int(offset))
-        sql = f"SELECT * FROM threads {where} ORDER BY updated_at DESC LIMIT ? OFFSET ?"
-        args.extend([page, start])
+        if order_by_id:
+            sql = f"SELECT * FROM threads {where} ORDER BY id ASC LIMIT ?"
+            args.append(page)
+        else:
+            start = max(0, int(offset))
+            sql = f"SELECT * FROM threads {where} ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+            args.extend([page, start])
         with self._conn() as conn:
             rows = conn.execute(sql, args).fetchall()
         return [self._row_thread(r) for r in rows]

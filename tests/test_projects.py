@@ -481,3 +481,64 @@ def test_rewrite_all_pages_beyond_default_limit(tmp_path: Path) -> None:
     assert out["ai_attempted"] is False
     assert out["total"] == 5
     assert len(out["threads"]) == 5
+
+
+def test_list_threads_id_keyset_stable_when_updated_at_shifts(tmp_path: Path) -> None:
+    """ID keyset keeps paging complete when a prior page row bumps updated_at."""
+    from adhd_hub.models import ThreadStatus
+    from adhd_hub.store import Store
+
+    store = Store(tmp_path / "hub.db")
+    for i in range(4):
+        store.upsert_thread(
+            ThreadUpsert(
+                summary=f"T{i}",
+                project_slug="p",
+                status=ThreadStatus.open,
+            )
+        )
+    first = store.list_threads(
+        status=ThreadStatus.open, project_slug="p", limit=2, order_by_id=True
+    )
+    assert len(first) == 2
+    # Simulate pause_thread bumping updated_at on a thread already returned.
+    store.pause_thread(first[0].id, "resume after keyset check")
+    rest = store.list_threads(
+        status=ThreadStatus.open,
+        project_slug="p",
+        limit=2,
+        order_by_id=True,
+        after_id=first[-1].id,
+    )
+    seen = {t.id for t in first} | {t.id for t in rest}
+    assert len(seen) == 4
+    assert {t.id for t in rest}.isdisjoint({t.id for t in first})
+
+
+def test_list_threads_default_order_unchanged(tmp_path: Path) -> None:
+    """Default list_threads callers keep updated_at DESC + OFFSET."""
+    from datetime import UTC, datetime, timedelta
+
+    from adhd_hub.models import ThreadStatus
+    from adhd_hub.store import Store
+
+    store = Store(tmp_path / "hub.db")
+    older = store.upsert_thread(
+        ThreadUpsert(summary="Older", project_slug="p", status=ThreadStatus.open)
+    )
+    newer = store.upsert_thread(
+        ThreadUpsert(summary="Newer", project_slug="p", status=ThreadStatus.open)
+    )
+    # Force older to be more recent so DESC order is deterministic.
+    with store._conn() as conn:
+        stamp = (datetime.now(UTC) + timedelta(seconds=5)).isoformat()
+        conn.execute(
+            "UPDATE threads SET updated_at = ? WHERE id = ?",
+            (stamp, older.id),
+        )
+    page = store.list_threads(status=ThreadStatus.open, project_slug="p", limit=10)
+    assert [t.id for t in page] == [older.id, newer.id]
+    page2 = store.list_threads(
+        status=ThreadStatus.open, project_slug="p", limit=1, offset=1
+    )
+    assert [t.id for t in page2] == [newer.id]

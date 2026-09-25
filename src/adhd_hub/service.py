@@ -1891,20 +1891,23 @@ class HubService:
         try:
             page_size = max(1, int(limit))
             threads: list = []
-            offset = 0
+            # Keyset by id so concurrent pause/touch (updated_at) cannot shift
+            # OFFSET pages and skip open threads mid-collection.
+            after_id: str | None = None
             while True:
                 page = self.store.list_threads(
                     status=ThreadStatus.open,
                     project_slugs=scope,
                     limit=page_size,
-                    offset=offset,
+                    order_by_id=True,
+                    after_id=after_id,
                 )
                 if not page:
                     break
                 threads.extend(page)
                 if len(page) < page_size:
                     break
-                offset += page_size
+                after_id = page[-1].id
             total = len(threads)
             if not ai_configured(self.settings):
                 return {
