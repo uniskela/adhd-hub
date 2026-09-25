@@ -5,6 +5,9 @@ import { loadAll, loadOverview } from './load.js';
 import { celebrate } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
+import { threadDisplayTitle } from './thread-title.mjs';
+
+export { threadDisplayTitle };
 
 /** Thread id currently shown in the Notes reader (for Summarise). */
 let notesThreadId = null;
@@ -15,22 +18,6 @@ export function projectTitleForSlug(slug) {
     const title = project?.title;
     if (typeof title === "string" && title.trim()) return title.trim();
     return slug;
-  }
-
-/**
- * Safe display title for Now / pause / focus chrome.
- * GET /threads/{id} once merged a notes-summary *object* onto `summary`
- * (or null), which rendered as "[object Object]" or blank — prefer strings only.
- * @param {object | null | undefined} thread
- * @returns {string}
- */
-export function threadDisplayTitle(thread) {
-    if (!thread || typeof thread !== "object") return "";
-    const raw = thread.summary;
-    if (typeof raw === "string") return raw.trim();
-    // Legacy clobber: notes card parked under summary — never stringify it.
-    if (raw && typeof raw === "object") return "";
-    return "";
   }
 
 /**
@@ -71,12 +58,8 @@ export function buildCodingAgentPrompt(thread, opts = {}) {
     const title = opts.projectTitle || (slug === "unclassified" ? "Inbox" : slug);
     if (slug) lines.push(`- slug: \`${slug}\``);
     if (title) lines.push(`- title: ${title}`);
-    if (thread.summary && typeof thread.summary === "string") {
-      lines.push(`- thread: ${thread.summary.trim()}`);
-    } else {
-      const title = threadDisplayTitle(thread);
-      if (title) lines.push(`- thread: ${title}`);
-    }
+    const threadTitle = threadDisplayTitle(thread);
+    if (threadTitle) lines.push(`- thread: ${threadTitle}`);
     if (thread.id) lines.push(`- thread_id: \`${thread.id}\``);
     lines.push("");
 
@@ -558,10 +541,12 @@ export async function markDone(id) {
     completing.add(id);
     const previousChosen = state.chosenId === id;
     const previousFocus = state.focusState;
+    let marked = false;
     try {
       await api("/threads/mark-done", {
         method: "POST", body: JSON.stringify({ id, note: "Marked done from /ui" }),
       });
+      marked = true;
       if (state.chosenId === id) {
         state.chosenId = null;
         state.chosenThread = null;
@@ -570,22 +555,27 @@ export async function markDone(id) {
         rememberFocus();
         renderFocus();
       }
-      setMsg("Done. That’s one less thing to hold in your head.", {
-        key: `done-${id}`,
-        duration: 8000,
-        action: {
-          label: "Undo",
-          onClick: () => {
-            undoMarkDone(id, {
-              restoreChoice: previousChosen,
-              previousFocus,
-            }).catch((error) => setMsg(error.message));
-          },
-        },
-      });
       celebrate();
       await loadAll();
-    } finally { completing.delete(id); }
+    } finally {
+      // Clear lock before Undo toast so a fast click cannot no-op in undoMarkDone.
+      completing.delete(id);
+      if (marked) {
+        setMsg("Done. That’s one less thing to hold in your head.", {
+          key: `done-${id}`,
+          duration: 8000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              undoMarkDone(id, {
+                restoreChoice: previousChosen,
+                previousFocus,
+              }).catch((error) => setMsg(error.message));
+            },
+          },
+        });
+      }
+    }
   }
 
 /** Reopen a thread after mark-done (toast Undo). */
