@@ -66,7 +66,25 @@ assert(
 assert(nowSrc.includes("/threads/undo-done"), "undo calls undo-done API");
 assert(nowSrc.includes('label: "Undo"'), "Done toast offers Undo");
 assert(
-  /const retryUndo = \(\) => \{[\s\S]*undoMarkDone\(id, \{[\s\S]*restoreChoice: previousChosen[\s\S]*previousFocus[\s\S]*\}\)\.catch\(\(error\) => \{[\s\S]*label: "Retry"[\s\S]*onClick: retryUndo/.test(
+  nowSrc.includes("async function reloadAfterUndo"),
+  "post-undo reloads are a separate helper"
+);
+assert(
+  nowSrc.includes('error?.code === "UNDO_RELOAD_FAILED"'),
+  "reload failures are tagged UNDO_RELOAD_FAILED"
+);
+assert(
+  /const retryReload = \(\) => \{[\s\S]*reloadAfterUndo\(id, undoOpts\)\.catch/.test(
+    nowSrc
+  ),
+  "reload-only Retry calls reloadAfterUndo (no undo-done)"
+);
+assert(
+  /onClick: reloadOnly \? retryReload : retryUndo/.test(nowSrc),
+  "catch routes undo vs reload Retry separately"
+);
+assert(
+  /const retryUndo = \(\) => \{[\s\S]*undoMarkDone\(id, undoOpts\)\.catch\(\(error\) => \{[\s\S]*label: "Retry"/.test(
     nowSrc
   ),
   "failed undo recreates keyed toast with Retry"

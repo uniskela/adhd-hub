@@ -562,16 +562,31 @@ export async function markDone(id) {
       completing.delete(id);
       if (marked) {
         // _toastSetAction removes the toast before onClick; on failure recreate
-        // the keyed toast with Retry so Finished still has an undo path.
-        const retryUndo = () => {
-          undoMarkDone(id, {
-            restoreChoice: previousChosen,
-            previousFocus,
-          }).catch((error) => {
+        // the keyed toast with Retry. Undo-request failures retry undo; post-undo
+        // reload failures retry reloads only (do not resend undo-done).
+        const undoOpts = {
+          restoreChoice: previousChosen,
+          previousFocus,
+        };
+        const retryReload = () => {
+          reloadAfterUndo(id, undoOpts).catch((error) => {
             setMsg(error.message, {
               key: `done-${id}`,
               duration: 8000,
-              action: { label: "Retry", onClick: retryUndo },
+              action: { label: "Retry", onClick: retryReload },
+            });
+          });
+        };
+        const retryUndo = () => {
+          undoMarkDone(id, undoOpts).catch((error) => {
+            const reloadOnly = error?.code === "UNDO_RELOAD_FAILED";
+            setMsg(error.message, {
+              key: `done-${id}`,
+              duration: 8000,
+              action: {
+                label: "Retry",
+                onClick: reloadOnly ? retryReload : retryUndo,
+              },
             });
           });
         };
@@ -587,29 +602,43 @@ export async function markDone(id) {
     }
   }
 
+/** Post-undo UI restore + list reloads (no undo-done request). */
+async function reloadAfterUndo(id, opts = {}) {
+    if (opts.restoreChoice) {
+      state.chosenId = id;
+      state.focusState = opts.previousFocus || "ready";
+      state.nowMessage = "";
+      rememberFocus();
+      // Re-fetch public thread (summary, resume HTML, notes meta) like choose.
+      await loadChosenThread();
+      showScreen("now");
+    }
+    setMsg("Restored. It’s open again.", { key: `done-${id}`, variant: "success" });
+    await loadAll();
+    if (opts.restoreChoice && state.chosenId === id) {
+      await loadChosenThread();
+    }
+  }
+
 /** Reopen a thread after mark-done (toast Undo). */
 export async function undoMarkDone(id, opts = {}) {
     if (completing.has(id)) return;
     completing.add(id);
+    let undone = false;
     try {
       await api("/threads/undo-done", {
         method: "POST",
         body: JSON.stringify({ id, note: "Undone from /ui" }),
       });
-      if (opts.restoreChoice) {
-        state.chosenId = id;
-        state.focusState = opts.previousFocus || "ready";
-        state.nowMessage = "";
-        rememberFocus();
-        // Re-fetch public thread (summary, resume HTML, notes meta) like choose.
-        await loadChosenThread();
-        showScreen("now");
+      undone = true;
+      await reloadAfterUndo(id, opts);
+    } catch (error) {
+      if (undone) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        err.code = "UNDO_RELOAD_FAILED";
+        throw err;
       }
-      setMsg("Restored. It’s open again.", { key: `done-${id}`, variant: "success" });
-      await loadAll();
-      if (opts.restoreChoice && state.chosenId === id) {
-        await loadChosenThread();
-      }
+      throw error;
     } finally { completing.delete(id); }
   }
 export function renderReminders(due, all) {
