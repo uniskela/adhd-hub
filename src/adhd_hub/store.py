@@ -567,6 +567,7 @@ class Store:
         *,
         status: ThreadStatus | None = ThreadStatus.open,
         project_slug: str | None = None,
+        project_slugs: list[str] | None = None,
         energy: EnergyLevel | None = None,
         limit: int = 100,
     ) -> list[Thread]:
@@ -575,9 +576,25 @@ class Store:
         if status is not None:
             clauses.append("status = ?")
             args.append(status.value)
-        if project_slug:
+        # project_slugs (IN) wins when both are set — callers expand parent scope there.
+        if project_slugs is not None:
+            scoped = [slugify(s) for s in project_slugs if s]
+            # Preserve order while dropping empties/dupes for stable IN lists.
+            seen: set[str] = set()
+            scoped_unique: list[str] = []
+            for s in scoped:
+                if not s or s in seen:
+                    continue
+                seen.add(s)
+                scoped_unique.append(s)
+            if not scoped_unique:
+                return []
+            placeholders = ", ".join("?" for _ in scoped_unique)
+            clauses.append(f"project_slug IN ({placeholders})")
+            args.extend(scoped_unique)
+        elif project_slug:
             clauses.append("project_slug = ?")
-            args.append(project_slug)
+            args.append(slugify(project_slug))
         if energy:
             clauses.append("energy = ?")
             args.append(energy.value)
@@ -2015,6 +2032,38 @@ class Store:
                 (safe,),
             ).fetchall()
         return [str(r["slug"]) for r in rows]
+
+    def project_scope_slugs(self, slug: str) -> list[str]:
+        """Return ``slug`` plus all nested descendants via ``parent_slug`` (any depth).
+
+        Unregistered / inbox-style slugs with no registry row still return ``[slug]``
+        so leaf filtering stays exact. Includes archived descendants so organising
+        parents keep descendant work visible when selected.
+        """
+        safe = slugify(slug)
+        if not safe:
+            return []
+        with self._conn() as conn:
+            rows = conn.execute("SELECT slug, parent_slug FROM projects").fetchall()
+        children: dict[str, list[str]] = {}
+        for row in rows:
+            parent = row["parent_slug"]
+            if parent:
+                children.setdefault(str(parent), []).append(str(row["slug"]))
+        out: list[str] = []
+        seen: set[str] = set()
+        stack = [safe]
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            out.append(cur)
+            # Preserve sibling order from list_child_slugs (title/sort_order) when present.
+            kids = children.get(cur, [])
+            # Reverse so first child is processed next when using stack LIFO + extend reverse.
+            stack.extend(reversed(kids))
+        return out
 
     def move_project(
         self,

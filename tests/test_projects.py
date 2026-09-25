@@ -292,3 +292,133 @@ def test_project_delete_nulls_child_parent_via_fk(tmp_path: Path) -> None:
     child = service.store.get_project("hub")
     assert child is not None
     assert child.parent_slug is None
+
+
+def test_parent_project_thread_scope_includes_descendants(tmp_path: Path) -> None:
+    """Selecting a parent My-work filter includes nested child threads (any depth)."""
+    from adhd_hub.models import ThreadStatus
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="AJP Stuff", slug="ajp-stuff"))
+    service.upsert_project(
+        ProjectUpsert(
+            title="AJP dedicated n8n migration",
+            slug="ajp-n8n",
+            parent_slug="ajp-stuff",
+        )
+    )
+    service.upsert_project(
+        ProjectUpsert(title="Deep child", slug="ajp-deep", parent_slug="ajp-n8n")
+    )
+    service.upsert_project(ProjectUpsert(title="Other", slug="other"))
+
+    service.upsert_thread(
+        ThreadUpsert(summary="Parent-owned", project_slug="ajp-stuff", status=ThreadStatus.open)
+    )
+    for i in range(3):
+        service.upsert_thread(
+            ThreadUpsert(
+                summary=f"Child open {i}",
+                project_slug="ajp-n8n",
+                status=ThreadStatus.open,
+            )
+        )
+    service.upsert_thread(
+        ThreadUpsert(summary="Grandchild", project_slug="ajp-deep", status=ThreadStatus.open)
+    )
+    service.upsert_thread(
+        ThreadUpsert(summary="Other work", project_slug="other", status=ThreadStatus.open)
+    )
+    service.upsert_thread(
+        ThreadUpsert(
+            summary="Child done",
+            project_slug="ajp-n8n",
+            status=ThreadStatus.done,
+        )
+    )
+
+    scope = service.project_thread_scope("ajp-stuff")
+    assert scope is not None
+    assert set(scope) == {"ajp-stuff", "ajp-n8n", "ajp-deep"}
+
+    open_under_parent = service.list_threads_public(
+        status=ThreadStatus.open, project_slug="ajp-stuff", limit=50
+    )
+    open_slugs = {t["project_slug"] for t in open_under_parent}
+    assert open_slugs == {"ajp-stuff", "ajp-n8n", "ajp-deep"}
+    assert len(open_under_parent) == 5  # 1 parent + 3 child + 1 grandchild
+
+    leaf_only = service.list_threads_public(
+        status=ThreadStatus.open, project_slug="ajp-deep", limit=50
+    )
+    assert {t["project_slug"] for t in leaf_only} == {"ajp-deep"}
+    assert len(leaf_only) == 1
+
+    mid_parent = service.list_threads_public(
+        status=ThreadStatus.open, project_slug="ajp-n8n", limit=50
+    )
+    assert {t["project_slug"] for t in mid_parent} == {"ajp-n8n", "ajp-deep"}
+    assert len(mid_parent) == 4  # 3 on ajp-n8n + 1 grandchild
+
+    deep_only = leaf_only
+    assert deep_only[0]["project_slug"] == "ajp-deep"
+
+    done_under_parent = service.list_threads_public(
+        status=ThreadStatus.done, project_slug="ajp-stuff", limit=50
+    )
+    assert len(done_under_parent) == 1
+    assert done_under_parent[0]["project_slug"] == "ajp-n8n"
+
+
+def test_parent_rail_counts_aggregate_descendants(tmp_path: Path) -> None:
+    """Rail open counts on parents roll up descendant threads."""
+    from adhd_hub.models import ThreadStatus
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="AJP Stuff", slug="ajp-stuff"))
+    service.upsert_project(
+        ProjectUpsert(title="Child", slug="ajp-n8n", parent_slug="ajp-stuff")
+    )
+    for i in range(12):
+        service.upsert_thread(
+            ThreadUpsert(
+                summary=f"Migration step {i}",
+                project_slug="ajp-n8n",
+                status=ThreadStatus.open,
+            )
+        )
+
+    by_slug = {p["slug"]: p for p in service.list_projects()}
+    assert by_slug["ajp-n8n"]["counts"]["open"] == 12
+    assert by_slug["ajp-stuff"]["counts"]["open"] == 12
+
+    detail = service.get_project_detail("ajp-stuff")
+    assert detail is not None
+    assert detail["counts"]["open"] == 12
+    assert set(detail["scope_slugs"]) == {"ajp-stuff", "ajp-n8n"}
+    assert len(detail["threads"]) == 12
+
+
+def test_rewrite_all_on_parent_includes_descendant_open_threads(tmp_path: Path) -> None:
+    """Rewrite-all on a parent no-ops with AI off but scopes descendant open threads."""
+    from adhd_hub.models import ThreadStatus
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="AJP Stuff", slug="ajp-stuff"))
+    service.upsert_project(
+        ProjectUpsert(title="Child", slug="ajp-n8n", parent_slug="ajp-stuff")
+    )
+    service.upsert_thread(
+        ThreadUpsert(summary="Own", project_slug="ajp-stuff", status=ThreadStatus.open)
+    )
+    service.upsert_thread(
+        ThreadUpsert(summary="Child A", project_slug="ajp-n8n", status=ThreadStatus.open)
+    )
+    service.upsert_thread(
+        ThreadUpsert(summary="Child B", project_slug="ajp-n8n", status=ThreadStatus.open)
+    )
+
+    out = service.rewrite_project_scan_lines("ajp-stuff")
+    assert out["ai_attempted"] is False
+    assert out["total"] == 3
+    assert {t["project_slug"] for t in out["threads"]} == {"ajp-stuff", "ajp-n8n"}

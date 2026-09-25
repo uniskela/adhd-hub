@@ -241,6 +241,9 @@ def test_project_rail_hierarchy_tree_markers():
     assert "selectProjectFromRail" in work and "closeProjectsDrawer" in work
     assert "/projects/" in work and "/move" in work
     assert "openProjectsDrawer" in work
+    # Parent rewrite-all confirms nested scope when detail.scope_slugs has descendants.
+    assert "scope_slugs" in work
+    assert "its nested projects" in work
     boot = (UI_JS / "boot.js").read_text()
     assert "selectAllProjectsFromRail" in boot
     assert 'id="p_parent_slug"' in html
