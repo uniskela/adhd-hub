@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import errno
 from pathlib import Path
 from unittest.mock import patch
 
 from adhd_hub.config import Settings, load_settings
 from adhd_hub.data_dir import (
     MIGRATION_COMPLETE_MARKER,
+    _publish_new_file,
     apply_container_data_dir,
     looks_like_hub_data,
     migrate_legacy_app_data,
@@ -249,6 +251,46 @@ def test_migrate_atomic_copy_cleans_temp_on_failure(tmp_path, monkeypatch):
     # Retry succeeds once the interrupt is gone.
     assert migrate_legacy_app_data(target) == ["hub.sqlite3"]
     assert (target / "hub.sqlite3").read_bytes() == b"sqlite-payload"
+
+
+def test_publish_link_fails_when_dest_exists(tmp_path):
+    dest = tmp_path / "hub.sqlite3"
+    dest.write_bytes(b"other-writer")
+    tmp = tmp_path / ".hub.sqlite3.staged.tmp"
+    tmp.write_bytes(b"migrated")
+    assert _publish_new_file(tmp, dest) is False
+    assert dest.read_bytes() == b"other-writer"
+    assert tmp.is_file()
+
+
+def test_publish_fallback_exclusive_when_no_hardlink(tmp_path):
+    dest = tmp_path / "hub.sqlite3"
+    tmp = tmp_path / ".hub.sqlite3.staged.tmp"
+    tmp.write_bytes(b"migrated")
+
+    def no_hardlinks(src, dst):
+        raise OSError(errno.EOPNOTSUPP, "Operation not supported")
+
+    with patch("adhd_hub.data_dir.os.link", side_effect=no_hardlinks):
+        assert _publish_new_file(tmp, dest) is True
+    assert dest.read_bytes() == b"migrated"
+    assert not tmp.exists()
+
+
+def test_publish_fallback_does_not_overwrite_existing(tmp_path):
+    """O_EXCL claim must fail closed when another writer already created dest."""
+    dest = tmp_path / "hub.sqlite3"
+    dest.write_bytes(b"other-writer")
+    tmp = tmp_path / ".hub.sqlite3.staged.tmp"
+    tmp.write_bytes(b"migrated")
+
+    def no_hardlinks(src, dst):
+        raise OSError(errno.EOPNOTSUPP, "Operation not supported")
+
+    with patch("adhd_hub.data_dir.os.link", side_effect=no_hardlinks):
+        assert _publish_new_file(tmp, dest) is False
+    assert dest.read_bytes() == b"other-writer"
+    assert tmp.is_file()
 
 
 def test_migrate_fills_missing_wiki_under_scaffolding(tmp_path, monkeypatch):

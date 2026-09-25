@@ -106,8 +106,11 @@ def is_ephemeral_container_data_dir(data_dir: Path) -> bool:
 def _publish_new_file(tmp: Path, dest: Path) -> bool:
     """Publish ``tmp`` as ``dest`` only if ``dest`` does not already exist.
 
-    Uses a hard link when possible so an existing destination is never replaced.
-    Falls back to rename after a fresh existence check. Returns True on success.
+    Prefers ``os.link`` so publication atomically fails when ``dest`` already
+    exists (never replaces). On filesystems without hard links, claims ``dest``
+    with ``O_CREAT|O_EXCL`` then replaces that empty placeholder with ``tmp``.
+    Never uses unconditional ``rename``/``replace`` onto a pre-existing path.
+    Returns True on success, False when ``dest`` already exists.
     """
     try:
         os.link(tmp, dest)
@@ -115,17 +118,23 @@ def _publish_new_file(tmp: Path, dest: Path) -> bool:
     except FileExistsError:
         return False
     except OSError:
-        if dest.exists():
-            return False
+        pass
+
+    # No hard-link support (or other link failure): exclusive name claim.
+    try:
+        fd = os.open(os.fspath(dest), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return False
+    os.close(fd)
+    try:
+        os.replace(tmp, dest)
+        return True
+    except OSError:
         try:
-            os.rename(tmp, dest)
-            return True
-        except FileExistsError:
-            return False
+            dest.unlink(missing_ok=True)
         except OSError:
-            if dest.exists():
-                return False
-            raise
+            pass
+        raise
 
 
 def _copy_file_atomic(src: Path, dest: Path) -> bool | None:
