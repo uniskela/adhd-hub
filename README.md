@@ -32,7 +32,7 @@ You start a Proxmox migration / homelab setup / refactor in Cursor Cloud, contin
 
 ## Quick start
 
-**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/environment-variables.md).
+**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/environment-variables.md). Hub state (SQLite including project tags and scan-line cache, plus `ai.json` AI settings) lives under `/data` in the container — mount a named volume or bind there and keep `ADHD_HUB_DATA_DIR=/data` (see [What lives under `/data`](docs/installation.md#what-lives-under-data)).
 
 ### Docker from this checkout
 
@@ -79,7 +79,7 @@ Stdio is an **optional local mode**: it uses the configured Hub data directory a
 
 Published images (only after a manual release-PR merge by `uniskela`):
 
-- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.16.1`, `0.16`)
+- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.16.2`, `0.16`)
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger. **Squash merges use the PR title as the subject** (body bullets do not count); keep titles conventional for release-surface work — see [AGENTS.md](AGENTS.md) / [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -89,7 +89,7 @@ Documentation, chore, test, and CI-only merges do not open a release PR, even if
 
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
-docker pull ghcr.io/uniskela/adhd-hub:0.16.1
+docker pull ghcr.io/uniskela/adhd-hub:0.16.2
 ```
 
 Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).

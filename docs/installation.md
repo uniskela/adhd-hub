@@ -17,6 +17,19 @@ Client machines that only need `connect` can also run the Hub’s `/install.sh` 
 
 ADHD Hub requires a persistent data directory. In the container image that directory is `/data`; do not run the server without a persistent volume if you care about its threads, wiki, preferences, sessions, and local configuration.
 
+### What lives under `/data`
+
+| Path | Contents |
+| --- | --- |
+| `hub.sqlite3` | Projects (including **tags**), threads, progress notes, AI **scan-line cache**, meta |
+| `ai.json` | **AI scan-line / Settings → Preferences** (API key encrypted with `ADHD_HUB_AUTH_TOKEN`) |
+| `prefs.json` | Dashboard preferences (timezone, etc.) |
+| `forge.json` / `openclaw.json` | Optional forge / OpenClaw config |
+| `wiki/` | Local markdown wiki / progress files |
+| `browser_sessions.sqlite3` / `connect.sqlite3` | Browser sessions and CLI connect grants |
+
+All of these must sit on the same mounted volume. A relative `ADHD_HUB_DATA_DIR=./data` inside the container resolves to `/app/data`. On older images (or configs) **without** remapping, that path is **discarded when the container is recreated** (classic “upgrade wiped my tags / AI settings” symptom). Current images remap the known `/app/data` default to `/data` and can copy leftovers into a volume that still lacks Hub files — still pin absolute `/data` with a volume mount so persistence does not depend on remapping.
+
 ## Docker Compose with a published image
 
 Create a directory for the deployment:
@@ -55,13 +68,19 @@ services:
     environment:
       ADHD_HUB_HOST: "0.0.0.0"
       ADHD_HUB_PORT: "8787"
+      # Absolute /data only — must match the volume mount. Do not use ./data here.
       ADHD_HUB_DATA_DIR: /data
     volumes:
+      # Named volume survives image upgrades. Avoid `docker compose down -v`.
       - adhd_hub_data:/data
+      # Bind-mount alternative (host folder you control):
+      # - ./hub-data:/data
 
 volumes:
   adhd_hub_data:
 ```
+
+Keep the Compose project directory name (and `COMPOSE_PROJECT_NAME` if set) stable — renaming it creates a **new** empty volume and looks like data loss.
 
 The same release tags are also published as `docker.io/uniskela/adhd-hub`. Release images are available as `latest`, `X.Y.Z`, and `X.Y`. Pin an `X.Y.Z` tag if you want upgrades to happen only when you deliberately change the image tag.
 
@@ -215,7 +234,18 @@ docker compose logs --tail=100 adhd-hub
 curl -fsS http://127.0.0.1:8787/api/health
 ```
 
-A named/bind-mounted `/data` volume survives container replacement. Do not remove that volume during a normal upgrade.
+A named/bind-mounted `/data` volume survives container replacement. Do not remove that volume during a normal upgrade (`docker compose down` is fine; **`down -v` is not**).
+
+Verify the mount after upgrading:
+
+```bash
+docker compose exec adhd-hub ls -la /data
+# Expect hub.sqlite3; ai.json appears after you save AI settings in /ui.
+curl -fsS http://127.0.0.1:8787/api/health
+# health.data_dir should be "/data" and health.data_dir_populated true once used.
+```
+
+If tags or AI settings vanished after an upgrade, check whether Hub was writing to ephemeral `/app/data` (relative `ADHD_HUB_DATA_DIR`) instead of the volume. Current images remap relative paths to `/data` and will copy leftover `/app/data` into the volume when `/data` is empty. Keep `ADHD_HUB_AUTH_TOKEN` stable — changing it does not delete `ai.json`, but the stored API key can no longer be decrypted until you re-enter it in Settings.
 
 For a local-build checkout:
 
@@ -223,6 +253,8 @@ For a local-build checkout:
 git pull --ff-only
 docker compose up -d --build
 ```
+
+The repository Compose file tags a **local** image (`adhd-hub:X.Y.Z`). `docker compose pull` does not refresh that local tag — use `--build`, or switch to the published-image Compose example above for `pull`-based upgrades.
 
 ## Back up before important changes
 

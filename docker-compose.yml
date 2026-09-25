@@ -18,8 +18,16 @@ services:
     environment:
       ADHD_HUB_HOST: "0.0.0.0"
       ADHD_HUB_PORT: "8787"
+      # Pin absolute /data to match the volume mount (do not rely on remapping).
+      # Relative ./data → /app/data; without remapping that path is wiped on recreate.
+      # Current images remap the known /app/data default to /data as a safety net.
       ADHD_HUB_DATA_DIR: /data
     volumes:
+      # Named volume — survives image pulls and `docker compose up -d --build`.
+      # Do NOT use `docker compose down -v` (that deletes this volume).
+      # Contents include hub.sqlite3 (projects/tags, threads, scan-line cache),
+      # ai.json (AI scan-line settings), prefs.json, forge.json, wiki/, sessions.
+      # Bind-mount alternative: ./hub-data:/data
       - adhd_hub_data:/data
     # Example OpenClaw on same Docker network:
     # ADHD_HUB_OPENCLAW_WEBHOOK_URL=http://openclaw:18789/hooks/wake
@@ -54,4 +62,6 @@ services:
   #     - adhd-hub
 
 volumes:
+  # Keep this name stable across upgrades. Renaming the Compose project directory
+  # (or COMPOSE_PROJECT_NAME) creates a different volume and looks like data loss.
   adhd_hub_data:

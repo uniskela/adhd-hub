@@ -59,6 +59,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         data = service.thread_public_dict(thread)
         data["progress_html"] = service.thread_notes_context_html(thread)
         data["resume_step_html"] = render_markdown(thread.resume_step or "")
+        data.update(service.notes_summary_status(thread))
         return data
 
     @router.get("/threads/{thread_id}/source-refresh", dependencies=[Depends(auth_dep)])
@@ -102,18 +103,24 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         return service.thread_public_dict(thread)
 
     @router.post("/threads/{thread_id}/scan-line", dependencies=[Depends(auth_dep)])
-    def rewrite_thread_scan_line(thread_id: str):
-        """Force an AI scan-line rewrite (heuristic fallback when AI is off/unavailable)."""
+    def rewrite_thread_scan_line(thread_id: str, payload: dict | None = None):
+        """AI scan-line rewrite. Default force; ``{\"mode\":\"ensure\"}`` hash-skips when fresh."""
+        body = payload or {}
+        mode = str(body.get("mode") or "force").strip().lower()
+        force = mode != "ensure"
         try:
-            return service.rewrite_scan_line(thread_id)
+            return service.rewrite_scan_line(thread_id, force=force)
         except KeyError:
             raise HTTPException(404, "Thread not found") from None
 
     @router.post("/threads/{thread_id}/notes-summary", dependencies=[Depends(auth_dep)])
-    def summarise_thread_notes(thread_id: str):
-        """One-shot AI Notes summarise card (persisted; never rewrites progress notes)."""
+    def summarise_thread_notes(thread_id: str, payload: dict | None = None):
+        """AI Notes summarise card. Default force; ``{\"mode\":\"ensure\"}`` hash-skips when fresh."""
+        body = payload or {}
+        mode = str(body.get("mode") or "force").strip().lower()
+        force = mode != "ensure"
         try:
-            return service.summarise_notes(thread_id)
+            return service.summarise_notes(thread_id, force=force)
         except KeyError:
             raise HTTPException(404, "Thread not found") from None
 
