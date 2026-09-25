@@ -727,9 +727,10 @@ def test_scan_line_ensure_skips_when_hash_matches(tmp_path: Path, monkeypatch):
 
 
 def test_scan_line_input_hash_stable_and_ignores_status() -> None:
+    from datetime import UTC, datetime
+
     from adhd_hub.ai_client import scan_line_input_hash
     from adhd_hub.models import Thread, ThreadStatus
-    from datetime import UTC, datetime
 
     now = datetime.now(UTC)
     a = Thread(
