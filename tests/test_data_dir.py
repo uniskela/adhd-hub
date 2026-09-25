@@ -11,6 +11,7 @@ from adhd_hub.data_dir import (
     MIGRATION_COMPLETE_MARKER,
     _publish_new_file,
     apply_container_data_dir,
+    is_container_runtime,
     looks_like_hub_data,
     migrate_legacy_app_data,
     migration_completed,
@@ -67,6 +68,88 @@ def test_non_container_relative_path_unchanged(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = Path("./data")
     assert apply_container_data_dir(path) == path
+
+
+def test_is_container_runtime_detects_podman_containerenv(monkeypatch):
+    """Podman uses /run/.containerenv instead of /.dockerenv."""
+    monkeypatch.delenv("ADHD_HUB_FORCE_CONTAINER_DATA_DIR", raising=False)
+
+    class _ProbePath:
+        def __init__(self, arg: object) -> None:
+            self._arg = str(arg)
+
+        def is_file(self) -> bool:
+            return self._arg == "/run/.containerenv"
+
+    with patch("adhd_hub.data_dir.Path", _ProbePath):
+        assert is_container_runtime() is True
+
+
+def test_is_container_runtime_env_override_beats_markers(monkeypatch):
+    monkeypatch.setenv("ADHD_HUB_FORCE_CONTAINER_DATA_DIR", "0")
+    assert is_container_runtime() is False
+    monkeypatch.setenv("ADHD_HUB_FORCE_CONTAINER_DATA_DIR", "1")
+    assert is_container_runtime() is True
+
+
+def test_mounted_app_data_not_remapped(tmp_path, monkeypatch):
+    """When /app/data is itself a volume/bind, keep it — do not redirect to /data."""
+    monkeypatch.setenv("ADHD_HUB_FORCE_CONTAINER_DATA_DIR", "1")
+    legacy = tmp_path / "app-data"
+    legacy.mkdir()
+    fake_data = tmp_path / "volume-data"
+    fake_data.mkdir()
+    monkeypatch.setattr("adhd_hub.data_dir.CONTAINER_DATA_DIR", fake_data)
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
+
+    with patch("adhd_hub.data_dir._is_mount", return_value=True):
+        assert apply_container_data_dir(legacy) == legacy
+    assert not migration_completed(fake_data)
+    assert not (fake_data / "hub.sqlite3").exists()
+
+
+def test_migrate_skips_sqlite_sidecars_when_target_db_exists(tmp_path, monkeypatch):
+    """Do not attach legacy -wal/-shm/-journal to a different existing target DB."""
+    legacy = tmp_path / "app-data"
+    target = tmp_path / "volume"
+    legacy.mkdir()
+    target.mkdir()
+    (legacy / "hub.sqlite3").write_bytes(b"legacy-db")
+    (legacy / "hub.sqlite3-wal").write_bytes(b"legacy-wal")
+    (legacy / "hub.sqlite3-shm").write_bytes(b"legacy-shm")
+    (legacy / "hub.sqlite3-journal").write_bytes(b"legacy-journal")
+    (legacy / "ai.json").write_text('{"enabled": true}\n', encoding="utf-8")
+    (target / "hub.sqlite3").write_bytes(b"target-db")
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
+
+    copied = migrate_legacy_app_data(target)
+    assert "ai.json" in copied
+    assert "hub.sqlite3-wal" not in copied
+    assert "hub.sqlite3-shm" not in copied
+    assert "hub.sqlite3-journal" not in copied
+    assert (target / "hub.sqlite3").read_bytes() == b"target-db"
+    assert not (target / "hub.sqlite3-wal").exists()
+    assert not (target / "hub.sqlite3-shm").exists()
+    assert not (target / "hub.sqlite3-journal").exists()
+    assert (target / "ai.json").is_file()
+    assert migration_completed(target)
+
+
+def test_migrate_copies_sqlite_sidecars_with_missing_db(tmp_path, monkeypatch):
+    """When the target DB is absent, copy DB + sidecars together as a unit."""
+    legacy = tmp_path / "app-data"
+    target = tmp_path / "volume"
+    legacy.mkdir()
+    target.mkdir()
+    (legacy / "hub.sqlite3").write_bytes(b"legacy-db")
+    (legacy / "hub.sqlite3-wal").write_bytes(b"legacy-wal")
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
+
+    copied = migrate_legacy_app_data(target)
+    assert set(copied) >= {"hub.sqlite3", "hub.sqlite3-wal"}
+    assert (target / "hub.sqlite3").read_bytes() == b"legacy-db"
+    assert (target / "hub.sqlite3-wal").read_bytes() == b"legacy-wal"
+    assert migration_completed(target)
 
 
 def test_absolute_custom_dir_unchanged_in_container(tmp_path, monkeypatch):

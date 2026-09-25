@@ -47,7 +47,40 @@ def is_container_runtime() -> bool:
         return True
     if flag in {"0", "false", "no", "off"}:
         return False
-    return Path("/.dockerenv").is_file()
+    # Docker creates /.dockerenv; Podman creates /run/.containerenv.
+    return Path("/.dockerenv").is_file() or Path("/run/.containerenv").is_file()
+
+
+def _is_mount(path: Path) -> bool:
+    """True when ``path`` is a mount point (named volume or bind)."""
+    try:
+        return os.path.ismount(path)
+    except OSError:
+        return False
+
+
+_SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+def _existing_target_sqlite_sidecars(target: Path) -> set[str]:
+    """Sidecar names to skip when the matching SQLite DB already exists in target.
+
+    Treats each ``*.sqlite3`` Hub marker and its ``-wal``/``-shm``/``-journal``
+    files as one unit so migration never attaches legacy WAL state to a
+    different target database.
+    """
+    names: set[str] = set()
+    for marker in _HUB_MARKERS:
+        if not marker.endswith(".sqlite3"):
+            continue
+        try:
+            if not (target / marker).is_file():
+                continue
+        except OSError:
+            continue
+        for suffix in _SQLITE_SIDECAR_SUFFIXES:
+            names.add(f"{marker}{suffix}")
+    return names
 
 
 def _wiki_has_real_files(wiki: Path) -> bool:
@@ -242,6 +275,7 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
     target.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     failed = False
+    skip_sidecars = _existing_target_sqlite_sidecars(target)
     try:
         entries = sorted(legacy.iterdir(), key=lambda p: p.name)
     except OSError as exc:
@@ -251,6 +285,9 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
     for entry in entries:
         # Do not treat the completion marker as a migratable payload if present.
         if entry.name == MIGRATION_COMPLETE_MARKER:
+            continue
+        # Never merge legacy SQLite sidecars onto an already-present target DB.
+        if entry.name in skip_sidecars:
             continue
         dest = target / entry.name
         result = _copy_missing(entry, dest)
@@ -293,7 +330,8 @@ def apply_container_data_dir(data_dir: Path) -> Path:
         return data_dir
 
     original = data_dir
-    if is_ephemeral_container_data_dir(data_dir):
+    # Remap only when /app/data is ephemeral (not itself a volume/bind mount).
+    if is_ephemeral_container_data_dir(data_dir) and not _is_mount(LEGACY_APP_DATA_DIR):
         log.warning(
             "ADHD_HUB_DATA_DIR=%s resolves to ephemeral %s inside the container; "
             "using %s. Set ADHD_HUB_DATA_DIR=/data and mount a named volume or "
