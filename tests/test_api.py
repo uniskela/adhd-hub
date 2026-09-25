@@ -115,6 +115,23 @@ def test_thread_resume_and_pause_are_exposed(tmp_path: Path) -> None:
         client.post(
             "/api/threads/mark-done", headers=headers, json={"id": thread_id}
         ).raise_for_status()
+        undone = client.post(
+            "/api/threads/undo-done", headers=headers, json={"id": thread_id}
+        )
+        assert undone.status_code == 200
+        assert undone.json()["status"] == "open"
+        assert undone.json()["id"] == thread_id
+        # Already open → 400
+        assert (
+            client.post(
+                "/api/threads/undo-done", headers=headers, json={"id": thread_id}
+            ).status_code
+            == 400
+        )
+        # Mark done again so pause-after-done still asserts 409 below
+        client.post(
+            "/api/threads/mark-done", headers=headers, json={"id": thread_id}
+        ).raise_for_status()
         assert (
             client.post(
                 f"/api/threads/{thread_id}/pause", headers=headers, json={"next_step": "Too late"}

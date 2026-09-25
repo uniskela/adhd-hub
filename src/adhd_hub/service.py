@@ -2235,7 +2235,9 @@ class HubService:
             "notes_summary_cached_hash": existing.input_hash if existing else None,
             "notes_summary_fresh": fresh,
             "notes_summary_needs_ai": bool(auto and not fresh),
-            "summary": existing.to_store_dict() if existing else None,
+            # Never use key "summary" — GET /threads/{id} merges this onto the
+            # thread dict and would clobber Thread.summary (string → object/null).
+            "notes_summary": existing.to_store_dict() if existing else None,
         }
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:
@@ -3097,6 +3099,42 @@ class HubService:
                 event_type=THREAD_COMPLETED,
                 source="api",
                 metadata={"previous_status": current.status.value},
+            )
+        return thread
+
+    def undo_mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
+        """Reopen a done thread (Hub-local, or remote-first when externally linked)."""
+        current = self.store.get_thread(thread_id)
+        if not current:
+            return None
+        if current.status != ThreadStatus.done:
+            raise ValueError("Only done threads can be reopened with undo")
+        from adhd_hub.work_identity import thread_has_external_identity
+
+        history = note or "Undone — reopened."
+        if thread_has_external_identity(current):
+            result = self._forge.reopen_external_thread(current)
+            if not result.get("ok"):
+                raise ValueError(result.get("error") or "remote_reopen_failed")
+
+        thread, changed = self.store.transition_status(
+            thread_id, ThreadStatus.open, note=history
+        )
+        if thread and changed:
+            slug = thread.project_slug or slugify(thread.summary)
+            self._sync_project_progress(
+                slug, title=thread.summary, history_note=history, thread=thread
+            )
+            self.wiki.rebuild_index(
+                self.store.list_threads(status=ThreadStatus.open, limit=500)
+            )
+            if not thread_has_external_identity(current):
+                self._forge_after_thread(thread)
+            self._publish_thread_lifecycle(
+                thread,
+                event_type=THREAD_PROGRESS_UPDATED,
+                source="api",
+                metadata={"previous_status": current.status.value, "undo": "mark_done"},
             )
         return thread
 

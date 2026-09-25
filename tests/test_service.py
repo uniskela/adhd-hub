@@ -67,6 +67,17 @@ def test_mark_done(service: HubService) -> None:
     assert service.list_open_threads() == []
 
 
+def test_undo_mark_done_reopens(service: HubService) -> None:
+    t = service.upsert_thread(ThreadUpsert(summary="Almost done", project_slug="demo"))
+    service.mark_done(t.id, note="Marked done.")
+    restored = service.undo_mark_done(t.id, note="Undone.")
+    assert restored is not None
+    assert restored.status.value == "open"
+    assert restored.summary == "Almost done"
+    with pytest.raises(ValueError, match="Only done"):
+        service.undo_mark_done(t.id)
+
+
 def test_session_digest_and_reminder(service: HubService) -> None:
     service.upsert_thread(ThreadUpsert(summary="Half-done Valkey upgrade", project_slug="valkey"))
     service.set_reminder(ReminderCreate(message="Stretch", kind=ReminderKind.session))

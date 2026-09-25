@@ -115,6 +115,21 @@ summary::marker { color: var(--muted); }
   overflow-wrap: anywhere;
 }
 .toast-body { margin: 0; }
+.toast-action {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin: 0;
+  padding: .35rem .7rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 88%, var(--bg));
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toast-action:hover { border-color: color-mix(in srgb, var(--accent, #5a7) 40%, var(--line)); }
 .toast-close {
   border: 0;
   background: transparent;
