@@ -78,6 +78,68 @@ def test_undo_mark_done_reopens(service: HubService) -> None:
         service.undo_mark_done(t.id)
 
 
+def test_undo_mark_done_fs_failure_leaves_done(service: HubService, monkeypatch) -> None:
+    """B2b: failed projection write must not commit open (undo stays retryable)."""
+    t = service.upsert_thread(ThreadUpsert(summary="Undo atomic", project_slug="undo-atom"))
+    service.mark_done(t.id, note="Marked done.")
+    slug = t.project_slug or "undo-atom"
+    progress_before = service.wiki.read_progress(slug)
+    index_path = service.settings.wiki_dir / "INDEX.md"
+    index_before = index_path.read_text(encoding="utf-8") if index_path.is_file() else None
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("simulated disk full")
+
+    monkeypatch.setattr(service.wiki, "upsert_progress", _boom)
+    with pytest.raises(OSError, match="simulated disk full"):
+        service.undo_mark_done(t.id, note="Undone.")
+
+    refreshed = service.store.get_thread(t.id)
+    assert refreshed is not None
+    assert refreshed.status.value == "done"
+    assert service.wiki.read_progress(slug) == progress_before
+    if index_before is None:
+        assert not index_path.is_file()
+    else:
+        assert index_path.read_text(encoding="utf-8") == index_before
+
+    monkeypatch.undo()
+    # Guard still allows retry after a failed staging attempt.
+    restored = service.undo_mark_done(t.id, note="Undone retry.")
+    assert restored is not None
+    assert restored.status.value == "open"
+
+
+def test_undo_mark_done_index_failure_restores_progress(
+    service: HubService, monkeypatch
+) -> None:
+    """If INDEX rewrite fails after PROGRESS write, roll both files back."""
+    t = service.upsert_thread(
+        ThreadUpsert(summary="Index fail undo", project_slug="undo-idx")
+    )
+    service.mark_done(t.id, note="Marked done.")
+    slug = t.project_slug or "undo-idx"
+    progress_before = service.wiki.read_progress(slug)
+    index_path = service.settings.wiki_dir / "INDEX.md"
+    index_before = index_path.read_text(encoding="utf-8") if index_path.is_file() else None
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("index write failed")
+
+    monkeypatch.setattr(service.wiki, "rebuild_index", _boom)
+    with pytest.raises(OSError, match="index write failed"):
+        service.undo_mark_done(t.id, note="Undone.")
+
+    refreshed = service.store.get_thread(t.id)
+    assert refreshed is not None
+    assert refreshed.status.value == "done"
+    assert service.wiki.read_progress(slug) == progress_before
+    if index_before is None:
+        assert not index_path.is_file()
+    else:
+        assert index_path.read_text(encoding="utf-8") == index_before
+
+
 def test_session_digest_and_reminder(service: HubService) -> None:
     service.upsert_thread(ThreadUpsert(summary="Half-done Valkey upgrade", project_slug="valkey"))
     service.set_reminder(ReminderCreate(message="Stretch", kind=ReminderKind.session))
