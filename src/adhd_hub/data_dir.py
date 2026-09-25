@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -24,6 +25,9 @@ log = logging.getLogger(__name__)
 CONTAINER_DATA_DIR = Path("/data")
 # Default Path.cwd()/data when WORKDIR is /app and DATA_DIR was relative.
 LEGACY_APP_DATA_DIR = Path("/app/data")
+# Written under the target after a successful migration pass so later startups
+# do not re-copy files an operator intentionally removed from the volume.
+MIGRATION_COMPLETE_MARKER = ".legacy_app_data_migrated"
 
 _HUB_MARKERS = (
     "hub.sqlite3",
@@ -99,39 +103,125 @@ def is_ephemeral_container_data_dir(data_dir: Path) -> bool:
         return False
 
 
-def _copy_missing(src: Path, dest: Path) -> bool:
+def _publish_new_file(tmp: Path, dest: Path) -> bool:
+    """Publish ``tmp`` as ``dest`` only if ``dest`` does not already exist.
+
+    Uses a hard link when possible so an existing destination is never replaced.
+    Falls back to rename after a fresh existence check. Returns True on success.
+    """
+    try:
+        os.link(tmp, dest)
+        return True
+    except FileExistsError:
+        return False
+    except OSError:
+        if dest.exists():
+            return False
+        try:
+            os.rename(tmp, dest)
+            return True
+        except FileExistsError:
+            return False
+        except OSError:
+            if dest.exists():
+                return False
+            raise
+
+
+def _copy_file_atomic(src: Path, dest: Path) -> bool | None:
+    """Copy ``src`` to ``dest`` via a temp file in ``dest``'s directory.
+
+    Returns True when a new file was published, False when ``dest`` already
+    exists (skip), or None when copy/publish failed. Never leaves a permanent
+    partial file at ``dest`` — failed attempts clean up the temp file.
+    """
+    if dest.exists():
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp: Path | None = None
+    try:
+        fd, tmp_name = tempfile.mkstemp(
+            prefix=f".{dest.name}.",
+            suffix=".tmp",
+            dir=dest.parent,
+        )
+        tmp = Path(tmp_name)
+        os.close(fd)
+        shutil.copy2(src, tmp)
+        if _publish_new_file(tmp, dest):
+            return True
+        # Destination appeared while we were copying — treat as skip, not failure.
+        return False if dest.exists() else None
+    except OSError as exc:
+        log.warning("Failed to migrate %s → %s: %s", src, dest, exc)
+        return None
+    finally:
+        if tmp is not None:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def _copy_missing(src: Path, dest: Path) -> bool | None:
     """Copy ``src`` into ``dest`` without overwriting existing files.
 
-    Returns True if at least one new file was written (dirs alone do not count).
+    Returns True if at least one new file was written, False if nothing new was
+    needed (destination already present), or None if a copy failed mid-way.
     """
     try:
         if src.is_dir():
             dest.mkdir(parents=True, exist_ok=True)
             wrote = False
             for child in sorted(src.iterdir(), key=lambda p: p.name):
-                if _copy_missing(child, dest / child.name):
+                result = _copy_missing(child, dest / child.name)
+                if result is None:
+                    return None
+                if result:
                     wrote = True
             return wrote
         if dest.exists():
             return False
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
-        return True
+        return _copy_file_atomic(src, dest)
     except OSError as exc:
         log.warning("Failed to migrate %s → %s: %s", src, dest, exc)
+        return None
+
+
+def _migration_marker_path(target: Path) -> Path:
+    return target / MIGRATION_COMPLETE_MARKER
+
+
+def migration_completed(target: Path) -> bool:
+    """True when a prior successful legacy migration was recorded for ``target``."""
+    try:
+        return _migration_marker_path(target).is_file()
+    except OSError:
         return False
+
+
+def _mark_migration_complete(target: Path) -> None:
+    marker = _migration_marker_path(target)
+    try:
+        marker.write_text("1\n", encoding="utf-8")
+    except OSError as exc:
+        log.warning("Could not record legacy migration completion at %s: %s", marker, exc)
 
 
 def migrate_legacy_app_data(target: Path) -> list[str]:
     """Copy missing Hub files from ``/app/data`` into ``target``.
 
     Resumes after a partial/interrupted copy: existing target files are never
-    overwritten; only absent paths are filled. Returns top-level names that
-    received at least one new file. Never deletes the legacy tree (operators can
-    remove it after verifying the volume).
+    overwritten; only absent paths are filled. After a fully successful pass,
+    records completion so later calls do not restore files an operator removed.
+    Incomplete migrations stay retryable. Returns top-level names that received
+    at least one new file. Never deletes the legacy tree (operators can remove
+    it after verifying the volume).
     """
     target = resolve_path(target)
     legacy = LEGACY_APP_DATA_DIR
+    if migration_completed(target):
+        return []
     if not looks_like_hub_data(legacy):
         return []
     try:
@@ -142,6 +232,7 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
 
     target.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
+    failed = False
     try:
         entries = sorted(legacy.iterdir(), key=lambda p: p.name)
     except OSError as exc:
@@ -149,10 +240,26 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
         return []
 
     for entry in entries:
+        # Do not treat the completion marker as a migratable payload if present.
+        if entry.name == MIGRATION_COMPLETE_MARKER:
+            continue
         dest = target / entry.name
-        if _copy_missing(entry, dest):
+        result = _copy_missing(entry, dest)
+        if result is None:
+            failed = True
+        elif result:
             copied.append(entry.name)
 
+    if failed:
+        log.warning(
+            "Legacy Hub data migration from %s into %s was incomplete; "
+            "will retry missing paths on the next startup.",
+            legacy,
+            target,
+        )
+        return copied
+
+    _mark_migration_complete(target)
     if copied:
         log.warning(
             "Migrated Hub data from ephemeral %s into %s (%s). "
@@ -171,6 +278,7 @@ def apply_container_data_dir(data_dir: Path) -> Path:
     Outside a container this is a no-op (returns the caller-supplied path).
     Inside a container, only the known ``/app/data`` default becomes ``/data``;
     other configured relative or absolute paths are preserved after resolve.
+    Automatic legacy migration runs only when that known default was remapped.
     """
     if not is_container_runtime():
         return data_dir
@@ -187,6 +295,6 @@ def apply_container_data_dir(data_dir: Path) -> Path:
             CONTAINER_DATA_DIR,
         )
         data_dir = CONTAINER_DATA_DIR
+        migrate_legacy_app_data(data_dir)
 
-    migrate_legacy_app_data(data_dir)
     return data_dir
