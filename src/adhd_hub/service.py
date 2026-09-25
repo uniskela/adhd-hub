@@ -2877,21 +2877,35 @@ class HubService:
     def confirm_thread_relevant(self, thread_id: str) -> Thread:
         """Human confirms a stale thread is still relevant (never auto-dismiss)."""
         thread = self.store.confirm_thread_relevant(thread_id)
+        reminded = (
+            thread.last_reminded_at.isoformat() if thread.last_reminded_at else ""
+        )
         self._publish_thread_lifecycle(
             thread,
             event_type=THREAD_TRIAGE_CONFIRMED,
             source="api",
+            # state_fingerprint omits last_reminded_at — include it so repeat
+            # confirms after cooldown produce distinct activity events.
+            fingerprint=f"{state_fingerprint(thread)}:{reminded}",
         )
         return thread
 
     def snooze_thread_triage(self, thread_id: str, *, days: int = 7) -> Thread:
         """Quiet triage prompts for a while; thread stays open."""
         thread = self.store.snooze_thread_triage(thread_id, days=days)
+        snooze = (
+            thread.triage_snooze_until.isoformat()
+            if thread.triage_snooze_until
+            else ""
+        )
         self._publish_thread_lifecycle(
             thread,
             event_type=THREAD_TRIAGE_SNOOZED,
             source="api",
             metadata={"days": max(1, min(30, int(days)))},
+            # state_fingerprint omits triage_snooze_until — include it so
+            # repeat snoozes produce distinct activity events.
+            fingerprint=f"{state_fingerprint(thread)}:{snooze}",
         )
         return thread
 

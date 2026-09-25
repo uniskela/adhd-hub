@@ -86,6 +86,49 @@ def test_overview_includes_triage_candidates(tmp_path: Path) -> None:
     assert all(t.get("needs_triage") for t in overview["triage_candidates"])
 
 
+def test_repeat_triage_publishes_distinct_activity_events(tmp_path: Path) -> None:
+    """Repeat confirm/snooze after cooldown must not collapse via idempotency."""
+    from adhd_hub.events import THREAD_TRIAGE_CONFIRMED, THREAD_TRIAGE_SNOOZED
+
+    service = _service(tmp_path)
+    tid = _make_stale(service, summary="Repeatable triage")
+
+    service.confirm_thread_relevant(tid)
+    # Simulate cooldown expiry so a second confirm is meaningful.
+    old = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+    with service.store._conn() as conn:
+        conn.execute(
+            "UPDATE threads SET updated_at = ?, last_reminded_at = ?, "
+            "triage_snooze_until = NULL WHERE id = ?",
+            (old, old, tid),
+        )
+    service.confirm_thread_relevant(tid)
+
+    confirms = [
+        e
+        for e in service.store.list_activity_events(limit=50)
+        if e.event_type == THREAD_TRIAGE_CONFIRMED and e.thread_id == tid
+    ]
+    assert len(confirms) == 2
+    assert confirms[0].idempotency_key != confirms[1].idempotency_key
+
+    tid2 = _make_stale(service, summary="Repeatable snooze")
+    service.snooze_thread_triage(tid2, days=7)
+    with service.store._conn() as conn:
+        conn.execute(
+            "UPDATE threads SET updated_at = ?, triage_snooze_until = ? WHERE id = ?",
+            (old, old, tid2),
+        )
+    service.snooze_thread_triage(tid2, days=7)
+    snoozes = [
+        e
+        for e in service.store.list_activity_events(limit=50)
+        if e.event_type == THREAD_TRIAGE_SNOOZED and e.thread_id == tid2
+    ]
+    assert len(snoozes) == 2
+    assert snoozes[0].idempotency_key != snoozes[1].idempotency_key
+
+
 def test_triage_api_endpoints(tmp_path: Path) -> None:
     settings = Settings(
         data_dir=tmp_path / "data",
