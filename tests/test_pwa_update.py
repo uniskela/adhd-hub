@@ -25,6 +25,8 @@ def test_pwa_update_client_offers_refresh_toast() -> None:
     assert 'key: UPDATE_TOAST_KEY' in src or 'key: "pwa-update"' in src
     assert 'label: "Refresh"' in src
     assert "controllerchange" in src
+    # Reload only the tab that clicked Refresh (activating), not every controlled tab.
+    assert "hadController && activating && !refreshing" in src
     assert "registration.update()" in src
     assert "visibilitychange" in src
 

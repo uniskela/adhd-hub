@@ -75,8 +75,9 @@ export function registerPwaUpdates() {
   };
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    // First install claims without interrupting. An update reloads only after Refresh.
-    if (hadController && !refreshing) {
+    // First install claims without interrupting. Reload only this tab after Refresh
+    // (other controlled tabs get controllerchange via clients.claim but keep working).
+    if (hadController && activating && !refreshing) {
       refreshing = true;
       window.location.reload();
     }
