@@ -282,6 +282,8 @@ function aiAutoSummariseNotesEnabled() {
 
 export async function summariseNotes({ mode = "force", quiet = false } = {}) {
     const threadId = notesThreadId;
+    const request = notesRequest;
+    const isCurrent = () => request === notesRequest && notesThreadId === threadId;
     if (!threadId) {
       if (!quiet) setMsg("Open a thread’s notes first.");
       return;
@@ -306,17 +308,17 @@ export async function summariseNotes({ mode = "force", quiet = false } = {}) {
         method: "POST",
         body: JSON.stringify({ mode }),
       });
-      if (out.progress_html && body && notesThreadId === threadId) {
+      if (out.progress_html && body && isCurrent()) {
         body.innerHTML = out.progress_html;
         wireNotesActions(body);
       }
-      if (!(quiet && out.skipped)) {
+      if (isCurrent() && !(quiet && out.skipped)) {
         setMsg(out.message || "Summary updated.", {
           key: toastKey,
           variant: out.settings_hint ? "warning" : "info",
         });
       }
-      if (out.settings_hint && !quiet) {
+      if (out.settings_hint && !quiet && isCurrent()) {
         showScreen("settings");
         // Soft cue into Preferences → AI (avoid importing settings.js — circular via load.js).
         const prefsTab = document.querySelector('[data-settings-tab="preferences"]');
@@ -331,14 +333,14 @@ export async function summariseNotes({ mode = "force", quiet = false } = {}) {
         }
       }
     } catch (error) {
-      if (!quiet) {
+      if (!quiet && isCurrent()) {
         setMsg(error.message || "Could not summarise notes.", {
           key: toastKey,
           variant: "error",
         });
       }
     } finally {
-      if (btn) {
+      if (btn && isCurrent()) {
         btn.disabled = false;
         btn.textContent = "Summarise";
       }

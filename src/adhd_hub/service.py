@@ -119,6 +119,9 @@ class HubService:
         self.event_bus = EventBus()
         self._rewrite_project_lock = threading.Lock()
         self._rewrite_project_in_flight: set[str] = set()
+        self._notes_summary_lock = threading.Lock()
+        self._notes_summary_in_flight: set[str] = set()
+        self._notes_summary_cv = threading.Condition(self._notes_summary_lock)
         self.store.migrate_work_identity(self._confident_forge_target)
         self.store.migrate_forge_source_metadata()
         self.migrate_forge_connection_profiles()
@@ -1943,6 +1946,10 @@ class HubService:
 
         ``force=True`` (manual Summarise) always calls the provider when AI is on.
         ``force=False`` (auto ensure) skips when a saved card's ``input_hash`` matches.
+
+        Concurrent ensure/force calls for the same thread serialize on a per-thread
+        in-flight guard so only one provider generation runs at a time; waiters
+        recheck the saved hash (ensure) or proceed (force) after the holder finishes.
         """
         from adhd_hub.ai_client import (
             ai_configured,
@@ -1966,106 +1973,146 @@ class HubService:
             note_contents = [n.get("content") or "" for n in notes]
         current_hash = notes_summary_input_hash(thread, note_contents=note_contents)
 
-        if not ai_configured(self.settings):
+        def _response(
+            *,
+            ai_attempted: bool,
+            skipped: bool,
+            settings_hint: bool,
+            message: str,
+            summary_card,
+            html: str | None = None,
+            fresh: bool | None = None,
+        ) -> dict:
+            card = summary_card
+            notes_fresh = (
+                fresh
+                if fresh is not None
+                else bool(
+                    card and card.input_hash and card.input_hash == current_hash
+                )
+            )
             return {
                 "ok": True,
-                "ai_attempted": False,
-                "skipped": False,
-                "settings_hint": True,
+                "ai_attempted": ai_attempted,
+                "skipped": skipped,
+                "settings_hint": settings_hint,
                 "notes_summary_input_hash": current_hash,
-                "notes_summary_fresh": bool(
-                    existing and existing.input_hash and existing.input_hash == current_hash
-                ),
-                "message": (
-                    "AI is off — enable it in Settings → Preferences "
-                    "(AI scan-lines) to summarise notes."
-                ),
-                "summary": existing.to_store_dict() if existing else None,
-                "progress_html": progress_html,
+                "notes_summary_fresh": notes_fresh,
+                "message": message,
+                "summary": card.to_store_dict() if card else None,
+                "progress_html": html if html is not None else progress_html,
                 "thread": pub,
             }
 
+        if not ai_configured(self.settings):
+            return _response(
+                ai_attempted=False,
+                skipped=False,
+                settings_hint=True,
+                message=(
+                    "AI is off — enable it in Settings → Preferences "
+                    "(AI scan-lines) to summarise notes."
+                ),
+                summary_card=existing,
+                fresh=bool(
+                    existing and existing.input_hash and existing.input_hash == current_hash
+                ),
+            )
+
         if not force:
             if not self._ai_config.auto_summarise_notes:
-                return {
-                    "ok": True,
-                    "ai_attempted": False,
-                    "skipped": True,
-                    "settings_hint": False,
-                    "notes_summary_input_hash": current_hash,
-                    "notes_summary_fresh": bool(
+                return _response(
+                    ai_attempted=False,
+                    skipped=True,
+                    settings_hint=False,
+                    message="Auto summarise notes is off.",
+                    summary_card=existing,
+                    fresh=bool(
                         existing
                         and existing.input_hash
                         and existing.input_hash == current_hash
                     ),
-                    "message": "Auto summarise notes is off.",
-                    "summary": existing.to_store_dict() if existing else None,
-                    "progress_html": progress_html,
-                    "thread": pub,
-                }
+                )
             if (
                 existing
                 and existing.has_content()
                 and existing.input_hash
                 and existing.input_hash == current_hash
             ):
-                return {
-                    "ok": True,
-                    "ai_attempted": False,
-                    "skipped": True,
-                    "settings_hint": False,
-                    "notes_summary_input_hash": current_hash,
-                    "notes_summary_fresh": True,
-                    "message": "Summary already matches current notes.",
-                    "summary": existing.to_store_dict(),
-                    "progress_html": progress_html,
-                    "thread": pub,
-                }
+                return _response(
+                    ai_attempted=False,
+                    skipped=True,
+                    settings_hint=False,
+                    message="Summary already matches current notes.",
+                    summary_card=existing,
+                    fresh=True,
+                )
 
-        result = generate_notes_summary(
-            self.settings, thread, note_contents=note_contents
-        )
-        if result.card is not None:
-            card = NotesSummaryCard(
-                done=result.card.done,
-                plan_focus=result.card.plan_focus,
-                next_steps=list(result.card.next_steps),
-                blocked=result.card.blocked,
-                resume=result.card.resume,
-                source=result.card.source,
-                updated_at=result.card.updated_at,
-                input_hash=current_hash,
+        # Serialize provider generation per thread; waiters recheck hash when ensure.
+        with self._notes_summary_cv:
+            while thread.id in self._notes_summary_in_flight:
+                self._notes_summary_cv.wait()
+            if not force:
+                existing = self._read_notes_summary(thread.id)
+                if (
+                    existing
+                    and existing.has_content()
+                    and existing.input_hash
+                    and existing.input_hash == current_hash
+                ):
+                    return _response(
+                        ai_attempted=False,
+                        skipped=True,
+                        settings_hint=False,
+                        message="Summary already matches current notes.",
+                        summary_card=existing,
+                        fresh=True,
+                        html=self.thread_notes_context_html(thread),
+                    )
+            self._notes_summary_in_flight.add(thread.id)
+
+        try:
+            result = generate_notes_summary(
+                self.settings, thread, note_contents=note_contents
             )
-            self._write_notes_summary(thread.id, card)
-            progress_html = self.thread_notes_context_html(thread)
-            return {
-                "ok": True,
-                "ai_attempted": True,
-                "skipped": False,
-                "settings_hint": False,
-                "notes_summary_input_hash": current_hash,
-                "notes_summary_fresh": True,
-                "message": "AI summary updated.",
-                "summary": card.to_store_dict(),
-                "progress_html": progress_html,
-                "thread": pub,
-            }
+            if result.card is not None:
+                card = NotesSummaryCard(
+                    done=result.card.done,
+                    plan_focus=result.card.plan_focus,
+                    next_steps=list(result.card.next_steps),
+                    blocked=result.card.blocked,
+                    resume=result.card.resume,
+                    source=result.card.source,
+                    updated_at=result.card.updated_at,
+                    input_hash=current_hash,
+                )
+                self._write_notes_summary(thread.id, card)
+                return _response(
+                    ai_attempted=True,
+                    skipped=False,
+                    settings_hint=False,
+                    message="AI summary updated.",
+                    summary_card=card,
+                    fresh=True,
+                    html=self.thread_notes_context_html(thread),
+                )
 
-        # Failure: keep any prior card; never invent content or rewrite notes.
-        return {
-            "ok": True,
-            "ai_attempted": True,
-            "skipped": False,
-            "settings_hint": False,
-            "notes_summary_input_hash": current_hash,
-            "notes_summary_fresh": bool(
-                existing and existing.input_hash and existing.input_hash == current_hash
-            ),
-            "message": result.fail_hint or "AI unavailable — notes unchanged.",
-            "summary": existing.to_store_dict() if existing else None,
-            "progress_html": progress_html,
-            "thread": pub,
-        }
+            # Failure: keep any prior card; never invent content or rewrite notes.
+            existing = self._read_notes_summary(thread.id)
+            return _response(
+                ai_attempted=True,
+                skipped=False,
+                settings_hint=False,
+                message=result.fail_hint or "AI unavailable — notes unchanged.",
+                summary_card=existing,
+                fresh=bool(
+                    existing and existing.input_hash and existing.input_hash == current_hash
+                ),
+            )
+        finally:
+            with self._notes_summary_cv:
+                self._notes_summary_in_flight.discard(thread.id)
+                self._notes_summary_cv.notify_all()
 
     def notes_summary_status(self, thread: Thread) -> dict:
         """Hash / freshness metadata for Notes open (no provider call)."""

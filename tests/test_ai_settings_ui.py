@@ -254,6 +254,8 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "rewriteAllInFlight.has(slug)" in work
     assert "rewriteAllInFlight.add(slug)" in work
     assert "enqueueAutoScanEnsure" in work
+    assert "autoScanAttempted" in work
+    assert "scan_line_input_hash" in work
     assert 'mode: "ensure"' in work or "mode: \"ensure\"" in work
     assert "rewriteAllInFlight.delete(slug)" in work
     assert "This may take a moment." in work

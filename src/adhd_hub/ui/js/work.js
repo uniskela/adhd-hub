@@ -859,13 +859,19 @@ function aiAutoSummariseNotesEnabled() {
 
 let autoScanQueue = [];
 let autoScanBusy = false;
+// One ensure attempt per thread content hash in this page session.
+const autoScanAttempted = new Set();
 
-function enqueueAutoScanEnsure(threadIds) {
+function enqueueAutoScanEnsure(threads) {
     if (!aiAutoReviewScanEnabled()) return;
     const slug = state.projectFilter;
     if (rewriteAllInFlightFor(slug)) return;
-    for (const id of threadIds || []) {
+    for (const t of threads || []) {
+      const id = t?.id;
       if (!id || autoScanQueue.includes(id)) continue;
+      const key = `${id}:${t.scan_line_input_hash || ""}`;
+      if (autoScanAttempted.has(key)) continue;
+      autoScanAttempted.add(key);
       autoScanQueue.push(id);
     }
     pumpAutoScanQueue();
@@ -1291,10 +1297,7 @@ export function renderThreads(threads) {
       btn.addEventListener("click", () => rewriteScanLine(btn.dataset.rewriteScan))
     );
     if (aiAutoReviewScanEnabled()) {
-      const needs = (threads || [])
-        .filter((t) => t && t.scan_line_needs_ai)
-        .map((t) => t.id)
-        .filter(Boolean);
+      const needs = (threads || []).filter((t) => t && t.id && t.scan_line_needs_ai);
       if (needs.length) enqueueAutoScanEnsure(needs);
     }
   }
