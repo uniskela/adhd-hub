@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-24** for upcoming **v0.16.0** (Wave 6 shipped on `main` via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) pending; package on `main` is still **v0.15.0**). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-25** (Sydney). Wave 6 / **v0.16.0** is published via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest package and tag is **v0.16.1** (patch guard only). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -24,7 +24,8 @@ The Hub already includes:
 - docs-sync notification wiring for the Uniskela site (#121);
 - ADHD-friendly Notes & context reader (#136);
 - Foundation B3 activity ledger, SSE live invalidation, and sync health (#75 / [#152](https://github.com/uniskela/adhd-hub/pull/152));
-- Wave 6 heuristic and opt-in local LLM thread scan-lines, project tags/filters, last-touch cues, and organiser suggestions with confirm (#52 / [#159](https://github.com/uniskela/adhd-hub/pull/159)–[#162](https://github.com/uniskela/adhd-hub/pull/162)).
+- Wave 6 heuristic and opt-in local LLM thread scan-lines, project tags/filters, last-touch cues, and organiser suggestions with confirm (#52 / [#159](https://github.com/uniskela/adhd-hub/pull/159)–[#162](https://github.com/uniskela/adhd-hub/pull/162));
+- organisation / no-repository projects, notes Summarise, rewrite-all scan lines, and the mobile Projects rail (see [dashboard](../dashboard.md) and [notes](../notes.md)).
 
 Shipped work above does **not** replace the remaining product roadmap below. **NOW** is Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54).
 
@@ -68,7 +69,7 @@ Durable structured activity events, authenticated SSE live invalidation (API ref
 
 ### Wave 6 — AI clarity & project organisation ✅
 
-[#52](https://github.com/uniskela/adhd-hub/issues/52), shipped on `main` for upcoming v0.16.0 via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162). Release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) is pending.
+[#52](https://github.com/uniskela/adhd-hub/issues/52), published in **v0.16.0** via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162). Release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest tag **v0.16.1** is a patch guard only.
 
 - short AI or heuristic thread summaries;
 - calmer project list with tags/categories and useful filters;
@@ -129,7 +130,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 These can land without changing the product-wave sequence:
 
 - [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 7 train; land separately when capacity allows.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.15.0**; do not treat version-string drift as open product work.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.16.1**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 
@@ -142,7 +143,7 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation B1 #73 | Shipped in v0.8.0 |
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
 | Done | Foundation B3 #75 | Event ledger / live UI / sync health (#152) |
-| Done | Wave 6 #52 | Shipped on main for v0.16.0 (#159–#162); release #163 pending |
+| Done | Wave 6 #52 | Published in v0.16.0 (#159–#162); release #163 merged; latest tag v0.16.1 (patch guard) |
 | **Now** | **Wave 7 #54** | Continuity intelligence |
 | Next | Wave 8 #55 | Find & capture |
 | Then | Activity insights #72 | Uses B3 history |
