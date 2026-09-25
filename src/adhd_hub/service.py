@@ -22,6 +22,8 @@ from adhd_hub.events import (
     THREAD_CREATED,
     THREAD_PAUSED,
     THREAD_PROGRESS_UPDATED,
+    THREAD_TRIAGE_CONFIRMED,
+    THREAD_TRIAGE_SNOOZED,
     EventBus,
     publish_activity_event,
 )
@@ -83,6 +85,8 @@ def _history_summary(event) -> str:
         THREAD_PROGRESS_UPDATED: "Progress updated",
         THREAD_COMPLETED: "Thread completed",
         THREAD_PAUSED: "Thread paused",
+        THREAD_TRIAGE_CONFIRMED: "Still relevant confirmed",
+        THREAD_TRIAGE_SNOOZED: "Triage snoozed",
         FORGE_RECONCILE_SUCCEEDED: "Forge sync succeeded",
         FORGE_RECONCILE_FAILED: "Forge sync failed",
     }
@@ -1671,6 +1675,7 @@ class HubService:
         data["scan_line_input_hash"] = fp
         cached_hash = self._scan_cache_hash(cached)
         data["scan_line_cached_hash"] = cached_hash
+        data["needs_triage"] = self._thread_needs_triage(thread)
         auto_review = bool(
             getattr(self, "_ai_config", None)
             and self._ai_config.is_active()
@@ -2380,6 +2385,10 @@ class HubService:
                 r.model_dump(mode="json")
                 for r in self.store.list_reminders(include_handled=False)[:30]
             ],
+            "triage_candidates": [
+                self.thread_public_dict(t)
+                for t in stale[: max(1, int(self.settings.digest_max_nudge))]
+            ],
         }
 
     def agent_overview(self) -> dict:
@@ -2407,6 +2416,17 @@ class HubService:
             ),
             "due_reminders": [
                 r.model_dump(mode="json") for r in self.store.due_reminders()[:10]
+            ],
+            "triage_candidates": [
+                {
+                    "id": t.get("id"),
+                    "summary": t.get("summary"),
+                    "project_slug": t.get("project_slug"),
+                    "resume_step": t.get("resume_step"),
+                    "needs_triage": t.get("needs_triage"),
+                }
+                for t in (full.get("triage_candidates") or [])[:5]
+                if isinstance(t, dict)
             ],
         }
 
@@ -2818,14 +2838,76 @@ class HubService:
         )
 
     def list_stale_threads(self) -> list[Thread]:
+        from datetime import datetime
+
         cutoff = stale_cutoff(self.settings.stale_days)
         remind_cut = stale_cutoff(self.settings.remind_cooldown_days)
-        return [
-            t
-            for t in self.list_open_threads(limit=500)
-            if t.updated_at.replace(tzinfo=UTC) <= cutoff
-            and (t.last_reminded_at is None or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut)
-        ]
+        now = datetime.now(UTC)
+        out: list[Thread] = []
+        for t in self.list_open_threads(limit=500):
+            if t.updated_at.replace(tzinfo=UTC) > cutoff:
+                continue
+            snooze = t.triage_snooze_until
+            if snooze is not None and snooze.replace(tzinfo=UTC) > now:
+                continue
+            if t.last_reminded_at is not None and t.last_reminded_at.replace(tzinfo=UTC) > remind_cut:
+                continue
+            out.append(t)
+        return out
+
+    def _thread_needs_triage(self, thread: Thread) -> bool:
+        """True when a soft “still relevant?” pass is appropriate."""
+        from datetime import datetime
+
+        if thread.status not in {ThreadStatus.open, ThreadStatus.blocked}:
+            return False
+        cutoff = stale_cutoff(self.settings.stale_days)
+        if thread.updated_at.replace(tzinfo=UTC) > cutoff:
+            return False
+        snooze = thread.triage_snooze_until
+        if snooze is not None and snooze.replace(tzinfo=UTC) > datetime.now(UTC):
+            return False
+        remind_cut = stale_cutoff(self.settings.remind_cooldown_days)
+        recently_reminded = (
+            thread.last_reminded_at is not None
+            and thread.last_reminded_at.replace(tzinfo=UTC) > remind_cut
+        )
+        return not recently_reminded
+
+    def confirm_thread_relevant(self, thread_id: str) -> Thread:
+        """Human confirms a stale thread is still relevant (never auto-dismiss)."""
+        thread = self.store.confirm_thread_relevant(thread_id)
+        reminded = (
+            thread.last_reminded_at.isoformat() if thread.last_reminded_at else ""
+        )
+        self._publish_thread_lifecycle(
+            thread,
+            event_type=THREAD_TRIAGE_CONFIRMED,
+            source="api",
+            # state_fingerprint omits last_reminded_at — include it so repeat
+            # confirms after cooldown produce distinct activity events.
+            fingerprint=f"{state_fingerprint(thread)}:{reminded}",
+        )
+        return thread
+
+    def snooze_thread_triage(self, thread_id: str, *, days: int = 7) -> Thread:
+        """Quiet triage prompts for a while; thread stays open."""
+        thread = self.store.snooze_thread_triage(thread_id, days=days)
+        snooze = (
+            thread.triage_snooze_until.isoformat()
+            if thread.triage_snooze_until
+            else ""
+        )
+        self._publish_thread_lifecycle(
+            thread,
+            event_type=THREAD_TRIAGE_SNOOZED,
+            source="api",
+            metadata={"days": max(1, min(30, int(days)))},
+            # state_fingerprint omits triage_snooze_until — include it so
+            # repeat snoozes produce distinct activity events.
+            fingerprint=f"{state_fingerprint(thread)}:{snooze}",
+        )
+        return thread
 
     def check_overlap(self, query: str, limit: int | None = None) -> OverlapResult:
         threads = self.list_open_threads(limit=500)
@@ -3168,11 +3250,20 @@ class HubService:
         return self.store.dismiss_reminder(reminder_id)
 
     def _anti_nag_filter(self, threads: list[Thread]) -> list[Thread]:
+        from datetime import datetime
+
         remind_cut = stale_cutoff(self.settings.remind_cooldown_days)
+        now = datetime.now(UTC)
         filtered = [
             t
             for t in threads
-            if t.last_reminded_at is None or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut
+            if (
+                t.last_reminded_at is None or t.last_reminded_at.replace(tzinfo=UTC) <= remind_cut
+            )
+            and (
+                t.triage_snooze_until is None
+                or t.triage_snooze_until.replace(tzinfo=UTC) <= now
+            )
         ]
         return filtered[: self.settings.digest_max_nudge]
 
@@ -3183,6 +3274,8 @@ class HubService:
         query: str | None = None,
         energy: EnergyLevel | None = None,
     ) -> SessionDigest:
+        from datetime import datetime
+
         project = self.resolve_project(workspace_path=workspace_path, create_if_missing=False)
         project_slug = project.slug if project else None
         open_threads = self.list_open_threads(energy=energy, project_slug=project_slug, limit=200)
@@ -3193,6 +3286,10 @@ class HubService:
             t
             for t in open_threads
             if t.updated_at.replace(tzinfo=UTC) <= stale_cutoff(self.settings.stale_days)
+            and (
+                t.triage_snooze_until is None
+                or t.triage_snooze_until.replace(tzinfo=UTC) <= datetime.now(UTC)
+            )
         ]
         ranked = open_threads
         if query or workspace_path:

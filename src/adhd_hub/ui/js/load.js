@@ -1,6 +1,6 @@
 import { state, $ } from './state.js';
 import { api } from './api.js';
-import { loadChosenThread, renderDriftBanner, renderReminders } from './now.js';
+import { loadChosenThread, renderDriftBanner, renderReminders, renderTriage } from './now.js';
 import { renderStats } from './progress.js';
 import { loadPrefs } from './settings.js';
 import { renderPending, renderProjects, selectProject } from './work.js';
@@ -23,6 +23,7 @@ export async function loadOverview() {
     renderProjects(state.overviewCache.projects || []);
     renderPending(state.overviewCache.pending_actions || []);
     renderReminders(state.overviewCache.due_reminders || [], state.overviewCache.reminders || []);
+    renderTriage(state.overviewCache.triage_candidates || []);
     renderDriftBanner();
   }
 export async function loadAll() {
