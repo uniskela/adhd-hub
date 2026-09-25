@@ -3206,11 +3206,12 @@ class HubService:
         return thread
 
     def undo_mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
-        """Reopen a done thread (Hub-local, or remote-first when externally linked).
+        """Reopen a done thread and its linked remote issue when applicable.
 
-        Stage wiki/progress projections before committing Hub status so a failed
-        filesystem write leaves SQLite done (B2b: failed reopen → unchanged local
-        projection; undo guard stays retryable).
+        Stage wiki/progress projections before remote reopen and Hub status so a
+        failed filesystem write or remote reopen leaves SQLite done (B2b: failed
+        reopen → unchanged local projection; undo guard stays retryable). Remote
+        is only contacted after projections stage successfully.
         """
         current = self.store.get_thread(thread_id)
         if not current:
@@ -3220,10 +3221,6 @@ class HubService:
         from adhd_hub.work_identity import thread_has_external_identity
 
         history = note or "Undone — reopened."
-        if thread_has_external_identity(current):
-            result = self._forge.reopen_external_thread(current)
-            if not result.get("ok"):
-                raise ValueError(result.get("error") or "remote_reopen_failed")
 
         slug = current.project_slug or slugify(current.summary)
         progress_path = self.wiki.progress_path(slug)
@@ -3256,6 +3253,16 @@ class HubService:
             _restore_text_file(progress_path, progress_snap)
             _restore_text_file(index_path, index_snap)
             raise
+
+        if thread_has_external_identity(current):
+            try:
+                result = self._forge.reopen_external_thread(current)
+                if not result.get("ok"):
+                    raise ValueError(result.get("error") or "remote_reopen_failed")
+            except Exception:
+                _restore_text_file(progress_path, progress_snap)
+                _restore_text_file(index_path, index_snap)
+                raise
 
         thread, changed = self.store.transition_status(
             thread_id, ThreadStatus.open, note=history

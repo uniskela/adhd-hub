@@ -5,7 +5,13 @@ from pathlib import Path
 import pytest
 
 from adhd_hub.config import Settings
-from adhd_hub.models import ProgressUpsert, ReminderCreate, ReminderKind, ThreadUpsert
+from adhd_hub.models import (
+    ProgressUpsert,
+    ReminderCreate,
+    ReminderKind,
+    ThreadStatus,
+    ThreadUpsert,
+)
 from adhd_hub.overlap import check_overlap, tokenize
 from adhd_hub.service import HubService
 
@@ -138,6 +144,101 @@ def test_undo_mark_done_index_failure_restores_progress(
         assert not index_path.is_file()
     else:
         assert index_path.read_text(encoding="utf-8") == index_before
+
+
+def test_undo_mark_done_remote_failure_restores_projections(
+    service: HubService, monkeypatch
+) -> None:
+    """After staging, remote reopen failure must restore files and leave done."""
+    from adhd_hub.work_identity import (
+        ExternalIssueState,
+        WorkSource,
+        normalize_external_identity,
+    )
+
+    t = service.upsert_thread(
+        ThreadUpsert(summary="Remote undo fail", project_slug="undo-remote")
+    )
+    identity = normalize_external_identity(
+        WorkSource.github, "github.com", "acme", "app", 42
+    )
+    service.store.attach_external_identity(
+        t.id, identity, external_issue_state=ExternalIssueState.closed
+    )
+    service.store.transition_status(t.id, ThreadStatus.done)
+    slug = t.project_slug or "undo-remote"
+    done_thread = service.store.get_thread(t.id)
+    assert done_thread is not None
+    # Seed done-state projections so restore has a baseline.
+    service.wiki.upsert_progress(
+        slug,
+        "Marked done.",
+        title=done_thread.summary,
+        thread=done_thread,
+        active_threads=[],
+    )
+    service.wiki.rebuild_index(
+        service.store.list_threads(status=ThreadStatus.open, limit=500)
+    )
+    progress_before = service.wiki.read_progress(slug)
+    index_path = service.settings.wiki_dir / "INDEX.md"
+    index_before = index_path.read_text(encoding="utf-8") if index_path.is_file() else None
+
+    monkeypatch.setattr(
+        service._forge,
+        "reopen_external_thread",
+        lambda *_a, **_k: {"ok": False, "error": "remote_reopen_failed:503"},
+    )
+    with pytest.raises(ValueError, match="remote_reopen_failed"):
+        service.undo_mark_done(t.id, note="Undone.")
+
+    refreshed = service.store.get_thread(t.id)
+    assert refreshed is not None
+    assert refreshed.status.value == "done"
+    assert service.wiki.read_progress(slug) == progress_before
+    if index_before is None:
+        assert not index_path.is_file()
+    else:
+        assert index_path.read_text(encoding="utf-8") == index_before
+
+
+def test_undo_mark_done_fs_failure_skips_remote(service: HubService, monkeypatch) -> None:
+    """Projection staging failure must not call remote reopen."""
+    from adhd_hub.work_identity import (
+        ExternalIssueState,
+        WorkSource,
+        normalize_external_identity,
+    )
+
+    t = service.upsert_thread(
+        ThreadUpsert(summary="Skip remote", project_slug="undo-skip-remote")
+    )
+    identity = normalize_external_identity(
+        WorkSource.github, "github.com", "acme", "app", 43
+    )
+    service.store.attach_external_identity(
+        t.id, identity, external_issue_state=ExternalIssueState.closed
+    )
+    service.store.transition_status(t.id, ThreadStatus.done)
+
+    called: list[bool] = []
+
+    def _remote(*_a, **_k):
+        called.append(True)
+        return {"ok": True}
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("simulated disk full")
+
+    monkeypatch.setattr(service._forge, "reopen_external_thread", _remote)
+    monkeypatch.setattr(service.wiki, "upsert_progress", _boom)
+    with pytest.raises(OSError, match="simulated disk full"):
+        service.undo_mark_done(t.id, note="Undone.")
+
+    assert called == []
+    refreshed = service.store.get_thread(t.id)
+    assert refreshed is not None
+    assert refreshed.status.value == "done"
 
 
 def test_session_digest_and_reminder(service: HubService) -> None:

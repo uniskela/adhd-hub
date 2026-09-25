@@ -66,6 +66,12 @@ assert(
 assert(nowSrc.includes("/threads/undo-done"), "undo calls undo-done API");
 assert(nowSrc.includes('label: "Undo"'), "Done toast offers Undo");
 assert(
+  /const retryUndo = \(\) => \{[\s\S]*undoMarkDone\(id, \{[\s\S]*restoreChoice: previousChosen[\s\S]*previousFocus[\s\S]*\}\)\.catch\(\(error\) => \{[\s\S]*label: "Retry"[\s\S]*onClick: retryUndo/.test(
+    nowSrc
+  ),
+  "failed undo recreates keyed toast with Retry"
+);
+assert(
   /finally \{[\s\S]*completing\.delete\(id\);[\s\S]*if \(marked\) \{[\s\S]*label: "Undo"/.test(
     nowSrc
   ),
@@ -73,5 +79,10 @@ assert(
 );
 assert(stateSrc.includes("_toastSetAction"), "setMsg supports toast actions");
 assert(stateSrc.includes("toast-action"), "toast action class wired");
+// Keep toast removal-before-onClick; Retry lives in now.js, not state.js.
+assert(
+  /el\.remove\(\);\s*try \{\s*action\.onClick\(\);/.test(stateSrc),
+  "toast action still removes toast before onClick"
+);
 
 console.log("now_title_undo_smoke: ok");

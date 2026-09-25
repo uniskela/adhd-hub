@@ -561,17 +561,26 @@ export async function markDone(id) {
       // Clear lock before Undo toast so a fast click cannot no-op in undoMarkDone.
       completing.delete(id);
       if (marked) {
+        // _toastSetAction removes the toast before onClick; on failure recreate
+        // the keyed toast with Retry so Finished still has an undo path.
+        const retryUndo = () => {
+          undoMarkDone(id, {
+            restoreChoice: previousChosen,
+            previousFocus,
+          }).catch((error) => {
+            setMsg(error.message, {
+              key: `done-${id}`,
+              duration: 8000,
+              action: { label: "Retry", onClick: retryUndo },
+            });
+          });
+        };
         setMsg("Done. That’s one less thing to hold in your head.", {
           key: `done-${id}`,
           duration: 8000,
           action: {
             label: "Undo",
-            onClick: () => {
-              undoMarkDone(id, {
-                restoreChoice: previousChosen,
-                previousFocus,
-              }).catch((error) => setMsg(error.message));
-            },
+            onClick: retryUndo,
           },
         });
       }
