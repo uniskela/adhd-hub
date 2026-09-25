@@ -134,6 +134,8 @@ def test_rewrite_scan_line_clears_cache_on_provider_failure(
     thread = service.upsert_thread(
         ThreadUpsert(summary="Title", focus="Heuristic focus", source_tool="pytest")
     )
+    primed = service.rewrite_scan_line(thread.id)
+    assert primed["thread"]["scan_line"] == "Cached AI line"
     assert service.thread_public_dict(thread)["scan_line"] == "Cached AI line"
     monkeypatch.setattr(
         "adhd_hub.ai_client.generate_ai_scan_line", lambda *a, **k: None
@@ -221,6 +223,10 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     root = Path(__file__).resolve().parents[1]
     index = (root / "src/adhd_hub/ui/index.html").read_text(encoding="utf-8")
     assert 'id="ai_enabled"' in index
+    assert 'id="ai_auto_review_scan"' in index
+    assert 'id="ai_auto_summarise_notes"' in index
+    assert "Auto review scan lines" in index
+    assert "Auto summarise notes" in index
     assert 'id="btn-save-ai"' in index
     assert 'id="btn-load-ai-models"' in index
     assert 'id="ai_base_url_preset"' in index
@@ -247,6 +253,8 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "rewrite-scan-lines:${slug}" in work
     assert "rewriteAllInFlight.has(slug)" in work
     assert "rewriteAllInFlight.add(slug)" in work
+    assert "enqueueAutoScanEnsure" in work
+    assert 'mode: "ensure"' in work or "mode: \"ensure\"" in work
     assert "rewriteAllInFlight.delete(slug)" in work
     assert "This may take a moment." in work
     assert "rewriteAllInFlight" in work
@@ -317,6 +325,8 @@ def test_ai_base_url_preset_match_logic_in_settings_js() -> None:
     # Save / Test use field, not preset select
     assert 'base_url: $("ai_base_url")?.value.trim()' in settings
     assert 'base_url: baseUrl' in settings
+    assert "auto_review_scan_lines" in settings
+    assert "auto_summarise_notes" in settings
     assert "ai_base_url_preset" not in settings.split("aiConfigPayload")[1].split(
         "export async function saveAiConfig"
     )[0]

@@ -645,10 +645,120 @@ def test_disabling_ai_ignores_old_cached_rewrites(tmp_path: Path, monkeypatch):
     service = HubService(
         Settings(data_dir=tmp_path, auth_token="t", ai_base_url="https://ai.test")
     )
+    from adhd_hub.ai_config import AiConfig
+
+    service.save_ai_config(
+        AiConfig(
+            enabled=True,
+            base_url="https://ai.test",
+            auto_review_scan_lines=True,
+        )
+    )
     thread = service.upsert_thread(ThreadUpsert(summary="Title", focus="Local step"))
     assert service.thread_public_dict(thread)["scan_line"] == "AI line"
     service.settings.ai_base_url = None
     assert service.thread_public_dict(thread)["scan_line"] == "Local step"
+
+
+def test_auto_review_off_skips_provider_on_upsert(tmp_path: Path, monkeypatch):
+    calls = {"n": 0}
+
+    def fake_generate(*a, **k):
+        calls["n"] += 1
+        return AiScanLineResult(text="Should not run")
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", fake_generate)
+    service = HubService(
+        Settings(data_dir=tmp_path / "data", auth_token="t", ai_base_url="https://ai.test")
+    )
+    # Env URL enables AI, but auto review defaults off.
+    thread = service.upsert_thread(
+        ThreadUpsert(summary="Title", focus="Heuristic focus", source_tool="pytest")
+    )
+    assert calls["n"] == 0
+    pub = service.thread_public_dict(thread)
+    assert pub["scan_line"] == "Heuristic focus"
+    assert pub["scan_line_source"] == SCAN_LINE_SOURCE_HEURISTIC
+    assert pub["scan_line_needs_ai"] is False
+
+
+def test_scan_line_ensure_skips_when_hash_matches(tmp_path: Path, monkeypatch):
+    calls = {"n": 0}
+
+    def fake_generate(*a, **k):
+        calls["n"] += 1
+        return AiScanLineResult(text="AI calm scan line for ensure")
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", fake_generate)
+    service = HubService(
+        Settings(data_dir=tmp_path / "data", auth_token="t", ai_base_url="https://ai.test")
+    )
+    from adhd_hub.ai_config import AiConfig
+
+    service.save_ai_config(
+        AiConfig(
+            enabled=True,
+            base_url="https://ai.test",
+            auto_review_scan_lines=True,
+        )
+    )
+    thread = service.upsert_thread(
+        ThreadUpsert(summary="Title", focus="Ensure focus", source_tool="pytest")
+    )
+    assert calls["n"] == 1
+    out = service.rewrite_scan_line(thread.id, force=False)
+    assert out["skipped"] is True
+    assert out["ai_attempted"] is False
+    assert calls["n"] == 1
+    # Drift → ensure calls provider again.
+    updated = service.upsert_thread(
+        ThreadUpsert(
+            id=thread.id,
+            summary="Title",
+            project_slug=thread.project_slug,
+            focus="Changed focus",
+            source_tool="pytest",
+        )
+    )
+    assert calls["n"] == 2
+    out2 = service.rewrite_scan_line(updated.id, force=False)
+    assert out2["skipped"] is True
+    assert calls["n"] == 2
+
+
+def test_scan_line_input_hash_stable_and_ignores_status() -> None:
+    from adhd_hub.ai_client import scan_line_input_hash
+    from adhd_hub.models import Thread, ThreadStatus
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    a = Thread(
+        id="t1",
+        summary="Title",
+        status=ThreadStatus.open,
+        focus="F",
+        goal="G",
+        next_steps=["N"],
+        blocked_reason=None,
+        resume_step="R",
+        created_at=now,
+        updated_at=now,
+    )
+    b = Thread(
+        id="t1",
+        summary="Title",
+        status=ThreadStatus.blocked,
+        focus="F",
+        goal="G",
+        next_steps=["N"],
+        blocked_reason=None,
+        resume_step="R",
+        created_at=now,
+        updated_at=now,
+    )
+    assert scan_line_input_hash(a) == scan_line_input_hash(b)
+    c = a.model_copy(update={"focus": "Other"})
+    assert scan_line_input_hash(a) != scan_line_input_hash(c)
 
 
 def test_ai_config_strips_models_prefix_on_save() -> None:

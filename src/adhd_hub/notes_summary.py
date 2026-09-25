@@ -41,6 +41,7 @@ class NotesSummaryCard:
     resume: str | None = None
     source: str = NOTES_SUMMARY_SOURCE_AI
     updated_at: str | None = None
+    input_hash: str | None = None
 
     def has_content(self) -> bool:
         return bool(
@@ -52,7 +53,7 @@ class NotesSummaryCard:
         )
 
     def to_store_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "done": self.done,
             "plan_focus": self.plan_focus,
             "next": list(self.next_steps[:_NEXT_MAX_ITEMS]),
@@ -61,6 +62,9 @@ class NotesSummaryCard:
             "source": self.source,
             "updated_at": self.updated_at or datetime.now(UTC).isoformat(),
         }
+        if self.input_hash:
+            data["input_hash"] = self.input_hash
+        return data
 
 
 def notes_summary_cache_key(thread_id: str) -> str:
@@ -121,6 +125,10 @@ def parse_notes_summary_payload(raw: object | None) -> NotesSummaryCard | None:
     source = str(raw.get("source") or NOTES_SUMMARY_SOURCE_AI).strip() or NOTES_SUMMARY_SOURCE_AI
     updated = raw.get("updated_at")
     updated_at = str(updated).strip() if isinstance(updated, str) and updated.strip() else None
+    raw_hash = raw.get("input_hash") or raw.get("notes_summary_input_hash")
+    input_hash = (
+        str(raw_hash).strip() if isinstance(raw_hash, str) and raw_hash.strip() else None
+    )
     card = NotesSummaryCard(
         done=done,
         plan_focus=plan,
@@ -129,6 +137,7 @@ def parse_notes_summary_payload(raw: object | None) -> NotesSummaryCard | None:
         resume=resume,
         source=source,
         updated_at=updated_at,
+        input_hash=input_hash,
     )
     return card if card.has_content() else None
 
@@ -183,6 +192,7 @@ def card_from_ai_text(content: str) -> tuple[NotesSummaryCard | None, str | None
             resume=card.resume,
             source=NOTES_SUMMARY_SOURCE_AI,
             updated_at=datetime.now(UTC).isoformat(),
+            input_hash=card.input_hash,
         ),
         None,
     )
