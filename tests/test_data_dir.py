@@ -15,14 +15,33 @@ from adhd_hub.service import HubService
 
 
 def test_relative_data_dir_remaps_in_container(tmp_path, monkeypatch):
+    """Only the known WORKDIR ./data → /app/data default remaps to /data."""
     monkeypatch.setenv("ADHD_HUB_FORCE_CONTAINER_DATA_DIR", "1")
-    monkeypatch.chdir(tmp_path)
+    app_root = tmp_path / "app"
+    app_root.mkdir()
+    monkeypatch.chdir(app_root)
+    legacy = app_root / "data"
     fake_data = tmp_path / "volume-data"
     fake_data.mkdir()
     monkeypatch.setattr("adhd_hub.data_dir.CONTAINER_DATA_DIR", fake_data)
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
 
     resolved = apply_container_data_dir(Path("./data"))
     assert resolved == fake_data
+
+
+def test_custom_relative_path_preserved_in_container(tmp_path, monkeypatch):
+    monkeypatch.setenv("ADHD_HUB_FORCE_CONTAINER_DATA_DIR", "1")
+    app_root = tmp_path / "app"
+    app_root.mkdir()
+    monkeypatch.chdir(app_root)
+    fake_data = tmp_path / "volume-data"
+    fake_data.mkdir()
+    monkeypatch.setattr("adhd_hub.data_dir.CONTAINER_DATA_DIR", fake_data)
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", app_root / "data")
+
+    path = Path("./persistent")
+    assert apply_container_data_dir(path) == path
 
 
 def test_legacy_app_data_path_remaps_in_container(tmp_path, monkeypatch):
@@ -52,6 +71,20 @@ def test_absolute_custom_dir_unchanged_in_container(tmp_path, monkeypatch):
     assert apply_container_data_dir(custom) == custom
 
 
+def test_empty_wiki_scaffolding_not_populated(tmp_path):
+    root = tmp_path / "data"
+    (root / "wiki" / "projects").mkdir(parents=True)
+    assert looks_like_hub_data(root) is False
+
+
+def test_wiki_with_real_file_is_populated(tmp_path):
+    root = tmp_path / "data"
+    wiki = root / "wiki" / "projects"
+    wiki.mkdir(parents=True)
+    (wiki / "x.md").write_text("# x\n", encoding="utf-8")
+    assert looks_like_hub_data(root) is True
+
+
 def test_migrate_legacy_app_data_copies_markers(tmp_path, monkeypatch):
     legacy = tmp_path / "app-data"
     target = tmp_path / "volume"
@@ -72,7 +105,7 @@ def test_migrate_legacy_app_data_copies_markers(tmp_path, monkeypatch):
     assert (legacy / "hub.sqlite3").is_file()
 
 
-def test_migrate_skips_when_target_populated(tmp_path, monkeypatch):
+def test_migrate_skips_existing_files_without_overwrite(tmp_path, monkeypatch):
     legacy = tmp_path / "app-data"
     target = tmp_path / "volume"
     legacy.mkdir()
@@ -80,8 +113,45 @@ def test_migrate_skips_when_target_populated(tmp_path, monkeypatch):
     (legacy / "hub.sqlite3").write_bytes(b"old")
     (target / "hub.sqlite3").write_bytes(b"new")
     monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
+    # Target already has the only legacy file → nothing new to copy.
     assert migrate_legacy_app_data(target) == []
     assert (target / "hub.sqlite3").read_bytes() == b"new"
+
+
+def test_migrate_resumes_after_partial_copy(tmp_path, monkeypatch):
+    legacy = tmp_path / "app-data"
+    target = tmp_path / "volume"
+    legacy.mkdir()
+    target.mkdir()
+    (legacy / "hub.sqlite3").write_bytes(b"sqlite")
+    (legacy / "ai.json").write_text('{"enabled": true}\n', encoding="utf-8")
+    # Interrupted earlier: sqlite landed, ai.json did not.
+    (target / "hub.sqlite3").write_bytes(b"sqlite")
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
+
+    copied = migrate_legacy_app_data(target)
+    assert copied == ["ai.json"]
+    assert (target / "ai.json").read_text(encoding="utf-8") == '{"enabled": true}\n'
+    assert (target / "hub.sqlite3").read_bytes() == b"sqlite"
+
+
+def test_migrate_fills_missing_wiki_under_scaffolding(tmp_path, monkeypatch):
+    legacy = tmp_path / "app-data"
+    target = tmp_path / "volume"
+    legacy.mkdir()
+    target.mkdir()
+    (legacy / "hub.sqlite3").write_bytes(b"sqlite")
+    wiki_src = legacy / "wiki" / "projects"
+    wiki_src.mkdir(parents=True)
+    (wiki_src / "x.md").write_text("# x\n", encoding="utf-8")
+    # ensure_dirs-style empty scaffolding on the volume
+    (target / "wiki" / "projects").mkdir(parents=True)
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", legacy)
+
+    copied = migrate_legacy_app_data(target)
+    assert "wiki" in copied
+    assert (target / "wiki" / "projects" / "x.md").read_text(encoding="utf-8") == "# x\n"
+    assert (target / "hub.sqlite3").read_bytes() == b"sqlite"
 
 
 def test_load_settings_applies_container_remap(tmp_path, monkeypatch):
@@ -90,6 +160,7 @@ def test_load_settings_applies_container_remap(tmp_path, monkeypatch):
     fake_data = tmp_path / "volume-data"
     fake_data.mkdir()
     monkeypatch.setattr("adhd_hub.data_dir.CONTAINER_DATA_DIR", fake_data)
+    monkeypatch.setattr("adhd_hub.data_dir.LEGACY_APP_DATA_DIR", tmp_path / "data")
     monkeypatch.delenv("ADHD_HUB_DATA_DIR", raising=False)
     monkeypatch.delenv("ADHD_HUB_AUTH_TOKEN", raising=False)
     (tmp_path / ".env").write_text(

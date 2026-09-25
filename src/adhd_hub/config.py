@@ -234,6 +234,6 @@ def load_settings(config_path: Path | None = None) -> Settings:
             file_vals[key] = Path(file_vals[key]).expanduser()
 
     settings = Settings(**file_vals)
-    # Containers: remap relative ./data → /data and recover /app/data leftovers.
+    # Containers: remap known /app/data default → /data; recover leftover files.
     settings.data_dir = apply_container_data_dir(settings.data_dir)
     return settings

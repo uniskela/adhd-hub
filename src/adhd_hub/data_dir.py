@@ -1,12 +1,14 @@
 """Container-aware ADHD_HUB_DATA_DIR resolution and legacy path recovery.
 
-Inside the published image the durable volume is ``/data``. A relative path such
-as ``./data`` (or the host-oriented default) resolves under ``WORKDIR`` ``/app``
-and is **not** the Compose/Docker volume — container recreation then looks like
-an upgrade that wiped project tags, ``ai.json``, and scan-line cache.
+Inside the published image the durable volume is ``/data``. The known default
+``./data`` resolves under ``WORKDIR`` ``/app`` to ``/app/data`` and is **not**
+the Compose/Docker volume — container recreation then looks like an upgrade that
+wiped project tags, ``ai.json``, and scan-line cache.
 
-This module remaps those ephemeral paths to ``/data`` in a container and, when
-``/data`` is empty but ``/app/data`` still has Hub files, copies them over once.
+This module remaps that known ephemeral path to ``/data`` in a container and,
+when ``/data`` still lacks Hub files that exist under ``/app/data``, copies the
+missing entries over (without overwriting). Custom relative or bind-mount paths
+are left alone after resolve.
 """
 
 from __future__ import annotations
@@ -29,6 +31,8 @@ _HUB_MARKERS = (
     "prefs.json",
     "forge.json",
     "openclaw.json",
+    "browser_sessions.sqlite3",
+    "connect.sqlite3",
 )
 
 
@@ -42,8 +46,26 @@ def is_container_runtime() -> bool:
     return Path("/.dockerenv").is_file()
 
 
+def _wiki_has_real_files(wiki: Path) -> bool:
+    """True when wiki contains at least one file (empty scaffold dirs do not count)."""
+    try:
+        if not wiki.is_dir():
+            return False
+        for _root, _dirs, files in os.walk(wiki):
+            if files:
+                return True
+    except OSError:
+        return False
+    return False
+
+
 def looks_like_hub_data(path: Path) -> bool:
-    """True when path already holds recognizable Hub persistence files."""
+    """True when path already holds recognizable Hub persistence files.
+
+    Empty ``wiki/`` / ``wiki/projects/`` scaffolding from ``ensure_dirs`` is not
+    enough — those directories alone must not skip legacy migration or mark health
+    as populated.
+    """
     try:
         if not path.is_dir():
             return False
@@ -51,15 +73,11 @@ def looks_like_hub_data(path: Path) -> bool:
         return False
     for name in _HUB_MARKERS:
         try:
-            if (path / name).exists():
+            if (path / name).is_file():
                 return True
         except OSError:
             continue
-    wiki = path / "wiki"
-    try:
-        return wiki.is_dir() and any(wiki.iterdir())
-    except OSError:
-        return False
+    return _wiki_has_real_files(path / "wiki")
 
 
 def resolve_path(data_dir: Path) -> Path:
@@ -74,17 +92,43 @@ def resolve_path(data_dir: Path) -> Path:
 
 
 def is_ephemeral_container_data_dir(data_dir: Path) -> bool:
-    """Relative dirs and ``/app/data`` are lost when the container is recreated."""
-    if not data_dir.is_absolute():
+    """True only for the known ``/app/data`` default (not other relative mounts)."""
+    try:
+        return resolve_path(data_dir) == resolve_path(LEGACY_APP_DATA_DIR)
+    except OSError:
+        return False
+
+
+def _copy_missing(src: Path, dest: Path) -> bool:
+    """Copy ``src`` into ``dest`` without overwriting existing files.
+
+    Returns True if at least one new file was written (dirs alone do not count).
+    """
+    try:
+        if src.is_dir():
+            dest.mkdir(parents=True, exist_ok=True)
+            wrote = False
+            for child in sorted(src.iterdir(), key=lambda p: p.name):
+                if _copy_missing(child, dest / child.name):
+                    wrote = True
+            return wrote
+        if dest.exists():
+            return False
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
         return True
-    return resolve_path(data_dir) == resolve_path(LEGACY_APP_DATA_DIR)
+    except OSError as exc:
+        log.warning("Failed to migrate %s → %s: %s", src, dest, exc)
+        return False
 
 
 def migrate_legacy_app_data(target: Path) -> list[str]:
-    """Copy Hub files from ``/app/data`` into ``target`` when target looks empty.
+    """Copy missing Hub files from ``/app/data`` into ``target``.
 
-    Returns the list of top-level names copied. Never deletes the legacy tree
-    (operators can remove it after verifying the volume).
+    Resumes after a partial/interrupted copy: existing target files are never
+    overwritten; only absent paths are filled. Returns top-level names that
+    received at least one new file. Never deletes the legacy tree (operators can
+    remove it after verifying the volume).
     """
     target = resolve_path(target)
     legacy = LEGACY_APP_DATA_DIR
@@ -95,8 +139,6 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
             return []
     except OSError:
         pass
-    if looks_like_hub_data(target):
-        return []
 
     target.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
@@ -108,16 +150,8 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
 
     for entry in entries:
         dest = target / entry.name
-        if dest.exists():
-            continue
-        try:
-            if entry.is_dir():
-                shutil.copytree(entry, dest, dirs_exist_ok=False)
-            else:
-                shutil.copy2(entry, dest)
+        if _copy_missing(entry, dest):
             copied.append(entry.name)
-        except OSError as exc:
-            log.warning("Failed to migrate %s → %s: %s", entry, dest, exc)
 
     if copied:
         log.warning(
@@ -134,9 +168,9 @@ def migrate_legacy_app_data(target: Path) -> list[str]:
 def apply_container_data_dir(data_dir: Path) -> Path:
     """Return the durable data dir for this process; migrate legacy files if needed.
 
-    Outside a container this is a no-op (returns the resolved path unchanged in
-    meaning — still the caller-supplied location). Inside a container, relative
-    paths and ``/app/data`` become ``/data``.
+    Outside a container this is a no-op (returns the caller-supplied path).
+    Inside a container, only the known ``/app/data`` default becomes ``/data``;
+    other configured relative or absolute paths are preserved after resolve.
     """
     if not is_container_runtime():
         return data_dir
@@ -144,10 +178,12 @@ def apply_container_data_dir(data_dir: Path) -> Path:
     original = data_dir
     if is_ephemeral_container_data_dir(data_dir):
         log.warning(
-            "ADHD_HUB_DATA_DIR=%s is ephemeral inside the container; using %s. "
-            "Set ADHD_HUB_DATA_DIR=/data and mount a named volume or bind at /data "
-            "so project tags, AI settings (ai.json), and scan-line cache survive upgrades.",
+            "ADHD_HUB_DATA_DIR=%s resolves to ephemeral %s inside the container; "
+            "using %s. Set ADHD_HUB_DATA_DIR=/data and mount a named volume or "
+            "bind at /data so project tags, AI settings (ai.json), and scan-line "
+            "cache survive upgrades.",
             original,
+            LEGACY_APP_DATA_DIR,
             CONTAINER_DATA_DIR,
         )
         data_dir = CONTAINER_DATA_DIR

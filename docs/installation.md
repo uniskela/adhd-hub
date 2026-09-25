@@ -28,7 +28,7 @@ ADHD Hub requires a persistent data directory. In the container image that direc
 | `wiki/` | Local markdown wiki / progress files |
 | `browser_sessions.sqlite3` / `connect.sqlite3` | Browser sessions and CLI connect grants |
 
-All of these must sit on the same mounted volume. A relative `ADHD_HUB_DATA_DIR=./data` inside the container resolves under `/app` and is **discarded when the container is recreated** (classic “upgrade wiped my tags / AI settings” symptom). Always use absolute `/data` and mount a volume there.
+All of these must sit on the same mounted volume. A relative `ADHD_HUB_DATA_DIR=./data` inside the container resolves to `/app/data`. On older images (or configs) **without** remapping, that path is **discarded when the container is recreated** (classic “upgrade wiped my tags / AI settings” symptom). Current images remap the known `/app/data` default to `/data` and can copy leftovers into a volume that still lacks Hub files — still pin absolute `/data` with a volume mount so persistence does not depend on remapping.
 
 ## Docker Compose with a published image
 
