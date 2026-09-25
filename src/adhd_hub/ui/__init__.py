@@ -27,6 +27,7 @@ UI_JS_MODULES = {
     "help.js",
     "load.js",
     "boot.js",
+    "pwa-update.js",
 }
 UI_JS_ASSETS = {module: (JS_DIR / module).resolve() for module in UI_JS_MODULES}
 

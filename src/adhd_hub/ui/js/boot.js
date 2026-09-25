@@ -11,6 +11,7 @@ import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
+import { registerPwaUpdates } from './pwa-update.js';
 
 initRepoLinks();
 bindLiveInvalidation();
@@ -394,9 +395,7 @@ document.addEventListener("keydown", (event) => {
   openNotes.open = false;
 });
 fillTimezoneSelect(state.currentTz);
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/ui/sw.js", { scope: "/ui/" }).catch(() => {});
-}
+registerPwaUpdates();
 function requestedThreadId() {
   const params = new URLSearchParams(location.search);
   const id = (params.get("thread") || "").trim();

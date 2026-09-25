@@ -47,7 +47,7 @@ If you terminate TLS in front of the Hub (Caddy, nginx, Tailscale Serve):
 3. Optionally force Secure cookies with `ADHD_HUB_COOKIE_SECURE=true`.
 4. Only trust those headers from your proxy — do not expose the Hub directly to the public internet with proxy trust enabled.
 
-Installable PWA: open `/ui/` over HTTPS (or localhost), then use “Install app” / Add to Home Screen. The service worker caches the UI shell only — never `/api` or MCP.
+Installable PWA: open `/ui/` over HTTPS (or localhost), then use “Install app” / Add to Home Screen. The service worker caches the UI shell only — never `/api` or MCP. When a newer shell is waiting, Hub shows a calm **Refresh** toast; updates are not forced mid-task.
 
 **Note:** First Tailscale SSH from a new machine may require opening a Tailscale authentication URL in the browser.
 
