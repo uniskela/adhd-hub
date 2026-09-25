@@ -170,10 +170,13 @@ export async function suggestThread() {
     const button = $("btn-suggest");
     button.disabled = true;
     try {
-      // Focus mode / drift: prefer the chosen project's open work when set.
+      // Focus mode / drift: prefer available project context (Help me choose
+      // shows with no chosen thread — use My work filter when set).
       const params = new URLSearchParams();
-      if (state.focusModeOn && state.chosenThread?.project_slug) {
-        params.set("focus_project_slug", state.chosenThread.project_slug);
+      const focusSlug =
+        state.chosenThread?.project_slug || state.projectFilter || "";
+      if (state.focusModeOn && focusSlug) {
+        params.set("focus_project_slug", focusSlug);
       }
       const qs = params.toString();
       const data = await api("/next-up" + (qs ? `?${qs}` : ""));

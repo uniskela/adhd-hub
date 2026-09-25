@@ -516,8 +516,10 @@
     button.disabled = true;
     try {
       const params = new URLSearchParams();
-      if (focusModeOn && chosenThread?.project_slug) {
-        params.set("focus_project_slug", chosenThread.project_slug);
+      // Help me choose shows with no chosen thread — use My work filter when set.
+      const focusSlug = chosenThread?.project_slug || projectFilter || "";
+      if (focusModeOn && focusSlug) {
+        params.set("focus_project_slug", focusSlug);
       }
       const qs = params.toString();
       const data = await api("/next-up" + (qs ? `?${qs}` : ""));

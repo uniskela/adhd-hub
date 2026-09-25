@@ -90,6 +90,22 @@ def test_energy_filter_prefers_matching(tmp_path: Path) -> None:
     assert pick.id == low.id
 
 
+def test_energy_preference_not_hard_filter(tmp_path: Path) -> None:
+    """Prefer energy soft-ranks; unmatched energy still returns open work."""
+    service = _service(tmp_path)
+    only = service.upsert_thread(
+        ThreadUpsert(
+            summary="Only high-energy open",
+            energy=EnergyLevel.high,
+            project_slug="solo",
+            resume_step="One step",
+        )
+    )
+    pick = service.pick_next_up(energy=EnergyLevel.low)
+    assert pick is not None
+    assert pick.id == only.id
+
+
 def test_overview_and_api_next_up(tmp_path: Path) -> None:
     settings = Settings(
         data_dir=tmp_path / "data", auth_token="test-token", stale_days=3
@@ -123,3 +139,19 @@ def test_overview_and_api_next_up(tmp_path: Path) -> None:
 def test_rank_next_up_empty() -> None:
     assert pick_next_up([]) is None
     assert rank_next_up([]) == []
+
+
+def test_help_me_choose_uses_project_filter_for_focus(tmp_path: Path) -> None:
+    """Help me choose must send focus_project_slug without requiring chosenThread."""
+    root = Path(__file__).resolve().parents[1]
+    now_js = (root / "src/adhd_hub/ui/js/now.js").read_text(encoding="utf-8")
+    app_js = (root / "src/adhd_hub/ui/app.js").read_text(encoding="utf-8")
+    for src in (now_js, app_js):
+        assert "focus_project_slug" in src
+        assert "projectFilter" in src
+        # Must not require chosenThread alone for the Focus preference.
+        assert "chosenThread?.project_slug ||" in src or "chosenThread?.project_slug || projectFilter" in src
+    assert "state.projectFilter" in now_js
+    # Dead pattern from the CodeRabbit finding — requiring chosenThread only.
+    assert "state.focusModeOn && state.chosenThread?.project_slug" not in now_js
+    assert "focusModeOn && chosenThread?.project_slug)" not in app_js

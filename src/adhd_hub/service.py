@@ -2857,13 +2857,10 @@ class HubService:
         from adhd_hub.next_up import is_stale_for_next_up, pick_next_up
         from adhd_hub.openclaw import stale_cutoff
 
+        # Energy is a ranking preference only — never hard-filter the open pool.
         pool = threads
         if pool is None:
-            pool = self.list_open_threads(
-                energy=energy, project_slug=project_slug, limit=500
-            )
-        elif energy is not None:
-            pool = [t for t in pool if t.energy == energy]
+            pool = self.list_open_threads(project_slug=project_slug, limit=500)
         cutoff = stale_cutoff(self.settings.stale_days)
         stale_ids = {
             t.id for t in pool if is_stale_for_next_up(t, stale_cutoff=cutoff)
