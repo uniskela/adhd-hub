@@ -170,11 +170,26 @@ export async function suggestThread() {
     const button = $("btn-suggest");
     button.disabled = true;
     try {
-      const threads = await api("/threads?status=open&limit=100");
+      // Focus mode / drift: prefer the chosen project's open work when set.
+      const params = new URLSearchParams();
+      if (state.focusModeOn && state.chosenThread?.project_slug) {
+        params.set("focus_project_slug", state.chosenThread.project_slug);
+      }
+      const qs = params.toString();
+      const data = await api("/next-up" + (qs ? `?${qs}` : ""));
       if (state.activeScreen !== "now") return;
-      const candidate = threads.find((thread) => thread.energy === "low") || threads[0];
-      if (!candidate) { $("suggestion").textContent = "No open tasks yet. Save a thought to get started."; return; }
-      $("suggestion").innerHTML = `<p class="hint">${candidate.energy === "low" ? "A low-energy option" : "One option to consider"}</p><h3>${escapeHtml(candidate.summary)}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
+      const candidate = data?.next_up;
+      if (!candidate) {
+        $("suggestion").textContent = "No open tasks yet. Save a thought to get started.";
+        return;
+      }
+      const hint =
+        candidate.resume_step
+          ? "Where you left off"
+          : candidate.energy === "low"
+            ? "A low-energy option"
+            : "One option to consider";
+      $("suggestion").innerHTML = `<p class="hint">${escapeHtml(hint)}</p><h3>${escapeHtml(String(candidate.summary || "Open step"))}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
       $("btn-accept-suggestion").addEventListener("click", () => chooseThread(candidate.id));
     } catch (error) { setMsg("Could not suggest a task: " + error.message); }
     finally { button.disabled = false; }

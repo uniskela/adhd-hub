@@ -792,7 +792,6 @@ class HubService:
             self.thread_public_dict(t)
             for t in self.store.list_threads(project_slugs=scope, limit=100)
         ]
-        open_threads = [t for t in threads if t.get("status") == "open"]
         wiki_cfg = self.wiki_forge_config()
         progress_rel = f"projects/{safe}/PROGRESS.md"
         forge_folder = wiki_cfg.file_web_url(progress_rel)
@@ -824,7 +823,12 @@ class HubService:
             data["tags"] = []
             data["last_touch_at"] = self.store.project_last_touch_by_slug().get(safe)
         data["threads"] = threads
-        data["next_up"] = open_threads[0] if open_threads else None
+        # Rank among this project's open threads (same Next-up rules as overview).
+        open_models = self.store.list_threads(
+            status=ThreadStatus.open, project_slugs=scope, limit=200
+        )
+        pick = self.pick_next_up(threads=open_models)
+        data["next_up"] = self.thread_public_dict(pick) if pick else None
         data["progress"] = self.wiki.read_progress(safe)
         data["progress_path"] = progress_rel
         data["forge"] = {
@@ -2368,7 +2372,11 @@ class HubService:
             "stale": len(stale),
             "done": stats["done_total"],
             "rewards": reward_summary(stats["done_total"]),
-            "next_up": self.thread_public_dict(open_threads[0]) if open_threads else None,
+            "next_up": (
+                self.thread_public_dict(pick)
+                if (pick := self.pick_next_up(threads=open_threads))
+                else None
+            ),
             "blocked": len(blocked),
             "stale_days": self.settings.stale_days,
             "done_today": stats["done_today"],
@@ -2837,6 +2845,36 @@ class HubService:
             limit=limit,
         )
 
+    def pick_next_up(
+        self,
+        *,
+        threads: list[Thread] | None = None,
+        energy: EnergyLevel | None = None,
+        project_slug: str | None = None,
+        focus_project_slug: str | None = None,
+    ) -> Thread | None:
+        """Calm cross-project Next-up pick (Wave 7). Soft ranking only."""
+        from adhd_hub.next_up import is_stale_for_next_up, pick_next_up
+        from adhd_hub.openclaw import stale_cutoff
+
+        pool = threads
+        if pool is None:
+            pool = self.list_open_threads(
+                energy=energy, project_slug=project_slug, limit=500
+            )
+        elif energy is not None:
+            pool = [t for t in pool if t.energy == energy]
+        cutoff = stale_cutoff(self.settings.stale_days)
+        stale_ids = {
+            t.id for t in pool if is_stale_for_next_up(t, stale_cutoff=cutoff)
+        }
+        return pick_next_up(
+            pool,
+            stale_ids=stale_ids,
+            prefer_energy=energy,
+            focus_project_slug=focus_project_slug,
+        )
+
     def list_stale_threads(self) -> list[Thread]:
         from datetime import datetime
 
@@ -3291,6 +3329,8 @@ class HubService:
                 or t.triage_snooze_until.replace(tzinfo=UTC) <= datetime.now(UTC)
             )
         ]
+        from adhd_hub.next_up import rank_next_up
+
         ranked = open_threads
         if query or workspace_path:
             q = " ".join(filter(None, [query, workspace_path]))
@@ -3298,17 +3338,21 @@ class HubService:
             if hits:
                 ranked = [h.thread for h in hits]
             else:
-                ranked = sorted(open_threads, key=lambda t: t.updated_at)[
-                    : self.settings.digest_limit
-                ]
+                ranked = rank_next_up(
+                    open_threads,
+                    stale_ids={t.id for t in stale},
+                    prefer_energy=energy,
+                    focus_project_slug=project_slug,
+                    limit=self.settings.digest_limit,
+                )
         else:
-            ranked = sorted(
+            ranked = rank_next_up(
                 open_threads,
-                key=lambda t: (
-                    0 if t in stale else 1,
-                    t.updated_at,
-                ),
-            )[: self.settings.digest_limit]
+                stale_ids={t.id for t in stale},
+                prefer_energy=energy,
+                focus_project_slug=project_slug,
+                limit=self.settings.digest_limit,
+            )
 
         # Prefer stale for nudges, apply cooldown + max
         nudge_pool = [t for t in ranked if t in stale] or ranked

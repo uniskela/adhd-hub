@@ -482,6 +482,29 @@ def build_mcp(service: HubService) -> MCPServer:
         return rem.model_dump(mode="json")
 
     @mcp.tool()
+    def suggest_next_up(
+        energy: EnergyLevel | None = None,
+        project_slug: str | None = None,
+        focus_project_slug: str | None = None,
+    ) -> dict[str, Any]:
+        """Calm cross-project Next-up pick (Wave 7 continuity intelligence).
+
+        Soft ranking only — prefers quiet/stale open work with a resume cue,
+        optional energy match, and optional focus_project_slug to honour focus
+        mode / drift (stay near the chosen project). Never starts or dismisses
+        work. Prefer this when focus is off and the human asks “what now?”.
+        """
+        e = EnergyLevel(energy) if energy else None
+        pick = service.pick_next_up(
+            energy=e,
+            project_slug=project_slug,
+            focus_project_slug=focus_project_slug,
+        )
+        if not pick:
+            return {"next_up": None}
+        return {"next_up": service.thread_public_dict(pick)}
+
+    @mcp.tool()
     def session_digest(
         workspace_path: str | None = None,
         query: str | None = None,
