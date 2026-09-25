@@ -202,6 +202,75 @@ def test_undo_mark_done_remote_failure_restores_projections(
         assert index_path.read_text(encoding="utf-8") == index_before
 
 
+def test_undo_mark_done_transition_failure_closes_remote(
+    service: HubService, monkeypatch
+) -> None:
+    """After remote reopen, Hub transition failure restores files and closes remote."""
+    from adhd_hub.work_identity import (
+        ExternalIssueState,
+        WorkSource,
+        normalize_external_identity,
+    )
+
+    t = service.upsert_thread(
+        ThreadUpsert(summary="Transition undo fail", project_slug="undo-trans")
+    )
+    identity = normalize_external_identity(
+        WorkSource.github, "github.com", "acme", "app", 77
+    )
+    service.store.attach_external_identity(
+        t.id, identity, external_issue_state=ExternalIssueState.closed
+    )
+    service.store.transition_status(t.id, ThreadStatus.done)
+    slug = t.project_slug or "undo-trans"
+    done_thread = service.store.get_thread(t.id)
+    assert done_thread is not None
+    service.wiki.upsert_progress(
+        slug,
+        "Marked done.",
+        title=done_thread.summary,
+        thread=done_thread,
+        active_threads=[],
+    )
+    service.wiki.rebuild_index(
+        service.store.list_threads(status=ThreadStatus.open, limit=500)
+    )
+    progress_before = service.wiki.read_progress(slug)
+    index_path = service.settings.wiki_dir / "INDEX.md"
+    index_before = index_path.read_text(encoding="utf-8") if index_path.is_file() else None
+
+    reopen_calls: list[str] = []
+    close_calls: list[str] = []
+
+    def _reopen(thread, *_a, **_k):
+        reopen_calls.append(thread.id)
+        return {"ok": True, "number": 77}
+
+    def _close(thread, *_a, **_k):
+        close_calls.append(thread.id)
+        return {"ok": True, "number": 77}
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("simulated transition failure")
+
+    monkeypatch.setattr(service._forge, "reopen_external_thread", _reopen)
+    monkeypatch.setattr(service._forge, "close_external_thread", _close)
+    monkeypatch.setattr(service.store, "transition_status", _boom)
+    with pytest.raises(RuntimeError, match="simulated transition failure"):
+        service.undo_mark_done(t.id, note="Undone.")
+
+    assert reopen_calls == [t.id]
+    assert close_calls == [t.id]
+    refreshed = service.store.get_thread(t.id)
+    assert refreshed is not None
+    assert refreshed.status.value == "done"
+    assert service.wiki.read_progress(slug) == progress_before
+    if index_before is None:
+        assert not index_path.is_file()
+    else:
+        assert index_path.read_text(encoding="utf-8") == index_before
+
+
 def test_undo_mark_done_fs_failure_skips_remote(service: HubService, monkeypatch) -> None:
     """Projection staging failure must not call remote reopen."""
     from adhd_hub.work_identity import (
