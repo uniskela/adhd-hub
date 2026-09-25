@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.17.0](https://github.com/uniskela/adhd-hub/compare/v0.16.1...v0.17.0) (2026-09-25)
+
+
+### Features
+
+* **ai:** opt-in auto scan review and notes summarise with hash drift ([#230](https://github.com/uniskela/adhd-hub/issues/230)) ([0da6d91](https://github.com/uniskela/adhd-hub/commit/0da6d91231607433910598eb5d28fde85fb1b976))
+* **projects:** show descendant threads when selecting a parent ([#229](https://github.com/uniskela/adhd-hub/issues/229)) ([e2535ed](https://github.com/uniskela/adhd-hub/commit/e2535edef11e1afa222b59183a9608ab1b9fecb9))
+
+
+### Bug Fixes
+
+* preserve Hub data across Docker upgrades ([#222](https://github.com/uniskela/adhd-hub/issues/222)) ([c048529](https://github.com/uniskela/adhd-hub/commit/c048529825acb1e650afd16a32aea2d9b4fd98da))
+
+
+### Documentation
+
+* catch up README and roadmap after v0.16.1 ([#223](https://github.com/uniskela/adhd-hub/issues/223)) ([3a894e4](https://github.com/uniskela/adhd-hub/commit/3a894e486c23d8b5402aa6a31e61668c088566fa))
+* stamp README and roadmap at v0.16.2 ([#233](https://github.com/uniskela/adhd-hub/issues/233)) ([b7075b8](https://github.com/uniskela/adhd-hub/commit/b7075b8115df664d3b1c4f8e4031bd79cabb9be7))
+
 ## [0.16.1](https://github.com/uniskela/adhd-hub/compare/v0.16.0...v0.16.1) (2026-09-24)
 
 
