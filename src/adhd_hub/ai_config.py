@@ -35,6 +35,10 @@ class AiConfig(BaseModel):
     model: str = DEFAULT_AI_MODEL
     api_key: str = ""
     timeout_seconds: float = Field(default=DEFAULT_AI_TIMEOUT, gt=0, le=MAX_AI_TIMEOUT)
+    # Opt-in automation (require enabled + base URL). Defaults off — manual rewrite /
+    # Summarise still work when AI is on without these.
+    auto_review_scan_lines: bool = False
+    auto_summarise_notes: bool = False
 
     @field_validator("base_url")
     @classmethod
@@ -68,6 +72,8 @@ class AiConfig(BaseModel):
             "timeout_seconds": self.timeout_seconds,
             "api_key_configured": bool(self.api_key),
             "active": self.is_active(),
+            "auto_review_scan_lines": bool(self.auto_review_scan_lines),
+            "auto_summarise_notes": bool(self.auto_summarise_notes),
         }
 
 

@@ -199,6 +199,12 @@ export async function loadAiConfig() {
     try {
       const config = await api("/ai/config");
       $("ai_enabled").checked = !!config.enabled;
+      if ($("ai_auto_review_scan")) {
+        $("ai_auto_review_scan").checked = !!config.auto_review_scan_lines;
+      }
+      if ($("ai_auto_summarise_notes")) {
+        $("ai_auto_summarise_notes").checked = !!config.auto_summarise_notes;
+      }
       // URL field is source of truth; preset select is derived from it.
       $("ai_base_url").value = config.base_url || "";
       syncAiBaseUrlPreset();
@@ -228,6 +234,8 @@ export function aiConfigPayload() {
     // Always send the URL field value — never a stale preset selection.
     return {
       enabled: !!$("ai_enabled")?.checked,
+      auto_review_scan_lines: !!$("ai_auto_review_scan")?.checked,
+      auto_summarise_notes: !!$("ai_auto_summarise_notes")?.checked,
       base_url: $("ai_base_url")?.value.trim() || "",
       model: ($("ai_model")?.value || "").trim() || "llama3.2",
       timeout_seconds: Number($("ai_timeout")?.value) || 15,

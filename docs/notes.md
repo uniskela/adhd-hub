@@ -16,7 +16,7 @@ When a thread’s notes are open, the reader toolbar offers **Focus on this** (s
 4. **Blocked** — only when something is waiting
 5. **Resume** — optional one concrete action
 
-The card is **persisted on the thread** so it survives reopen. **Regenerate** (press Summarise again) replaces only that card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
+The card is **persisted on the thread** with an **input hash** of continuity fields plus scrubbed note snippets, so reopen keeps the last card until regenerate. **Auto summarise notes** (Settings, default off) runs Summarise when you open Notes & Context if there is no card or the hash drifted; a matching hash shows the cached card with no AI call (`POST …/notes-summary` with `{"mode":"ensure"}`). **Regenerate** (press Summarise) always forces a new card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
 
 ## Project overview
 

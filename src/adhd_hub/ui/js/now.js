@@ -271,10 +271,21 @@ function wireNotesActions(root) {
     });
   }
 
-export async function summariseNotes() {
+function aiAutoSummariseNotesEnabled() {
+    const cfg = state.aiConfigCache;
+    if (!cfg) return false;
+    const active = cfg.active != null
+      ? Boolean(cfg.active)
+      : Boolean(cfg.enabled && String(cfg.base_url || "").trim());
+    return Boolean(active && cfg.auto_summarise_notes);
+  }
+
+export async function summariseNotes({ mode = "force", quiet = false } = {}) {
     const threadId = notesThreadId;
+    const request = notesRequest;
+    const isCurrent = () => request === notesRequest && notesThreadId === threadId;
     if (!threadId) {
-      setMsg("Open a thread’s notes first.");
+      if (!quiet) setMsg("Open a thread’s notes first.");
       return;
     }
     const btn = $("btn-notes-summarise");
@@ -282,24 +293,32 @@ export async function summariseNotes() {
     const toastKey = "notes-summarise";
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Summarising…";
+      btn.textContent = mode === "ensure" ? "Checking…" : "Summarising…";
     }
     // Sticky keyed toast: AI calls can outlast the default info dismiss window.
-    setMsg("Summarising notes…", { key: toastKey, sticky: true, variant: "info" });
+    if (!quiet) {
+      setMsg(mode === "ensure" ? "Updating notes summary…" : "Summarising notes…", {
+        key: toastKey,
+        sticky: true,
+        variant: "info",
+      });
+    }
     try {
       const out = await api(`/threads/${encodeURIComponent(threadId)}/notes-summary`, {
         method: "POST",
-        body: "{}",
+        body: JSON.stringify({ mode }),
       });
-      if (out.progress_html && body && notesThreadId === threadId) {
+      if (out.progress_html && body && isCurrent()) {
         body.innerHTML = out.progress_html;
         wireNotesActions(body);
       }
-      setMsg(out.message || "Summary updated.", {
-        key: toastKey,
-        variant: out.settings_hint ? "warning" : "info",
-      });
-      if (out.settings_hint) {
+      if (isCurrent() && !(quiet && out.skipped)) {
+        setMsg(out.message || "Summary updated.", {
+          key: toastKey,
+          variant: out.settings_hint ? "warning" : "info",
+        });
+      }
+      if (out.settings_hint && !quiet && isCurrent()) {
         showScreen("settings");
         // Soft cue into Preferences → AI (avoid importing settings.js — circular via load.js).
         const prefsTab = document.querySelector('[data-settings-tab="preferences"]');
@@ -314,12 +333,14 @@ export async function summariseNotes() {
         }
       }
     } catch (error) {
-      setMsg(error.message || "Could not summarise notes.", {
-        key: toastKey,
-        variant: "error",
-      });
+      if (!quiet && isCurrent()) {
+        setMsg(error.message || "Could not summarise notes.", {
+          key: toastKey,
+          variant: "error",
+        });
+      }
     } finally {
-      if (btn) {
+      if (btn && isCurrent()) {
         btn.disabled = false;
         btn.textContent = "Summarise";
       }
@@ -370,6 +391,13 @@ async function openNotesReader(trigger) {
       body.innerHTML = data.progress_html || "<p class=\"notes-empty-hint\">No saved notes yet.</p>";
       wireNotesActions(body);
       body.focus({ preventScroll: true });
+      if (
+        notesThreadId
+        && aiAutoSummariseNotesEnabled()
+        && data.notes_summary_needs_ai
+      ) {
+        summariseNotes({ mode: "ensure", quiet: true }).catch(() => {});
+      }
     } catch (_) {
       if (request === notesRequest) body.textContent = "Could not load notes. Close and reopen to retry.";
     }

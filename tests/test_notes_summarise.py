@@ -261,3 +261,173 @@ def test_reader_html_includes_persisted_summary_without_api(tmp_path: Path) -> N
     assert "Already summarised" in html
     assert "notes-continuity-card" in html
     assert "Reopen" in html
+
+
+def test_notes_summary_ensure_skips_when_hash_matches(tmp_path: Path, monkeypatch) -> None:
+    service = _service(tmp_path)
+    from adhd_hub.ai_config import AiConfig
+
+    service.save_ai_config(
+        AiConfig(
+            enabled=True,
+            base_url="https://ai.test/v1",
+            auto_summarise_notes=True,
+        )
+    )
+    thread = service.store.upsert_thread(
+        ThreadUpsert(
+            summary="Hash skip",
+            project_slug="demo",
+            focus="Persist hash",
+            goal="Skip provider",
+            next_steps=["A"],
+            resume_step="Open notes",
+        )
+    )
+    service.store.add_progress_note("demo", "## Human\n\nChose hash skip", thread_id=thread.id)
+    calls = {"n": 0}
+
+    def fake_generate(settings, thr, *, note_contents=None, client=None):
+        calls["n"] += 1
+        return AiNotesSummaryResult(
+            card=NotesSummaryCard(
+                done="Cached done",
+                plan_focus="Persist hash",
+                next_steps=["A"],
+                resume="Open notes",
+            )
+        )
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_notes_summary", fake_generate)
+    out1 = service.summarise_notes(thread.id, force=False)
+    assert out1["ai_attempted"] is True
+    assert out1["skipped"] is False
+    assert out1["notes_summary_fresh"] is True
+    assert calls["n"] == 1
+    assert out1["summary"]["input_hash"]
+
+    out2 = service.summarise_notes(thread.id, force=False)
+    assert out2["skipped"] is True
+    assert out2["ai_attempted"] is False
+    assert calls["n"] == 1
+
+    # Drift notes → miss → AI again.
+    service.store.add_progress_note("demo", "## Human\n\nNew decision", thread_id=thread.id)
+    out3 = service.summarise_notes(thread.id, force=False)
+    assert out3["skipped"] is False
+    assert out3["ai_attempted"] is True
+    assert calls["n"] == 2
+
+
+def test_notes_summary_ensure_respects_auto_toggle_off(tmp_path: Path, monkeypatch) -> None:
+    service = _service(tmp_path)
+    from adhd_hub.ai_config import AiConfig
+
+    service.save_ai_config(
+        AiConfig(enabled=True, base_url="https://ai.test/v1", auto_summarise_notes=False)
+    )
+    thread = service.store.upsert_thread(
+        ThreadUpsert(summary="No auto", project_slug="demo", focus="Manual only")
+    )
+    calls = {"n": 0}
+
+    def fake_generate(*a, **k):
+        calls["n"] += 1
+        return AiNotesSummaryResult(
+            card=NotesSummaryCard(done="X", plan_focus="Y", next_steps=["Z"])
+        )
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_notes_summary", fake_generate)
+    out = service.summarise_notes(thread.id, force=False)
+    assert out["skipped"] is True
+    assert calls["n"] == 0
+    # Manual force still works.
+    out2 = service.summarise_notes(thread.id, force=True)
+    assert out2["ai_attempted"] is True
+    assert calls["n"] == 1
+
+
+def test_notes_summary_ensure_coalesces_concurrent_same_thread(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Concurrent ensure calls share one provider generation; the waiter hash-skips."""
+    import threading
+
+    service = _service(tmp_path)
+    from adhd_hub.ai_config import AiConfig
+
+    service.save_ai_config(
+        AiConfig(
+            enabled=True,
+            base_url="https://ai.test/v1",
+            auto_summarise_notes=True,
+        )
+    )
+    thread = service.store.upsert_thread(
+        ThreadUpsert(
+            summary="Coalesce ensure",
+            project_slug="demo",
+            focus="One provider call",
+            goal="Share in-flight generation",
+            next_steps=["Wait then skip"],
+            resume_step="Open notes",
+        )
+    )
+    service.store.add_progress_note(
+        "demo", "## Human\n\nConcurrent ensure", thread_id=thread.id
+    )
+    gate = threading.Event()
+    entered = threading.Event()
+    calls = {"n": 0}
+    outcomes: list[dict] = []
+    errors: list[BaseException] = []
+    lock = threading.Lock()
+
+    def slow_generate(settings, thr, *, note_contents=None, client=None):
+        calls["n"] += 1
+        entered.set()
+        gate.wait(timeout=5)
+        return AiNotesSummaryResult(
+            card=NotesSummaryCard(
+                done="Coalesced",
+                plan_focus="One provider call",
+                next_steps=["Wait then skip"],
+                resume="Open notes",
+            )
+        )
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_notes_summary", slow_generate)
+
+    def run() -> None:
+        try:
+            out = service.summarise_notes(thread.id, force=False)
+            with lock:
+                outcomes.append(out)
+        except BaseException as exc:  # noqa: BLE001 — capture for assertion
+            with lock:
+                errors.append(exc)
+
+    workers = [threading.Thread(target=run) for _ in range(2)]
+    for worker in workers:
+        worker.start()
+    assert entered.wait(timeout=5)
+    gate.set()
+    for worker in workers:
+        worker.join(timeout=5)
+
+    assert not errors
+    assert len(outcomes) == 2
+    assert calls["n"] == 1
+    assert sum(1 for out in outcomes if out.get("ai_attempted")) == 1
+    assert sum(1 for out in outcomes if out.get("skipped")) == 1
+
+
+def test_notes_summary_input_hash_changes_with_notes() -> None:
+    from adhd_hub.ai_client import notes_summary_input_hash
+
+    thread = _thread()
+    a = notes_summary_input_hash(thread, note_contents=["## Human\n\nAlpha"])
+    b = notes_summary_input_hash(thread, note_contents=["## Human\n\nAlpha"])
+    c = notes_summary_input_hash(thread, note_contents=["## Human\n\nBeta"])
+    assert a == b
+    assert a != c

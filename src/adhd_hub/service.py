@@ -119,6 +119,9 @@ class HubService:
         self.event_bus = EventBus()
         self._rewrite_project_lock = threading.Lock()
         self._rewrite_project_in_flight: set[str] = set()
+        self._notes_summary_lock = threading.Lock()
+        self._notes_summary_in_flight: set[str] = set()
+        self._notes_summary_cv = threading.Condition(self._notes_summary_lock)
         self.store.migrate_work_identity(self._confident_forge_target)
         self.store.migrate_forge_source_metadata()
         self.migrate_forge_connection_profiles()
@@ -1582,12 +1585,10 @@ class HubService:
                 snippet = self.wiki.read_progress(thread.project_slug)
                 if snippet:
                     data["progress_snippet"] = snippet[-800:]
-        from adhd_hub.clarity import attach_scan_line
-        from adhd_hub.thread_state import state_fingerprint
+        from adhd_hub.ai_client import ai_configured, scan_line_input_hash
+        from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, attach_scan_line
 
-        fp = state_fingerprint(thread)
-        from adhd_hub.ai_client import ai_configured
-
+        fp = scan_line_input_hash(thread)
         cached = self._read_scan_cache(thread.id) if ai_configured(self.settings) else None
         attach_scan_line(
             data,
@@ -1595,10 +1596,38 @@ class HubService:
             progress_snippet=scan_progress_snippet,
             cached_line=(cached or {}).get("scan_line"),
             cached_source=(cached or {}).get("source"),
-            cached_fingerprint=(cached or {}).get("fingerprint"),
+            cached_fingerprint=self._scan_cache_hash(cached),
             fingerprint=fp,
         )
+        data["scan_line_input_hash"] = fp
+        cached_hash = self._scan_cache_hash(cached)
+        data["scan_line_cached_hash"] = cached_hash
+        auto_review = bool(
+            getattr(self, "_ai_config", None)
+            and self._ai_config.is_active()
+            and self._ai_config.auto_review_scan_lines
+        )
+        needs_ai = bool(
+            auto_review
+            and (
+                not cached
+                or cached_hash != fp
+                or (cached or {}).get("source") != SCAN_LINE_SOURCE_AI
+                or not (cached or {}).get("scan_line")
+            )
+        )
+        data["scan_line_needs_ai"] = needs_ai
         return data
+
+    @staticmethod
+    def _scan_cache_hash(cached: dict | None) -> str | None:
+        if not cached:
+            return None
+        for key in ("input_hash", "scan_line_input_hash", "fingerprint"):
+            value = cached.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
 
     def _scan_cache_key(self, thread_id: str) -> str:
         return f"scan_line_cache:{thread_id}"
@@ -1618,29 +1647,39 @@ class HubService:
     def _write_scan_cache(
         self, thread_id: str, *, fingerprint: str, scan_line: str, source: str
     ) -> None:
+        # ``fingerprint`` kept for older readers; ``input_hash`` is the canonical key.
         self.store.set_meta(
             self._scan_cache_key(thread_id),
             {
                 "fingerprint": fingerprint,
+                "input_hash": fingerprint,
                 "scan_line": scan_line,
                 "source": source,
             },
         )
 
-    def refresh_scan_line_ai(self, thread: Thread, *, force: bool = False) -> None:
-        """Best-effort AI rewrite when configured; stores cache for later reads."""
-        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line
+    def refresh_scan_line_ai(
+        self, thread: Thread, *, force: bool = False, require_auto_toggle: bool = False
+    ) -> None:
+        """Best-effort AI rewrite when configured; stores cache for later reads.
+
+        Automatic save/progress callers pass ``require_auto_toggle=True`` so the
+        opt-in Settings toggle gates provider calls. Direct callers (tests,
+        ensure helpers) omit that and still hash-skip unless ``force=True``.
+        """
+        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line, scan_line_input_hash
         from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
-        from adhd_hub.thread_state import state_fingerprint
 
         if not ai_configured(self.settings):
             return
-        fp = state_fingerprint(thread)
+        if require_auto_toggle and not self._ai_config.auto_review_scan_lines:
+            return
+        fp = scan_line_input_hash(thread)
         cached = self._read_scan_cache(thread.id)
         if (
             not force
             and cached
-            and cached.get("fingerprint") == fp
+            and self._scan_cache_hash(cached) == fp
             and cached.get("source") == SCAN_LINE_SOURCE_AI
             and cached.get("scan_line")
         ):
@@ -1668,11 +1707,10 @@ class HubService:
             fail_hint="AI unavailable — showing the heuristic line."
         )
 
-    def rewrite_scan_line(self, thread_id: str) -> dict:
-        """Manual AI rewrite for the UI. Falls back to heuristic on failure/off."""
-        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line
+    def rewrite_scan_line(self, thread_id: str, *, force: bool = True) -> dict:
+        """Manual or ensure AI rewrite for the UI. Falls back to heuristic on failure/off."""
+        from adhd_hub.ai_client import ai_configured, generate_ai_scan_line, scan_line_input_hash
         from adhd_hub.clarity import SCAN_LINE_SOURCE_AI
-        from adhd_hub.thread_state import state_fingerprint
 
         thread = self.store.get_thread(thread_id)
         if not thread:
@@ -1682,10 +1720,37 @@ class HubService:
             return {
                 "ok": True,
                 "ai_attempted": False,
+                "skipped": False,
                 "message": "AI scan-lines are off — showing the heuristic line.",
                 "thread": pub,
             }
-        fp = state_fingerprint(thread)
+        fp = scan_line_input_hash(thread)
+        if not force:
+            cached = self._read_scan_cache(thread.id)
+            if (
+                cached
+                and self._scan_cache_hash(cached) == fp
+                and cached.get("source") == SCAN_LINE_SOURCE_AI
+                and cached.get("scan_line")
+            ):
+                pub = self.thread_public_dict(thread)
+                return {
+                    "ok": True,
+                    "ai_attempted": False,
+                    "skipped": True,
+                    "message": "Scan line already matches current content.",
+                    "thread": pub,
+                }
+            # Soft ensure respects the auto-review toggle (opportunistic UI).
+            if not self._ai_config.auto_review_scan_lines:
+                pub = self.thread_public_dict(thread)
+                return {
+                    "ok": True,
+                    "ai_attempted": False,
+                    "skipped": True,
+                    "message": "Auto review scan lines is off.",
+                    "thread": pub,
+                }
         raw = generate_ai_scan_line(self.settings, thread)
         result = self._coerce_ai_scan_result(raw)
         if result.text:
@@ -1699,6 +1764,7 @@ class HubService:
             return {
                 "ok": True,
                 "ai_attempted": True,
+                "skipped": False,
                 "message": "AI scan line updated.",
                 "thread": pub,
             }
@@ -1708,6 +1774,7 @@ class HubService:
         return {
             "ok": True,
             "ai_attempted": True,
+            "skipped": False,
             "message": result.fail_hint
             or "AI unavailable — showing the heuristic line.",
             "thread": pub,
@@ -1874,9 +1941,22 @@ class HubService:
             return ""
         return notes_summary_card_html(card)
 
-    def summarise_notes(self, thread_id: str) -> dict:
-        """One-shot AI Notes summarise for the reader. Never rewrites progress notes."""
-        from adhd_hub.ai_client import ai_configured, generate_notes_summary
+    def summarise_notes(self, thread_id: str, *, force: bool = True) -> dict:
+        """AI Notes summarise for the reader. Never rewrites progress notes.
+
+        ``force=True`` (manual Summarise) always calls the provider when AI is on.
+        ``force=False`` (auto ensure) skips when a saved card's ``input_hash`` matches.
+
+        Concurrent ensure/force calls for the same thread serialize on a per-thread
+        in-flight guard so only one provider generation runs at a time; waiters
+        recheck the saved hash (ensure) or proceed (force) after the holder finishes.
+        """
+        from adhd_hub.ai_client import (
+            ai_configured,
+            generate_notes_summary,
+            notes_summary_input_hash,
+        )
+        from adhd_hub.notes_summary import NotesSummaryCard
 
         thread = self.store.get_thread(thread_id)
         if not thread:
@@ -1886,51 +1966,180 @@ class HubService:
         pub = self.thread_public_dict(thread)
         progress_html = self.thread_notes_context_html(thread)
 
-        if not ai_configured(self.settings):
+        note_contents: list[str] = []
+        slug = thread.project_slug
+        if slug:
+            notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
+            note_contents = [n.get("content") or "" for n in notes]
+        current_hash = notes_summary_input_hash(thread, note_contents=note_contents)
+
+        def _response(
+            *,
+            ai_attempted: bool,
+            skipped: bool,
+            settings_hint: bool,
+            message: str,
+            summary_card,
+            html: str | None = None,
+            fresh: bool | None = None,
+        ) -> dict:
+            card = summary_card
+            notes_fresh = (
+                fresh
+                if fresh is not None
+                else bool(
+                    card and card.input_hash and card.input_hash == current_hash
+                )
+            )
             return {
                 "ok": True,
-                "ai_attempted": False,
-                "settings_hint": True,
-                "message": (
+                "ai_attempted": ai_attempted,
+                "skipped": skipped,
+                "settings_hint": settings_hint,
+                "notes_summary_input_hash": current_hash,
+                "notes_summary_fresh": notes_fresh,
+                "message": message,
+                "summary": card.to_store_dict() if card else None,
+                "progress_html": html if html is not None else progress_html,
+                "thread": pub,
+            }
+
+        if not ai_configured(self.settings):
+            return _response(
+                ai_attempted=False,
+                skipped=False,
+                settings_hint=True,
+                message=(
                     "AI is off — enable it in Settings → Preferences "
                     "(AI scan-lines) to summarise notes."
                 ),
-                "summary": existing.to_store_dict() if existing else None,
-                "progress_html": progress_html,
-                "thread": pub,
-            }
+                summary_card=existing,
+                fresh=bool(
+                    existing and existing.input_hash and existing.input_hash == current_hash
+                ),
+            )
+
+        if not force:
+            if not self._ai_config.auto_summarise_notes:
+                return _response(
+                    ai_attempted=False,
+                    skipped=True,
+                    settings_hint=False,
+                    message="Auto summarise notes is off.",
+                    summary_card=existing,
+                    fresh=bool(
+                        existing
+                        and existing.input_hash
+                        and existing.input_hash == current_hash
+                    ),
+                )
+            if (
+                existing
+                and existing.has_content()
+                and existing.input_hash
+                and existing.input_hash == current_hash
+            ):
+                return _response(
+                    ai_attempted=False,
+                    skipped=True,
+                    settings_hint=False,
+                    message="Summary already matches current notes.",
+                    summary_card=existing,
+                    fresh=True,
+                )
+
+        # Serialize provider generation per thread; waiters recheck hash when ensure.
+        with self._notes_summary_cv:
+            while thread.id in self._notes_summary_in_flight:
+                self._notes_summary_cv.wait()
+            if not force:
+                existing = self._read_notes_summary(thread.id)
+                if (
+                    existing
+                    and existing.has_content()
+                    and existing.input_hash
+                    and existing.input_hash == current_hash
+                ):
+                    return _response(
+                        ai_attempted=False,
+                        skipped=True,
+                        settings_hint=False,
+                        message="Summary already matches current notes.",
+                        summary_card=existing,
+                        fresh=True,
+                        html=self.thread_notes_context_html(thread),
+                    )
+            self._notes_summary_in_flight.add(thread.id)
+
+        try:
+            result = generate_notes_summary(
+                self.settings, thread, note_contents=note_contents
+            )
+            if result.card is not None:
+                card = NotesSummaryCard(
+                    done=result.card.done,
+                    plan_focus=result.card.plan_focus,
+                    next_steps=list(result.card.next_steps),
+                    blocked=result.card.blocked,
+                    resume=result.card.resume,
+                    source=result.card.source,
+                    updated_at=result.card.updated_at,
+                    input_hash=current_hash,
+                )
+                self._write_notes_summary(thread.id, card)
+                return _response(
+                    ai_attempted=True,
+                    skipped=False,
+                    settings_hint=False,
+                    message="AI summary updated.",
+                    summary_card=card,
+                    fresh=True,
+                    html=self.thread_notes_context_html(thread),
+                )
+
+            # Failure: keep any prior card; never invent content or rewrite notes.
+            existing = self._read_notes_summary(thread.id)
+            return _response(
+                ai_attempted=True,
+                skipped=False,
+                settings_hint=False,
+                message=result.fail_hint or "AI unavailable — notes unchanged.",
+                summary_card=existing,
+                fresh=bool(
+                    existing and existing.input_hash and existing.input_hash == current_hash
+                ),
+            )
+        finally:
+            with self._notes_summary_cv:
+                self._notes_summary_in_flight.discard(thread.id)
+                self._notes_summary_cv.notify_all()
+
+    def notes_summary_status(self, thread: Thread) -> dict:
+        """Hash / freshness metadata for Notes open (no provider call)."""
+        from adhd_hub.ai_client import notes_summary_input_hash
 
         note_contents: list[str] = []
         slug = thread.project_slug
         if slug:
             notes = self.store.list_progress_notes(slug, limit=40, thread_id=thread.id)
             note_contents = [n.get("content") or "" for n in notes]
-
-        result = generate_notes_summary(
-            self.settings, thread, note_contents=note_contents
+        current_hash = notes_summary_input_hash(thread, note_contents=note_contents)
+        existing = self._read_notes_summary(thread.id)
+        fresh = bool(
+            existing
+            and existing.has_content()
+            and existing.input_hash
+            and existing.input_hash == current_hash
         )
-        if result.card is not None:
-            self._write_notes_summary(thread.id, result.card)
-            progress_html = self.thread_notes_context_html(thread)
-            return {
-                "ok": True,
-                "ai_attempted": True,
-                "settings_hint": False,
-                "message": "AI summary updated.",
-                "summary": result.card.to_store_dict(),
-                "progress_html": progress_html,
-                "thread": pub,
-            }
-
-        # Failure: keep any prior card; never invent content or rewrite notes.
+        auto = bool(
+            self._ai_config.is_active() and self._ai_config.auto_summarise_notes
+        )
         return {
-            "ok": True,
-            "ai_attempted": True,
-            "settings_hint": False,
-            "message": result.fail_hint or "AI unavailable — notes unchanged.",
+            "notes_summary_input_hash": current_hash,
+            "notes_summary_cached_hash": existing.input_hash if existing else None,
+            "notes_summary_fresh": fresh,
+            "notes_summary_needs_ai": bool(auto and not fresh),
             "summary": existing.to_store_dict() if existing else None,
-            "progress_html": progress_html,
-            "thread": pub,
         }
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:
@@ -2490,7 +2699,7 @@ class HubService:
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         self._forge_after_thread(thread)
         try:
-            self.refresh_scan_line_ai(thread)
+            self.refresh_scan_line_ai(thread, require_auto_toggle=True)
         except Exception as exc:  # noqa: BLE001 — never block mutations on AI
             log.debug("scan-line AI refresh skipped: %s", exc)
         return thread
@@ -2725,7 +2934,7 @@ class HubService:
                     metadata={"created_thread": False},
                 )
             try:
-                self.refresh_scan_line_ai(thread)
+                self.refresh_scan_line_ai(thread, require_auto_toggle=True)
             except Exception as exc:  # noqa: BLE001 — never block mutations on AI
                 log.debug("scan-line AI refresh skipped: %s", exc)
         return {

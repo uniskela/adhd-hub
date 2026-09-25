@@ -8,6 +8,8 @@ until enabled.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -288,6 +290,46 @@ def structured_scan_prompt(thread: Thread) -> str:
 
 def _structured_prompt(thread: Thread) -> str:
     return structured_scan_prompt(thread)
+
+
+def _continuity_hash_payload(thread: Thread) -> dict[str, Any]:
+    """Canonical continuity fields shared by scan-line and notes-summary hashes."""
+    return {
+        "summary": thread.summary or "",
+        "goal": thread.goal or "",
+        "focus": thread.focus or "",
+        "next_steps": list(thread.next_steps or []),
+        "blocked_reason": thread.blocked_reason or "",
+        "resume_step": thread.resume_step or "",
+    }
+
+
+def _stable_input_hash(payload: dict[str, Any]) -> str:
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def scan_line_input_hash(thread: Thread) -> str:
+    """Stable hash of fields that feed ``structured_scan_prompt`` (no status/notes)."""
+    return _stable_input_hash(_continuity_hash_payload(thread))
+
+
+def notes_summary_input_hash(
+    thread: Thread,
+    *,
+    note_contents: list[str] | None = None,
+) -> str:
+    """Stable hash of continuity + scrubbed note snippets (same family as summarise prompt)."""
+    usable_notes: list[str] = []
+    for raw in note_contents or []:
+        snippet = _note_snippet_for_prompt(raw or "")
+        if snippet and snippet not in usable_notes:
+            usable_notes.append(snippet)
+        if len(usable_notes) >= _NOTES_PROMPT_NOTES_MAX:
+            break
+    payload = _continuity_hash_payload(thread)
+    payload["notes"] = usable_notes
+    return _stable_input_hash(payload)
 
 
 def _provider_error_snippet(response: httpx.Response) -> str | None:

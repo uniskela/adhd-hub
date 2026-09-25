@@ -847,6 +847,81 @@ function aiScanLinesEnabled() {
     return Boolean(cfg.enabled && String(cfg.base_url || "").trim());
   }
 
+function aiAutoReviewScanEnabled() {
+    const cfg = state.aiConfigCache;
+    return Boolean(aiScanLinesEnabled() && cfg?.auto_review_scan_lines);
+  }
+
+function aiAutoSummariseNotesEnabled() {
+    const cfg = state.aiConfigCache;
+    return Boolean(aiScanLinesEnabled() && cfg?.auto_summarise_notes);
+  }
+
+let autoScanQueue = [];
+let autoScanBusy = false;
+// One ensure attempt per thread content hash in this page session.
+const autoScanAttempted = new Set();
+
+function enqueueAutoScanEnsure(threads) {
+    if (!aiAutoReviewScanEnabled()) return;
+    const slug = state.projectFilter;
+    if (rewriteAllInFlightFor(slug)) return;
+    for (const t of threads || []) {
+      const id = t?.id;
+      if (!id || autoScanQueue.includes(id)) continue;
+      const key = `${id}:${t.scan_line_input_hash || ""}`;
+      if (autoScanAttempted.has(key)) continue;
+      autoScanAttempted.add(key);
+      autoScanQueue.push(id);
+    }
+    pumpAutoScanQueue();
+  }
+
+async function pumpAutoScanQueue() {
+    if (autoScanBusy) return;
+    if (!aiAutoReviewScanEnabled()) {
+      autoScanQueue = [];
+      return;
+    }
+    if (rewriteAllInFlightFor(state.projectFilter)) return;
+    const threadId = autoScanQueue.shift();
+    if (!threadId) return;
+    autoScanBusy = true;
+    try {
+      const out = await api(`/threads/${encodeURIComponent(threadId)}/scan-line`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "ensure" }),
+      });
+      if (out?.skipped) return;
+      const updated = out?.thread;
+      if (updated && Array.isArray(state.threadsCache) && state.activeScreen === "work") {
+        state.threadsCache = state.threadsCache.map((t) =>
+          t.id === updated.id ? { ...t, ...updated } : t
+        );
+        // Soft refresh of scan line text without re-queuing (clear needs_ai).
+        const article = document.querySelector(
+          `.thread [data-rewrite-scan="${CSS.escape(threadId)}"]`
+        )?.closest(".thread");
+        const scan = article?.querySelector(".thread-scan");
+        if (scan && updated.scan_line) scan.textContent = updated.scan_line;
+        else if (article && updated.scan_line && !scan) {
+          const main = article.querySelector(".thread-main");
+          if (main) {
+            const p = document.createElement("p");
+            p.className = "thread-scan";
+            p.textContent = updated.scan_line;
+            main.appendChild(p);
+          }
+        }
+      }
+    } catch (_e) {
+      // Best-effort; leave heuristic line in place.
+    } finally {
+      autoScanBusy = false;
+      if (autoScanQueue.length) pumpAutoScanQueue();
+    }
+  }
+
 function rewriteAllInFlightFor(slug) {
     return Boolean(slug) && state.rewriteAllInFlight.has(slug);
   }
@@ -1221,6 +1296,10 @@ export function renderThreads(threads) {
     root.querySelectorAll("[data-rewrite-scan]").forEach((btn) =>
       btn.addEventListener("click", () => rewriteScanLine(btn.dataset.rewriteScan))
     );
+    if (aiAutoReviewScanEnabled()) {
+      const needs = (threads || []).filter((t) => t && t.id && t.scan_line_needs_ai);
+      if (needs.length) enqueueAutoScanEnsure(needs);
+    }
   }
 
 export async function rewriteScanLine(threadId) {
