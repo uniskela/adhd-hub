@@ -716,6 +716,70 @@ def test_rewrite_project_scan_lines_rejects_concurrent_same_project(
     assert out2["ai_ok"] == 1
 
 
+def test_rewrite_project_scan_lines_rejects_overlapping_parent_child(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Parent rewrite in flight blocks a child rewrite that shares scoped threads."""
+    import threading
+
+    from adhd_hub.models import ProjectUpsert
+
+    service = HubService(
+        Settings(
+            data_dir=tmp_path / "data",
+            auth_token="t",
+            ai_base_url="http://ai.test/v1",
+        )
+    )
+    service.upsert_project(ProjectUpsert(title="Parent", slug="busy-parent"))
+    service.upsert_project(
+        ProjectUpsert(title="Child", slug="busy-child", parent_slug="busy-parent")
+    )
+    service.upsert_thread(
+        ThreadUpsert(
+            summary="Child hold",
+            focus="Stay open during overlapping rewrite",
+            project_slug="busy-child",
+            source_tool="pytest",
+        )
+    )
+    gate = threading.Event()
+    entered = threading.Event()
+
+    def slow_generate(settings, thread, client=None):
+        entered.set()
+        gate.wait(timeout=5)
+        return "Calm overlapping rewrite scan line for ADHD hub work"
+
+    monkeypatch.setattr("adhd_hub.ai_client.generate_ai_scan_line", slow_generate)
+    monkeypatch.setattr("time.sleep", lambda *_a, **_k: None)
+
+    result: dict = {}
+    error: list[BaseException] = []
+
+    def run_parent() -> None:
+        try:
+            result["out"] = service.rewrite_project_scan_lines(
+                "busy-parent", delay_seconds=0
+            )
+        except BaseException as exc:  # noqa: BLE001 — capture for assertion
+            error.append(exc)
+
+    t = threading.Thread(target=run_parent)
+    t.start()
+    assert entered.wait(timeout=5)
+    try:
+        with pytest.raises(ProjectRewriteInProgress):
+            service.rewrite_project_scan_lines("busy-child", delay_seconds=0)
+    finally:
+        gate.set()
+        t.join(timeout=5)
+    assert not error
+    assert result["out"]["ai_ok"] == 1
+    out2 = service.rewrite_project_scan_lines("busy-child", delay_seconds=0)
+    assert out2["ai_ok"] == 1
+
+
 def test_rewrite_project_scan_lines_api_returns_409_when_busy(
     tmp_path: Path, monkeypatch
 ) -> None:

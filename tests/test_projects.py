@@ -399,6 +399,40 @@ def test_parent_rail_counts_aggregate_descendants(tmp_path: Path) -> None:
     assert len(detail["threads"]) == 12
 
 
+def test_parent_rail_last_touch_uses_descendant_activity(tmp_path: Path) -> None:
+    """Parent rail last_touch_at follows the newest descendant thread touch."""
+    from adhd_hub.models import ThreadStatus
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="AJP Stuff", slug="ajp-stuff"))
+    service.upsert_project(
+        ProjectUpsert(title="Child", slug="ajp-n8n", parent_slug="ajp-stuff")
+    )
+    parent_thread = service.upsert_thread(
+        ThreadUpsert(
+            summary="Older parent work",
+            project_slug="ajp-stuff",
+            status=ThreadStatus.open,
+        )
+    )
+    child_thread = service.upsert_thread(
+        ThreadUpsert(
+            summary="Newer child work",
+            project_slug="ajp-n8n",
+            status=ThreadStatus.open,
+        )
+    )
+    assert child_thread.updated_at >= parent_thread.updated_at
+
+    by_slug = {p["slug"]: p for p in service.list_projects()}
+    parent_touch = by_slug["ajp-stuff"]["last_touch_at"]
+    child_touch = by_slug["ajp-n8n"]["last_touch_at"]
+    assert parent_touch
+    assert child_touch
+    assert parent_touch == child_touch
+    assert child_thread.updated_at.isoformat()[:19] in parent_touch
+
+
 def test_rewrite_all_on_parent_includes_descendant_open_threads(tmp_path: Path) -> None:
     """Rewrite-all on a parent no-ops with AI off but scopes descendant open threads."""
     from adhd_hub.models import ThreadStatus
@@ -422,3 +456,28 @@ def test_rewrite_all_on_parent_includes_descendant_open_threads(tmp_path: Path) 
     assert out["ai_attempted"] is False
     assert out["total"] == 3
     assert {t["project_slug"] for t in out["threads"]} == {"ajp-stuff", "ajp-n8n"}
+
+
+def test_rewrite_all_pages_beyond_default_limit(tmp_path: Path) -> None:
+    """Rewrite-all pages through every scoped open thread, not just the first page."""
+    from adhd_hub.models import ThreadStatus
+
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    service.upsert_project(ProjectUpsert(title="AJP Stuff", slug="ajp-stuff"))
+    service.upsert_project(
+        ProjectUpsert(title="Child", slug="ajp-n8n", parent_slug="ajp-stuff")
+    )
+    for i in range(5):
+        service.upsert_thread(
+            ThreadUpsert(
+                summary=f"Scoped open {i}",
+                project_slug="ajp-n8n",
+                status=ThreadStatus.open,
+            )
+        )
+
+    # Page size 2 would previously stop after two threads and report total=2.
+    out = service.rewrite_project_scan_lines("ajp-stuff", limit=2)
+    assert out["ai_attempted"] is False
+    assert out["total"] == 5
+    assert len(out["threads"]) == 5

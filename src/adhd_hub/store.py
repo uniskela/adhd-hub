@@ -570,6 +570,7 @@ class Store:
         project_slugs: list[str] | None = None,
         energy: EnergyLevel | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[Thread]:
         clauses: list[str] = []
         args: list[Any] = []
@@ -599,8 +600,10 @@ class Store:
             clauses.append("energy = ?")
             args.append(energy.value)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        sql = f"SELECT * FROM threads {where} ORDER BY updated_at DESC LIMIT ?"
-        args.append(limit)
+        page = max(0, int(limit))
+        start = max(0, int(offset))
+        sql = f"SELECT * FROM threads {where} ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+        args.extend([page, start])
         with self._conn() as conn:
             rows = conn.execute(sql, args).fetchall()
         return [self._row_thread(r) for r in rows]
@@ -2033,16 +2036,8 @@ class Store:
             ).fetchall()
         return [str(r["slug"]) for r in rows]
 
-    def project_scope_slugs(self, slug: str) -> list[str]:
-        """Return ``slug`` plus all nested descendants via ``parent_slug`` (any depth).
-
-        Unregistered / inbox-style slugs with no registry row still return ``[slug]``
-        so leaf filtering stays exact. Includes archived descendants so organising
-        parents keep descendant work visible when selected.
-        """
-        safe = slugify(slug)
-        if not safe:
-            return []
+    def project_children_map(self) -> dict[str, list[str]]:
+        """Parent slug → child slugs from one projects-table read (for rail aggregation)."""
         with self._conn() as conn:
             rows = conn.execute("SELECT slug, parent_slug FROM projects").fetchall()
         children: dict[str, list[str]] = {}
@@ -2050,6 +2045,27 @@ class Store:
             parent = row["parent_slug"]
             if parent:
                 children.setdefault(str(parent), []).append(str(row["slug"]))
+        return children
+
+    def project_scope_slugs(
+        self,
+        slug: str,
+        *,
+        children: dict[str, list[str]] | None = None,
+    ) -> list[str]:
+        """Return ``slug`` plus all nested descendants via ``parent_slug`` (any depth).
+
+        Unregistered / inbox-style slugs with no registry row still return ``[slug]``
+        so leaf filtering stays exact. Includes archived descendants so organising
+        parents keep descendant work visible when selected.
+
+        Pass a prebuilt ``children`` map (from :meth:`project_children_map`) when
+        expanding many roots so the projects table is read once.
+        """
+        safe = slugify(slug)
+        if not safe:
+            return []
+        tree = self.project_children_map() if children is None else children
         out: list[str] = []
         seen: set[str] = set()
         stack = [safe]
@@ -2060,7 +2076,7 @@ class Store:
             seen.add(cur)
             out.append(cur)
             # Preserve sibling order from list_child_slugs (title/sort_order) when present.
-            kids = children.get(cur, [])
+            kids = tree.get(cur, [])
             # Reverse so first child is processed next when using stack LIFO + extend reverse.
             stack.extend(reversed(kids))
         return out
