@@ -2,7 +2,7 @@
 
 This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
 
-Reviewed against `main` on **2026-09-25** (Sydney). Wave 6 / **v0.16.0** is published via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest package and tag is **v0.16.1** (patch guard only). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-09-25** (Sydney). Wave 6 / **v0.16.0** is published via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest package and tag is **v0.16.2** (Docker `/data` persistence fix, [#222](https://github.com/uniskela/adhd-hub/pull/222)). Narrow reliability/documentation fixes can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -69,7 +69,7 @@ Durable structured activity events, authenticated SSE live invalidation (API ref
 
 ### Wave 6 — AI clarity & project organisation ✅
 
-[#52](https://github.com/uniskela/adhd-hub/issues/52), published in **v0.16.0** via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162). Release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest tag **v0.16.1** is a patch guard only.
+[#52](https://github.com/uniskela/adhd-hub/issues/52), published in **v0.16.0** via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162). Release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest tag **v0.16.2** is the Docker `/data` persistence fix ([#222](https://github.com/uniskela/adhd-hub/pull/222)).
 
 - short AI or heuristic thread summaries;
 - calmer project list with tags/categories and useful filters;
@@ -130,7 +130,7 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 These can land without changing the product-wave sequence:
 
 - [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 7 train; land separately when capacity allows.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.16.1**; do not treat version-string drift as open product work.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.16.2**; do not treat version-string drift as open product work.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 
@@ -143,7 +143,7 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation B1 #73 | Shipped in v0.8.0 |
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
 | Done | Foundation B3 #75 | Event ledger / live UI / sync health (#152) |
-| Done | Wave 6 #52 | Published in v0.16.0 (#159–#162); release #163 merged; latest tag v0.16.1 (patch guard) |
+| Done | Wave 6 #52 | Published in v0.16.0 (#159–#162); release #163 merged; latest tag v0.16.2 (Docker `/data` persistence, #222) |
 | **Now** | **Wave 7 #54** | Continuity intelligence |
 | Next | Wave 8 #55 | Find & capture |
 | Then | Activity insights #72 | Uses B3 history |
