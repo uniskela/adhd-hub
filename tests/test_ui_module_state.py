@@ -241,6 +241,9 @@ def test_project_rail_hierarchy_tree_markers():
     assert "selectProjectFromRail" in work and "closeProjectsDrawer" in work
     assert "/projects/" in work and "/move" in work
     assert "openProjectsDrawer" in work
+    # Parent rewrite-all confirms nested scope when detail.scope_slugs has descendants.
+    assert "scope_slugs" in work
+    assert "its nested projects" in work
     boot = (UI_JS / "boot.js").read_text()
     assert "selectAllProjectsFromRail" in boot
     assert 'id="p_parent_slug"' in html
@@ -287,6 +290,12 @@ def test_work_tab_counts_and_rewrite_toast_markers():
     assert "restoreRewriteAllInFlightUi" in work
     assert "aiScanLinesEnabled" in work
     assert "syncAiRewriteUi" in work
+    # While projectFilter is set but detailCache is still null, rewrite-all stays disabled.
+    sync_fn = work.split("export function syncAiRewriteUi", 1)[1].split(
+        "\nexport ", 1
+    )[0]
+    assert "disabled: true" in sync_fn
+    assert "disabled: false" not in sync_fn
     assert "midFlightSame" in work
     assert "opts.sticky" in state
     assert "dataset.key" in state

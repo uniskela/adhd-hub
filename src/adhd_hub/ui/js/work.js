@@ -954,9 +954,10 @@ export function syncAiRewriteUi() {
     } else if (rewriteAllInFlightFor(state.projectFilter)) {
       restoreRewriteAllInFlightUi();
     } else {
+      // detailCache cleared mid-selectProject; wait for scope before enabling rewrite-all.
       setRewriteAllButtons({
         hidden: !aiScanLinesEnabled(),
-        disabled: false,
+        disabled: true,
         text: "Rewrite all scan lines",
       });
     }
@@ -1353,10 +1354,14 @@ export async function rewriteAllProjectScanLines() {
       restoreRewriteAllInFlightUi();
       return;
     }
+    const nested =
+      Array.isArray(state.detailCache?.scope_slugs) &&
+      state.detailCache.scope_slugs.length > 1;
     const { ok } = await confirmDialog({
       title: "Are you sure?",
-      body:
-        "This calls the configured AI for each open thread in this project. It may use API quota, hit rate limits, and take a while. Cancel to leave scan lines as they are.",
+      body: nested
+        ? "This calls the configured AI for each open thread in this project and its nested projects. It may use API quota, hit rate limits, and take a while. Cancel to leave scan lines as they are."
+        : "This calls the configured AI for each open thread in this project. It may use API quota, hit rate limits, and take a while. Cancel to leave scan lines as they are.",
     });
     if (!ok) return;
     // Re-check after confirm in case another click started while the dialog was open.

@@ -716,17 +716,77 @@ class HubService:
                 raise ValueError("parent_not_found")
             cursor = node.parent_slug
 
+    def project_thread_scope(self, project_slug: str | None) -> list[str] | None:
+        """Slugs whose threads belong in My work when ``project_slug`` is selected.
+
+        Parents expand to themselves plus all nested descendants (unlimited depth).
+        Leaves and unregistered slugs stay a single-slug scope. ``None`` means no
+        project filter (all threads).
+        """
+        from adhd_hub.store import slugify as _slugify
+
+        if not project_slug:
+            return None
+        safe = _slugify(project_slug)
+        if not safe:
+            return None
+        return self.store.project_scope_slugs(safe)
+
+    @staticmethod
+    def _empty_thread_counts() -> dict[str, int]:
+        return {"open": 0, "blocked": 0, "done": 0, "dismissed": 0}
+
+    def _aggregate_project_counts(
+        self,
+        projects: list[dict],
+        raw_counts: dict[str, dict[str, int]],
+        last_touch: dict[str, str] | None = None,
+    ) -> None:
+        """Roll open/blocked/done/dismissed up the parent_slug tree for rail badges.
+
+        Each project's ``counts`` becomes the sum of its own threads plus all nested
+        descendants so organising parents are not stuck at 0 when children have work.
+        Leaf projects are unchanged (self only). Mutates ``projects`` in place.
+        Uses the same scope walk as My work filtering (includes archived descendants).
+
+        Hierarchy is loaded once per listing. When ``last_touch`` is provided, each
+        project's ``last_touch_at`` becomes the latest touch across that same scope.
+        """
+        children = self.store.project_children_map()
+        for p in projects:
+            slug = p.get("slug")
+            if not slug:
+                continue
+            scope = self.store.project_scope_slugs(str(slug), children=children)
+            total = dict(self._empty_thread_counts())
+            for scope_slug in scope:
+                part = raw_counts.get(scope_slug) or self._empty_thread_counts()
+                for key in total:
+                    total[key] = int(total.get(key, 0)) + int(part.get(key, 0))
+            p["counts"] = total
+            if last_touch is not None:
+                touch_candidates = [
+                    last_touch[s] for s in scope if last_touch.get(s)
+                ]
+                if touch_candidates:
+                    p["last_touch_at"] = max(touch_candidates)
+
     def get_project_detail(self, slug: str) -> dict | None:
         from adhd_hub.store import slugify as _slugify
 
         safe = _slugify(slug)
         proj = self.store.get_project(safe)
-        counts = self.store.thread_counts_by_project().get(
-            safe, {"open": 0, "blocked": 0, "done": 0, "dismissed": 0}
-        )
+        scope = self.project_thread_scope(safe) or [safe]
+        raw_counts = self.store.thread_counts_by_project()
+        # Detail header matches rail: aggregated counts across the scope.
+        counts = dict(self._empty_thread_counts())
+        for scope_slug in scope:
+            part = raw_counts.get(scope_slug) or self._empty_thread_counts()
+            for key in counts:
+                counts[key] = int(counts.get(key, 0)) + int(part.get(key, 0))
         threads = [
             self.thread_public_dict(t)
-            for t in self.store.list_threads(project_slug=safe, limit=100)
+            for t in self.store.list_threads(project_slugs=scope, limit=100)
         ]
         open_threads = [t for t in threads if t.get("status") == "open"]
         wiki_cfg = self.wiki_forge_config()
@@ -742,12 +802,19 @@ class HubService:
             }
         )
         data["counts"] = counts
+        data["scope_slugs"] = scope
         data["archived"] = bool(proj.archived_at) if proj else False
         if proj:
             touches = self.store.project_last_touch_by_slug()
-            data["last_touch_at"] = touches.get(safe) or (
-                proj.updated_at.isoformat() if proj.updated_at else None
-            )
+            touch_candidates = [
+                touches[s] for s in scope if touches.get(s)
+            ]
+            if touch_candidates:
+                data["last_touch_at"] = max(touch_candidates)
+            else:
+                data["last_touch_at"] = (
+                    proj.updated_at.isoformat() if proj.updated_at else None
+                )
             data.setdefault("tags", list(proj.tags or []))
         else:
             data["tags"] = []
@@ -1030,6 +1097,8 @@ class HubService:
                         "unregistered": True,
                     }
                 )
+        # Rail badges: parent open counts + latest touch include nested descendants.
+        self._aggregate_project_counts(out, counts, last_touch)
         return out
 
     def suggest_project_organisation(self, *, limit: int = 50) -> dict:
@@ -1792,7 +1861,13 @@ class HubService:
         Reuses :meth:`rewrite_scan_line` (quality gates, heuristic fallback, prompt
         caps). When AI is off, explains and no-ops without calling the provider.
         Gentle delay between AI calls to ease rate limits. Concurrent rewrites for
-        the same project raise :class:`ProjectRewriteInProgress`.
+        the same project — or overlapping parent/child scopes — raise
+        :class:`ProjectRewriteInProgress`.
+
+        Organising (parent) projects include open threads from nested descendants
+        so rewrite-all matches the My work scope for that selection. ``limit`` is
+        the page size when loading open threads; every scoped open thread is
+        processed before completion.
         """
         import time
 
@@ -1803,16 +1878,36 @@ class HubService:
         safe = _slugify(project_slug)
         if not safe:
             raise ValueError("invalid project slug")
+        scope = self.project_thread_scope(safe) or [safe]
         with self._rewrite_project_lock:
-            if safe in self._rewrite_project_in_flight:
+            # Reserve the full scope so a parent rewrite blocks child rewrites
+            # (and vice versa) that would otherwise process the same threads.
+            if any(s in self._rewrite_project_in_flight for s in scope):
                 raise ProjectRewriteInProgress(
                     "A rewrite is already running for this project."
                 )
-            self._rewrite_project_in_flight.add(safe)
+            for s in scope:
+                self._rewrite_project_in_flight.add(s)
         try:
-            threads = self.store.list_threads(
-                status=ThreadStatus.open, project_slug=safe, limit=limit
-            )
+            page_size = max(1, int(limit))
+            threads: list = []
+            # Keyset by id so concurrent pause/touch (updated_at) cannot shift
+            # OFFSET pages and skip open threads mid-collection.
+            after_id: str | None = None
+            while True:
+                page = self.store.list_threads(
+                    status=ThreadStatus.open,
+                    project_slugs=scope,
+                    limit=page_size,
+                    order_by_id=True,
+                    after_id=after_id,
+                )
+                if not page:
+                    break
+                threads.extend(page)
+                if len(page) < page_size:
+                    break
+                after_id = page[-1].id
             total = len(threads)
             if not ai_configured(self.settings):
                 return {
@@ -1906,7 +2001,8 @@ class HubService:
             }
         finally:
             with self._rewrite_project_lock:
-                self._rewrite_project_in_flight.discard(safe)
+                for s in scope:
+                    self._rewrite_project_in_flight.discard(s)
 
     def _notes_summary_cache_key(self, thread_id: str) -> str:
         from adhd_hub.notes_summary import notes_summary_cache_key
@@ -2239,17 +2335,19 @@ class HubService:
         limit: int = 100,
         stale: bool = False,
     ) -> list[dict]:
+        scope = self.project_thread_scope(project_slug)
         if stale:
             threads = self.list_stale_threads()
-            if project_slug:
-                threads = [t for t in threads if t.project_slug == project_slug]
+            if scope is not None:
+                allowed = set(scope)
+                threads = [t for t in threads if t.project_slug in allowed]
         elif status is None:
             threads = self.store.list_threads(
-                status=None, energy=energy, project_slug=project_slug, limit=limit
+                status=None, energy=energy, project_slugs=scope, limit=limit
             )
         else:
             threads = self.store.list_threads(
-                status=status, energy=energy, project_slug=project_slug, limit=limit
+                status=status, energy=energy, project_slugs=scope, limit=limit
             )
         return [self.thread_public_dict(t) for t in threads]
 
@@ -2711,10 +2809,11 @@ class HubService:
         project_slug: str | None = None,
         limit: int = 100,
     ) -> list[Thread]:
+        scope = self.project_thread_scope(project_slug)
         return self.store.list_threads(
             status=ThreadStatus.open,
             energy=energy,
-            project_slug=project_slug,
+            project_slugs=scope,
             limit=limit,
         )
 
