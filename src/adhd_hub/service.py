@@ -2985,8 +2985,14 @@ class HubService:
 
     def health(self) -> dict:
         from adhd_hub import __version__
+        from adhd_hub.data_dir import looks_like_hub_data
 
         overview = self.overview()
+        data_dir = self.settings.data_dir
+        try:
+            data_dir_display = str(data_dir.resolve())
+        except OSError:
+            data_dir_display = str(data_dir)
         return {
             "status": "ok",
             "version": __version__,
@@ -2996,4 +3002,8 @@ class HubService:
             "projects": len(overview["projects"]),
             "wiki_projects": len(self.wiki.list_project_slugs()),
             "indexer_last_run": self.indexer_last_run(),
+            # Container path only (usually /data) — helps verify the volume mount.
+            "data_dir": data_dir_display,
+            "data_dir_populated": looks_like_hub_data(data_dir),
+            "ai_config_present": (data_dir / "ai.json").is_file(),
         }

@@ -32,7 +32,7 @@ You start a Proxmox migration / homelab setup / refactor in Cursor Cloud, contin
 
 ## Quick start
 
-**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/environment-variables.md).
+**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/environment-variables.md). Hub state (SQLite including project tags and scan-line cache, plus `ai.json` AI settings) lives under `/data` in the container — mount a named volume or bind there and keep `ADHD_HUB_DATA_DIR=/data` (see [What lives under `/data`](docs/installation.md#what-lives-under-data)).
 
 ### Docker from this checkout
 

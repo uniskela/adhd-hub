@@ -93,7 +93,7 @@ Schedule it with Task Scheduler if you want nightly capture. See [Indexer schedu
 
 ## 6. Back up the lab instance
 
-Before upgrades or migrations, use `/ui` → Settings → **Download backup** or the CLI export. Keep the Compose `/data` volume persistent; removing that volume removes the local Hub state.
+Before upgrades or migrations, use `/ui` → Settings → **Download backup** or the CLI export. Keep the Compose `/data` volume persistent; removing that volume removes the local Hub state (including project tags and `ai.json` AI settings). Never use `docker compose down -v` for a normal upgrade. Confirm `ADHD_HUB_DATA_DIR=/data` matches the volume mount — see [Installation → What lives under `/data`](installation.md#what-lives-under-data).
 
 For regular container upgrades using a published image:
 
