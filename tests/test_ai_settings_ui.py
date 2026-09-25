@@ -253,6 +253,11 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert "restoreRewriteAllInFlightUi" in work
     assert "aiScanLinesEnabled" in work
     assert "syncAiRewriteUi" in work
+    sync_fn = work.split("export function syncAiRewriteUi", 1)[1].split(
+        "\nexport ", 1
+    )[0]
+    assert "disabled: true" in sync_fn
+    assert "disabled: false" not in sync_fn
     assert "completed > 0" in work
     assert "(0/${" not in work
     assert "out.completed || 0" not in work

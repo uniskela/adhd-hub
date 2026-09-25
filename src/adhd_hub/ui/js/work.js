@@ -879,9 +879,10 @@ export function syncAiRewriteUi() {
     } else if (rewriteAllInFlightFor(state.projectFilter)) {
       restoreRewriteAllInFlightUi();
     } else {
+      // detailCache cleared mid-selectProject; wait for scope before enabling rewrite-all.
       setRewriteAllButtons({
         hidden: !aiScanLinesEnabled(),
-        disabled: false,
+        disabled: true,
         text: "Rewrite all scan lines",
       });
     }
