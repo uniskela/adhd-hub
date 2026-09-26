@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.18.0](https://github.com/uniskela/adhd-hub/compare/v0.17.0...v0.18.0) (2026-09-26)
+
+
+### Features
+
+* **next-up:** calm cross-project ranking for overview and Help me choose ([#240](https://github.com/uniskela/adhd-hub/issues/240)) ([9ec536e](https://github.com/uniskela/adhd-hub/commit/9ec536e9cd2c8169c3ec98b988b87335c7029f19))
+* **triage:** soft still-relevant confirm and snooze for stale threads ([#236](https://github.com/uniskela/adhd-hub/issues/236)) ([d046f58](https://github.com/uniskela/adhd-hub/commit/d046f58405b530ba4be06e210fc594c1c59e6a0d))
+* **ui:** calm PWA update toast with Refresh ([#241](https://github.com/uniskela/adhd-hub/issues/241)) ([efb9acc](https://github.com/uniskela/adhd-hub/commit/efb9acc3288dbc9e52fdfc0af11583f09f779ded))
+
+
+### Bug Fixes
+
+* **ui:** Now title string + undo Done toast ([#238](https://github.com/uniskela/adhd-hub/issues/238)) ([c018182](https://github.com/uniskela/adhd-hub/commit/c018182ecfc21390186fe88706c156b72fc5ee28))
+
 ## [0.17.0](https://github.com/uniskela/adhd-hub/compare/v0.16.1...v0.17.0) (2026-09-25)
 
 
