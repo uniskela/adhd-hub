@@ -431,3 +431,57 @@ def test_notes_summary_input_hash_changes_with_notes() -> None:
     c = notes_summary_input_hash(thread, note_contents=["## Human\n\nBeta"])
     assert a == b
     assert a != c
+
+
+def test_get_thread_keeps_string_summary_when_notes_card_cached(
+    tmp_path: Path,
+) -> None:
+    """Regression: notes_summary_status must not clobber Thread.summary."""
+    from fastapi.testclient import TestClient
+
+    from adhd_hub.app import create_app
+
+    service = _service(tmp_path)
+    thread = service.store.upsert_thread(
+        ThreadUpsert(
+            summary="Keep my title",
+            project_slug="demo",
+            focus="Title must stay a string",
+        )
+    )
+    service._write_notes_summary(
+        thread.id,
+        NotesSummaryCard(
+            done="Cached card",
+            plan_focus="UI title",
+            next_steps=["Assert"],
+            resume="Open Now",
+            input_hash="fake",
+        ),
+    )
+    status = service.notes_summary_status(thread)
+    assert "summary" not in status
+    assert isinstance(status.get("notes_summary"), dict)
+    assert status["notes_summary"]["done"] == "Cached card"
+
+    app = create_app(Settings(data_dir=tmp_path / "data", auth_token="t"))
+    with TestClient(app) as client:
+        detail = client.get(
+            f"/api/threads/{thread.id}",
+            headers={"Authorization": "Bearer t"},
+        )
+        assert detail.status_code == 200
+        body = detail.json()
+        assert body["summary"] == "Keep my title"
+        assert isinstance(body["summary"], str)
+        assert body["notes_summary"]["done"] == "Cached card"
+
+    # Without a card, summary must still be the thread string (not null).
+    empty = _service(tmp_path / "empty")
+    t2 = empty.store.upsert_thread(
+        ThreadUpsert(summary="No card yet", project_slug="demo")
+    )
+    status2 = empty.notes_summary_status(t2)
+    assert status2["notes_summary"] is None
+    assert "summary" not in status2
+

@@ -17,6 +17,7 @@ const PRECACHE = [
   "/ui/js/accent.js",
   "/ui/js/load.js",
   "/ui/js/now.js",
+  "/ui/js/thread-title.mjs",
   "/ui/js/work.js",
   "/ui/js/progress.js",
   "/ui/js/settings.js",

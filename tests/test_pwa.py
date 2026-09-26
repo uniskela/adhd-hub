@@ -76,6 +76,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "accent.js",
             "screens.js",
             "now.js",
+            "thread-title.mjs",
             "work.js",
             "progress.js",
             "settings.js",
