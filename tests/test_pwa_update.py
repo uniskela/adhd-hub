@@ -8,7 +8,7 @@ UI = ROOT / "src" / "adhd_hub" / "ui"
 
 def test_sw_waits_for_skip_waiting_message() -> None:
     sw = (UI / "sw.js").read_text(encoding="utf-8")
-    assert 'CACHE = "adhd-hub-shell-v36"' in sw
+    assert 'CACHE = "adhd-hub-shell-v38"' in sw
     assert 'event.data.type === "SKIP_WAITING"' in sw
     assert "self.skipWaiting()" in sw
     assert "self.clients.claim()" in sw
