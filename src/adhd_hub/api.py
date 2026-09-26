@@ -372,6 +372,16 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             raise HTTPException(404, "Thread not found")
         return thread
 
+    @router.post("/threads/undo-done", dependencies=[Depends(auth_dep)])
+    def undo_done(payload: MarkDoneRequest):
+        try:
+            thread = service.undo_mark_done(payload.id, payload.note)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if not thread:
+            raise HTTPException(404, "Thread not found")
+        return thread
+
     @router.post("/threads/dismiss", dependencies=[Depends(auth_dep)])
     def dismiss(payload: MarkDoneRequest):
         thread = service.mark_dismissed(payload.id, payload.note)

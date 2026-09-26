@@ -18,6 +18,7 @@ UI_JS_MODULES = {
     "accent.js",
     "screens.js",
     "now.js",
+    "thread-title.mjs",
     "work.js",
     "progress.js",
     "settings.js",

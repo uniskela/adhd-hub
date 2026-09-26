@@ -5,6 +5,7 @@ import random
 import threading
 from collections.abc import Callable
 from datetime import UTC
+from pathlib import Path
 
 from adhd_hub.ai_config import (
     AiConfig,
@@ -97,6 +98,26 @@ def _history_summary(event) -> str:
     if event.project_slug:
         return f"{base} · {event.project_slug}"
     return base
+
+
+def _snapshot_text_file(path: Path) -> tuple[bool, str | None]:
+    """Capture whether a text file existed and its contents (for rollback)."""
+    if path.is_file():
+        return True, path.read_text(encoding="utf-8")
+    return False, None
+
+
+def _restore_text_file(path: Path, snapshot: tuple[bool, str | None]) -> None:
+    """Best-effort restore of a text file from `_snapshot_text_file`."""
+    existed, text = snapshot
+    try:
+        if existed and text is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        elif path.is_file() and not existed:
+            path.unlink()
+    except OSError as exc:
+        log.warning("failed to restore %s after undo staging error: %s", path, exc)
 
 
 class ProjectRewriteInProgress(Exception):
@@ -2240,7 +2261,9 @@ class HubService:
             "notes_summary_cached_hash": existing.input_hash if existing else None,
             "notes_summary_fresh": fresh,
             "notes_summary_needs_ai": bool(auto and not fresh),
-            "summary": existing.to_store_dict() if existing else None,
+            # Never use key "summary" — GET /threads/{id} merges this onto the
+            # thread dict and would clobber Thread.summary (string → object/null).
+            "notes_summary": existing.to_store_dict() if existing else None,
         }
 
     def _enrich_compact_thread(self, thread: Thread) -> dict:
@@ -3180,6 +3203,95 @@ class HubService:
                 source="api",
                 metadata={"previous_status": current.status.value},
             )
+        return thread
+
+    def undo_mark_done(self, thread_id: str, note: str | None = None) -> Thread | None:
+        """Reopen a done thread and its linked remote issue when applicable.
+
+        Stage wiki/progress projections before remote reopen and Hub status so a
+        failed filesystem write or remote reopen leaves SQLite done (B2b: failed
+        reopen → unchanged local projection; undo guard stays retryable). Remote
+        is only contacted after projections stage successfully. If Hub
+        ``transition_status`` fails after a successful remote reopen, restore
+        both file snapshots and compensate with ``close_external_thread``.
+        """
+        current = self.store.get_thread(thread_id)
+        if not current:
+            return None
+        if current.status != ThreadStatus.done:
+            raise ValueError("Only done threads can be reopened with undo")
+        from adhd_hub.work_identity import thread_has_external_identity
+
+        history = note or "Undone — reopened."
+
+        slug = current.project_slug or slugify(current.summary)
+        progress_path = self.wiki.progress_path(slug)
+        index_path = self.wiki.wiki_dir / "INDEX.md"
+        progress_snap = _snapshot_text_file(progress_path)
+        index_snap = _snapshot_text_file(index_path)
+
+        staged = current.model_copy(update={"status": ThreadStatus.open})
+        try:
+            active = [t for t in self._unfinished_threads(slug) if t.id != staged.id]
+            active.insert(0, staged)
+            heading = self._project_title(slug, staged.summary)
+            milestones = self._milestone_rows(slug)
+            self.wiki.upsert_progress(
+                slug,
+                history,
+                title=heading,
+                thread=staged,
+                active_threads=active,
+                milestones=milestones,
+            )
+            open_threads = [
+                t
+                for t in self.store.list_threads(status=ThreadStatus.open, limit=500)
+                if t.id != staged.id
+            ]
+            open_threads.insert(0, staged)
+            self.wiki.rebuild_index(open_threads)
+        except Exception:
+            _restore_text_file(progress_path, progress_snap)
+            _restore_text_file(index_path, index_snap)
+            raise
+
+        remote_reopened = False
+        try:
+            if thread_has_external_identity(current):
+                result = self._forge.reopen_external_thread(current)
+                if not result.get("ok"):
+                    raise ValueError(result.get("error") or "remote_reopen_failed")
+                remote_reopened = True
+
+            thread, changed = self.store.transition_status(
+                thread_id, ThreadStatus.open, note=history
+            )
+        except Exception:
+            _restore_text_file(progress_path, progress_snap)
+            _restore_text_file(index_path, index_snap)
+            if remote_reopened:
+                self._forge.close_external_thread(current)
+            raise
+
+        if thread and changed:
+            if not thread_has_external_identity(current):
+                self._forge_after_thread(thread)
+            self._publish_thread_lifecycle(
+                thread,
+                event_type=THREAD_PROGRESS_UPDATED,
+                source="api",
+                metadata={"previous_status": current.status.value, "undo": "mark_done"},
+            )
+        elif not changed:
+            # Status did not move (already open / raced) — keep staged files only
+            # when Hub is open; otherwise roll projections back and compensate
+            # a remote reopen that would otherwise drift from Hub done.
+            if thread is None or thread.status != ThreadStatus.open:
+                _restore_text_file(progress_path, progress_snap)
+                _restore_text_file(index_path, index_snap)
+                if remote_reopened:
+                    self._forge.close_external_thread(current)
         return thread
 
     def reopen_external_thread(self, thread_id: str) -> Thread:

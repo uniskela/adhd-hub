@@ -77,6 +77,9 @@ export const setMsg = (t, opts = {}) => {
 
   const variant = _toastVariant(t, opts);
   const text = String(t);
+  const action = opts.action && opts.action.label && typeof opts.action.onClick === "function"
+    ? opts.action
+    : null;
   const existing = key
     ? [...host.querySelectorAll(".toast")].find((el) => el.dataset.key === key)
     : [...host.querySelectorAll(".toast")].find(
@@ -91,6 +94,7 @@ export const setMsg = (t, opts = {}) => {
     existing.setAttribute("aria-live", variant === "error" ? "assertive" : "polite");
     const body = existing.querySelector(".toast-body");
     if (body) body.textContent = text;
+    _toastSetAction(existing, action);
     existing.classList.add("toast-bump");
     _toastApplyTimer(existing, variant, opts);
     return;
@@ -121,10 +125,28 @@ export const setMsg = (t, opts = {}) => {
   });
 
   el.append(body, close);
+  _toastSetAction(el, action);
   host.append(el);
 
   _toastApplyTimer(el, variant, opts);
 };
+
+function _toastSetAction(el, action) {
+  el.querySelector(".toast-action")?.remove();
+  if (!action) return;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "toast-action";
+  btn.textContent = String(action.label);
+  btn.addEventListener("click", () => {
+    clearTimeout(Number(el.dataset.timer || 0) || undefined);
+    el.remove();
+    try {
+      action.onClick();
+    } catch (_) { /* caller handles async errors */ }
+  });
+  el.append(btn);
+}
 export const escapeHtml = (s) =>
   String(s ?? "")
     .replaceAll("&", "&amp;")

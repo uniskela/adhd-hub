@@ -5,6 +5,9 @@ import { loadAll, loadOverview } from './load.js';
 import { celebrate } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
+import { threadDisplayTitle } from './thread-title.mjs';
+
+export { threadDisplayTitle };
 
 /** Thread id currently shown in the Notes reader (for Summarise). */
 let notesThreadId = null;
@@ -12,7 +15,9 @@ let notesThreadId = null;
 export function projectTitleForSlug(slug) {
     if (!slug || slug === "unclassified") return "Inbox";
     const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
-    return project?.title || slug;
+    const title = project?.title;
+    if (typeof title === "string" && title.trim()) return title.trim();
+    return slug;
   }
 
 /**
@@ -53,7 +58,8 @@ export function buildCodingAgentPrompt(thread, opts = {}) {
     const title = opts.projectTitle || (slug === "unclassified" ? "Inbox" : slug);
     if (slug) lines.push(`- slug: \`${slug}\``);
     if (title) lines.push(`- title: ${title}`);
-    if (thread.summary) lines.push(`- thread: ${String(thread.summary).trim()}`);
+    const threadTitle = threadDisplayTitle(thread);
+    if (threadTitle) lines.push(`- thread: ${threadTitle}`);
     if (thread.id) lines.push(`- thread_id: \`${thread.id}\``);
     lines.push("");
 
@@ -174,7 +180,7 @@ export async function suggestThread() {
       if (state.activeScreen !== "now") return;
       const candidate = threads.find((thread) => thread.energy === "low") || threads[0];
       if (!candidate) { $("suggestion").textContent = "No open tasks yet. Save a thought to get started."; return; }
-      $("suggestion").innerHTML = `<p class="hint">${candidate.energy === "low" ? "A low-energy option" : "One option to consider"}</p><h3>${escapeHtml(candidate.summary)}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
+      $("suggestion").innerHTML = `<p class="hint">${candidate.energy === "low" ? "A low-energy option" : "One option to consider"}</p><h3>${escapeHtml(threadDisplayTitle(candidate) || "Open step")}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
       $("btn-accept-suggestion").addEventListener("click", () => chooseThread(candidate.id));
     } catch (error) { setMsg("Could not suggest a task: " + error.message); }
     finally { button.disabled = false; }
@@ -183,7 +189,7 @@ export function openPause() {
     state.pauseTarget = state.chosenThread?.id;
     if (!state.pauseTarget) return;
     $("pause-step").value = state.chosenThread.resume_step || "";
-    $("pause-task").textContent = state.chosenThread.summary;
+    $("pause-task").textContent = threadDisplayTitle(state.chosenThread) || "This task";
     $("pause-error").textContent = "";
     $("pause-dialog").showModal();
   }
@@ -498,7 +504,7 @@ export function renderFocus() {
             ? "SAVED FOR YOUR RETURN"
             : "YOUR CHOICE"
     } · ${projectTitleForSlug(thread.project_slug)}`;
-    $("focus-title").textContent = thread.summary;
+    $("focus-title").textContent = threadDisplayTitle(thread) || "Untitled step";
     card.className = "next-card has-item";
     const resumeBlock = thread.resume_step
       ? `<div class="resume-step${returning ? " resume-step-prominent" : ""}"><p class="eyebrow">${returning ? "PICK UP HERE" : "NEXT TINY STEP"}</p><div class="markdown-body">${thread.resume_step_html}</div>${returning ? '<p class="hint welcome-back">Welcome back. One small step is enough.</p>' : ""}</div>`
@@ -533,10 +539,14 @@ export function renderFocus() {
 export async function markDone(id) {
     if (completing.has(id)) return;
     completing.add(id);
+    const previousChosen = state.chosenId === id;
+    const previousFocus = state.focusState;
+    let marked = false;
     try {
       await api("/threads/mark-done", {
         method: "POST", body: JSON.stringify({ id, note: "Marked done from /ui" }),
       });
+      marked = true;
       if (state.chosenId === id) {
         state.chosenId = null;
         state.chosenThread = null;
@@ -545,9 +555,90 @@ export async function markDone(id) {
         rememberFocus();
         renderFocus();
       }
-      setMsg("Done. That’s one less thing to hold in your head.");
       celebrate();
       await loadAll();
+    } finally {
+      // Clear lock before Undo toast so a fast click cannot no-op in undoMarkDone.
+      completing.delete(id);
+      if (marked) {
+        // _toastSetAction removes the toast before onClick; on failure recreate
+        // the keyed toast with Retry. Undo-request failures retry undo; post-undo
+        // reload failures retry reloads only (do not resend undo-done).
+        const undoOpts = {
+          restoreChoice: previousChosen,
+          previousFocus,
+        };
+        const retryReload = () => {
+          reloadAfterUndo(id, undoOpts).catch((error) => {
+            setMsg(error.message, {
+              key: `done-${id}`,
+              duration: 8000,
+              action: { label: "Retry", onClick: retryReload },
+            });
+          });
+        };
+        const retryUndo = () => {
+          undoMarkDone(id, undoOpts).catch((error) => {
+            const reloadOnly = error?.code === "UNDO_RELOAD_FAILED";
+            setMsg(error.message, {
+              key: `done-${id}`,
+              duration: 8000,
+              action: {
+                label: "Retry",
+                onClick: reloadOnly ? retryReload : retryUndo,
+              },
+            });
+          });
+        };
+        setMsg("Done. That’s one less thing to hold in your head.", {
+          key: `done-${id}`,
+          duration: 8000,
+          action: {
+            label: "Undo",
+            onClick: retryUndo,
+          },
+        });
+      }
+    }
+  }
+
+/** Post-undo UI restore + list reloads (no undo-done request). */
+async function reloadAfterUndo(id, opts = {}) {
+    if (opts.restoreChoice) {
+      state.chosenId = id;
+      state.focusState = opts.previousFocus || "ready";
+      state.nowMessage = "";
+      rememberFocus();
+      // Re-fetch public thread (summary, resume HTML, notes meta) like choose.
+      await loadChosenThread();
+      showScreen("now");
+    }
+    setMsg("Restored. It’s open again.", { key: `done-${id}`, variant: "success" });
+    await loadAll();
+    if (opts.restoreChoice && state.chosenId === id) {
+      await loadChosenThread();
+    }
+  }
+
+/** Reopen a thread after mark-done (toast Undo). */
+export async function undoMarkDone(id, opts = {}) {
+    if (completing.has(id)) return;
+    completing.add(id);
+    let undone = false;
+    try {
+      await api("/threads/undo-done", {
+        method: "POST",
+        body: JSON.stringify({ id, note: "Undone from /ui" }),
+      });
+      undone = true;
+      await reloadAfterUndo(id, opts);
+    } catch (error) {
+      if (undone) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        err.code = "UNDO_RELOAD_FAILED";
+        throw err;
+      }
+      throw error;
     } finally { completing.delete(id); }
   }
 export function renderReminders(due, all) {
@@ -700,7 +791,7 @@ export function renderDriftBanner() {
     el.hidden = false;
     el.innerHTML = `
       <div>
-        <strong>Still focusing on ${escapeHtml(state.chosenThread.summary)}</strong>
+        <strong>Still focusing on ${escapeHtml(threadDisplayTitle(state.chosenThread) || "this task")}</strong>
         <p class="hint">My work is available — return to Now when you’re ready.</p>
       </div>
       <button type="button" class="primary compact" id="btn-return-focus">Back to Now</button>`;
