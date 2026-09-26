@@ -19,12 +19,17 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v37" in sw.text
+        assert "adhd-hub-shell-v38" in sw.text
+        assert "SKIP_WAITING" in sw.text
+        assert "self.skipWaiting()" in sw.text
+        # Updates wait for an explicit Refresh toast — do not auto-activate on install.
+        assert "then(() => self.skipWaiting())" not in sw.text
         assert "/ui/js/boot.js" in sw.text
         assert "/ui/js/help.js" in sw.text
         assert "/ui/js/forge-jobs.js" in sw.text
         assert "/ui/js/sync-health.js" in sw.text
         assert "/ui/js/live.js" in sw.text
+        assert "/ui/js/pwa-update.js" in sw.text
         assert '"/ui/app.css"' in sw.text or "/ui/app.css" in sw.text
 
         slashless = client.get("/ui", follow_redirects=False)
@@ -65,7 +70,13 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         boot = client.get("/ui/js/boot.js")
         assert boot.status_code == 200
         assert "export async function loadAll" in boot.text or "loadAll" in boot.text
-        assert 'register("/ui/sw.js", { scope: "/ui/" })' in boot.text
+        assert "registerPwaUpdates" in boot.text
+        assert "pwa-update.js" in boot.text
+        assert "updateViaCache" in client.get("/ui/js/pwa-update.js").text
+        assert "SKIP_WAITING" in client.get("/ui/js/pwa-update.js").text
+        assert "A newer Hub is ready." in client.get("/ui/js/pwa-update.js").text
+        assert "toast-action" in client.get("/ui/app.css").text
+        assert "_toastSetAction" in client.get("/ui/js/state.js").text
 
         for name in (
             "state.js",
@@ -86,6 +97,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "help.js",
             "load.js",
             "boot.js",
+            "pwa-update.js",
         ):
             assert client.get(f"/ui/js/{name}").status_code == 200, name
 

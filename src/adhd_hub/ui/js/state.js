@@ -77,9 +77,10 @@ export const setMsg = (t, opts = {}) => {
 
   const variant = _toastVariant(t, opts);
   const text = String(t);
-  const action = opts.action && opts.action.label && typeof opts.action.onClick === "function"
-    ? opts.action
-    : null;
+  const action =
+    opts.action && opts.action.label && typeof opts.action.onClick === "function"
+      ? opts.action
+      : null;
   const existing = key
     ? [...host.querySelectorAll(".toast")].find((el) => el.dataset.key === key)
     : [...host.querySelectorAll(".toast")].find(
@@ -143,7 +144,9 @@ function _toastSetAction(el, action) {
     el.remove();
     try {
       action.onClick();
-    } catch (_) { /* caller handles async errors */ }
+    } catch (_) {
+      /* caller handles async errors */
+    }
   });
   el.append(btn);
 }

@@ -1,5 +1,6 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
-const CACHE = "adhd-hub-shell-v37";
+/* Bump CACHE when PRECACHE entries or SW behaviour change (avoid colliding open PRs). */
+const CACHE = "adhd-hub-shell-v38";
 const PRECACHE = [
   "/ui/",
   "/ui/app.css",
@@ -25,12 +26,19 @@ const PRECACHE = [
   "/ui/js/forge-jobs.js",
   "/ui/js/sync-health.js",
   "/ui/js/live.js",
+  "/ui/js/pwa-update.js",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
-  );
+  // Precache only — do not skipWaiting here. Activation waits for Refresh
+  // (SKIP_WAITING message) or for all old clients to close.
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
