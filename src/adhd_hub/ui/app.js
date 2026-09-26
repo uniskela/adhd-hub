@@ -515,11 +515,24 @@
     const button = $("btn-suggest");
     button.disabled = true;
     try {
-      const threads = await api("/threads?status=open&limit=100");
+      const params = new URLSearchParams();
+      // Help me choose shows with no chosen thread — use My work filter when set.
+      const focusSlug = chosenThread?.project_slug || projectFilter || "";
+      if (focusModeOn && focusSlug) {
+        params.set("focus_project_slug", focusSlug);
+      }
+      const qs = params.toString();
+      const data = await api("/next-up" + (qs ? `?${qs}` : ""));
       if (activeScreen !== "now") return;
-      const candidate = threads.find((thread) => thread.energy === "low") || threads[0];
+      const candidate = data?.next_up;
       if (!candidate) { $("suggestion").textContent = "No open tasks yet. Save a thought to get started."; return; }
-      $("suggestion").innerHTML = `<p class="hint">${candidate.energy === "low" ? "A low-energy option" : "One option to consider"}</p><h3>${escapeHtml(candidate.summary)}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
+      const hint =
+        candidate.resume_step
+          ? "Where you left off"
+          : candidate.energy === "low"
+            ? "A low-energy option"
+            : "One option to consider";
+      $("suggestion").innerHTML = `<p class="hint">${escapeHtml(hint)}</p><h3>${escapeHtml(String(candidate.summary || "Open step"))}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
       $("btn-accept-suggestion").addEventListener("click", () => chooseThread(candidate.id));
     } catch (error) { setMsg("Could not suggest a task: " + error.message); }
     finally { button.disabled = false; }

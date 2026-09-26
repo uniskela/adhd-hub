@@ -83,8 +83,8 @@ Remote AI remains opt-in and must not leak secrets, raw transcripts, private URL
 
 [#54](https://github.com/uniskela/adhd-hub/issues/54) — after Wave 6.
 
-- soft stale-thread triage (**first slice**: confirm / snooze; never auto-dismiss);
-- calm cross-project Next-up ranking;
+- soft stale-thread triage (**first slice**: confirm / snooze; never auto-dismiss) — shipped;
+- calm cross-project Next-up ranking (**second slice**);
 - merge/dedupe suggestions with human confirmation;
 - better return-cue guidance.
 

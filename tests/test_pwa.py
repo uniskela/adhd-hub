@@ -19,7 +19,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v36" in sw.text
+        assert "adhd-hub-shell-v38" in sw.text
         assert "SKIP_WAITING" in sw.text
         assert "self.skipWaiting()" in sw.text
         # Updates wait for an explicit Refresh toast — do not auto-activate on install.
@@ -87,6 +87,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "accent.js",
             "screens.js",
             "now.js",
+            "thread-title.mjs",
             "work.js",
             "progress.js",
             "settings.js",
