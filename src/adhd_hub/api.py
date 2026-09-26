@@ -164,6 +164,22 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     def overview():
         return service.overview()
 
+    @router.get("/next-up", dependencies=[Depends(auth_dep)])
+    def next_up(
+        energy: EnergyLevel | None = None,
+        project_slug: str | None = None,
+        focus_project_slug: str | None = None,
+    ):
+        """Calm Next-up pick for Now / Help me choose (Wave 7)."""
+        pick = service.pick_next_up(
+            energy=energy,
+            project_slug=project_slug,
+            focus_project_slug=focus_project_slug,
+        )
+        if not pick:
+            return {"next_up": None}
+        return {"next_up": service.thread_public_dict(pick)}
+
     @router.get("/prefs", dependencies=[Depends(auth_dep)])
     def get_prefs():
         return service.prefs().public_dict()
