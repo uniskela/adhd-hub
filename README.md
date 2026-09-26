@@ -79,7 +79,7 @@ Stdio is an **optional local mode**: it uses the configured Hub data directory a
 
 Published images (only after a manual release-PR merge by `uniskela`):
 
-- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.16.2`, `0.16`)
+- `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.17.0`, `0.17`)
 
 **Releases (Release Please):** after `uniskela` manually merges a PR to `main` with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`…), Release Please opens or updates a release PR. It never auto-merges that PR. When `uniskela` manually merges the release PR, Release Please creates `vX.Y.Z` and then publishes the matching multi-architecture images. The publish workflow has no direct `push`, PR, or manual trigger. **Squash merges use the PR title as the subject** (body bullets do not count); keep titles conventional for release-surface work — see [AGENTS.md](AGENTS.md) / [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -89,7 +89,7 @@ Documentation, chore, test, and CI-only merges do not open a release PR, even if
 
 ```bash
 docker pull ghcr.io/uniskela/adhd-hub:latest
-docker pull ghcr.io/uniskela/adhd-hub:0.16.2
+docker pull ghcr.io/uniskela/adhd-hub:0.17.0
 ```
 
 Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).
@@ -265,7 +265,7 @@ Current sequence:
 
 - **Shipped — Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75)** in v0.15.0 via [#152](https://github.com/uniskela/adhd-hub/pull/152): durable activity/event history, live UI invalidation, sync health and history.
 - **Shipped — Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52)** in v0.16.0 via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162): heuristic and opt-in local LLM thread scan-lines, project tags, filters, last-touch cues, and organiser suggestions with confirm.
-- **Now — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** stale triage, cross-project Next-up, merge/dedupe and return cues.
+- **Now — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** soft stale triage and calm Next-up ranking are on `main`; merge/dedupe suggestions and return-cue coaching remain.
 - **Next — Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55):** progress compaction, local search, mobile capture and energy/context modes.
 - **Then:** activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72).
 - **Later:** shared/discovery surfaces [#56](https://github.com/uniskela/adhd-hub/issues/56).
