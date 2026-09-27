@@ -2,7 +2,7 @@ import { state, preferences, completing, prefersReducedMotion, $, setMsg, escape
 import { api } from './api.js';
 import { copyText, formatNotesTimes, formatWhen } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
-import { celebrate } from './progress.js';
+import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
 import { threadDisplayTitle } from './thread-title.mjs';
@@ -622,6 +622,9 @@ export async function markDone(id) {
 
 /** Post-undo UI restore + list reloads (no undo-done request). */
 async function reloadAfterUndo(id, opts = {}) {
+    // Undo replaces the keyed Done toast; also drop the rewards celebration so
+    // "One step finished…" and "Restored…" never occupy the same bottom spot.
+    dismissCelebration();
     if (opts.restoreChoice) {
       state.chosenId = id;
       state.focusState = opts.previousFocus || "ready";
@@ -642,6 +645,8 @@ async function reloadAfterUndo(id, opts = {}) {
 export async function undoMarkDone(id, opts = {}) {
     if (completing.has(id)) return;
     completing.add(id);
+    // Drop celebration as soon as Undo starts (toast action already removed Done).
+    dismissCelebration();
     let undone = false;
     try {
       await api("/threads/undo-done", {
