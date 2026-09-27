@@ -19,7 +19,8 @@ export function showScreen(screen, { focusHeading = true, persist = true } = {})
     const el = $(name + "-view");
     if (el) el.hidden = name !== next;
   });
-  document.querySelectorAll("[data-screen]").forEach((button) => {
+  // Shortcut buttons elsewhere also carry data-screen; only nav items are "current".
+  document.querySelectorAll(".desktop-nav [data-screen], .mobile-nav [data-screen]").forEach((button) => {
     if (button.dataset.screen === next) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });

@@ -22,3 +22,10 @@ def test_mobile_notes_reader_resets_desktop_max_height():
     rule = _mobile_notes_reader_block(css)
     assert "height: 100dvh !important;" in rule
     assert "max-height: 100dvh !important;" in rule
+
+
+def test_aria_current_only_marks_navigation_items():
+    """Now-screen shortcut cards share data-screen but are not navigation state."""
+    screens = (UI / "js" / "screens.js").read_text()
+    assert '".desktop-nav [data-screen], .mobile-nav [data-screen]"' in screens
+    assert 'querySelectorAll("[data-screen]")' not in screens
