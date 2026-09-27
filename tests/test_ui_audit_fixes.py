@@ -29,3 +29,11 @@ def test_aria_current_only_marks_navigation_items():
     screens = (UI / "js" / "screens.js").read_text()
     assert '".desktop-nav [data-screen], .mobile-nav [data-screen]"' in screens
     assert 'querySelectorAll("[data-screen]")' not in screens
+
+
+def test_activity_chart_days_have_a_visible_baseline():
+    """Zero-activity days render no bars, so each column keeps a baseline mark."""
+    css = (UI / "app.css").read_text()
+    col = re.search(r"^\.chart \.col \{[^}]*\}", css, re.MULTILINE)
+    assert col is not None
+    assert "border-bottom: 2px solid var(--line)" in col.group(0)
