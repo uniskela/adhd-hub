@@ -65,6 +65,6 @@ assert(
   "setMsg dismisses by key when text empty"
 );
 
-assert(sw.includes("adhd-hub-shell-v40"), "PWA shell cache bumped past v39");
+assert(sw.includes("adhd-hub-shell-v41"), "PWA shell cache bumped past v40");
 
 console.log("toast_stack_smoke: ok");
