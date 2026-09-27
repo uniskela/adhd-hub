@@ -89,3 +89,32 @@ def test_ai_scan_lines_has_its_own_settings_tab():
         assert f'id="{control}"' not in prefs
     assert '[data-settings-tab="ai"]' in now
     assert "Settings → Preferences" not in work
+
+
+def test_quiet_check_in_banner_stacks_its_heading_above_the_item_list():
+    """Pending-request banners (Quiet check-in, Reminders, Pending requests) render
+    a heading + hint above a list of rows — they must not flex all of it into one
+    wrapping row, which crammed the heading, hint, and first row's title together."""
+    css = (UI / "app.css").read_text()
+    banner = re.search(r"^\.pending-banner \{[^}]*\}", css, re.MULTILINE)
+    assert banner is not None
+    assert "display: block" in banner.group(0)
+    # .setup-banner (a single description + one action, e.g. "Create password")
+    # keeps its own row layout and must not be coupled to .pending-banner again.
+    setup = re.search(r"^\.setup-banner \{[^}]*\}", css, re.MULTILINE)
+    assert setup is not None
+    assert "display: flex" in setup.group(0)
+    assert ".pending-banner, .setup-banner" not in css
+
+
+def test_quiet_check_in_rows_get_a_calm_card_not_a_bare_divider():
+    """Quiet check-in rows read as distinct cards, matching the in-card
+    .thread-triage treatment, instead of a hairline divider between rows."""
+    css = (UI / "app.css").read_text()
+    rows = re.search(r"^\.triage-banner \.pending-item \{[^}]*\}", css, re.MULTILINE)
+    assert rows is not None
+    assert "border-radius" in rows.group(0)
+    assert "background: color-mix" in rows.group(0)
+    title = re.search(r"^\.triage-title \{[^}]*\}", css, re.MULTILINE)
+    assert title is not None
+    assert "font-weight: 600" in title.group(0)

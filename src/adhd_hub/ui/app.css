@@ -515,10 +515,14 @@ progress::-moz-progress-bar { background: var(--ok); border-radius: 10px; }
 .preference-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
 .preference-row .hint { margin-bottom: 0; }
 .switch { flex-shrink: 0; }
-.pending-banner, .setup-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
+.setup-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
 .stage > .setup-banner { padding: 1rem 1.25rem; background: var(--accent-soft); }
 .setup-banner p { color: var(--muted); margin: .25rem 0 0; font-size: .8rem; }
-.pending-banner h2 { font-size: 1rem; }
+/* Pending-request banners (approvals, reminders, quiet check-in) stack a
+   heading + hint above a list of .pending-item rows — never a single row. */
+.pending-banner { display: block; margin-bottom: 1rem; }
+.pending-banner > h2 { font-size: 1rem; margin: 0; }
+.pending-banner > .hint { margin: .25rem 0 0; }
 .forge-jobs {
   margin-top: 1rem;
   padding: .85rem 1rem;
@@ -751,6 +755,7 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
 }
 .triage-actions {
   display: flex;
@@ -771,7 +776,17 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
   min-width: 0;
   margin: 0;
 }
-.triage-banner .pending-item { align-items: flex-start; min-width: 0; }
+/* Quiet check-in rows get the same calm card treatment as in-card triage
+   (.thread-triage) instead of a bare hairline divider between rows. */
+.triage-banner .pending-item {
+  align-items: flex-start;
+  min-width: 0;
+  margin: .65rem 0 0;
+  padding: .75rem .85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent, #6b7c93) 8%);
+}
 .triage-banner .pending-item > .triage-copy { flex: 1 1 12rem; min-width: 0; }
 .triage-banner .pending-item > .triage-actions { flex: 0 0 auto; }
 .work-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; min-width: 0; }
