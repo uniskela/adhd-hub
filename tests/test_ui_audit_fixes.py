@@ -52,6 +52,10 @@ def test_project_grips_support_keyboard_reorder():
     assert 'event.key !== "ArrowUp" && event.key !== "ArrowDown"' in work
     assert "siblings[index + 2]?.slug || null" in work
     assert 'proj-drag-handle[data-drag-slug="${CSS.escape(slug)}"]' in work
+    assert "if (keyboardReorderBusy) return;" in work
+    assert '{ key: "project-reorder" }' in work
+    # Search mode leaves DnD unwired, so grips must not stay in the Tab order.
+    assert 'grip.removeAttribute("tabindex")' in work
     assert "focus the grip and press Up or Down" in html
 
 

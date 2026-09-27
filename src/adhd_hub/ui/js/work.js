@@ -120,6 +120,8 @@ function flattenVisibleTree(roots, expanded) {
     return rows;
   }
 
+let keyboardReorderBusy = false;
+
 function clearProjDropIndicators() {
     document.querySelectorAll(".proj-drop-active, .proj-drop-nest").forEach((el) => {
       el.classList.remove("proj-drop-active", "proj-drop-nest");
@@ -309,23 +311,29 @@ function wireProjectDnD(list, visible) {
       handle.addEventListener("keydown", (event) => {
         if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
         event.preventDefault();
+        // Sibling order is stale until loadAll re-renders; ignore presses mid-move.
+        if (keyboardReorderBusy) return;
         const slug = handle.dataset.dragSlug;
         const up = event.key === "ArrowUp";
         const target = slug && keyboardReorderTarget(slug, up ? -1 : 1);
         const title = bySlug.get(slug)?.title || slug;
         if (!target) {
-          setMsg(`${title} is already ${up ? "first" : "last"} in this group.`);
+          setMsg(`${title} is already ${up ? "first" : "last"} in this group.`, { key: "project-reorder" });
           return;
         }
+        keyboardReorderBusy = true;
         moveProjectViaApi(slug, target)
           .then(() => {
             // loadAll re-rendered the rail; keep keyboard focus on the moved grip.
             document
               .querySelector(`#project-list .proj-drag-handle[data-drag-slug="${CSS.escape(slug)}"]`)
               ?.focus();
-            setMsg(`Moved ${title} ${up ? "up" : "down"}.`);
+            setMsg(`Moved ${title} ${up ? "up" : "down"}.`, { key: "project-reorder" });
           })
-          .catch((e) => setMsg(e.message));
+          .catch((e) => setMsg(e.message, { key: "project-reorder" }))
+          .finally(() => {
+            keyboardReorderBusy = false;
+          });
       });
       handle.addEventListener("dragstart", (event) => {
         dragSlug = handle.dataset.dragSlug || null;
@@ -507,6 +515,7 @@ export function renderProjects(projects) {
       });
     });
     if (!query) wireProjectDnD(list, visible);
+    else list.querySelectorAll(".proj-drag-handle").forEach((grip) => grip.removeAttribute("tabindex"));
     renderArchivedProjects();
   }
 
