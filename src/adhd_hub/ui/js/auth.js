@@ -2,14 +2,14 @@ import { state, $, setMsg } from './state.js';
 import { api } from './api.js';
 import { loadAll } from './load.js';
 import { chooseThread } from './now.js';
+import { dismissCelebration } from './progress.js';
 import { savedScreen, showScreen } from './screens.js';
 
 export function showLogin(message) {
     ++state.projectRequest;
     ++state.threadsRequest;
     ++state.focusRequest;
-    clearTimeout(state.celebrationTimeout);
-    $("celebration").hidden = true;
+    dismissCelebration();
     document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
     $("app-shell").hidden = true;
     $("login-gate").hidden = false;

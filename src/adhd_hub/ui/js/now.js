@@ -2,7 +2,7 @@ import { state, preferences, completing, prefersReducedMotion, $, setMsg, escape
 import { api } from './api.js';
 import { copyText, formatNotesTimes, formatWhen } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
-import { celebrate } from './progress.js';
+import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { loadThreads } from './work.js';
 import { threadDisplayTitle } from './thread-title.mjs';
@@ -622,6 +622,9 @@ export async function markDone(id) {
 
 /** Post-undo UI restore + list reloads (no undo-done request). */
 async function reloadAfterUndo(id, opts = {}) {
+    // Undo replaces the keyed Done toast; also drop the rewards celebration so
+    // "One step finished…" and "Restored…" never occupy the same bottom spot.
+    dismissCelebration();
     if (opts.restoreChoice) {
       state.chosenId = id;
       state.focusState = opts.previousFocus || "ready";
@@ -642,6 +645,8 @@ async function reloadAfterUndo(id, opts = {}) {
 export async function undoMarkDone(id, opts = {}) {
     if (completing.has(id)) return;
     completing.add(id);
+    // Drop celebration as soon as Undo starts (toast action already removed Done).
+    dismissCelebration();
     let undone = false;
     try {
       await api("/threads/undo-done", {
@@ -723,8 +728,8 @@ export function renderTriage(candidates) {
     }
     const row = (t) => `
       <div class="pending-item triage-item" data-triage="${escapeHtml(t.id)}">
-        <div>
-          <div>${escapeHtml(t.summary || "Open step")}</div>
+        <div class="triage-copy">
+          <div class="triage-title">${escapeHtml(t.summary || "Open step")}</div>
           <div class="meta">Still relevant? Confirm or ask again later — never auto-dismissed.</div>
         </div>
         <div class="actions triage-actions" style="margin:0">
@@ -749,7 +754,7 @@ export function renderTriage(candidates) {
           .slice(0, 2)
           .map(
             (t) => `<div class="triage-item">
-            <div><strong>${escapeHtml(t.summary || "Open step")}</strong>
+            <div class="triage-copy"><strong class="triage-title">${escapeHtml(t.summary || "Open step")}</strong>
             <p class="hint">A calm check — confirm or snooze. Nothing dismisses itself.</p></div>
             <div class="actions triage-actions">
               <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>

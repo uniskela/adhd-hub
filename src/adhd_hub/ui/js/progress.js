@@ -88,19 +88,48 @@ export function openSharePreview() {
       catch (_) { $("btn-native-share").hidden = true; }
     }, "image/png");
   }
+/** Sticky key for the rewards Done cue — lives in toast-host (not a second fixed banner). */
+export const CELEBRATION_TOAST_KEY = "celebration";
+
+/** Hide legacy #celebration and dismiss the keyed celebration toast. */
+export function dismissCelebration() {
+    clearTimeout(state.celebrationTimeout);
+    state.celebrationTimeout = undefined;
+    const el = $("celebration");
+    if (el) {
+      el.hidden = true;
+      el.textContent = "";
+    }
+    setMsg("", { key: CELEBRATION_TOAST_KEY, dismiss: true });
+  }
+
+/**
+ * Quiet rewards acknowledgment after Done.
+ * Uses the shared toast stack (gap + keys) so it never overlaps Done/Undo toasts
+ * that sit in the same bottom band as the old fixed #celebration banner.
+ */
 export function celebrate() {
     if (!$("rewards-enabled").checked) return;
     if (prefersReducedMotion()) return;
+    // Keep the legacy fixed banner hidden — toast-host owns this cue now.
+    const el = $("celebration");
+    if (el) {
+      el.hidden = true;
+      el.textContent = "";
+    }
     clearTimeout(state.celebrationTimeout);
-    $("celebration").textContent = "One step finished. Take a breath.";
-    $("celebration").hidden = false;
-    state.celebrationTimeout = setTimeout(() => { $("celebration").hidden = true; }, 4500);
+    state.celebrationTimeout = undefined;
+    setMsg("One step finished. Take a breath.", {
+      key: CELEBRATION_TOAST_KEY,
+      variant: "success",
+      duration: 4500,
+    });
   }
 export function saveRewardPreferences() {
     preferences.setItem("adhd_hub_rewards", String($("rewards-enabled").checked));
     preferences.setItem("adhd_hub_daily_goal", $("daily-goal").value);
     if (!$("rewards-enabled").checked) {
-      $("celebration").hidden = true;
+      dismissCelebration();
       $("share-dialog").close();
     }
     renderRewards();

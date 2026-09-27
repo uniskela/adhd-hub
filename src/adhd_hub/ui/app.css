@@ -95,11 +95,13 @@ summary::marker { color: var(--muted); }
   display: flex;
   flex-direction: column-reverse;
   gap: .55rem;
+  align-items: stretch;
   width: min(360px, calc(100vw - 2rem));
   pointer-events: none;
 }
 .toast {
   pointer-events: auto;
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: .5rem;
@@ -113,6 +115,13 @@ summary::marker { color: var(--muted); }
   font-size: .88rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+/* Rewards Done cue shares toast-host (keyed) — same calm success tone, stacked with gap. */
+.toast[data-key="celebration"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
+  font-weight: 600;
 }
 .toast-body { margin: 0; }
 .toast-action {
@@ -701,7 +710,9 @@ dialog::backdrop { background: #10111b99; backdrop-filter: blur(4px); }
 #cli-sessions-list .text-button { margin-top: 0; width: auto; }
 .login-help summary { color: var(--muted); font-size: .8rem; font-weight: 500; }
 .session-note { font-size: .72rem; color: var(--muted); text-align: center; margin: 1rem 0 0; padding-top: 1rem; border-top: 1px solid var(--line); }
+/* Legacy #celebration kept in DOM for tests/compat but stays hidden; celebrate() uses toast-host. */
 .celebration { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); max-width: calc(100% - 2rem); padding: 1rem 1.5rem; background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); box-shadow: var(--shadow); border-radius: 14px; z-index: 10; font-weight: 600; animation: reward-in .25s ease-out; }
+.celebration[hidden] { display: none !important; }
 @keyframes reward-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
 .skip-link { position: absolute; top: -5rem; left: 1rem; z-index: 20; padding: .8rem; background: var(--card); }
 .skip-link:focus { top: 1rem; }
@@ -720,11 +731,49 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
 .reminder-strip { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .reminder-strip p { margin: .35rem 0; }
 .triage-strip { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-.triage-strip .triage-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .75rem; margin: .65rem 0; }
-.triage-strip .triage-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; }
-.thread-triage { margin: .65rem 0 .35rem; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, var(--accent, #6b7c93) 8%); }
-.thread-triage p { margin: 0 0 .45rem; }
-.triage-banner .pending-item { align-items: flex-start; }
+/* Quiet check-in + in-card triage: title/hint shrinks; actions stay end-aligned. */
+.triage-item,
+.thread-triage {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .75rem;
+  min-width: 0;
+}
+.triage-strip .triage-item { margin: .65rem 0; }
+.triage-copy {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.triage-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.triage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.thread-triage {
+  margin: .65rem 0 .35rem;
+  padding: .65rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent, #6b7c93) 8%);
+}
+.thread-triage > .hint {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+}
+.triage-banner .pending-item { align-items: flex-start; min-width: 0; }
+.triage-banner .pending-item > .triage-copy { flex: 1 1 12rem; min-width: 0; }
+.triage-banner .pending-item > .triage-actions { flex: 0 0 auto; }
 .work-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; min-width: 0; }
 .work-heading-row > :first-child { min-width: 0; flex: 1 1 auto; }
 .archived-projects { margin-top: 1rem; }

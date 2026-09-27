@@ -95,12 +95,27 @@ assert(
   ),
   "Undo toast published after completing lock clears"
 );
+assert(nowSrc.includes("dismissCelebration"), "Undo path dismisses celebration toast");
+assert(
+  /async function reloadAfterUndo(?:(?!\n\s*(?:async )?function undoMarkDone)[\s\S])*?dismissCelebration\(\)(?:(?!\n\s*(?:async )?function undoMarkDone)[\s\S])*?setMsg\(["']Restored/.test(
+    nowSrc
+  ),
+  "reloadAfterUndo dismisses celebration before Restored toast"
+);
+assert(
+  /export async function undoMarkDone[\s\S]*dismissCelebration\(\)/.test(nowSrc),
+  "undoMarkDone dismisses celebration as soon as Undo starts"
+);
 assert(stateSrc.includes("_toastSetAction"), "setMsg supports toast actions");
 assert(stateSrc.includes("toast-action"), "toast action class wired");
 // Keep toast removal-before-onClick; Retry lives in now.js, not state.js.
 assert(
   /el\.remove\(\);\s*try \{\s*action\.onClick\(\);/.test(stateSrc),
   "toast action still removes toast before onClick"
+);
+assert(
+  stateSrc.includes('opts.dismiss') || stateSrc.includes("opts.dismiss"),
+  "setMsg can dismiss by key"
 );
 
 console.log("now_title_undo_smoke: ok");
