@@ -728,8 +728,8 @@ export function renderTriage(candidates) {
     }
     const row = (t) => `
       <div class="pending-item triage-item" data-triage="${escapeHtml(t.id)}">
-        <div>
-          <div>${escapeHtml(t.summary || "Open step")}</div>
+        <div class="triage-copy">
+          <div class="triage-title">${escapeHtml(t.summary || "Open step")}</div>
           <div class="meta">Still relevant? Confirm or ask again later — never auto-dismissed.</div>
         </div>
         <div class="actions triage-actions" style="margin:0">
@@ -754,7 +754,7 @@ export function renderTriage(candidates) {
           .slice(0, 2)
           .map(
             (t) => `<div class="triage-item">
-            <div><strong>${escapeHtml(t.summary || "Open step")}</strong>
+            <div class="triage-copy"><strong class="triage-title">${escapeHtml(t.summary || "Open step")}</strong>
             <p class="hint">A calm check — confirm or snooze. Nothing dismisses itself.</p></div>
             <div class="actions triage-actions">
               <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
