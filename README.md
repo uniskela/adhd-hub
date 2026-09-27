@@ -10,7 +10,7 @@ Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRI
 
 ## Screenshots
 
-My work with the Notes & context reader (projects rail, thread card, Summarise):
+My work with Notes & context (Quiet check-in, projects rail, docked reader, Summarise):
 
 ![My work with Notes & context](docs/images/my-work-notes-hero.png)
 
@@ -18,7 +18,7 @@ My work with the Notes & context reader (projects rail, thread card, Summarise):
 | --- | --- | --- | --- |
 | ![Now](docs/images/now-desktop.png) | ![My work](docs/images/my-work-desktop.png) | ![Progress](docs/images/progress-desktop.png) | ![Settings](docs/images/settings-desktop.png) |
 
-Gallery shots use dummy demo data. More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
+Gallery shots use dummy demo data (including a soft Quiet check-in). More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
 
 ## Why
 

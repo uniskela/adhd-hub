@@ -2,6 +2,10 @@
 
 Run: uv run --with playwright python scripts/capture_readme_screenshots.py
 Optional: ADHD_HUB_BROWSER_EXECUTABLE, ADHD_HUB_SCREENSHOT_DIR
+
+Prefer Playwright's bundled Chromium (omit ADHD_HUB_BROWSER_EXECUTABLE). Some
+system Chrome builds ignore Playwright viewport height, which crops Quiet
+check-in off the Now shot.
 """
 
 from __future__ import annotations
@@ -9,11 +13,14 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -151,6 +158,17 @@ def main() -> None:
                 },
             )
 
+            # Backdate one open thread so Quiet check-in (Wave 7 soft triage)
+            # appears on Now without inventing product state.
+            stale_at = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+            with sqlite3.connect(Path(data) / "hub.sqlite3") as conn:
+                conn.execute(
+                    "UPDATE threads SET updated_at = ?, last_reminded_at = NULL, "
+                    "triage_snooze_until = NULL "
+                    "WHERE summary = ? AND status = 'open'",
+                    (stale_at, "Book a dentist visit"),
+                )
+
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(
                     executable_path=os.environ.get("ADHD_HUB_BROWSER_EXECUTABLE")
@@ -158,7 +176,7 @@ def main() -> None:
                     args=["--no-sandbox"],
                 )
                 page = browser.new_page(
-                    viewport={"width": 1440, "height": 900},
+                    viewport={"width": 1440, "height": 1100},
                     reduced_motion="reduce",
                 )
                 page.goto(base + "/ui")
@@ -179,8 +197,10 @@ def main() -> None:
                         animations="disabled",
                     )
 
-                # Now
+                # Now (with Quiet check-in when a seeded thread is stale)
                 expect(page.locator("#now-view")).to_be_visible()
+                expect(page.locator("#now-triage")).to_be_visible()
+                expect(page.locator("#now-triage")).to_contain_text("Still relevant")
                 shot("now-desktop.png")
 
                 # My work with projects rail + thread cards
@@ -200,6 +220,8 @@ def main() -> None:
                     page.locator(".thread-notes-menu").first.click()
                 expect(page.locator("#notes-reader")).to_be_visible()
                 shot("notes-reader-desktop.png")
+                # Primary README/docs hero — same framing as the Notes reader shot.
+                shutil.copy2(out / "notes-reader-desktop.png", out / "my-work-notes-hero.png")
                 page.keyboard.press("Escape")
 
                 # Progress
