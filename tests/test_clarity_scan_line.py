@@ -219,8 +219,8 @@ def test_undo_status_history_never_becomes_scan_line(tmp_path):
     assert restored is not None and restored.status.value == "open"
 
     pub = service.thread_public_dict(restored)
-    assert pub["progress_snippet"]
-    assert "[status→" in pub["progress_snippet"]
+    # Status audits must not surface as progress_snippet (copy-agent Progress).
+    assert "[status→" not in (pub.get("progress_snippet") or "")
     assert pub["scan_line"] is None
 
     # Human resume still wins over the status audit.
@@ -261,7 +261,7 @@ def test_scan_line_prefers_older_human_note_over_status_history(tmp_path):
     service.mark_done(created.id, note="Finished for test.")
     restored = service.undo_mark_done(created.id, note="Undone from /ui")
     pub = service.thread_public_dict(restored)
-    assert "[status→" in (pub.get("progress_snippet") or "")
+    assert pub.get("progress_snippet") == "Merged PR after green CI."
     assert pub["scan_line"] == "Merged PR after green CI."
 
 
@@ -290,8 +290,42 @@ def test_scan_line_skips_scrub_empty_note_for_older_candidate(tmp_path):
         "demo", "https://example.com/docs/only", thread_id=created.id
     )
     pub = service.thread_public_dict(created)
+    assert pub.get("progress_snippet") == "Ship the scan-line scrub fix."
     assert pub["scan_line"] == "Ship the scan-line scrub fix."
     assert "[url]" not in (pub["scan_line"] or "")
+    assert "https://" not in (pub.get("progress_snippet") or "")
+
+
+def test_progress_snippet_matches_eligible_scan_candidate(tmp_path):
+    """progress_snippet must match the first boilerplate+scrub-eligible note."""
+    from adhd_hub.config import Settings
+    from adhd_hub.models import ThreadUpsert
+    from adhd_hub.service import HubService
+
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="test-token",
+    )
+    service = HubService(settings)
+    created = service.upsert_thread(
+        ThreadUpsert(
+            summary="Eligible note under audit and URL-only",
+            project_slug="demo",
+            source_tool="pytest",
+        )
+    )
+    service.store.add_progress_note(
+        "demo", "Wire the Progress field to the scan candidate.", thread_id=created.id
+    )
+    service.store.add_progress_note(
+        "demo", "https://example.com/noise-only", thread_id=created.id
+    )
+    service.mark_done(created.id, note="Finished for test.")
+    restored = service.undo_mark_done(created.id, note="Undone from /ui")
+    pub = service.thread_public_dict(restored)
+    assert pub.get("progress_snippet") == "Wire the Progress field to the scan candidate."
+    assert pub["scan_line"] == "Wire the Progress field to the scan candidate."
+    assert "[status→" not in (pub.get("progress_snippet") or "")
 
 
 def test_scan_line_searches_beyond_three_newest_notes(tmp_path):
@@ -322,5 +356,5 @@ def test_scan_line_searches_beyond_three_newest_notes(tmp_path):
             thread_id=created.id,
         )
     pub = service.thread_public_dict(created)
-    assert "[status→" in (pub.get("progress_snippet") or "")
+    assert pub.get("progress_snippet") == "Finish the deeper note lookup."
     assert pub["scan_line"] == "Finish the deeper note lookup."
