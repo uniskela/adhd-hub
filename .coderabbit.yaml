@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  auto_review:
+    # Release Please / autorelease PRs intentionally use chore(…): release X.Y.Z
+    # while bumping version files under src/**. Conventional title CI already
+    # exempts them (scripts/pr_title_gate.py, #155). Skipping auto-review stops
+    # false "rename PR to feat/fix" nags on those titles.
+    ignore_title_keywords:
+      - "chore(main): release"
+      - "chore: release"
+  path_instructions:
+    - path: "src/**/__init__.py"
+      instructions: >
+        Package __version__ fallback bumps that accompany Release Please or
+        autorelease PRs (titles matching chore(...): release X.Y.Z) are expected.
+        Do not request renaming the PR title to feat/fix/perf/revert — those
+        titles are intentional and exempt from the conventional title gate in
+        scripts/pr_title_gate.py. Flag only unexpected logic changes in this file.
+    - path: "src/**"
+      instructions: >
+        When the PR title matches chore(...): release X.Y.Z (Release Please /
+        autorelease), do not ask to rename the PR to a feat/fix/perf/revert
+        prefix solely because the diff touches src/**. That rename guidance is
+        for human PRs; release PRs are exempt in scripts/pr_title_gate.py.
