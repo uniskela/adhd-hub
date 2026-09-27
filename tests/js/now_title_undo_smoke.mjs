@@ -97,7 +97,9 @@ assert(
 );
 assert(nowSrc.includes("dismissCelebration"), "Undo path dismisses celebration toast");
 assert(
-  /async function reloadAfterUndo[\s\S]*dismissCelebration\(\)/.test(nowSrc),
+  /async function reloadAfterUndo(?:(?!\n\s*(?:async )?function undoMarkDone)[\s\S])*?dismissCelebration\(\)(?:(?!\n\s*(?:async )?function undoMarkDone)[\s\S])*?setMsg\(["']Restored/.test(
+    nowSrc
+  ),
   "reloadAfterUndo dismisses celebration before Restored toast"
 );
 assert(
