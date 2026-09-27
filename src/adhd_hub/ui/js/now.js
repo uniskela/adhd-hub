@@ -346,9 +346,9 @@ export async function summariseNotes({ mode = "force", quiet = false } = {}) {
       }
       if (out.settings_hint && !quiet && isCurrent()) {
         showScreen("settings");
-        // Soft cue into Preferences → AI (avoid importing settings.js — circular via load.js).
-        const prefsTab = document.querySelector('[data-settings-tab="preferences"]');
-        prefsTab?.click();
+        // Soft cue into Settings → AI scan-lines (avoid importing settings.js — circular via load.js).
+        const aiTab = document.querySelector('[data-settings-tab="ai"]');
+        aiTab?.click();
         const aiBlock = $("ai_enabled");
         if (aiBlock) {
           try {

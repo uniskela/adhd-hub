@@ -158,7 +158,7 @@
         <select id="tag-filter" aria-label="Filter projects by tag">
           <option value="">All tags</option>
         </select>
-        <p class="hint proj-dnd-hint">Drag the six-dot grip onto another project to nest it, or between rows to reorder.</p>
+        <p class="hint proj-dnd-hint">Drag the six-dot grip onto another project to nest it, or between rows to reorder. With a keyboard, focus the grip and press Up or Down.</p>
         <div class="rail-scroll">
           <div id="project-list"></div>
           <details class="archived-projects" id="archived-projects-wrap" hidden>
@@ -268,6 +268,7 @@
             <button type="button" class="settings-nav-item" role="tab" id="tab-connections" aria-controls="settings-connections" aria-selected="false" tabindex="-1" data-settings-tab="connections">Agents &amp; install</button>
             <button type="button" class="settings-nav-item" role="tab" id="tab-mcp" aria-controls="settings-mcp" aria-selected="false" tabindex="-1" data-settings-tab="mcp">Windows / MCP</button>
             <button type="button" class="settings-nav-item" role="tab" id="tab-openclaw" aria-controls="settings-openclaw" aria-selected="false" tabindex="-1" data-settings-tab="openclaw">OpenClaw</button>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-ai" aria-controls="settings-ai" aria-selected="false" tabindex="-1" data-settings-tab="ai">AI scan-lines</button>
             <button type="button" class="settings-nav-item" role="tab" id="tab-forge" aria-controls="settings-forge" aria-selected="false" tabindex="-1" data-settings-tab="forge">Forge</button>
             <button type="button" class="settings-nav-item" role="tab" id="tab-data" aria-controls="settings-data" aria-selected="false" tabindex="-1" data-settings-tab="data">Data</button>
           </aside>
@@ -314,47 +315,6 @@
                 <div class="preference-row"><div><strong>Gentle rewards</strong><p class="hint">Ranks, badges, and shareable wins. No streaks to lose.</p></div><label class="switch"><input type="checkbox" id="rewards-enabled" /> <span>Enable rewards</span></label></div>
                 <label>Daily goal <select id="daily-goal"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select></label>
                 <div class="settings-divider"><label for="timezone">Hub timezone</label><select id="timezone"></select><p class="hint">Used for daily activity across this hub.</p><button type="button" class="primary" id="btn-save-settings">Save</button></div>
-
-                <div class="settings-divider">
-                  <h3>AI scan-lines</h3>
-                  <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. For Gemini, prefer <code>gemini-3.6-flash</code> — older flash ids may still appear in lists but 404 for new users. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>. The same setting powers Notes reader <strong>Summarise</strong>.</p>
-                  <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, you can rewrite the short line under each My work title from Actions, or rewrite all open threads for a selected project from the project header. Notes <strong>Summarise</strong> uses the same endpoint for a persisted Done / Plan·Focus / Next card (notes feed unchanged).</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
-                  <div class="preference-row"><div><strong>Auto review scan lines</strong><p class="hint">Off by default. When Enable AI is on, Hub rewrites scan lines for new or changed threads (once per content hash). Unchanged threads skip the provider. Manual Rewrite / Rewrite all still work when this is off.</p></div><label class="switch"><input type="checkbox" id="ai_auto_review_scan" /> <span>Auto review</span></label></div>
-                  <div class="preference-row"><div><strong>Auto summarise notes</strong><p class="hint">Off by default. When opening Notes &amp; Context, run Summarise if there is no saved card or notes/continuity drifted. Matching hash shows the cached card with no AI call.</p></div><label class="switch"><input type="checkbox" id="ai_auto_summarise_notes" /> <span>Auto summarise</span></label></div>
-                  <div class="form-grid">
-                    <label class="span2">Base URL preset
-                      <select id="ai_base_url_preset" aria-describedby="ai-base-url-hint">
-                        <option value="http://127.0.0.1:11434/v1">Ollama (local)</option>
-                        <option value="http://127.0.0.1:1234/v1">LM Studio (local)</option>
-                        <option value="https://api.openai.com/v1">OpenAI</option>
-                        <option value="https://generativelanguage.googleapis.com/v1beta/openai/">Gemini (OpenAI-compatible)</option>
-                        <option value="https://openrouter.ai/api/v1">OpenRouter</option>
-                        <option value="https://api.groq.com/openai/v1">Groq</option>
-                        <option value="">Custom…</option>
-                      </select>
-                    </label>
-                    <label class="span2">Base URL
-                      <input id="ai_base_url" type="url" list="ai_base_url_list" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" />
-                      <datalist id="ai_base_url_list">
-                        <option value="http://127.0.0.1:11434/v1" label="Ollama (local)"></option>
-                        <option value="http://127.0.0.1:1234/v1" label="LM Studio (local)"></option>
-                        <option value="https://api.openai.com/v1" label="OpenAI"></option>
-                        <option value="https://generativelanguage.googleapis.com/v1beta/openai/" label="Gemini (OpenAI-compatible)"></option>
-                        <option value="https://openrouter.ai/api/v1" label="OpenRouter"></option>
-                        <option value="https://api.groq.com/openai/v1" label="Groq"></option>
-                      </datalist>
-                    </label>
-                    <p id="ai-base-url-hint" class="hint span2">Pick a common OpenAI-compatible endpoint or enter a custom base URL (must end with the API root your provider expects). Saved URLs that do not match a preset open as Custom… with the URL filled in.</p>
-                    <label>Model <select id="ai_model"><option value="llama3.2">llama3.2</option></select></label>
-                    <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="1" max="30" step="1" value="15" /></label>
-                    <label class="span2">API key <span class="hint">· optional</span><input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" /></label>
-                  </div>
-                  <p id="ai_key_status" class="hint">No saved API key.</p>
-                  <label><input type="checkbox" id="ai_clear_key" /> Remove the saved API key</label>
-                  <p id="ai-status" class="hint" role="status">AI: off</p>
-                  <div class="actions"><button type="button" class="ghost" id="btn-load-ai-models" disabled>Test &amp; Load Models</button><button type="button" class="primary" id="btn-save-ai">Save AI settings</button></div>
-                  <p id="ai-msg" class="msg" role="status"></p>
-                </div>
               </section>
               <section id="settings-account" role="tabpanel" aria-labelledby="tab-account" tabindex="0" hidden>
                 <h2>Sign-in &amp; security</h2>
@@ -416,6 +376,46 @@
                   <p class="hint"><strong>CLI sessions on this Hub</strong></p>
                   <ul id="cli-sessions-list" class="hint"></ul>
                 </div>
+              </section>
+              <section id="settings-ai" role="tabpanel" aria-labelledby="tab-ai" tabindex="0" hidden>
+                <h2>AI scan-lines</h2>
+                <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. For Gemini, prefer <code>gemini-3.6-flash</code> — older flash ids may still appear in lists but 404 for new users. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>. The same setting powers Notes reader <strong>Summarise</strong>.</p>
+                <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, you can rewrite the short line under each My work title from Actions, or rewrite all open threads for a selected project from the project header. Notes <strong>Summarise</strong> uses the same endpoint for a persisted Done / Plan·Focus / Next card (notes feed unchanged).</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
+                <div class="preference-row"><div><strong>Auto review scan lines</strong><p class="hint">Off by default. When Enable AI is on, Hub rewrites scan lines for new or changed threads (once per content hash). Unchanged threads skip the provider. Manual Rewrite / Rewrite all still work when this is off.</p></div><label class="switch"><input type="checkbox" id="ai_auto_review_scan" /> <span>Auto review</span></label></div>
+                <div class="preference-row"><div><strong>Auto summarise notes</strong><p class="hint">Off by default. When opening Notes &amp; Context, run Summarise if there is no saved card or notes/continuity drifted. Matching hash shows the cached card with no AI call.</p></div><label class="switch"><input type="checkbox" id="ai_auto_summarise_notes" /> <span>Auto summarise</span></label></div>
+                <div class="form-grid">
+                  <label class="span2">Base URL preset
+                    <select id="ai_base_url_preset" aria-describedby="ai-base-url-hint">
+                      <option value="http://127.0.0.1:11434/v1">Ollama (local)</option>
+                      <option value="http://127.0.0.1:1234/v1">LM Studio (local)</option>
+                      <option value="https://api.openai.com/v1">OpenAI</option>
+                      <option value="https://generativelanguage.googleapis.com/v1beta/openai/">Gemini (OpenAI-compatible)</option>
+                      <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+                      <option value="https://api.groq.com/openai/v1">Groq</option>
+                      <option value="">Custom…</option>
+                    </select>
+                  </label>
+                  <label class="span2">Base URL
+                    <input id="ai_base_url" type="url" list="ai_base_url_list" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" />
+                    <datalist id="ai_base_url_list">
+                      <option value="http://127.0.0.1:11434/v1" label="Ollama (local)"></option>
+                      <option value="http://127.0.0.1:1234/v1" label="LM Studio (local)"></option>
+                      <option value="https://api.openai.com/v1" label="OpenAI"></option>
+                      <option value="https://generativelanguage.googleapis.com/v1beta/openai/" label="Gemini (OpenAI-compatible)"></option>
+                      <option value="https://openrouter.ai/api/v1" label="OpenRouter"></option>
+                      <option value="https://api.groq.com/openai/v1" label="Groq"></option>
+                    </datalist>
+                  </label>
+                  <p id="ai-base-url-hint" class="hint span2">Pick a common OpenAI-compatible endpoint or enter a custom base URL (must end with the API root your provider expects). Saved URLs that do not match a preset open as Custom… with the URL filled in.</p>
+                  <label>Model <select id="ai_model"><option value="llama3.2">llama3.2</option></select></label>
+                  <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="1" max="30" step="1" value="15" /></label>
+                  <label class="span2">API key <span class="hint">· optional</span><input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" /></label>
+                </div>
+                <p id="ai_key_status" class="hint">No saved API key.</p>
+                <label><input type="checkbox" id="ai_clear_key" /> Remove the saved API key</label>
+                <p id="ai-status" class="hint" role="status">AI: off</p>
+                <div class="actions"><button type="button" class="ghost" id="btn-load-ai-models" disabled>Test &amp; Load Models</button><button type="button" class="primary" id="btn-save-ai">Save AI settings</button></div>
+                <p id="ai-msg" class="msg" role="status"></p>
               </section>
               <section id="settings-openclaw" role="tabpanel" aria-labelledby="tab-openclaw" tabindex="0" hidden>
                 <h2>OpenClaw connection &amp; gentle alerts</h2>

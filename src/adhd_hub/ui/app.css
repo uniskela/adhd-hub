@@ -433,7 +433,7 @@ summary::marker { color: var(--muted); }
 .activity-details { margin-top: .85rem; }
 .activity-details > summary { font-size: .75rem; color: var(--muted); font-weight: 500; }
 .chart { display: flex; align-items: flex-end; gap: 7px; height: 66px; margin-top: .8rem; }
-.chart .col { height: 100%; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; }
+.chart .col { height: 100%; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; border-bottom: 2px solid var(--line); }
 .chart .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 0; }
 .chart .add { background: var(--warn); }
 .chart .done { background: var(--ok); }
@@ -1312,7 +1312,8 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
 }
 .notes-trigger:hover,
 .notes-trigger[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); filter: none; }
-.thread:has(.notes-trigger[aria-expanded="true"]) { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }
+.thread:has(.notes-trigger[aria-expanded="true"]),
+.thread:has(.thread-utility[open]) { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }
 
 /* An email-style reader that can share the workspace or take it over. */
 #work-view .layout.notes-docked {
@@ -1407,6 +1408,7 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
     flex-direction: column;
     width: 100%;
     height: 100dvh !important;
+    max-height: 100dvh !important;
     margin: 0 !important;
     border: 0;
     border-radius: 0;

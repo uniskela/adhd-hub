@@ -22,7 +22,7 @@ ADHD Hub requires a persistent data directory. In the container image that direc
 | Path | Contents |
 | --- | --- |
 | `hub.sqlite3` | Projects (including **tags**), threads, progress notes, AI **scan-line cache**, meta |
-| `ai.json` | **AI scan-line / Settings → Preferences** (API key encrypted with `ADHD_HUB_AUTH_TOKEN`) |
+| `ai.json` | **AI scan-line / Settings → AI scan-lines** (API key encrypted with `ADHD_HUB_AUTH_TOKEN`) |
 | `prefs.json` | Dashboard preferences (timezone, etc.) |
 | `forge.json` / `openclaw.json` | Optional forge / OpenClaw config |
 | `wiki/` | Local markdown wiki / progress files |

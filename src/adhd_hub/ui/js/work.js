@@ -90,7 +90,7 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
         </button>`
       : "";
     const handle = canDrag
-      ? `<span class="proj-drag-handle" draggable="true" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder" aria-label="Drag ${title}">
+      ? `<span class="proj-drag-handle" draggable="true" tabindex="0" role="button" aria-keyshortcuts="ArrowUp ArrowDown" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder, or use the Up and Down arrow keys" aria-label="Reorder ${title}: drag, or press Up or Down arrow">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
         </span>`
       : "";
@@ -119,6 +119,8 @@ function flattenVisibleTree(roots, expanded) {
     walk(roots, 0);
     return rows;
   }
+
+let keyboardReorderBusy = false;
 
 function clearProjDropIndicators() {
     document.querySelectorAll(".proj-drop-active, .proj-drop-nest").forEach((el) => {
@@ -288,7 +290,51 @@ function wireProjectDnD(list, visible) {
       startAutoScroll(event.clientY);
     });
 
+    const keyboardReorderTarget = (slug, step) => {
+      const parent = bySlug.get(slug)?.parent_slug || null;
+      const siblings = visible
+        .map(({ project }) => project)
+        .filter(
+          (p) => (p.parent_slug || null) === parent && !p.unregistered && p.slug !== "unclassified"
+        );
+      const index = siblings.findIndex((p) => p.slug === slug);
+      if (index < 0) return null;
+      if (step < 0) {
+        if (index === 0) return null;
+        return { parent_slug: parent, before_slug: siblings[index - 1].slug };
+      }
+      if (index === siblings.length - 1) return null;
+      return { parent_slug: parent, before_slug: siblings[index + 2]?.slug || null };
+    };
+
     list.querySelectorAll(".proj-drag-handle").forEach((handle) => {
+      handle.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+        event.preventDefault();
+        // Sibling order is stale until loadAll re-renders; ignore presses mid-move.
+        if (keyboardReorderBusy) return;
+        const slug = handle.dataset.dragSlug;
+        const up = event.key === "ArrowUp";
+        const target = slug && keyboardReorderTarget(slug, up ? -1 : 1);
+        const title = bySlug.get(slug)?.title || slug;
+        if (!target) {
+          setMsg(`${title} is already ${up ? "first" : "last"} in this group.`, { key: "project-reorder" });
+          return;
+        }
+        keyboardReorderBusy = true;
+        moveProjectViaApi(slug, target)
+          .then(() => {
+            // loadAll re-rendered the rail; keep keyboard focus on the moved grip.
+            document
+              .querySelector(`#project-list .proj-drag-handle[data-drag-slug="${CSS.escape(slug)}"]`)
+              ?.focus();
+            setMsg(`Moved ${title} ${up ? "up" : "down"}.`, { key: "project-reorder" });
+          })
+          .catch((e) => setMsg(e.message, { key: "project-reorder" }))
+          .finally(() => {
+            keyboardReorderBusy = false;
+          });
+      });
       handle.addEventListener("dragstart", (event) => {
         dragSlug = handle.dataset.dragSlug || null;
         if (!dragSlug) return;
@@ -469,6 +515,7 @@ export function renderProjects(projects) {
       });
     });
     if (!query) wireProjectDnD(list, visible);
+    else list.querySelectorAll(".proj-drag-handle").forEach((grip) => grip.removeAttribute("tabindex"));
     renderArchivedProjects();
   }
 
@@ -1323,7 +1370,7 @@ export function renderThreads(threads) {
 export async function rewriteScanLine(threadId) {
     if (!threadId) return;
     if (!aiScanLinesEnabled()) {
-      setMsg("Enable AI in Settings → Preferences to rewrite scan lines.");
+      setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
       return;
     }
     const btn = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
@@ -1362,7 +1409,7 @@ export async function rewriteAllProjectScanLines() {
       return;
     }
     if (!aiScanLinesEnabled()) {
-      setMsg("Enable AI in Settings → Preferences to rewrite scan lines.");
+      setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
       setRewriteAllButtons({ hidden: true });
       return;
     }
