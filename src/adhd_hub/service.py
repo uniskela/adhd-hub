@@ -1674,15 +1674,24 @@ class HubService:
                 data["forge_issue_url"] = cfg.issue_web_url(number)
         scan_progress_snippet = None
         if thread.project_slug:
+            # Prefer a usable scan candidate over the three newest rows: status
+            # audits / URL-only notes often sit on top of an older human line.
             notes = self.store.list_progress_notes(
-                thread.project_slug, limit=3, thread_id=thread.id
+                thread.project_slug, limit=40, thread_id=thread.id
             )
             if notes:
                 data["progress_snippet"] = notes[0]["content"][:800]
+                from adhd_hub.clarity import scrub_scan_text
+
                 # Never feed status-history / milestone audits into scan_line.
+                # Also skip content that scrub_scan_text would empty (e.g. URL-only).
                 for note in notes:
                     content = (note.get("content") or "")[:800]
-                    if content and not is_boilerplate_progress_snippet(content):
+                    if (
+                        content
+                        and not is_boilerplate_progress_snippet(content)
+                        and scrub_scan_text(content)
+                    ):
                         scan_progress_snippet = content
                         break
             else:

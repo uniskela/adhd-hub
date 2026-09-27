@@ -263,3 +263,64 @@ def test_scan_line_prefers_older_human_note_over_status_history(tmp_path):
     pub = service.thread_public_dict(restored)
     assert "[status→" in (pub.get("progress_snippet") or "")
     assert pub["scan_line"] == "Merged PR after green CI."
+
+
+def test_scan_line_skips_scrub_empty_note_for_older_candidate(tmp_path):
+    """URL-only notes scrub to empty; keep searching for a usable older note."""
+    from adhd_hub.config import Settings
+    from adhd_hub.models import ThreadUpsert
+    from adhd_hub.service import HubService
+
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="test-token",
+    )
+    service = HubService(settings)
+    created = service.upsert_thread(
+        ThreadUpsert(
+            summary="URL note on top of human progress",
+            project_slug="demo",
+            source_tool="pytest",
+        )
+    )
+    service.store.add_progress_note(
+        "demo", "Ship the scan-line scrub fix.", thread_id=created.id
+    )
+    service.store.add_progress_note(
+        "demo", "https://example.com/docs/only", thread_id=created.id
+    )
+    pub = service.thread_public_dict(created)
+    assert pub["scan_line"] == "Ship the scan-line scrub fix."
+    assert "[url]" not in (pub["scan_line"] or "")
+
+
+def test_scan_line_searches_beyond_three_newest_notes(tmp_path):
+    """Three newest boilerplate notes must not hide an older human progress note."""
+    from adhd_hub.config import Settings
+    from adhd_hub.models import ThreadUpsert
+    from adhd_hub.service import HubService
+
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="test-token",
+    )
+    service = HubService(settings)
+    created = service.upsert_thread(
+        ThreadUpsert(
+            summary="Human note buried under audits",
+            project_slug="demo",
+            source_tool="pytest",
+        )
+    )
+    service.store.add_progress_note(
+        "demo", "Finish the deeper note lookup.", thread_id=created.id
+    )
+    for i in range(4):
+        service.store.add_progress_note(
+            "demo",
+            f"[status→open] Undone from /ui pass-{i}",
+            thread_id=created.id,
+        )
+    pub = service.thread_public_dict(created)
+    assert "[status→" in (pub.get("progress_snippet") or "")
+    assert pub["scan_line"] == "Finish the deeper note lookup."
