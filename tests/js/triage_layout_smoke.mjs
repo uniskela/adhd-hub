@@ -22,8 +22,8 @@ assert(
   "triage-copy uses min-width: 0 so title can shrink"
 );
 assert(
-  /\.triage-title\s*\{[^}]*text-overflow:\s*ellipsis/.test(css),
-  "triage-title ellipsizes long summaries"
+  /\.triage-title\s*\{[^}]*display:\s*block[^}]*text-overflow:\s*ellipsis/.test(css),
+  "triage-title is block-level so ellipsis works on inline strong"
 );
 assert(
   /\.triage-actions\s*\{[^}]*flex:\s*0\s+0\s+auto/.test(css),
@@ -36,7 +36,10 @@ assert(
 );
 
 assert(nowSrc.includes('class="triage-copy"'), "Quiet check-in uses triage-copy");
-assert(nowSrc.includes('class="triage-title"'), "Quiet check-in title uses triage-title");
+assert(
+  /<div class="triage-copy"><strong class="triage-title">/.test(nowSrc),
+  "Now-screen strip uses the triage title markup"
+);
 assert(
   /\.thread-triage\s*>\s*\.hint\s*\{[^}]*min-width:\s*0/.test(css),
   "in-card triage hint shrinks via CSS (no work.js markup change)"

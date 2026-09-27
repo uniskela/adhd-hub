@@ -747,6 +747,7 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
   min-width: 0;
 }
 .triage-title {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
