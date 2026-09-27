@@ -1698,10 +1698,8 @@ class HubService:
                         break
                 if scan_progress_snippet:
                     data["progress_snippet"] = scan_progress_snippet
-            else:
-                snippet = self.wiki.read_progress(thread.project_slug)
-                if snippet:
-                    data["progress_snippet"] = snippet[-800:]
+            # No project-wide wiki/PROGRESS.md fallback: milestone rows mix other
+            # threads and would leak into copy-agent Progress. Keep thread-scoped.
         from adhd_hub.ai_client import ai_configured, scan_line_input_hash
         from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, attach_scan_line
 

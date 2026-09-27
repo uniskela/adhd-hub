@@ -176,7 +176,8 @@ def test_thread_public_dict_includes_scan_line(tmp_path):
     assert pub["scan_line_source"] == SCAN_LINE_SOURCE_HEURISTIC
 
     # Project-wide progress can describe a different outcome. It remains in
-    # Notes, but must never be presented as this thread's own scan line.
+    # Notes, but must never be presented as this thread's own scan line or
+    # copy-agent progress_snippet.
     monkeypatch_thread = created.model_copy(
         update={"focus": None, "goal": None, "resume_step": None, "next_steps": []}
     )
@@ -188,6 +189,7 @@ def test_thread_public_dict_includes_scan_line(tmp_path):
     ):
         pub = service.thread_public_dict(monkeypatch_thread)
     assert pub["scan_line"] is None
+    assert pub.get("progress_snippet") is None
 
 
 def test_undo_status_history_never_becomes_scan_line(tmp_path):

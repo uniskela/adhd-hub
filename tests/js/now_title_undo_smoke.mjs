@@ -5,6 +5,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  buildCodingAgentPrompt,
+  isBoilerplateProgressSnippet,
+} from "../../src/adhd_hub/ui/js/now.js";
 import { threadDisplayTitle } from "../../src/adhd_hub/ui/js/thread-title.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -117,9 +121,22 @@ assert(
   stateSrc.includes('opts.dismiss') || stateSrc.includes("opts.dismiss"),
   "setMsg can dismiss by key"
 );
+const undoAudit = "[status→open] Undone from /ui";
 assert(
-  /\[status\s\*→/.test(nowSrc) || nowSrc.includes("[status\\s*→"),
+  isBoilerplateProgressSnippet(undoAudit) === true,
   "isBoilerplateProgressSnippet rejects status-history audits"
+);
+assert(
+  !isBoilerplateProgressSnippet("Merged PR after green CI."),
+  "isBoilerplateProgressSnippet still allows human progress notes"
+);
+const prompt = buildCodingAgentPrompt({
+  summary: "Empty continuity after undo",
+  progress_snippet: undoAudit,
+});
+assert(
+  !/\*\*Progress\*\*/.test(prompt) && !prompt.includes(undoAudit),
+  "buildCodingAgentPrompt omits status-history Progress"
 );
 
 console.log("now_title_undo_smoke: ok");
