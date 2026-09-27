@@ -1361,7 +1361,7 @@ export function renderThreads(threads) {
 export async function rewriteScanLine(threadId) {
     if (!threadId) return;
     if (!aiScanLinesEnabled()) {
-      setMsg("Enable AI in Settings → Preferences to rewrite scan lines.");
+      setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
       return;
     }
     const btn = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
@@ -1400,7 +1400,7 @@ export async function rewriteAllProjectScanLines() {
       return;
     }
     if (!aiScanLinesEnabled()) {
-      setMsg("Enable AI in Settings → Preferences to rewrite scan lines.");
+      setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
       setRewriteAllButtons({ hidden: true });
       return;
     }

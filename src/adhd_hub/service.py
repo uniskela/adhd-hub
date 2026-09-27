@@ -1967,7 +1967,7 @@ class HubService:
                     "fallback": 0,
                     "failed": 0,
                     "message": (
-                        "AI scan-lines are off — enable them in Settings → Preferences "
+                        "AI scan-lines are off — enable them in Settings → AI scan-lines "
                         "to rewrite with AI. Open threads still show heuristic lines."
                     ),
                     "threads": [self.thread_public_dict(t) for t in threads],
@@ -2153,8 +2153,8 @@ class HubService:
                 skipped=False,
                 settings_hint=True,
                 message=(
-                    "AI is off — enable it in Settings → Preferences "
-                    "(AI scan-lines) to summarise notes."
+                    "AI is off — enable it in Settings → AI scan-lines "
+                    "to summarise notes."
                 ),
                 summary_card=existing,
                 fresh=bool(

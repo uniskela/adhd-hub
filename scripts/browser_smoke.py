@@ -288,6 +288,10 @@ def main():
                 expect(page.locator("#openclaw-msg")).to_contain_text("saved")
                 expect(page.locator("#oc_token")).to_have_value("")
                 expect(page.locator("#oc_token_status")).to_contain_text("saved")
+                page.get_by_role("tab", name="AI scan-lines", exact=True).click()
+                expect(page.locator("#ai_enabled")).to_be_attached()
+                expect(page.locator("#btn-save-ai")).to_be_visible()
+                expect(page.locator("#settings-preferences #ai_enabled")).to_have_count(0)
                 page.screenshot(path=str(screenshots / "settings-connections.png"), full_page=True)
                 page.get_by_role("button", name="Now", exact=True).click()
                 expect(page.locator("#now-view")).to_be_visible()
@@ -400,6 +404,7 @@ def main():
                     "Agents & install",
                     "Windows / MCP",
                     "OpenClaw",
+                    "AI scan-lines",
                     "Forge",
                     "Data",
                 ]:

@@ -53,3 +53,29 @@ def test_project_grips_support_keyboard_reorder():
     assert "siblings[index + 2]?.slug || null" in work
     assert 'proj-drag-handle[data-drag-slug="${CSS.escape(slug)}"]' in work
     assert "focus the grip and press Up or Down" in html
+
+
+def _panel(html: str, panel_id: str) -> str:
+    start = html.index(f'<section id="{panel_id}"')
+    return html[start : html.index('<section id="settings-', start + 1)]
+
+
+def test_ai_scan_lines_has_its_own_settings_tab():
+    """AI config sits beside OpenClaw/Forge instead of inside Preferences."""
+    html = (UI / "index.html").read_text()
+    now = (UI / "js" / "now.js").read_text()
+    work = (UI / "js" / "work.js").read_text()
+    tab = re.search(r'<button[^>]*id="tab-ai"[^>]*>AI scan-lines</button>', html)
+    assert tab is not None
+    assert 'aria-controls="settings-ai"' in tab.group(0)
+    assert 'data-settings-tab="ai"' in tab.group(0)
+    assert html.index('id="tab-openclaw"') < html.index('id="tab-ai"') < html.index('id="tab-forge"')
+    ai = _panel(html, "settings-ai")
+    prefs = _panel(html, "settings-preferences")
+    assert 'aria-labelledby="tab-ai"' in ai
+    assert "<h2>AI scan-lines</h2>" in ai
+    for control in ("ai_enabled", "ai_base_url", "ai_model", "btn-save-ai", "btn-load-ai-models"):
+        assert f'id="{control}"' in ai
+        assert f'id="{control}"' not in prefs
+    assert '[data-settings-tab="ai"]' in now
+    assert "Settings → Preferences" not in work
