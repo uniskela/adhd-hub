@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.18.0](https://github.com/uniskela/adhd-hub/compare/v0.17.0...v0.18.0) (2026-09-27)
+
+
+### Features
+
+* **next-up:** calm cross-project ranking for overview and Help me choose ([#240](https://github.com/uniskela/adhd-hub/issues/240)) ([9ec536e](https://github.com/uniskela/adhd-hub/commit/9ec536e9cd2c8169c3ec98b988b87335c7029f19))
+* **triage:** soft still-relevant confirm and snooze for stale threads ([#236](https://github.com/uniskela/adhd-hub/issues/236)) ([d046f58](https://github.com/uniskela/adhd-hub/commit/d046f58405b530ba4be06e210fc594c1c59e6a0d))
+* **ui:** calm PWA update toast with Refresh ([#241](https://github.com/uniskela/adhd-hub/issues/241)) ([efb9acc](https://github.com/uniskela/adhd-hub/commit/efb9acc3288dbc9e52fdfc0af11583f09f779ded))
+
+
+### Bug Fixes
+
+* **ui:** hide undo status history from My work scan lines ([#250](https://github.com/uniskela/adhd-hub/issues/250)) ([b874683](https://github.com/uniskela/adhd-hub/commit/b874683a27f3ea01cb453610af814d83474342c7))
+* **ui:** Now title string + undo Done toast ([#238](https://github.com/uniskela/adhd-hub/issues/238)) ([c018182](https://github.com/uniskela/adhd-hub/commit/c018182ecfc21390186fe88706c156b72fc5ee28))
+* **ui:** stack Quiet check-in banner instead of flexing it into one row ([#252](https://github.com/uniskela/adhd-hub/issues/252)) ([e1b5c72](https://github.com/uniskela/adhd-hub/commit/e1b5c720aa69cc399f16576066d0f2240ece208c))
+* **ui:** toast stack overlap and Quiet check-in triage layout ([#246](https://github.com/uniskela/adhd-hub/issues/246)) ([1b67410](https://github.com/uniskela/adhd-hub/commit/1b674103a97451e55ff913105f5382b1251a8da4))
+* **ui:** UI/UX audit fixes — mobile notes reader, keyboard reorder, AI settings tab ([#251](https://github.com/uniskela/adhd-hub/issues/251)) ([fa15d57](https://github.com/uniskela/adhd-hub/commit/fa15d570797aead28e20145e6ba0c5e49a5c8f90))
+
+
+### Documentation
+
+* stamp README and roadmap for v0.17.0 / Wave 7 slices ([#244](https://github.com/uniskela/adhd-hub/issues/244)) ([a5ee572](https://github.com/uniskela/adhd-hub/commit/a5ee572f02fbecda41bb09c9fd45c1ff28b3f4f0))
+
 ## [0.17.0](https://github.com/uniskela/adhd-hub/compare/v0.16.1...v0.17.0) (2026-09-25)
 
 
