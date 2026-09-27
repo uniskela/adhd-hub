@@ -10,7 +10,7 @@ Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRI
 
 ## Screenshots
 
-My work with Notes & context (Quiet check-in, projects rail, docked reader, Summarise):
+My work with Notes & context (projects rail, docked reader, Summarise):
 
 ![My work with Notes & context](docs/images/my-work-notes-hero.png)
 
