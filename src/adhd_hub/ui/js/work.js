@@ -90,7 +90,7 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
         </button>`
       : "";
     const handle = canDrag
-      ? `<span class="proj-drag-handle" draggable="true" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder" aria-label="Drag ${title}">
+      ? `<span class="proj-drag-handle" draggable="true" tabindex="0" role="button" aria-keyshortcuts="ArrowUp ArrowDown" data-drag-slug="${escapeHtml(p.slug)}" title="Drag to nest or reorder, or use the Up and Down arrow keys" aria-label="Reorder ${title}: drag, or press Up or Down arrow">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 7h2v2H8V7zm6 0h2v2h-2V7zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zM8 15h2v2H8v-2zm6 0h2v2h-2v-2z" fill="currentColor"/></svg>
         </span>`
       : "";
@@ -288,7 +288,45 @@ function wireProjectDnD(list, visible) {
       startAutoScroll(event.clientY);
     });
 
+    const keyboardReorderTarget = (slug, step) => {
+      const parent = bySlug.get(slug)?.parent_slug || null;
+      const siblings = visible
+        .map(({ project }) => project)
+        .filter(
+          (p) => (p.parent_slug || null) === parent && !p.unregistered && p.slug !== "unclassified"
+        );
+      const index = siblings.findIndex((p) => p.slug === slug);
+      if (index < 0) return null;
+      if (step < 0) {
+        if (index === 0) return null;
+        return { parent_slug: parent, before_slug: siblings[index - 1].slug };
+      }
+      if (index === siblings.length - 1) return null;
+      return { parent_slug: parent, before_slug: siblings[index + 2]?.slug || null };
+    };
+
     list.querySelectorAll(".proj-drag-handle").forEach((handle) => {
+      handle.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+        event.preventDefault();
+        const slug = handle.dataset.dragSlug;
+        const up = event.key === "ArrowUp";
+        const target = slug && keyboardReorderTarget(slug, up ? -1 : 1);
+        const title = bySlug.get(slug)?.title || slug;
+        if (!target) {
+          setMsg(`${title} is already ${up ? "first" : "last"} in this group.`);
+          return;
+        }
+        moveProjectViaApi(slug, target)
+          .then(() => {
+            // loadAll re-rendered the rail; keep keyboard focus on the moved grip.
+            document
+              .querySelector(`#project-list .proj-drag-handle[data-drag-slug="${CSS.escape(slug)}"]`)
+              ?.focus();
+            setMsg(`Moved ${title} ${up ? "up" : "down"}.`);
+          })
+          .catch((e) => setMsg(e.message));
+      });
       handle.addEventListener("dragstart", (event) => {
         dragSlug = handle.dataset.dragSlug || null;
         if (!dragSlug) return;

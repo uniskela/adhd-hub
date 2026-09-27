@@ -37,3 +37,19 @@ def test_activity_chart_days_have_a_visible_baseline():
     col = re.search(r"^\.chart \.col \{[^}]*\}", css, re.MULTILINE)
     assert col is not None
     assert "border-bottom: 2px solid var(--line)" in col.group(0)
+
+
+def test_project_grips_support_keyboard_reorder():
+    """Sibling reorder must not be drag-only; grips take Up/Down and keep focus."""
+    work = (UI / "js" / "work.js").read_text()
+    html = (UI / "index.html").read_text()
+    handle = work[work.index('<span class="proj-drag-handle"') :]
+    handle = handle[: handle.index(">")]
+    assert 'tabindex="0"' in handle
+    assert 'role="button"' in handle
+    assert 'aria-keyshortcuts="ArrowUp ArrowDown"' in handle
+    assert "keyboardReorderTarget" in work
+    assert 'event.key !== "ArrowUp" && event.key !== "ArrowDown"' in work
+    assert "siblings[index + 2]?.slug || null" in work
+    assert 'proj-drag-handle[data-drag-slug="${CSS.escape(slug)}"]' in work
+    assert "focus the grip and press Up or Down" in html
