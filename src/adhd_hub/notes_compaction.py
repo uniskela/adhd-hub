@@ -30,6 +30,9 @@ _FIELD_LABEL_RE = re.compile(
 
 _STARTED_RE = re.compile(r"^Started:\s", re.IGNORECASE)
 
+# Hub transition_status audit lines — never public scan/description material.
+_STATUS_HISTORY_RE = re.compile(r"^\[status\s*→\s*[^\]]+\]", re.IGNORECASE)
+
 # Default UI: keep a short recent window open; older stays recoverable.
 NOTES_VISIBLE_ITEMS = 5
 NOTES_HIGH_COUNT = 8
@@ -41,6 +44,12 @@ def _bits(content: str) -> list[str]:
     if not text:
         return []
     return [b.strip() for b in text.split(" — ") if b.strip()]
+
+
+def is_status_history_note(content: str | None) -> bool:
+    """True for ``[status→open] Undone from …`` style transition audits."""
+    text = re.sub(r"\s+", " ", (content or "").strip())
+    return bool(text and _STATUS_HISTORY_RE.match(text))
 
 
 def is_boilerplate_freeform(text: str | None) -> bool:
@@ -77,7 +86,10 @@ def is_milestone_note(content: str | None) -> bool:
     Full-line ritual freeform (e.g. Codex ``Thread upserted from … — Title — Desc``)
     is milestone even when em-dash title/description bits are not field changes —
     otherwise historical ritual walls stay classified as human and never coalesce.
+    Status-transition audits (``[status→…]``) are always milestones.
     """
+    if is_status_history_note(content):
+        return True
     if is_boilerplate_freeform(content):
         return True
     bits = _bits(content or "")

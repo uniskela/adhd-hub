@@ -118,4 +118,14 @@ def test_should_skip_near_duplicate_within_window() -> None:
 def test_boilerplate_progress_snippet() -> None:
     assert is_boilerplate_progress_snippet("Focus → Rewrite — Goal → Ship")
     assert is_boilerplate_progress_snippet("Thread upserted from codex: Task 9")
+    assert is_boilerplate_progress_snippet("[status→open] Undone from /ui")
+    assert is_boilerplate_progress_snippet("[status→done] Marked done.")
     assert not is_boilerplate_progress_snippet("Merged PR after green CI.")
+
+
+def test_status_history_note_is_milestone() -> None:
+    from adhd_hub.notes_compaction import is_milestone_note, is_status_history_note
+
+    assert is_status_history_note("[status→open] Undone from /ui")
+    assert is_milestone_note("[status→open] Undone from /ui")
+    assert not is_status_history_note("Undone from /ui without bracket")

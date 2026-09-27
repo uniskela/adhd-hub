@@ -386,3 +386,8 @@ def test_now_copy_coding_agent_prompt_control():
     assert "thread\\s+upserted\\s+from" in now[
         now.index("export function isBoilerplateProgressSnippet") :
     ]
+    assert "[status\\s*→" in now[
+        now.index("export function isBoilerplateProgressSnippet") :
+    ] or "status\\s*→" in now[
+        now.index("export function isBoilerplateProgressSnippet") :
+    ]

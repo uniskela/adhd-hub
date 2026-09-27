@@ -30,6 +30,8 @@ export function projectTitleForSlug(slug) {
 export function isBoilerplateProgressSnippet(snippet) {
     const text = String(snippet || "").trim();
     if (!text) return true;
+    // Hub transition_status audits — never copy into agent Progress / description.
+    if (/^\[status\s*→\s*[^\]]+\]/i.test(text)) return true;
     if (/^(thread\s+upserted\s+from|checkpoint(?:ed)?\s+from|progress\s+(?:update|note)\s+from|upsert(?:ed)?\s+from)\b/i.test(text)) {
       return true;
     }

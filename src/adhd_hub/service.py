@@ -50,6 +50,7 @@ from adhd_hub.notes_compaction import (
     coalesce_notes_feed,
     default_open_thread_notes,
     group_summary_label,
+    is_boilerplate_progress_snippet,
     is_milestone_note,
     milestone_field_chips,
     scrub_progress_content,
@@ -1678,7 +1679,12 @@ class HubService:
             )
             if notes:
                 data["progress_snippet"] = notes[0]["content"][:800]
-                scan_progress_snippet = data["progress_snippet"]
+                # Never feed status-history / milestone audits into scan_line.
+                for note in notes:
+                    content = (note.get("content") or "")[:800]
+                    if content and not is_boilerplate_progress_snippet(content):
+                        scan_progress_snippet = content
+                        break
             else:
                 snippet = self.wiki.read_progress(thread.project_slug)
                 if snippet:

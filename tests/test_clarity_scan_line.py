@@ -113,6 +113,22 @@ def test_build_scan_line_falls_through_to_next_and_snippet():
     assert none_source is None
 
 
+def test_build_scan_line_skips_status_history_snippet():
+    empty = _thread()
+    line, source = build_scan_line(
+        empty, progress_snippet="[status→open] Undone from /ui"
+    )
+    assert line is None
+    assert source is None
+
+    with_resume = _thread(resume_step="Open the draft and write one sentence")
+    line2, source2 = build_scan_line(
+        with_resume, progress_snippet="[status→open] Undone from /ui"
+    )
+    assert line2 == "Open the draft and write one sentence"
+    assert source2 == SCAN_LINE_SOURCE_HEURISTIC
+
+
 def test_build_scan_line_truncates_and_skips_unsafe_only_candidates():
     long_focus = "x" * (SCAN_LINE_MAX + 40)
     line, _ = build_scan_line(_thread(focus=long_focus))
@@ -172,3 +188,78 @@ def test_thread_public_dict_includes_scan_line(tmp_path):
     ):
         pub = service.thread_public_dict(monkeypatch_thread)
     assert pub["scan_line"] is None
+
+
+def test_undo_status_history_never_becomes_scan_line(tmp_path):
+    """After Undo Done, [status→open] notes must not leak into My work scan_line."""
+    from adhd_hub.config import Settings
+    from adhd_hub.models import ThreadUpsert
+    from adhd_hub.service import HubService
+
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="test-token",
+    )
+    service = HubService(settings)
+    created = service.upsert_thread(
+        ThreadUpsert(
+            summary="Empty continuity after undo",
+            project_slug="demo",
+            source_tool="pytest",
+        )
+    )
+    assert not created.focus
+    assert not created.resume_step
+    assert not created.goal
+    assert not created.next_steps
+
+    done = service.mark_done(created.id, note="Finished for test.")
+    assert done is not None and done.status.value == "done"
+    restored = service.undo_mark_done(created.id, note="Undone from /ui")
+    assert restored is not None and restored.status.value == "open"
+
+    pub = service.thread_public_dict(restored)
+    assert pub["progress_snippet"]
+    assert "[status→" in pub["progress_snippet"]
+    assert pub["scan_line"] is None
+
+    # Human resume still wins over the status audit.
+    with_resume = service.upsert_thread(
+        ThreadUpsert(
+            id=restored.id,
+            summary=restored.summary,
+            project_slug="demo",
+            resume_step="Open the draft and write one sentence",
+            source_tool="pytest",
+        )
+    )
+    pub2 = service.thread_public_dict(with_resume)
+    assert pub2["scan_line"] == "Open the draft and write one sentence"
+    assert "[status→" not in (pub2["scan_line"] or "")
+
+
+def test_scan_line_prefers_older_human_note_over_status_history(tmp_path):
+    from adhd_hub.config import Settings
+    from adhd_hub.models import ThreadUpsert
+    from adhd_hub.service import HubService
+
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        auth_token="test-token",
+    )
+    service = HubService(settings)
+    created = service.upsert_thread(
+        ThreadUpsert(
+            summary="Has a human note under status audit",
+            project_slug="demo",
+            source_tool="pytest",
+        )
+    )
+    service.store.add_progress_note(
+        "demo", "Merged PR after green CI.", thread_id=created.id
+    )
+    service.mark_done(created.id, note="Finished for test.")
+    restored = service.undo_mark_done(created.id, note="Undone from /ui")
+    pub = service.thread_public_dict(restored)
+    assert "[status→" in (pub.get("progress_snippet") or "")
+    assert pub["scan_line"] == "Merged PR after green CI."

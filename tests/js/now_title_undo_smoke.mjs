@@ -117,5 +117,9 @@ assert(
   stateSrc.includes('opts.dismiss') || stateSrc.includes("opts.dismiss"),
   "setMsg can dismiss by key"
 );
+assert(
+  /\[status\s\*→/.test(nowSrc) || nowSrc.includes("[status\\s*→"),
+  "isBoilerplateProgressSnippet rejects status-history audits"
+);
 
 console.log("now_title_undo_smoke: ok");

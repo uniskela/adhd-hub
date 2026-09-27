@@ -155,15 +155,21 @@ def build_scan_line(
     """Build a heuristic scan-line and its source label.
 
     Priority: focus → resume_step → goal → first next_steps → progress_snippet.
+    Status-history / milestone progress noise is never used as a scan line.
     Returns ``(scan_line, source)`` where source is ``heuristic`` when a line
     is produced, else ``(None, None)``.
     """
+    from adhd_hub.notes_compaction import is_boilerplate_progress_snippet
+
+    safe_snippet = None
+    if progress_snippet and not is_boilerplate_progress_snippet(progress_snippet):
+        safe_snippet = progress_snippet
     candidates: list[str | None] = [
         thread.focus,
         thread.resume_step,
         thread.goal,
         (thread.next_steps[0] if thread.next_steps else None),
-        progress_snippet,
+        safe_snippet,
     ]
     for raw in candidates:
         cleaned = scrub_scan_text(raw)
