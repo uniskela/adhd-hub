@@ -55,6 +55,12 @@ def test_project_grips_support_keyboard_reorder():
     assert "focus the grip and press Up or Down" in html
 
 
+def test_thread_row_stays_highlighted_while_actions_menu_open():
+    """A flipped-up Actions panel may overlap its own card; the row keeps context."""
+    css = (UI / "app.css").read_text()
+    assert '.thread:has(.notes-trigger[aria-expanded="true"]),\n.thread:has(.thread-utility[open]) {' in css
+
+
 def _panel(html: str, panel_id: str) -> str:
     start = html.index(f'<section id="{panel_id}"')
     return html[start : html.index('<section id="settings-', start + 1)]

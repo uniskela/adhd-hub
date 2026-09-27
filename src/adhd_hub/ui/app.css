@@ -1312,7 +1312,8 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
 }
 .notes-trigger:hover,
 .notes-trigger[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); filter: none; }
-.thread:has(.notes-trigger[aria-expanded="true"]) { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }
+.thread:has(.notes-trigger[aria-expanded="true"]),
+.thread:has(.thread-utility[open]) { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }
 
 /* An email-style reader that can share the workspace or take it over. */
 #work-view .layout.notes-docked {
