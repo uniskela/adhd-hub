@@ -50,6 +50,7 @@ from adhd_hub.notes_compaction import (
     coalesce_notes_feed,
     default_open_thread_notes,
     group_summary_label,
+    is_boilerplate_progress_snippet,
     is_milestone_note,
     milestone_field_chips,
     scrub_progress_content,
@@ -1673,16 +1674,32 @@ class HubService:
                 data["forge_issue_url"] = cfg.issue_web_url(number)
         scan_progress_snippet = None
         if thread.project_slug:
+            # Prefer a usable scan/Progress candidate over the newest rows:
+            # status audits / URL-only notes often sit on top of an older human line.
+            # progress_snippet must use the same eligible note (copy-agent Progress / UI),
+            # not notes[0] unconditionally.
             notes = self.store.list_progress_notes(
-                thread.project_slug, limit=3, thread_id=thread.id
+                thread.project_slug, limit=40, thread_id=thread.id
             )
             if notes:
-                data["progress_snippet"] = notes[0]["content"][:800]
-                scan_progress_snippet = data["progress_snippet"]
-            else:
-                snippet = self.wiki.read_progress(thread.project_slug)
-                if snippet:
-                    data["progress_snippet"] = snippet[-800:]
+                from adhd_hub.clarity import scrub_scan_text
+
+                # Never feed status-history / milestone audits into scan_line or
+                # progress_snippet. Also skip content that scrub_scan_text would
+                # empty (e.g. URL-only).
+                for note in notes:
+                    content = (note.get("content") or "")[:800]
+                    if (
+                        content
+                        and not is_boilerplate_progress_snippet(content)
+                        and scrub_scan_text(content)
+                    ):
+                        scan_progress_snippet = content
+                        break
+                if scan_progress_snippet:
+                    data["progress_snippet"] = scan_progress_snippet
+            # No project-wide wiki/PROGRESS.md fallback: milestone rows mix other
+            # threads and would leak into copy-agent Progress. Keep thread-scoped.
         from adhd_hub.ai_client import ai_configured, scan_line_input_hash
         from adhd_hub.clarity import SCAN_LINE_SOURCE_AI, attach_scan_line
 

@@ -68,7 +68,7 @@ On Now, **Copy agent prompt** builds a short prompt from the chosen thread:
 - Project slug and title, the thread title, and `thread_id`.
 - The linked forge issue number and URL, when the thread has one.
 - **Resume**, **Next**, **Goal**, **Focus**, and **Blocked**, when those fields are set.
-- A **Progress** snippet only when it is a human note. Milestone and boilerplate snippets are left out, so the prompt does not repeat checkpoint walls.
+- A **Progress** snippet only when it is a human note. Milestone, status-history audits (``[status→…]``), URL-only, and other boilerplate snippets are left out, so the prompt does not repeat checkpoint walls. When a newer audit sits on top of an older human note, Progress uses that eligible note.
 
 Empty sections are omitted. **Next** is capped at three steps.
 
