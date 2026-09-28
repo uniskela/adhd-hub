@@ -55,13 +55,13 @@ jobs:
           permission-pull-requests: write
 
       - name: Checkout Hub
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: hub
           fetch-depth: 0
 
       - name: Checkout cursorskill plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: uniskela/adhd-hub-cursorskill
           token: ${{ steps.auth.outputs.mode == 'app' && steps.app.outputs.token || secrets.CURSORSKILL_SYNC_TOKEN }}
@@ -69,7 +69,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
