@@ -28,8 +28,11 @@ Reusable GitHub workflow → reviewable sync PR (never pushes main)
 | `.agents/skills/adhd-hub-session/**` | Mirrored from Hub `skills/adhd-hub-session/` |
 | `.agents/skills/env-check/**` | Mirrored from Hub `skills/env-check/` (executable bit preserved) |
 | `skills-lock.json` | Hub-owned skill entries only; unrelated skills preserved |
+| `.cursor/hooks/adhd-hub-guard.sh` | Opt-in continuity guard wrapper (`--continuity-guard`) |
+| `.cursor/hooks.json` | Opt-in: merge Hub guard hooks; preserve unrelated entries |
 
-Everything outside those paths is left alone. Malformed / incomplete AGENTS
+Everything outside those paths is left alone (except merge-safe Hub hook
+entries when continuity guard is enrolled). Malformed / incomplete AGENTS
 markers fail safely (no rewrite).
 
 Generated skill copies should **not** normally be patched in downstream repos.
@@ -57,14 +60,19 @@ Via setup:
 # AGENTS.md + project-scoped skills (deterministic)
 adhd-hub setup . --project-skills --skills-source /path/to/adhd-hub
 
-# Global npx skill install (separate, interactive ecosystem)
-adhd-hub setup . --install-skills
+# Opt-in Cursor continuity-guard hooks (does not replace unrelated hooks)
+adhd-hub setup . --continuity-guard
+# or: adhd-hub sync-project . --continuity-guard
 ```
 
 | Flag | Scope |
 |------|--------|
 | `--project-skills` / `sync-project` | Repo-scoped `.agents/skills` + AGENTS + Cursor rule |
+| `--continuity-guard` | Opt-in Hub Cursor hooks merge + guard wrapper |
 | `--install-skills` | Global `npx skills add … -g` |
+
+See [continuity-guard.md](continuity-guard.md) for lifecycle behaviour, Cloud vs
+local limits, and `adhd-hub guard` CLI.
 
 ## Doctor
 

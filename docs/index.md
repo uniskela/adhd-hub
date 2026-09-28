@@ -20,7 +20,8 @@ The Hub keeps the parts that matter when you return: what you were trying to do,
 2. [Connect your coding agent](connect.md).
 3. [Set up project continuity](project-agent-setup.md) for substantial work.
 4. [Project sync](project-sync.md) for deterministic downstream skill/guidance updates.
-5. Open the [dashboard](dashboard.md) when you want to choose, pause, or resume work visually.
+5. [Continuity guard](continuity-guard.md) (opt-in Cursor hooks) when you want stronger enforcement than rules alone.
+6. Open the [dashboard](dashboard.md) when you want to choose, pause, or resume work visually.
 
 For a practical day-to-day routine, see [Personal setup](setup.md). For concise Goal / Focus / Next / Blocked / Resume notes, see [Writing & continuity](writing.md). To read that continuity on My work, see [Notes & context](notes.md).
 

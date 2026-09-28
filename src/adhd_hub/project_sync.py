@@ -40,9 +40,13 @@ HUB_DOCS_BLOB = "https://github.com/uniskela/adhd-hub/blob/main/docs"
 HUB_SKILL_NAMES: tuple[str, ...] = tuple(HUB_OWNED_SKILLS.keys())
 
 # Files/dirs sync may create or rewrite under the project root.
+# ``.cursor/hooks.json`` is merge-managed (Hub entries only) when continuity
+# guard enrollment is enabled — see ``continuity_guard``.
 MANAGED_PATH_PREFIXES: tuple[str, ...] = (
     "AGENTS.md",
     ".cursor/rules/adhd-hub.mdc",
+    ".cursor/hooks/adhd-hub-guard.sh",
+    ".cursor/hooks.json",
     ".agents/skills/adhd-hub-projects/",
     ".agents/skills/adhd-hub-session/",
     ".agents/skills/env-check/",
@@ -61,6 +65,7 @@ FORBIDDEN_SECRETISH_RE = re.compile(
 EXECUTABLE_REL_PATHS = frozenset(
     {
         ".agents/skills/env-check/scripts/check_runtime.sh",
+        ".cursor/hooks/adhd-hub-guard.sh",
     }
 )
 
@@ -194,6 +199,7 @@ def _managed_destination_errors(
     *,
     skill_payloads: list[tuple[PlannedChange, bytes | str, bool]],
     write_cursor_rule: bool,
+    continuity_guard: bool = False,
 ) -> list[str]:
     """Return containment errors for every Hub-managed destination path."""
     errors: list[str] = []
@@ -203,6 +209,9 @@ def _managed_destination_errors(
     ]
     if write_cursor_rule:
         candidates.append(project / ".cursor" / "rules" / "adhd-hub.mdc")
+    if continuity_guard:
+        candidates.append(project / ".cursor" / "hooks" / "adhd-hub-guard.sh")
+        candidates.append(project / ".cursor" / "hooks.json")
     for change, _payload, _exe in skill_payloads:
         candidates.append(project / change.relative_path)
     # Also gate the skill directory itself (covers unchanged trees under a symlink).
@@ -219,6 +228,16 @@ def _managed_destination_errors(
         except ValueError as exc:
             errors.append(str(exc))
     return errors
+
+
+def project_has_continuity_guard(project_dir: Path | str) -> bool:
+    """True when Hub continuity-guard hooks are installed in the project."""
+    from adhd_hub.continuity_guard.hooks_sync import hooks_json_has_hub_entries
+
+    project = Path(project_dir).expanduser().resolve()
+    script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
+    hooks = project / ".cursor" / "hooks.json"
+    return script.is_file() or hooks_json_has_hub_entries(hooks)
 
 
 def skill_sha256(skill_md: Path) -> str:
@@ -508,13 +527,26 @@ def sync_project(
     source: Path | str | None = None,
     mode: SyncMode = SyncMode.apply,
     agents: list[str] | None = None,
+    continuity_guard: bool = False,
 ) -> SyncResult:
     """Sync Hub-managed project files.
 
     ``agents`` is accepted for CLI compatibility (cursor,codex) and currently
     only gates whether the Cursor rule is written when ``cursor`` is selected.
     Codex/AGENTS guidance is always managed when syncing.
+
+    ``continuity_guard`` opt-in installs/repairs Hub-owned Cursor hook integration
+    (thin wrapper + merged ``.cursor/hooks.json`` entries). When the project is
+    already enrolled, check/apply modes keep repairing guard drift even if the
+    flag is omitted.
     """
+    from adhd_hub.continuity_guard.hooks_sync import (
+        dumps_hooks,
+        expected_guard_script,
+        merge_hooks_json,
+        plan_hooks_merge,
+    )
+
     project = Path(project_dir).expanduser().resolve()
     if not project.is_dir():
         raise ValueError(f"project folder does not exist: {project}")
@@ -535,6 +567,7 @@ def sync_project(
 
     agent_set = {a.strip().lower() for a in (agents or ["cursor", "codex"]) if a.strip()}
     write_cursor_rule = not agent_set or "cursor" in agent_set or "*" in agent_set
+    manage_guard = continuity_guard or project_has_continuity_guard(project)
 
     try:
         _agents_text, agents_change = _agents_desired_text(project)
@@ -591,10 +624,59 @@ def sync_project(
     lock_change = PlannedChange(lock_change_raw.relative_path, lock_change_raw.kind)
     result.changes.append(lock_change)
 
+    # Continuity guard (opt-in / already enrolled)
+    guard_script_text = expected_guard_script()
+    guard_script_path = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
+    hooks_path = project / ".cursor" / "hooks.json"
+    desired_hooks_obj: dict | None = None
+    if manage_guard:
+        script_change = _plan_text_file(
+            relative_path=".cursor/hooks/adhd-hub-guard.sh",
+            desired=guard_script_text,
+            current=_read_text(guard_script_path),
+        )
+        if (
+            guard_script_path.is_file()
+            and script_change.kind == ChangeKind.unchanged
+            and not (guard_script_path.stat().st_mode & stat.S_IXUSR)
+        ):
+            script_change = PlannedChange(
+                ".cursor/hooks/adhd-hub-guard.sh",
+                ChangeKind.chmod,
+                "executable bit",
+            )
+        result.changes.append(script_change)
+        try:
+            current_hooks = None
+            if hooks_path.is_file():
+                current_hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
+            if current_hooks is not None and not isinstance(current_hooks, dict):
+                raise TypeError("hooks.json root must be a JSON object")
+            desired_hooks_obj = merge_hooks_json(current_hooks)
+            desired_hooks_text = dumps_hooks(desired_hooks_obj)
+            hooks_change = _plan_text_file(
+                relative_path=".cursor/hooks.json",
+                desired=desired_hooks_text,
+                current=_read_text(hooks_path),
+            )
+            if hooks_change.kind != ChangeKind.unchanged:
+                # Prefer merge detail over blind replace wording
+                drift = plan_hooks_merge(hooks_path)
+                hooks_change = PlannedChange(
+                    ".cursor/hooks.json",
+                    hooks_change.kind,
+                    drift[0] if drift else "merge Hub guard hooks",
+                )
+            result.changes.append(hooks_change)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            result.errors.append(f"continuity guard hooks: {exc}")
+            return result
+
     containment = _managed_destination_errors(
         project,
         skill_payloads=skill_payloads,
         write_cursor_rule=write_cursor_rule,
+        continuity_guard=manage_guard,
     )
     if containment:
         result.errors.extend(containment)
@@ -654,12 +736,58 @@ def sync_project(
                 json.dumps(lock_data, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
+        if manage_guard and desired_hooks_obj is not None:
+            _require_within_project(project, guard_script_path)
+            guard_script_path.parent.mkdir(parents=True, exist_ok=True)
+            if _read_text(guard_script_path) != guard_script_text:
+                guard_script_path.write_text(
+                    guard_script_text, encoding="utf-8", newline="\n"
+                )
+            guard_script_path.chmod(guard_script_path.stat().st_mode | 0o111)
+            _require_within_project(project, hooks_path)
+            hooks_path.parent.mkdir(parents=True, exist_ok=True)
+            hooks_path.write_text(
+                dumps_hooks(desired_hooks_obj), encoding="utf-8", newline="\n"
+            )
     except (OSError, ValueError) as exc:
         result.errors.append(str(exc))
         return result
 
     result.errors.extend(validate_synced_tree(project))
     return result
+
+
+def uninstall_continuity_guard(project_dir: Path | str) -> list[str]:
+    """Remove Hub-owned continuity-guard hooks only; preserve unrelated hooks."""
+    from adhd_hub.continuity_guard.hooks_sync import dumps_hooks, remove_hub_hooks
+
+    project = Path(project_dir).expanduser().resolve()
+    removed: list[str] = []
+    script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
+    if script.is_file():
+        _require_within_project(project, script)
+        script.unlink()
+        removed.append(".cursor/hooks/adhd-hub-guard.sh")
+    hooks_path = project / ".cursor" / "hooks.json"
+    if hooks_path.is_file():
+        try:
+            current = json.loads(hooks_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+            return removed
+        if not isinstance(current, dict):
+            return removed
+        updated = remove_hub_hooks(current)
+        _require_within_project(project, hooks_path)
+        if updated is None:
+            hooks_path.unlink()
+            removed.append(".cursor/hooks.json")
+        else:
+            before = hooks_path.read_text(encoding="utf-8")
+            after = dumps_hooks(updated)
+            if before != after:
+                hooks_path.write_text(after, encoding="utf-8", newline="\n")
+                removed.append(".cursor/hooks.json (Hub entries removed)")
+    return removed
 
 
 def format_sync_report(result: SyncResult) -> str:

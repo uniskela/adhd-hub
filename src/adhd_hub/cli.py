@@ -156,7 +156,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
     path, action = install_agent_guidance(project)
     print(f"ADHD Hub project guidance {action}: {path}")
 
-    if getattr(args, "project_skills", False):
+    if getattr(args, "project_skills", False) or getattr(args, "continuity_guard", False):
         sync_source = None
         if Path(args.skills_source).exists():
             sync_source = args.skills_source
@@ -165,6 +165,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
                 project,
                 source=sync_source,
                 mode=SyncMode.apply,
+                continuity_guard=bool(getattr(args, "continuity_guard", False)),
             )
         except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -172,6 +173,17 @@ def cmd_setup(args: argparse.Namespace) -> int:
         print(format_sync_report(sync_result), end="")
         if not sync_result.ok:
             return 1
+        if getattr(args, "continuity_guard", False):
+            # Seed optional project config when enabling guard
+            toml_path = project / "adhd-hub.toml"
+            if not toml_path.is_file():
+                toml_path.write_text(
+                    "[continuity_guard]\nenabled = true\nmode = \"balanced\"\n"
+                    "max_stop_retries = 2\ncheckpoint_after_mutations = 5\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                print(f"Wrote {toml_path.name} with continuity_guard.enabled=true")
 
     if args.install_skills:
         code = install_skills(args.skills_source)
@@ -181,9 +193,12 @@ def cmd_setup(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return code
-    elif not getattr(args, "project_skills", False):
+    elif not getattr(args, "project_skills", False) and not getattr(
+        args, "continuity_guard", False
+    ):
         print(
             "Skills unchanged. Add --project-skills for repo-scoped .agents/skills, "
+            "--continuity-guard for Cursor lifecycle hooks, "
             "or --install-skills for global npx installs."
         )
     return 0
@@ -210,6 +225,7 @@ def cmd_sync_project(args: argparse.Namespace) -> int:
             source=source,
             mode=mode,
             agents=agents or None,
+            continuity_guard=bool(getattr(args, "continuity_guard", False)),
         )
     except (OSError, ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -422,6 +438,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     setup.add_argument(
+        "--continuity-guard",
+        action="store_true",
+        help=(
+            "Opt-in: install Hub continuity-guard Cursor hooks "
+            "(merged into .cursor/hooks.json; does not replace unrelated hooks)"
+        ),
+    )
+    setup.add_argument(
         "--skills-source",
         default="uniskela/adhd-hub",
         help="skills.sh source or local skills path (default: uniskela/adhd-hub)",
@@ -473,7 +497,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Explain what would change without writing",
     )
+    sync_project.add_argument(
+        "--continuity-guard",
+        action="store_true",
+        help=(
+            "Opt-in: install/repair Hub continuity-guard Cursor hook integration"
+        ),
+    )
     sync_project.set_defaults(func=cmd_sync_project)
+
+    from adhd_hub.continuity_guard.cli import add_guard_parser
+
+    add_guard_parser(sub)
 
     connect = sub.add_parser(
         "connect",
