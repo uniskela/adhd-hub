@@ -86,14 +86,14 @@ jobs:
           permission-pull-requests: write
 
       - name: Checkout consumer repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: project
           fetch-depth: 0
           token: ${{ steps.auth.outputs.mode == 'app' && steps.app.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Checkout ADHD Hub source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: uniskela/adhd-hub
           ref: ${{ inputs.hub_ref }}
@@ -102,7 +102,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
