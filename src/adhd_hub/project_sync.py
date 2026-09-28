@@ -172,6 +172,23 @@ def project_has_github_sync_wrapper(project_dir: Path | str) -> bool:
     return False
 
 
+def _require_within_project(project: Path, path: Path) -> Path:
+    """Resolve ``path`` and refuse anything that escapes the project root.
+
+    Protects against managed skill directories that are symlinks pointing outside
+    the selected project (writes/deletes would otherwise follow the link).
+    """
+    root = project.resolve()
+    resolved = path.resolve(strict=False)
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            f"Refusing to modify a path outside the project: {path}"
+        ) from exc
+    return resolved
+
+
 def skill_sha256(skill_md: Path) -> str:
     """Return the hex SHA-256 of a skill markdown file (skills-lock computedHash)."""
     return hashlib.sha256(skill_md.read_bytes()).hexdigest()
@@ -557,6 +574,11 @@ def sync_project(
             install_cursor_rule(project)
         for change, payload, executable in skill_payloads:
             dest = project / change.relative_path
+            try:
+                _require_within_project(project, dest)
+            except ValueError as exc:
+                result.errors.append(str(exc))
+                return result
             if change.kind == ChangeKind.delete:
                 if dest.is_file():
                     dest.unlink()
@@ -565,8 +587,9 @@ def sync_project(
                     skill_root = project / ".agents" / "skills"
                     while parent != skill_root and parent.is_dir():
                         try:
+                            _require_within_project(project, parent)
                             parent.rmdir()
-                        except OSError:
+                        except (OSError, ValueError):
                             break
                         parent = parent.parent
                 continue
@@ -586,11 +609,13 @@ def sync_project(
             if executable:
                 dest.chmod(dest.stat().st_mode | 0o111)
         if lock_change.kind != ChangeKind.unchanged:
-            (project / "skills-lock.json").write_text(
+            lock_path = project / "skills-lock.json"
+            _require_within_project(project, lock_path)
+            lock_path.write_text(
                 json.dumps(lock_data, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         result.errors.append(str(exc))
         return result
 

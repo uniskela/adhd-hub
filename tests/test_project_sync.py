@@ -267,6 +267,27 @@ def test_stale_managed_file_deleted_unrelated_preserved(tmp_path: Path) -> None:
     assert (project / ".agents" / "skills" / "unrelated-skill" / "SKILL.md").is_file()
 
 
+def test_sync_project_refuses_symlinked_skill_escape(tmp_path: Path) -> None:
+    """Managed skill trees that symlink outside the project must not be written."""
+    project = _seed_downstream(tmp_path)
+    outside = tmp_path / "outside-target"
+    outside.mkdir()
+    sentinel = outside / "sentinel.txt"
+    sentinel.write_text("do-not-touch\n", encoding="utf-8")
+
+    skills_root = project / ".agents" / "skills"
+    skills_root.mkdir(parents=True, exist_ok=True)
+    escape = skills_root / "adhd-hub-session"
+    escape.symlink_to(outside, target_is_directory=True)
+
+    result = sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
+    assert not result.ok
+    assert any("outside the project" in err for err in result.errors)
+    assert sentinel.read_text(encoding="utf-8") == "do-not-touch\n"
+    # No Hub skill files should have been written into the external target.
+    assert not (outside / "SKILL.md").exists()
+
+
 def test_setup_check_skips_project_sync_for_global_only(tmp_path: Path, capsys) -> None:
     from argparse import Namespace
 
