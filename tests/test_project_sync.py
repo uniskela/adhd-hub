@@ -274,18 +274,42 @@ def test_sync_project_refuses_symlinked_skill_escape(tmp_path: Path) -> None:
     outside.mkdir()
     sentinel = outside / "sentinel.txt"
     sentinel.write_text("do-not-touch\n", encoding="utf-8")
+    # Pretend the external target already looks synced so --check would otherwise pass.
+    (outside / "SKILL.md").write_text(
+        (REPO_ROOT / "skills/adhd-hub-session/SKILL.md").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
     skills_root = project / ".agents" / "skills"
     skills_root.mkdir(parents=True, exist_ok=True)
     escape = skills_root / "adhd-hub-session"
     escape.symlink_to(outside, target_is_directory=True)
 
+    checked = sync_project(project, source=REPO_ROOT, mode=SyncMode.check)
+    assert not checked.ok
+    assert any("outside the project" in err for err in checked.errors)
+
     result = sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
     assert not result.ok
     assert any("outside the project" in err for err in result.errors)
     assert sentinel.read_text(encoding="utf-8") == "do-not-touch\n"
-    # No Hub skill files should have been written into the external target.
-    assert not (outside / "SKILL.md").exists()
+
+
+def test_sync_project_refuses_symlinked_cursor_parent(tmp_path: Path) -> None:
+    """`.cursor` symlinked outside the project must not receive the Hub rule."""
+    project = _seed_downstream(tmp_path)
+    outside = tmp_path / "cursor-outside"
+    outside.mkdir()
+    (project / ".cursor").symlink_to(outside, target_is_directory=True)
+
+    checked = sync_project(project, source=REPO_ROOT, mode=SyncMode.check)
+    assert not checked.ok
+    assert any("outside the project" in err for err in checked.errors)
+
+    result = sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
+    assert not result.ok
+    assert any("outside the project" in err for err in result.errors)
+    assert not (outside / "rules" / "adhd-hub.mdc").exists()
 
 
 def test_setup_check_skips_project_sync_for_global_only(tmp_path: Path, capsys) -> None:

@@ -189,6 +189,38 @@ def _require_within_project(project: Path, path: Path) -> Path:
     return resolved
 
 
+def _managed_destination_errors(
+    project: Path,
+    *,
+    skill_payloads: list[tuple[PlannedChange, bytes | str, bool]],
+    write_cursor_rule: bool,
+) -> list[str]:
+    """Return containment errors for every Hub-managed destination path."""
+    errors: list[str] = []
+    candidates = [
+        project / "AGENTS.md",
+        project / "skills-lock.json",
+    ]
+    if write_cursor_rule:
+        candidates.append(project / ".cursor" / "rules" / "adhd-hub.mdc")
+    for change, _payload, _exe in skill_payloads:
+        candidates.append(project / change.relative_path)
+    # Also gate the skill directory itself (covers unchanged trees under a symlink).
+    for name in HUB_SKILL_NAMES:
+        candidates.append(project / ".agents" / "skills" / name)
+    seen: set[str] = set()
+    for path in candidates:
+        key = path.as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            _require_within_project(project, path)
+        except ValueError as exc:
+            errors.append(str(exc))
+    return errors
+
+
 def skill_sha256(skill_md: Path) -> str:
     """Return the hex SHA-256 of a skill markdown file (skills-lock computedHash)."""
     return hashlib.sha256(skill_md.read_bytes()).hexdigest()
@@ -559,6 +591,15 @@ def sync_project(
     lock_change = PlannedChange(lock_change_raw.relative_path, lock_change_raw.kind)
     result.changes.append(lock_change)
 
+    containment = _managed_destination_errors(
+        project,
+        skill_payloads=skill_payloads,
+        write_cursor_rule=write_cursor_rule,
+    )
+    if containment:
+        result.errors.extend(containment)
+        return result
+
     if mode in {SyncMode.check, SyncMode.dry_run}:
         # Validate against desired content conceptually: for check without writes,
         # only validate existing tree when already synced; otherwise report drift.
@@ -569,16 +610,14 @@ def sync_project(
     # Apply writes
     try:
         if agents_change.kind != ChangeKind.unchanged:
+            _require_within_project(project, project / "AGENTS.md")
             install_agent_guidance(project)
         if write_cursor_rule and rule_change.kind != ChangeKind.unchanged:
+            _require_within_project(project, rule_path)
             install_cursor_rule(project)
         for change, payload, executable in skill_payloads:
             dest = project / change.relative_path
-            try:
-                _require_within_project(project, dest)
-            except ValueError as exc:
-                result.errors.append(str(exc))
-                return result
+            _require_within_project(project, dest)
             if change.kind == ChangeKind.delete:
                 if dest.is_file():
                     dest.unlink()
