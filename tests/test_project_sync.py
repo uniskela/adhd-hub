@@ -211,6 +211,17 @@ def test_workflow_is_reusable_workflow_call() -> None:
     assert "uniskela/adhd-hub" in text
 
 
+def test_dockerfile_includes_packaged_sync_sources() -> None:
+    """Image build must COPY skills/adapters so hatch force-include can succeed."""
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY skills ./skills" in dockerfile
+    assert "COPY adapters ./adapters" in dockerfile
+    dockerignore = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    ignored = {line.strip() for line in dockerignore if line.strip() and not line.strip().startswith("#")}
+    assert "skills" not in ignored
+    assert "adapters" not in ignored
+
+
 def test_docs_pin_sha_not_missing_v1() -> None:
     text = (REPO_ROOT / "docs/project-sync.md").read_text(encoding="utf-8")
     assert "sync-project.yml@<sha>" in text
