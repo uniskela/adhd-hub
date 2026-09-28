@@ -122,6 +122,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         print_guidance_check,
         uninstall_agent_guidance,
     )
+    from adhd_hub.project_sync import SyncMode, format_sync_report, sync_project
 
     project = Path(args.path)
     if args.uninstall:
@@ -135,17 +136,90 @@ def cmd_setup(args: argparse.Namespace) -> int:
             expected_cursor_rule=expected_cursor_rule_text(),
             check_skills=True,
         )
-        return print_guidance_check(items)
+        code = print_guidance_check(items)
+        from adhd_hub.project_sync import project_has_scoped_hub_skills
+
+        should_check_sync = getattr(args, "project_skills", False) or project_has_scoped_hub_skills(
+            project
+        )
+        if should_check_sync:
+            try:
+                sync_result = sync_project(project, mode=SyncMode.check)
+            except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
+                print(f"project sync: {exc}", file=sys.stderr)
+                return 1
+            print(format_sync_report(sync_result), end="")
+            if sync_result.errors or sync_result.needs_sync:
+                return 1
+        return code
 
     path, action = install_agent_guidance(project)
     print(f"ADHD Hub project guidance {action}: {path}")
+
+    if getattr(args, "project_skills", False):
+        sync_source = None
+        if Path(args.skills_source).exists():
+            sync_source = args.skills_source
+        try:
+            sync_result = sync_project(
+                project,
+                source=sync_source,
+                mode=SyncMode.apply,
+            )
+        except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print(format_sync_report(sync_result), end="")
+        if not sync_result.ok:
+            return 1
+
     if args.install_skills:
         code = install_skills(args.skills_source)
         if code:
-            print("AGENTS.md was configured, but the global skills install failed.", file=sys.stderr)
+            print(
+                "AGENTS.md was configured, but the global skills install failed.",
+                file=sys.stderr,
+            )
             return code
+    elif not getattr(args, "project_skills", False):
+        print(
+            "Skills unchanged. Add --project-skills for repo-scoped .agents/skills, "
+            "or --install-skills for global npx installs."
+        )
+    return 0
+
+
+def cmd_sync_project(args: argparse.Namespace) -> int:
+    from adhd_hub.project_sync import SyncMode, format_sync_report, sync_project
+
+    if args.check and args.dry_run:
+        print("Use only one of --check or --dry-run.", file=sys.stderr)
+        return 2
+    if args.check:
+        mode = SyncMode.check
+    elif args.dry_run:
+        mode = SyncMode.dry_run
     else:
-        print("Skills unchanged. Add --install-skills to install them globally with npx.")
+        mode = SyncMode.apply
+
+    agents = [part.strip() for part in (args.agents or "").split(",") if part.strip()]
+    source = args.source
+    try:
+        result = sync_project(
+            Path(args.path),
+            source=source,
+            mode=mode,
+            agents=agents or None,
+        )
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    print(format_sync_report(result), end="")
+    if result.errors:
+        return 1
+    if mode == SyncMode.check and result.needs_sync:
+        return 1
     return 0
 
 
@@ -209,6 +283,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         if s.name.startswith("AGENTS.md")
         or s.name == "Cursor rule"
         or s.name.endswith(" skill")
+        or s.name == "project sync"
     )
     return 0 if report.ok and not continuity_drift else 1
 
@@ -336,7 +411,15 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument(
         "--install-skills",
         action="store_true",
-        help="Also run npx skills add <source> -g",
+        help="Also run npx skills add <source> -g (global skill install)",
+    )
+    setup.add_argument(
+        "--project-skills",
+        action="store_true",
+        help=(
+            "Install/refresh Hub-owned project-scoped skills under "
+            ".agents/skills (deterministic; same as sync-project)"
+        ),
     )
     setup.add_argument(
         "--skills-source",
@@ -359,6 +442,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Refresh Hub-managed AGENTS.md block (default behaviour of setup)",
     )
     setup.set_defaults(func=cmd_setup)
+
+    sync_project = sub.add_parser(
+        "sync-project",
+        help=(
+            "Deterministically sync Hub-owned AGENTS block, Cursor rule, "
+            "and .agents/skills into a project (no LLM)"
+        ),
+    )
+    sync_project.add_argument(
+        "path", nargs="?", default=".", help="Project folder (default: .)"
+    )
+    sync_project.add_argument(
+        "--source",
+        default=None,
+        help="ADHD Hub checkout or skills parent (default: this package's source tree)",
+    )
+    sync_project.add_argument(
+        "--agents",
+        default="cursor,codex",
+        help="Comma list controlling optional Cursor rule write (default: cursor,codex)",
+    )
+    sync_project.add_argument(
+        "--check",
+        action="store_true",
+        help="Report drift without writing; exit 1 when sync is needed",
+    )
+    sync_project.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explain what would change without writing",
+    )
+    sync_project.set_defaults(func=cmd_sync_project)
 
     connect = sub.add_parser(
         "connect",

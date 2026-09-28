@@ -10,6 +10,5 @@ __pycache__
 .cursor
 tests
 docs
-adapters
 scripts
 graphify-out

@@ -11,6 +11,9 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 COPY pyproject.toml uv.lock README.md LICENSE ATTRIBUTION.md ./
 COPY src ./src
+# Canonical sync sources must be present for hatch force-include → adhd_hub/share/.
+COPY skills ./skills
+COPY adapters ./adapters
 
 # Pull current Debian security fixes into the final runtime image rather than
 # inheriting stale OS packages from a cached base-image build.

@@ -457,9 +457,14 @@ def cursor_project_mcp_path(project: Path) -> Path:
 
 
 def expected_cursor_rule_text() -> str:
-    source = _ADAPTERS / "cursor-rule.mdc"
-    if source.is_file():
-        return source.read_text(encoding="utf-8")
+    """Return the canonical Cursor rule text from adapters or packaged share."""
+    candidates = [
+        _ADAPTERS / "cursor-rule.mdc",
+        Path(__file__).resolve().parent / "share" / "adapters" / "cursor-rule.mdc",
+    ]
+    for source in candidates:
+        if source.is_file():
+            return source.read_text(encoding="utf-8")
     return _FALLBACK_CURSOR_RULE
 
 
@@ -482,7 +487,7 @@ def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
 _FALLBACK_CURSOR_RULE = """---
 description: ADHD Progress Hub — check overlap and save progress on unfinished work
 alwaysApply: true
-hub_guidance_version: 5
+hub_guidance_version: 6
 ---
 
 # ADHD Progress Hub
@@ -491,18 +496,18 @@ Use Hub for substantial continuity-worthy work, not trivial/read-only questions,
 
 If ADHD Hub MCP tools are missing, errored, unauthorized, or otherwise unavailable: on the first substantial Hub-worthy turn after detecting the outage, the **first line** MUST state that Hub MCP is not available, plus a short fix hint (MCP URL → this Hub's `/mcp`, `ADHD_HUB_AUTH_TOKEN`, restart the agent; skip/cancel Auth if it hangs until Hub OAuth is enabled). Repeat the warning only if Hub status changes, a persistence attempt fails again, or the reply could otherwise imply continuity was saved. Then continue the authorized work. Never invent Hub state or claim a Hub write succeeded.
 
-**MCP unavailable** is the Hub continuity trigger (not runtime alone). Use the `env-check` skill / `skills/env-check/scripts/check_runtime.sh` for CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context (`CURSOR_AGENT`, container cues — never `$USER=root` alone). When Hub MCP is unreachable, use the forge issue mailbox only when issue-write access is available and the authenticated identity is accepted by Hub Inbox authors. Open/update a GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip labels if the token cannot set them. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`) so it does not land in Resume. Prefer short repository-relative summaries; never invent Hub continuity, progress, or thread state after a forge-only write.
+**MCP unavailable** is the Hub continuity trigger (not runtime alone). Use the `env-check` skill — resolve `scripts/check_runtime.sh` from the installed skill (project-scoped: `.agents/skills/env-check/…`; Hub source: `skills/env-check/…`) — for CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context (`CURSOR_AGENT`, container cues — never `$USER=root` alone). When Hub MCP is unreachable, use the forge issue mailbox only when issue-write access is available and the authenticated identity is accepted by Hub Inbox authors. Open/update a GitHub/Gitea issue titled `[ADHD] …` with a short Goal/Focus/Next/Resume cue. Optional labels: `adhd-hub`, `project:<slug>`, `source:cursor`; skip labels if the token cannot set them. Recommended: append `Made with [ADHD Progress Hub](https://github.com/uniskela/adhd-hub)` under a non-imported heading (e.g. `## Attribution`) so it does not land in Resume. Prefer short repository-relative summaries; never invent Hub continuity, progress, or thread state after a forge-only write. Never put credentials, tokens, personal/customer data, private hostnames/IPs, absolute local paths, transcripts, or secrets/env contents in forge issues.
 
 CLOUD_AGENT: do not assume machine-installed local skill CLIs (e.g. `graphify`) exist — one-line notice if missing, then repo tools / committed `graphify-out/`; prefer headless tests and injected env/OIDC over `.env.local`; no native browser/macOS-Windows binaries. LOCAL_WORKSPACE: local docker / localhost OK; local CLIs may exist; prefer Hub MCP when up.
 
 When this workspace involves substantial starting, resuming, or pausing work:
 
-1. Call MCP `adhd-hub` → `resolve_project`, then `session_digest` with the task query once per meaningful session. Reuse resolved context where possible.
+1. Call MCP `adhd-hub` → `resolve_project` with `create_if_missing=false`, then `session_digest` with the task query once per meaningful session. Reuse resolved context where possible. Create/register only after the workspace is authorized as a Hub project.
 2. One thread = one independently finishable outcome. If resuming a known thread, reuse its `thread_id`. Otherwise call `check_overlap` before potentially new work and reuse a candidate only when its Goal matches; different goal → separate thread (`force_new_thread=true` when needed).
 3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state (omit ritual content). When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
 4. When finished, `mark_done` on the known completed thread id only. Never close unrelated overlap results.
 
-If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` — do not nag or hand-edit AGENTS.md.
+If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` and `adhd-hub sync-project .` (or `setup . --project-skills`) — do not nag or hand-edit AGENTS.md.
 
 Never put credentials, customer/personal data, private Hub URLs, internal hostnames/IPs, absolute local workspace paths, or full transcripts in public issues or progress notes. Prefer short repository-relative summaries.
 """
@@ -1885,6 +1890,67 @@ def run_doctor(
                 "Hub unreachable — cannot confirm registration",
             )
         report.continuity_text = format_continuity_report(continuity)
+        # Project-scoped sync drift only when the repo opted into .agents Hub skills.
+        try:
+            from adhd_hub.project_sync import (
+                SyncMode,
+                project_has_github_sync_wrapper,
+                project_has_scoped_hub_skills,
+                sync_project,
+            )
+
+            opted_skills = project_has_scoped_hub_skills(project)
+            opted_github = project_has_github_sync_wrapper(project)
+            if opted_skills:
+                sync_result = sync_project(project, mode=SyncMode.check)
+                if sync_result.errors:
+                    report.add(
+                        "project sync",
+                        "error",
+                        "; ".join(sync_result.errors[:3]),
+                    )
+                elif sync_result.needs_sync:
+                    drifted = [
+                        c.relative_path
+                        for c in sync_result.changes
+                        if c.kind.value != "unchanged"
+                    ]
+                    report.add(
+                        "project sync",
+                        "warn",
+                        "drift — run: adhd-hub sync-project .  ("
+                        + ", ".join(drifted[:5])
+                        + ("…" if len(drifted) > 5 else "")
+                        + ")",
+                    )
+                else:
+                    report.add(
+                        "project sync",
+                        "ok",
+                        "AGENTS / Cursor rule / .agents Hub skills match source",
+                    )
+            else:
+                report.add(
+                    "project sync",
+                    "skipped",
+                    "no project-scoped Hub skills "
+                    "(.agents/skills); global-only installs skip sync-project drift",
+                )
+
+            if opted_github:
+                report.add(
+                    "GitHub sync workflow",
+                    "ok",
+                    "wrapper calling uniskela/adhd-hub/.github/workflows/sync-project.yml",
+                )
+            else:
+                report.add(
+                    "GitHub sync workflow",
+                    "skipped",
+                    "optional reusable workflow wrapper not configured",
+                )
+        except Exception as exc:  # noqa: BLE001 — doctor must not crash
+            report.add("project sync", "warn", f"could not evaluate: {exc}")
         if ok and token_set:
             _doctor_push_guidance_verification(
                 hub_url=hub_url,

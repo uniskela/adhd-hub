@@ -45,6 +45,8 @@ packages = ["src/adhd_hub"]
 [tool.hatch.build]
 include = [
   "src/adhd_hub/ui/**",
+  "skills/**",
+  "adapters/**",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -53,6 +55,9 @@ include = [
 "src/adhd_hub/ui/app.js" = "adhd_hub/ui/app.js"
 "src/adhd_hub/ui/manifest.webmanifest" = "adhd_hub/ui/manifest.webmanifest"
 "src/adhd_hub/ui/sw.js" = "adhd_hub/ui/sw.js"
+# Canonical project-sync assets for installed (non-editable) wheels.
+"skills" = "adhd_hub/share/skills"
+"adapters" = "adhd_hub/share/adapters"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

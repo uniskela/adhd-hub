@@ -11,11 +11,11 @@ from pathlib import Path
 
 # Independent from package release version (pyproject). Bump only when Hub-owned
 # generated guidance or Hub-owned skill contracts change meaningfully.
-AGENT_GUIDANCE_VERSION = 5  # Made-with footer on [ADHD] forge mailbox issues
-SESSION_SKILL_VERSION = 5  # doctor/session_digest keep-current + report_guidance_health
-PROJECTS_SKILL_VERSION = 4  # Made-with footer note on forge mailbox fallback
-ENV_CHECK_SKILL_VERSION = 2  # Made-with footer note on forge mailbox fallback
-CURSOR_RULE_VERSION = 5  # Made-with footer on [ADHD] forge mailbox issues
+AGENT_GUIDANCE_VERSION = 6  # env-check install layouts + project-sync repair path
+SESSION_SKILL_VERSION = 6  # bearer transport harden + create_if_missing=false lookup
+PROJECTS_SKILL_VERSION = 5  # forge mailbox gate + create_if_missing=false default
+ENV_CHECK_SKILL_VERSION = 3  # portable install layouts for check_runtime.sh
+CURSOR_RULE_VERSION = 6  # env-check path portability + sync-project mention
 
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"
@@ -396,9 +396,15 @@ def repair_hint(items: list[ComponentHealth]) -> list[str]:
     if agents and agents.status == GuidanceStatus.malformed:
         hints.append("Fix incomplete AGENTS.md markers, then: adhd-hub setup . --refresh")
     if rule and rule.needs_repair:
-        hints.append("adhd-hub connect . --cursor-rule  (or setup + connect for full wire-up)")
+        hints.append(
+            "adhd-hub sync-project .   # Cursor rule + project-scoped skills "
+            "(or: connect . --cursor-rule)"
+        )
     if skills_stale:
-        hints.append("adhd-hub setup . --install-skills   # opt-in; Hub-owned skills only")
+        hints.append(
+            "adhd-hub sync-project .   # project-scoped .agents/skills "
+            "(or: setup . --install-skills for global)"
+        )
     return hints
 
 
@@ -441,7 +447,8 @@ def guidance_digest_payload(
             "Run locally: adhd-hub doctor --project <path> "
             "(records verification when Hub credentials work). "
             "Repair AGENTS: adhd-hub setup . --refresh. "
-            "Opt-in skill refresh: adhd-hub setup . --install-skills."
+            "Opt-in skill refresh: adhd-hub sync-project . "
+            "(or setup . --project-skills / --install-skills)."
         ),
     }
 
