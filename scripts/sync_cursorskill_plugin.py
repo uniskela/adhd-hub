@@ -68,12 +68,14 @@ PROBE_ALLOW_RE = re.compile(
 SESSION_SETUP_HUB = (
     "Setup: configure the `/mcp` endpoint for an ADHD Hub instance you operate "
     "and an `Authorization: Bearer` header using an environment variable "
-    "(for example, `ADHD_HUB_MCP_TOKEN`). Prefer HTTPS; plain HTTP is only for "
-    "loopback, Docker, or a private LAN/Tailscale network controlled by the "
-    "operator. Browser session cookies only authorize REST, not MCP. Run "
-    "`uv run python scripts/probe_mcp.py` from the repo to verify tool discovery. "
-    "Never paste credentials into progress notes. The Hub stores only the "
-    "requested project/thread/reminder fields in its configured local "
+    "(for example, `ADHD_HUB_MCP_TOKEN`). Require HTTPS for every non-loopback "
+    "connection unless the entire path is protected by an authenticated encrypted "
+    "overlay such as Tailscale. Unencrypted HTTP is allowed only on loopback; a "
+    "private LAN or Docker network alone does not protect bearer tokens. Browser "
+    "session cookies only authorize REST, not MCP. Run "
+    "`uv run python scripts/probe_mcp.py` from the Hub source checkout to verify "
+    "tool discovery. Never paste credentials into progress notes. The Hub stores "
+    "only the requested project/thread/reminder fields in its configured local "
     "SQLite/Markdown directory; this protocol sends no full transcripts.\n\n"
     "Hub UI: `{ADHD_HUB_PUBLIC_URL}/ui` when configured."
 )
@@ -81,8 +83,10 @@ SESSION_SETUP_HUB = (
 SESSION_SETUP_PLUGIN = (
     "Setup: configure this plugin’s MCP variables `ADHD_HUB_MCP_URL` "
     "(your Hub `/mcp` endpoint) and `ADHD_HUB_AUTH_TOKEN` (Bearer matching the "
-    "Hub server). Prefer HTTPS; plain HTTP is only for loopback, Docker, or a "
-    "private LAN/Tailscale network controlled by the operator. Browser session "
+    "Hub server). Require HTTPS for every non-loopback connection unless the "
+    "entire path is protected by an authenticated encrypted overlay such as "
+    "Tailscale. Unencrypted HTTP is allowed only on loopback; a private LAN or "
+    "Docker network alone does not protect bearer tokens. Browser session "
     "cookies only authorize REST, not MCP.\n\n"
     "**Verify after install:** confirm Cursor’s MCP panel lists server "
     "`adhd-hub` with tools such as `resolve_project` and `session_digest`, "
@@ -96,17 +100,26 @@ SESSION_SETUP_PLUGIN = (
 )
 
 ENV_QUICK_DETECT_HUB = (
-    "From a checkout that includes this skill:\n\n"
+    "Resolve `scripts/check_runtime.sh` relative to **this skill’s install "
+    "location** (not the ADHD Hub source tree alone).\n\n"
+    "Supported layouts:\n\n"
+    "| Layout | Example command |\n"
+    "|--------|-----------------|\n"
+    "| ADHD Hub source checkout | `bash skills/env-check/scripts/check_runtime.sh` |\n"
+    "| Project-scoped install (`.agents/skills`) | "
+    "`bash .agents/skills/env-check/scripts/check_runtime.sh` |\n"
+    "| Global / plugin install | From the installed `env-check` skill directory: "
+    "`bash scripts/check_runtime.sh` |\n\n"
     "```bash\n"
-    "bash skills/env-check/scripts/check_runtime.sh\n"
-    "```\n\n"
-    "Or after `npx skills add ./skills -g` / `uniskela/adhd-hub`, run the "
-    "installed copy of `scripts/check_runtime.sh`."
+    "# Project-scoped (common after adhd-hub sync-project / setup --project-skills):\n"
+    "bash .agents/skills/env-check/scripts/check_runtime.sh\n"
+    "```"
 )
 
 ENV_QUICK_DETECT_PLUGIN = (
-    "From this plugin’s root (or the Marketplace install root / "
-    "`${CURSOR_PLUGIN_ROOT}` when Cursor documents that path):\n\n"
+    "Resolve `scripts/check_runtime.sh` relative to **this skill’s install "
+    "location** (Marketplace plugin root / `${CURSOR_PLUGIN_ROOT}` when Cursor "
+    "documents that path).\n\n"
     "```bash\n"
     "bash skills/env-check/scripts/check_runtime.sh\n"
     "```\n\n"
@@ -204,6 +217,15 @@ def adapt_session_reference(text: str) -> str:
             "(your Hub `/mcp` endpoint) and `ADHD_HUB_AUTH_TOKEN` "
             "(Bearer matching the Hub server).",
         )
+    # Harden leftover soft-LAN wording from older Hub mirrors.
+    text = text.replace(
+        "Prefer HTTPS; plain HTTP is only for loopback, Docker, or a private "
+        "LAN/Tailscale network controlled by the operator.",
+        "Require HTTPS for every non-loopback connection unless the entire path "
+        "is protected by an authenticated encrypted overlay such as Tailscale. "
+        "Unencrypted HTTP is allowed only on loopback; a private LAN or Docker "
+        "network alone does not protect bearer tokens.",
+    )
     if "**Verify after install:**" not in text and "probe_mcp.py" in text:
         # Insert verify paragraph before Hub UI line when leftover probe mentions remain.
         text = re.sub(

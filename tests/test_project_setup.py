@@ -27,13 +27,16 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "later substantial Hub-worthy turns while still down" not in text
     assert "pause_thread" in text
     assert "absolute machine paths" in text
-    assert "adhd-hub:guidance-version:5" in text
+    assert "adhd-hub:guidance-version:6" in text
+    assert "create_if_missing=false" in text or ".agents/skills/env-check" in text
+    assert "sync-project" in text
     assert "Made with [ADHD Progress Hub]" in text
     assert "## Attribution" in text or "Attribution" in text
     assert "env-check" in text
     assert "CLOUD_AGENT" in text
     assert "graphify" in text
     assert "[ADHD]" in text
+    assert ".agents/skills/env-check" in text
 
 
 def test_env_check_skill_documents_cloud_local_cli_caveat() -> None:
@@ -67,9 +70,12 @@ def test_session_skill_requires_loud_mcp_down() -> None:
     assert "graphify" in text
     assert "safe for the repository's visibility" in text
     assert "absolute local workspace paths" in text
+    assert "create_if_missing=false" in text
+    assert "private LAN or Docker network alone does not protect" in text
     assert "thread_id" in text
     assert "pause_thread" in text
     assert "../../docs/writing.md" not in text
+    assert "../../docs/forge-issue-inbox.md" not in text
     assert "Made with [ADHD Progress Hub]" in text
     assert "Attribution" in text
 
@@ -199,6 +205,7 @@ def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
         check=False,
         refresh=False,
         install_skills=True,
+        project_skills=False,
         skills_source="./skills",
     )
     with (
