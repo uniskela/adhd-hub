@@ -78,7 +78,10 @@ wrapper workflow calling this repo’s reusable sync is present.
 ## GitHub Actions (downstream)
 
 Create a tiny wrapper in the consumer repository. Do **not** copy the sync
-implementation:
+implementation.
+
+Until a stable `v1` tag is published, pin an **immutable commit SHA** of the
+reusable workflow:
 
 ```yaml
 name: ADHD Hub Sync
@@ -90,19 +93,25 @@ on:
 
 jobs:
   sync:
-    uses: uniskela/adhd-hub/.github/workflows/sync-project.yml@v1
+    # Replace <sha> with an immutable commit from uniskela/adhd-hub that contains
+    # .github/workflows/sync-project.yml (after that change lands on main).
+    uses: uniskela/adhd-hub/.github/workflows/sync-project.yml@<sha>
     permissions:
       contents: write
       pull-requests: write
     with:
       agents: "cursor,codex"
-      # Optional: pin Hub source
-      # hub_ref: "vX.Y.Z"
+      # Optional: pin Hub *source* skills independently of the workflow ref
+      # hub_ref: "<sha-or-tag>"
 ```
 
-Until a `v1` tag exists, pin an immutable commit SHA of this workflow after the
-upstream PR merges/releases. Absence of `@v1` on day one is expected — the
-workflow is the feature being shipped.
+After Hub publishes a reusable-workflow `v1` tag, migrate the `uses:` line to:
+
+```yaml
+    uses: uniskela/adhd-hub/.github/workflows/sync-project.yml@v1
+```
+
+Do not copy `@v1` until that tag exists — callers that pin a missing ref fail.
 
 The reusable workflow:
 
@@ -110,7 +119,7 @@ The reusable workflow:
 2. Runs `adhd-hub sync-project` (deterministic)
 3. Exits cleanly when there is no drift
 4. Creates/updates **one** reviewable PR on a dedicated branch when changes exist
-5. Never pushes directly to `main`
+5. Never pushes directly to the consumer default branch
 6. Uses concurrency + minimal permissions
 7. Documents Hub ref/SHA and validation in the PR body
 

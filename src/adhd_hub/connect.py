@@ -457,9 +457,14 @@ def cursor_project_mcp_path(project: Path) -> Path:
 
 
 def expected_cursor_rule_text() -> str:
-    source = _ADAPTERS / "cursor-rule.mdc"
-    if source.is_file():
-        return source.read_text(encoding="utf-8")
+    """Return the canonical Cursor rule text from adapters or packaged share."""
+    candidates = [
+        _ADAPTERS / "cursor-rule.mdc",
+        Path(__file__).resolve().parent / "share" / "adapters" / "cursor-rule.mdc",
+    ]
+    for source in candidates:
+        if source.is_file():
+            return source.read_text(encoding="utf-8")
     return _FALLBACK_CURSOR_RULE
 
 
@@ -1885,58 +1890,64 @@ def run_doctor(
                 "Hub unreachable — cannot confirm registration",
             )
         report.continuity_text = format_continuity_report(continuity)
-        # Project-scoped sync drift (deterministic .agents/skills layout).
+        # Project-scoped sync drift only when the repo opted into .agents Hub skills.
         try:
-            from adhd_hub.project_sync import SyncMode, sync_project
+            from adhd_hub.project_sync import (
+                SyncMode,
+                project_has_github_sync_wrapper,
+                project_has_scoped_hub_skills,
+                sync_project,
+            )
 
-            sync_result = sync_project(project, mode=SyncMode.check)
-            if sync_result.errors:
-                report.add(
-                    "project sync",
-                    "error",
-                    "; ".join(sync_result.errors[:3]),
-                )
-            elif sync_result.needs_sync:
-                drifted = [
-                    c.relative_path
-                    for c in sync_result.changes
-                    if c.kind.value != "unchanged"
-                ]
-                report.add(
-                    "project sync",
-                    "warn",
-                    "drift — run: adhd-hub sync-project .  ("
-                    + ", ".join(drifted[:5])
-                    + ("…" if len(drifted) > 5 else "")
-                    + ")",
-                )
+            opted_skills = project_has_scoped_hub_skills(project)
+            opted_github = project_has_github_sync_wrapper(project)
+            if opted_skills:
+                sync_result = sync_project(project, mode=SyncMode.check)
+                if sync_result.errors:
+                    report.add(
+                        "project sync",
+                        "error",
+                        "; ".join(sync_result.errors[:3]),
+                    )
+                elif sync_result.needs_sync:
+                    drifted = [
+                        c.relative_path
+                        for c in sync_result.changes
+                        if c.kind.value != "unchanged"
+                    ]
+                    report.add(
+                        "project sync",
+                        "warn",
+                        "drift — run: adhd-hub sync-project .  ("
+                        + ", ".join(drifted[:5])
+                        + ("…" if len(drifted) > 5 else "")
+                        + ")",
+                    )
+                else:
+                    report.add(
+                        "project sync",
+                        "ok",
+                        "AGENTS / Cursor rule / .agents Hub skills match source",
+                    )
             else:
                 report.add(
                     "project sync",
-                    "ok",
-                    "AGENTS / Cursor rule / .agents Hub skills match source",
+                    "skipped",
+                    "no project-scoped Hub skills "
+                    "(.agents/skills); global-only installs skip sync-project drift",
                 )
-            workflow = project / ".github" / "workflows"
-            wrappers = []
-            if workflow.is_dir():
-                for path in workflow.glob("*.yml"):
-                    try:
-                        text = path.read_text(encoding="utf-8")
-                    except OSError:
-                        continue
-                    if "adhd-hub/.github/workflows/sync-project.yml" in text:
-                        wrappers.append(path.name)
-            if wrappers:
+
+            if opted_github:
                 report.add(
-                    "project sync workflow",
+                    "GitHub sync workflow",
                     "ok",
-                    "wrapper present: " + ", ".join(wrappers),
+                    "wrapper calling uniskela/adhd-hub/.github/workflows/sync-project.yml",
                 )
             else:
                 report.add(
-                    "project sync workflow",
-                    "warn",
-                    "no wrapper calling uniskela/adhd-hub/.github/workflows/sync-project.yml",
+                    "GitHub sync workflow",
+                    "skipped",
+                    "optional reusable workflow wrapper not configured",
                 )
         except Exception as exc:  # noqa: BLE001 — doctor must not crash
             report.add("project sync", "warn", f"could not evaluate: {exc}")

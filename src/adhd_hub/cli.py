@@ -137,11 +137,20 @@ def cmd_setup(args: argparse.Namespace) -> int:
             check_skills=True,
         )
         code = print_guidance_check(items)
-        # Also report project-scoped sync drift when --project-skills is set or always.
-        sync_result = sync_project(project, mode=SyncMode.check)
-        print(format_sync_report(sync_result), end="")
-        if sync_result.errors or sync_result.needs_sync:
-            return 1
+        from adhd_hub.project_sync import project_has_scoped_hub_skills
+
+        should_check_sync = getattr(args, "project_skills", False) or project_has_scoped_hub_skills(
+            project
+        )
+        if should_check_sync:
+            try:
+                sync_result = sync_project(project, mode=SyncMode.check)
+            except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
+                print(f"project sync: {exc}", file=sys.stderr)
+                return 1
+            print(format_sync_report(sync_result), end="")
+            if sync_result.errors or sync_result.needs_sync:
+                return 1
         return code
 
     path, action = install_agent_guidance(project)
@@ -151,11 +160,15 @@ def cmd_setup(args: argparse.Namespace) -> int:
         sync_source = None
         if Path(args.skills_source).exists():
             sync_source = args.skills_source
-        sync_result = sync_project(
-            project,
-            source=sync_source,
-            mode=SyncMode.apply,
-        )
+        try:
+            sync_result = sync_project(
+                project,
+                source=sync_source,
+                mode=SyncMode.apply,
+            )
+        except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         print(format_sync_report(sync_result), end="")
         if not sync_result.ok:
             return 1
@@ -270,7 +283,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         if s.name.startswith("AGENTS.md")
         or s.name == "Cursor rule"
         or s.name.endswith(" skill")
-        or s.name.startswith("project sync")
+        or s.name == "project sync"
     )
     return 0 if report.ok and not continuity_drift else 1
 

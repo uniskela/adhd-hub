@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def _seed_downstream(tmp_path: Path) -> Path:
     """Fake consumer repo with unrelated content to preserve."""
     project = tmp_path / "consumer"
-    project.mkdir()
+    project.mkdir(parents=True)
     (project / "README.md").write_text("# Consumer\n", encoding="utf-8")
     (project / "AGENTS.md").write_text(
         "# AGENTS.md\n\n## Local notes\n\nKeep me.\n",
@@ -201,8 +201,182 @@ def test_workflow_is_reusable_workflow_call() -> None:
     assert "adhd-hub sync-project" in text
     assert "pull-requests: write" in text
     assert "force-with-lease" in text
-    assert "never" in text.lower() or "Auto-merge is not enabled" in text
+    assert "persist-credentials: false" in text
+    assert "DEFAULT_BRANCH" in text
+    assert "HUB_REF_INPUT" in text
+    assert "${{ inputs.hub_ref }}" not in text.split("run:")[-1] or "env:" in text
+    # No direct inputs interpolation inside shell run bodies for agents re-apply.
+    assert 'adhd-hub sync-project . --source ../hub --agents "${{ inputs.agents }}"' not in text
+    assert "Auto-merge is not enabled" in text or "auto-merge" in text.lower()
     assert "uniskela/adhd-hub" in text
+
+
+def test_docs_pin_sha_not_missing_v1() -> None:
+    text = (REPO_ROOT / "docs/project-sync.md").read_text(encoding="utf-8")
+    assert "sync-project.yml@<sha>" in text
+    assert "sync-project.yml@v1" in text  # migration note only
+    # Primary example must not instruct copying @v1 as the only pin.
+    example_block = text.split("```yaml", 1)[1].split("```", 1)[0]
+    assert "@v1" not in example_block
+    assert "@<sha>" in example_block
+
+
+def test_stale_managed_file_deleted_unrelated_preserved(tmp_path: Path) -> None:
+    project = _seed_downstream(tmp_path)
+    sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
+    stale = (
+        project
+        / ".agents"
+        / "skills"
+        / "adhd-hub-session"
+        / "obsolete-extra.md"
+    )
+    stale.write_text("stale\n", encoding="utf-8")
+    unrelated = project / ".agents" / "skills" / "unrelated-skill" / "extra.md"
+    unrelated.write_text("keep\n", encoding="utf-8")
+
+    check = sync_project(project, source=REPO_ROOT, mode=SyncMode.check)
+    assert check.needs_sync
+    assert any(
+        c.kind.value == "delete" and c.relative_path.endswith("obsolete-extra.md")
+        for c in check.changes
+    )
+    assert stale.is_file()  # check must not modify
+
+    dry = sync_project(project, source=REPO_ROOT, mode=SyncMode.dry_run)
+    assert dry.needs_sync
+    assert stale.is_file()
+
+    applied = sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
+    assert applied.ok
+    assert not stale.exists()
+    assert unrelated.is_file()
+    assert (project / ".agents" / "skills" / "unrelated-skill" / "SKILL.md").is_file()
+
+
+def test_setup_check_skips_project_sync_for_global_only(tmp_path: Path, capsys) -> None:
+    from argparse import Namespace
+
+    from adhd_hub.cli import cmd_setup
+    from adhd_hub.project_setup import install_agent_guidance
+
+    project = tmp_path / "global-only"
+    project.mkdir()
+    install_agent_guidance(project)
+    # No .agents Hub skills — sync-project check must be skipped.
+    cmd_setup(
+        Namespace(
+            path=str(project),
+            uninstall=False,
+            check=True,
+            refresh=False,
+            install_skills=False,
+            project_skills=False,
+            skills_source="uniskela/adhd-hub",
+        )
+    )
+    out = capsys.readouterr().out
+    assert "ADHD Hub project sync" not in out
+    assert not (project / ".agents" / "skills" / "adhd-hub-session").exists()
+
+
+def test_packaged_wheel_sync_project_functional(tmp_path: Path) -> None:
+    """Install the built wheel into an isolated venv and sync a fake downstream repo.
+
+    This is a functional packaging regression: ``adhd-hub sync-project`` must locate
+    packaged ``share/skills`` + ``share/adapters`` without a source checkout on disk.
+    """
+    import subprocess
+    import zipfile
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    build = subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(dist)],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    assert build.returncode == 0, build.stderr + build.stdout
+    wheels = list(dist.glob("*.whl"))
+    assert wheels, "expected a built wheel"
+    wheel = wheels[0]
+    with zipfile.ZipFile(wheel) as zf:
+        names = zf.namelist()
+    assert any(
+        n.endswith("adhd_hub/share/skills/adhd-hub-session/SKILL.md") for n in names
+    ), names[:40]
+    assert any(n.endswith("adhd_hub/share/adapters/cursor-rule.mdc") for n in names)
+
+    # Isolated venv: no editable/source checkout on PYTHONPATH.
+    venv_dir = tmp_path / "venv"
+    create = subprocess.run(
+        ["uv", "venv", str(venv_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert create.returncode == 0, create.stderr + create.stdout
+    py = venv_dir / "bin" / "python"
+    install = subprocess.run(
+        ["uv", "pip", "install", "--python", str(py), str(wheel)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert install.returncode == 0, install.stderr + install.stdout
+
+    consumer = _seed_downstream(tmp_path / "consumer-root")
+    # Prove the installed CLI can sync without --source (uses packaged share).
+    # Run from a decoy cwd that is not the Hub checkout.
+    decoy = tmp_path / "decoy-cwd"
+    decoy.mkdir()
+    sync = subprocess.run(
+        [
+            str(py),
+            "-m",
+            "adhd_hub",
+            "sync-project",
+            str(consumer),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(decoy),
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(tmp_path / "home"),
+            "VIRTUAL_ENV": str(venv_dir),
+        },
+    )
+    assert sync.returncode == 0, sync.stderr + sync.stdout
+    assert (consumer / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md").is_file()
+    assert (consumer / ".agents" / "skills" / "env-check" / "scripts" / "check_runtime.sh").is_file()
+    assert (consumer / ".cursor" / "rules" / "adhd-hub.mdc").is_file()
+    session = (consumer / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert f"hub_skill_version: {SESSION_SKILL_VERSION}" in session
+    assert "../../docs/" not in session
+    # Unrelated consumer content preserved
+    assert (consumer / ".agents" / "skills" / "unrelated-skill" / "SKILL.md").is_file()
+    assert (consumer / "src" / "app.py").is_file()
+
+    # Second sync from the same isolated install is a no-op.
+    sync2 = subprocess.run(
+        [str(py), "-m", "adhd_hub", "sync-project", str(consumer), "--check"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(decoy),
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(tmp_path / "home"),
+            "VIRTUAL_ENV": str(venv_dir),
+        },
+    )
+    assert sync2.returncode == 0, sync2.stderr + sync2.stdout
 
 
 def test_cli_sync_project_check(tmp_path: Path) -> None:

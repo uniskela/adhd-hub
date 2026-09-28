@@ -75,6 +75,7 @@ class ChangeKind(StrEnum):
     create = "create"
     update = "update"
     chmod = "chmod"
+    delete = "delete"
     unchanged = "unchanged"
 
 
@@ -104,24 +105,36 @@ class SyncResult:
         return not self.errors
 
 
+def packaged_share_root() -> Path | None:
+    """Return packaged ``adhd_hub/share`` when skills ship inside the wheel."""
+    share = Path(__file__).resolve().parent / "share"
+    if (share / "skills" / "adhd-hub-session" / "SKILL.md").is_file():
+        return share
+    return None
+
+
 def hub_package_root() -> Path:
-    """Return the ADHD Hub checkout root that owns `skills/` + adapters."""
-    # src/adhd_hub/project_sync.py → parents[2] == repo root when editable/source layout
+    """Locate the Hub root that owns ``skills/`` (source checkout or packaged share).
+
+    Preference order:
+    1. Repository root (editable / source checkout)
+    2. Packaged ``adhd_hub/share`` from a built wheel / non-editable install
+    """
     here = Path(__file__).resolve()
     candidate = here.parents[2]
     if (candidate / "skills" / "adhd-hub-session" / "SKILL.md").is_file():
         return candidate
-    # Installed wheel: look beside package data if present
-    pkg = here.parent
-    if (pkg / "skills" / "adhd-hub-session" / "SKILL.md").is_file():
-        return pkg
+    share = packaged_share_root()
+    if share is not None:
+        return share
     raise FileNotFoundError(
         "Cannot locate Hub skills source (expected skills/adhd-hub-session/SKILL.md "
-        "next to the ADHD Hub checkout)."
+        "in the ADHD Hub checkout or packaged adhd_hub/share/)."
     )
 
 
 def resolve_source(source: str | Path | None) -> Path:
+    """Resolve a Hub checkout, skills parent, or packaged share root."""
     if source is None:
         return hub_package_root()
     path = Path(source).expanduser().resolve()
@@ -129,10 +142,38 @@ def resolve_source(source: str | Path | None) -> Path:
         return path
     if path.name == "skills" and (path / "adhd-hub-session" / "SKILL.md").is_file():
         return path.parent
+    # Packaged share root passed explicitly
+    if (path / "skills" / "adhd-hub-session" / "SKILL.md").is_file():
+        return path
     raise FileNotFoundError(f"Hub skills source not found under: {path}")
 
 
+def project_has_scoped_hub_skills(project_dir: Path | str) -> bool:
+    """True when the project already has Hub-owned trees under ``.agents/skills``."""
+    root = Path(project_dir).expanduser().resolve()
+    return any(
+        (root / ".agents" / "skills" / name / "SKILL.md").is_file()
+        for name in HUB_SKILL_NAMES
+    )
+
+
+def project_has_github_sync_wrapper(project_dir: Path | str) -> bool:
+    """True when a workflow calls Hub's reusable ``sync-project.yml``."""
+    workflow = Path(project_dir).expanduser().resolve() / ".github" / "workflows"
+    if not workflow.is_dir():
+        return False
+    for path in workflow.glob("*.yml"):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if "adhd-hub/.github/workflows/sync-project.yml" in text:
+            return True
+    return False
+
+
 def skill_sha256(skill_md: Path) -> str:
+    """Return the hex SHA-256 of a skill markdown file (skills-lock computedHash)."""
     return hashlib.sha256(skill_md.read_bytes()).hexdigest()
 
 
@@ -142,6 +183,7 @@ def rewrite_docs_links(text: str) -> str:
 
 
 def parse_frontmatter_versions(text: str) -> dict[str, str]:
+    """Parse ``hub_skill_version`` / ``hub_guidance_version`` from YAML frontmatter."""
     out: dict[str, str] = {}
     if not text.startswith("---\n"):
         return out
@@ -231,6 +273,38 @@ def _copy_skill_tree_plans(
                         True,
                     )
                 )
+    return plans
+
+
+def _stale_skill_file_plans(
+    source_skill: Path,
+    dest_skill: Path,
+    *,
+    skill_name: str,
+) -> list[tuple[PlannedChange, bytes | str, bool]]:
+    """Plan deletion of files that exist only in the managed downstream tree."""
+    if not dest_skill.is_dir():
+        return []
+    source_rels: set[str] = set()
+    if source_skill.is_dir():
+        for src in source_skill.rglob("*"):
+            if src.is_file():
+                source_rels.add(src.relative_to(source_skill).as_posix())
+    plans: list[tuple[PlannedChange, bytes | str, bool]] = []
+    for dest in sorted(dest_skill.rglob("*")):
+        if not dest.is_file():
+            continue
+        rel_inside = dest.relative_to(dest_skill).as_posix()
+        if rel_inside in source_rels:
+            continue
+        project_rel = f".agents/skills/{skill_name}/{rel_inside}"
+        plans.append(
+            (
+                PlannedChange(project_rel, ChangeKind.delete, "stale managed file"),
+                b"",
+                False,
+            )
+        )
     return plans
 
 
@@ -438,10 +512,19 @@ def sync_project(
 
     skill_payloads: list[tuple[PlannedChange, bytes | str, bool]] = []
     for name in HUB_SKILL_NAMES:
+        source_skill = src / "skills" / name
+        dest_skill = project / ".agents" / "skills" / name
         skill_payloads.extend(
             _copy_skill_tree_plans(
-                src / "skills" / name,
-                project / ".agents" / "skills" / name,
+                source_skill,
+                dest_skill,
+                skill_name=name,
+            )
+        )
+        skill_payloads.extend(
+            _stale_skill_file_plans(
+                source_skill,
+                dest_skill,
                 skill_name=name,
             )
         )
@@ -474,6 +557,19 @@ def sync_project(
             install_cursor_rule(project)
         for change, payload, executable in skill_payloads:
             dest = project / change.relative_path
+            if change.kind == ChangeKind.delete:
+                if dest.is_file():
+                    dest.unlink()
+                    # Remove emptied skill subdirectories left behind.
+                    parent = dest.parent
+                    skill_root = project / ".agents" / "skills"
+                    while parent != skill_root and parent.is_dir():
+                        try:
+                            parent.rmdir()
+                        except OSError:
+                            break
+                        parent = parent.parent
+                continue
             if change.kind == ChangeKind.chmod:
                 if dest.is_file():
                     dest.chmod(dest.stat().st_mode | 0o111)
@@ -503,6 +599,7 @@ def sync_project(
 
 
 def format_sync_report(result: SyncResult) -> str:
+    """Render a human-readable sync report for CLI and CI logs."""
     lines = [
         f"ADHD Hub project sync ({result.mode})",
         f"  project: {result.project}",
@@ -536,7 +633,7 @@ def format_sync_report(result: SyncResult) -> str:
 
 
 def assert_only_managed_paths(changed_paths: list[str]) -> list[str]:
-    """Return any paths outside the Hub-managed allowlist."""
+    """Return paths outside the Hub-managed allowlist (for CI / tests)."""
     return [p for p in changed_paths if not _is_under_managed(p)]
 
 

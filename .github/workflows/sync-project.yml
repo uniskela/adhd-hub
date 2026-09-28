@@ -5,14 +5,14 @@ name: Sync ADHD Hub project guidance
 #
 #   jobs:
 #     sync:
-#       uses: uniskela/adhd-hub/.github/workflows/sync-project.yml@<release-or-sha>
+#       uses: uniskela/adhd-hub/.github/workflows/sync-project.yml@<sha>
 #       permissions:
 #         contents: write
 #         pull-requests: write
 #       with:
 #         agents: "cursor,codex"
 #
-# Pin an immutable tag/SHA after the first released contract. Do not push to main.
+# Pin an immutable commit SHA until a stable `v1` tag is published. Do not push to main.
 
 on:
   workflow_call:
@@ -99,28 +99,32 @@ jobs:
           ref: ${{ inputs.hub_ref }}
           path: hub
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Install ADHD Hub (editable)
+      - name: Install ADHD Hub from checkout
         run: |
           set -euo pipefail
           python -m pip install -U pip
-          python -m pip install -e "./hub"
+          # Non-editable install exercises packaged skills/adapters share data.
+          python -m pip install "./hub"
 
       - name: Capture Hub identity
         id: hubmeta
         working-directory: hub
+        env:
+          HUB_REF_INPUT: ${{ inputs.hub_ref }}
         run: |
           set -euo pipefail
           sha="$(git rev-parse HEAD)"
           short="$(printf '%s' "$sha" | cut -c1-7)"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "short=$short" >> "$GITHUB_OUTPUT"
-          echo "ref=${{ inputs.hub_ref }}" >> "$GITHUB_OUTPUT"
+          echo "ref=${HUB_REF_INPUT}" >> "$GITHUB_OUTPUT"
 
       - name: Sync project (check)
         id: check
@@ -162,18 +166,20 @@ jobs:
           HUB_REF: ${{ steps.hubmeta.outputs.ref }}
           PR_LABELS: ${{ inputs.pr_labels }}
           REPO: ${{ github.repository }}
+          AGENTS: ${{ inputs.agents }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         working-directory: project
         run: |
           set -euo pipefail
           branch="${BRANCH_PREFIX}-${HUB_SHORT}"
+          base="${DEFAULT_BRANCH:-main}"
           git config user.name "adhd-hub-project-sync"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main || git fetch origin HEAD:refs/remotes/origin/main
-          base="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo main)"
+          git fetch origin "$base"
           git checkout -B "$branch" "origin/${base}"
 
           # Re-apply on the sync branch tip (idempotent).
-          adhd-hub sync-project . --source ../hub --agents "${{ inputs.agents }}"
+          adhd-hub sync-project . --source ../hub --agents "$AGENTS"
 
           git add -- \
             AGENTS.md \
@@ -194,7 +200,13 @@ jobs:
 
           git commit -m "chore: sync ADHD Hub project guidance from ${HUB_SHORT}"
 
-          git push --force-with-lease origin "HEAD:refs/heads/${branch}"
+          # Lease against the known remote tip when the generated branch exists.
+          if git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}" 2>/dev/null; then
+            git push --force-with-lease="refs/heads/${branch}:refs/remotes/origin/${branch}" \
+              origin "HEAD:refs/heads/${branch}"
+          else
+            git push origin "HEAD:refs/heads/${branch}"
+          fi
 
           body_file="$RUNNER_TEMP/adhd-hub-sync-pr-body.md"
           {
