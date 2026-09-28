@@ -32,7 +32,11 @@ HOOKS_JSON_REL = ".cursor/hooks.json"
 
 
 def expected_guard_script() -> str:
-    """Thin wrapper: invoke ``adhd-hub guard hook``; fail-open if missing."""
+    """Thin wrapper: invoke ``adhd-hub guard hook``; fail-open if missing.
+
+    Does not use unpinned ``uvx --from adhd-hub`` (PyPI name may be unclaimed /
+    untrusted). Prefer ``adhd-hub`` on PATH from an installed package or checkout.
+    """
     return """#!/usr/bin/env bash
 # ADHD Hub Continuity Guard — Hub-owned Cursor hook wrapper.
 # Managed by: adhd-hub sync-project --continuity-guard
@@ -41,15 +45,13 @@ ROOT="$(pwd)"
 
 run_guard() {
   if command -v adhd-hub >/dev/null 2>&1; then
-    adhd-hub guard hook --project "$ROOT"
-    return $?
-  fi
-  if command -v uvx >/dev/null 2>&1; then
-    uvx --from adhd-hub adhd-hub guard hook --project "$ROOT"
+    # Positional project path (subcommand parser has no --project flag).
+    adhd-hub guard hook "$ROOT"
     return $?
   fi
   # Fail-open: never block the agent if the CLI is unavailable.
-  echo '{}' 
+  # Do not uvx an unpinned PyPI package name (supply-chain risk).
+  echo '{}'
   return 0
 }
 

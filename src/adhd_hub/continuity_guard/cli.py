@@ -22,15 +22,20 @@ from adhd_hub.project_sync import project_has_continuity_guard
 def _effective_config(project: Path) -> tuple[GuardConfig, bool]:
     cfg = load_guard_config(project)
     enrolled = project_has_continuity_guard(project)
-    if enrolled and not cfg.enabled:
+    # Explicit TOML disable must stick even when hooks are installed.
+    if cfg.explicitly_disabled:
+        return cfg, enrolled
+    # Enrollment without a TOML section → balanced defaults.
+    if enrolled and cfg.source != "file":
         cfg = GuardConfig(
             enabled=True,
-            mode=cfg.mode if cfg.mode != "off" else "balanced",
+            mode="balanced",
             max_stop_retries=cfg.max_stop_retries,
             checkpoint_after_mutations=cfg.checkpoint_after_mutations,
             meaningful_edit_files=cfg.meaningful_edit_files,
             meaningful_mutation_tools=cfg.meaningful_mutation_tools,
             stale_state_hours=cfg.stale_state_hours,
+            source="default",
         )
     return cfg, enrolled
 
@@ -177,7 +182,7 @@ def add_guard_parser(sub: argparse._SubParsersAction) -> None:
         p.add_argument(
             "path",
             nargs="?",
-            default=None,
+            default=argparse.SUPPRESS,
             help="Project folder (default: --project / .)",
         )
         p.set_defaults(func=_guard_entry)
@@ -186,7 +191,7 @@ def add_guard_parser(sub: argparse._SubParsersAction) -> None:
     observe.add_argument(
         "path",
         nargs="?",
-        default=None,
+        default=argparse.SUPPRESS,
         help="Project folder (default: --project / .)",
     )
     observe.add_argument(

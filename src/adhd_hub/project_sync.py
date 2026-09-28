@@ -668,7 +668,7 @@ def sync_project(
                     drift[0] if drift else "merge Hub guard hooks",
                 )
             result.changes.append(hooks_change)
-        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             result.errors.append(f"continuity guard hooks: {exc}")
             return result
 

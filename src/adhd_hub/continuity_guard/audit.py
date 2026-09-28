@@ -92,7 +92,7 @@ def audit_project(project_dir: Path | str) -> AuditReport:
     else:
         try:
             changes = plan_hooks_merge(hooks_path)
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             report.findings.append(AuditFinding("hooks_json", "error", str(exc)))
         else:
             if changes:

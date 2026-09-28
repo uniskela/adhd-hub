@@ -25,10 +25,17 @@ class GuardConfig:
     meaningful_edit_files: int = 2
     meaningful_mutation_tools: int = 1
     stale_state_hours: float = 48.0
+    # "default" = no adhd-hub.toml section; "file" = section was present
+    source: str = "default"
 
     @property
     def is_enforcing(self) -> bool:
         return self.enabled and self.mode not in {"off", "disabled"}
+
+    @property
+    def explicitly_disabled(self) -> bool:
+        """True when project TOML explicitly disables the guard."""
+        return self.source == "file" and not self.is_enforcing
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:
@@ -88,4 +95,5 @@ def load_guard_config(project_dir: Path | str) -> GuardConfig:
         stale_state_hours=max(
             1.0, _coerce_float(section.get("stale_state_hours"), 48.0)
         ),
+        source="file",
     )

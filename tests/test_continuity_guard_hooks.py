@@ -240,3 +240,107 @@ def test_unenrolled_returns_empty(tmp_path: Path) -> None:
         enrolled=False,
     )
     assert out == {}
+
+
+def test_explicit_toml_off_disables_enrolled_hooks(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    (project / "adhd-hub.toml").write_text(
+        '[continuity_guard]\nenabled = true\nmode = "off"\n',
+        encoding="utf-8",
+    )
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Write",
+            "tool_input": {"path": "src/a.py", "contents": "x = 1\n"},
+            "conversation_id": "c1",
+        },
+        project_dir=project,
+        enrolled=True,
+    )
+    assert out == {}
+
+
+def test_forge_fallback_allowed_while_unestablished(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Write",
+            "tool_input": {"path": "src/a.py", "contents": "x = 1\n"},
+            "conversation_id": "c1",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert load_state(project).phase_enum() == GuardPhase.required_unestablished
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Shell",
+            "tool_input": {
+                "command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'
+            },
+            "conversation_id": "c1",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert out.get("permission") == "allow"
+
+
+def test_conversation_change_resets_before_stop(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    # Prior conversation left active unfinished work
+    state = load_state(project)
+    state.conversation_id = "old"
+    state.meaningful_work = True
+    state.evidence_resolve = True
+    state.evidence_digest = True
+    state.set_phase(GuardPhase.active)
+    state.mutations_since_checkpoint = 2
+    save_state(project, state)
+    # New conversation: read-only then stop must not inherit unfinished stop nudge
+    handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Read",
+            "tool_input": {"path": "README.md"},
+            "conversation_id": "new",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert load_state(project).phase_enum() == GuardPhase.not_required
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "stop",
+            "status": "completed",
+            "loop_count": 0,
+            "conversation_id": "new",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert not out.get("followup_message")
+
+
+def test_non_hub_mcp_server_not_accepted(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    handle_hook_payload(
+        {
+            "hook_event_name": "postToolUse",
+            "tool_name": "resolve_project",
+            "mcp_server_name": "some-other-mcp",
+            "tool_input": {},
+            "conversation_id": "c1",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert load_state(project).evidence_resolve is False

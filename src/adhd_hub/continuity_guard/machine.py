@@ -238,13 +238,8 @@ def apply_event(
 
 
 def _continuity_ok(state: GuardState) -> bool:
-    return bool(
-        state.evidence_resolve
-        or state.evidence_digest
-        or state.evidence_progress
-        or state.evidence_forge_fallback
-        or state.persistence_unavailable
-    )
+    """Single definition of established continuity (same as ``continuity_established``)."""
+    return continuity_established(state)
 
 
 def _note_path(state: GuardState, path_hint: str) -> None:

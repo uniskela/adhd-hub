@@ -77,23 +77,26 @@ def handle_hook_payload(
         if project_dir
         else resolve_project_root(payload)
     )
-    cfg = config or load_guard_config(project)
-    # Enrollment: config enabled OR caller says hooks installed
+    loaded = load_guard_config(project)
+    # Explicit TOML disable always wins for real hook runs (no injected config).
+    if config is None and loaded.explicitly_disabled:
+        return {}
+    cfg = config if config is not None else loaded
     if enrolled is False:
         return {}
-    if not cfg.is_enforcing and enrolled is not True and enrolled is None:
-        return {}
-    if enrolled is True and not cfg.enabled:
+    # Enrollment without a TOML section → enforce with balanced defaults.
+    if config is None and enrolled is True and loaded.source != "file":
         cfg = GuardConfig(
             enabled=True,
-            mode=cfg.mode if cfg.mode != "off" else "balanced",
-            max_stop_retries=cfg.max_stop_retries,
-            checkpoint_after_mutations=cfg.checkpoint_after_mutations,
-            meaningful_edit_files=cfg.meaningful_edit_files,
-            meaningful_mutation_tools=cfg.meaningful_mutation_tools,
-            stale_state_hours=cfg.stale_state_hours,
+            mode="balanced",
+            max_stop_retries=loaded.max_stop_retries,
+            checkpoint_after_mutations=loaded.checkpoint_after_mutations,
+            meaningful_edit_files=loaded.meaningful_edit_files,
+            meaningful_mutation_tools=loaded.meaningful_mutation_tools,
+            stale_state_hours=loaded.stale_state_hours,
+            source="default",
         )
-    if not cfg.is_enforcing and enrolled is not True:
+    if not cfg.is_enforcing:
         return {}
 
     event_name = str(payload.get("hook_event_name") or "").strip()
@@ -104,6 +107,15 @@ def handle_hook_payload(
 
     conv = payload.get("conversation_id")
     conv_s = conv.strip() if isinstance(conv, str) else None
+    # Soft-reset for every event (including read-only / stop) when conversation changes.
+    if conv_s and state.conversation_id and conv_s != state.conversation_id:
+        apply_event(
+            state,
+            GuardEvent.begin_session,
+            config=cfg,
+            conversation_id=conv_s,
+        )
+        save_state(project, state)
 
     if event_name in {"preToolUse", "beforeMCPExecution"}:
         return _handle_pre_tool(project, state, cfg, payload, conv_s, event_name)
@@ -139,7 +151,36 @@ def _handle_pre_tool(
         if hit:
             return {"permission": "allow"}
 
+    # Allow authorised [ADHD] forge fallback while continuity is still unestablished.
+    if observe_forge_action(tool_name=tool_name, command=command, tool_input=tool_input):
+        return {"permission": "allow"}
+
     assessment = assess_tool(tool_name, tool_input=tool_input, command=command)
+    needs_continuity = (
+        assessment.is_mutation
+        and assessment.is_meaningful
+        and not continuity_established(state)
+        and not state.persistence_unavailable
+    )
+    if needs_continuity:
+        # Enter required_unestablished without counting denied attempts toward checkpoint.
+        if state.phase_enum() in {
+            GuardPhase.not_required,
+            GuardPhase.paused,
+            GuardPhase.completed,
+        }:
+            state.meaningful_work = True
+            if conv and not state.conversation_id:
+                state.conversation_id = conv
+            state.set_phase(GuardPhase.required_unestablished)
+            save_state(project, state)
+        return {
+            "permission": "deny",
+            "agent_message": MSG_MUTATION_BLOCK,
+            "user_message": "ADHD Hub continuity required before substantial mutation.",
+        }
+
+    # Count only allowed meaningful mutations (single source of truth with afterFileEdit).
     if assessment.is_meaningful:
         apply_event(
             state,
@@ -149,18 +190,6 @@ def _handle_pre_tool(
             path_hint=_path_hint(tool_input),
         )
         save_state(project, state)
-
-    phase = state.phase_enum()
-    if (
-        assessment.is_mutation
-        and assessment.is_meaningful
-        and phase == GuardPhase.required_unestablished
-    ):
-        return {
-            "permission": "deny",
-            "agent_message": MSG_MUTATION_BLOCK,
-            "user_message": "ADHD Hub continuity required before substantial mutation.",
-        }
     return {"permission": "allow"}
 
 
@@ -192,17 +221,15 @@ def _handle_post_tool(
         tool_input=tool_input,
         success=True,
     )
-    if hit is None:
-        # Cloud: tool_name may be MCP:resolve_project
+    # Retry without server name only when none was supplied (Cloud MCP:tool form).
+    if hit is None and mcp_server is None:
         hit = observe_mcp_tool(tool_name, tool_input=tool_input, success=True)
 
     if hit is not None:
         apply_evidence_to_state(state, hit)
         if hit.kind in {"resolve", "digest", "overlap"}:
             # Resolve+digest (or resolve+overlap) establishes continuity
-            if continuity_established(state) or (
-                state.evidence_resolve and (state.evidence_digest or state.evidence_overlap)
-            ):
+            if continuity_established(state):
                 apply_event(
                     state,
                     GuardEvent.continuity_established,
@@ -259,16 +286,7 @@ def _handle_post_tool(
         save_state(project, state)
         return {}
 
-    assessment = assess_tool(tool_name, tool_input=tool_input, command=command)
-    if assessment.is_meaningful:
-        apply_event(
-            state,
-            GuardEvent.meaningful_mutation,
-            config=cfg,
-            conversation_id=conv,
-            path_hint=_path_hint(tool_input),
-        )
-        save_state(project, state)
+    # Do not double-count mutations here — preToolUse (allowed) / afterFileEdit own counts.
     return {}
 
 

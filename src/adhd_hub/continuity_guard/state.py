@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -138,7 +139,11 @@ def load_state(project_dir: Path | str) -> GuardState:
 
 
 def save_state(project_dir: Path | str, state: GuardState) -> Path:
-    """Persist state under ``.git/adhd-hub/``. Creates directories as needed."""
+    """Persist state under ``.git/adhd-hub/``. Creates directories as needed.
+
+    Writes atomically (temp file + ``os.replace``) so concurrent hook
+    ``load_state`` calls never observe a truncated JSON file.
+    """
     path = state_path_for(project_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     state.updated_at = _utcnow()
@@ -147,7 +152,17 @@ def save_state(project_dir: Path | str, state: GuardState) -> Path:
     payload = json.dumps(state.to_public_dict(), indent=2, ensure_ascii=False) + "\n"
     if _SECRETISH.search(payload):
         raise ValueError("refusing to write secret-like material to guard state")
-    path.write_text(payload, encoding="utf-8", newline="\n")
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(payload, encoding="utf-8", newline="\n")
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            if tmp.is_file():
+                tmp.unlink()
+        except OSError:
+            pass
+        raise
     return path
 
 
