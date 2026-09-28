@@ -244,7 +244,8 @@ jobs:
               gh pr close "$num" --repo "$REPO" >/dev/null || true
             done < <(gh pr list --repo "$REPO" --state open \
               --json number,headRefName,body \
-              --jq ".[] | select((.headRefName|startswith(\"${BRANCH_PREFIX}-\")) and ((.body // \"\")|contains(\"<!-- adhd-hub-sync-generated -->\"))) | .number")
+              | jq -r --arg prefix "$BRANCH_PREFIX" \
+                '.[] | select((.headRefName | startswith($prefix + "-")) and ((.body // "") | contains("<!-- adhd-hub-sync-generated -->"))) | .number')
 
             label_args=()
             IFS=',' read -ra labels <<< "$PR_LABELS"

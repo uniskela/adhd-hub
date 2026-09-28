@@ -210,7 +210,7 @@ def test_workflow_is_reusable_workflow_call() -> None:
     assert "Auto-merge is not enabled" in text or "auto-merge" in text.lower()
     assert "uniskela/adhd-hub" in text
     assert "adhd-hub-sync-generated" in text
-    assert "contains(" in text and "adhd-hub-sync-generated" in text
+    assert "jq -r --arg prefix" in text
 
 
 def test_dockerfile_includes_packaged_sync_sources() -> None:
