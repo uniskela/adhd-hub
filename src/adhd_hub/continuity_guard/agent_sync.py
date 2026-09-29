@@ -13,7 +13,10 @@ from typing import Any
 
 CLAUDE_SETTINGS_REL = ".claude/settings.json"
 CLAUDE_GUARD_SCRIPT_REL = ".claude/hooks/adhd-hub-guard.sh"
+# Substring match: recognizes both relative and $CLAUDE_PROJECT_DIR-anchored forms.
 HUB_CLAUDE_COMMAND_MARKER = ".claude/hooks/adhd-hub-guard.sh"
+# Anchor to project root — Claude hooks may run with cwd below the project.
+HUB_CLAUDE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR/.claude/hooks/adhd-hub-guard.sh"'
 
 # Claude Code events we enroll (honest strength: PreToolUse can deny; Stop can nudge).
 CLAUDE_HUB_EVENTS: tuple[str, ...] = (
@@ -51,7 +54,7 @@ def hub_claude_hook_block() -> dict[str, Any]:
         "hooks": [
             {
                 "type": "command",
-                "command": HUB_CLAUDE_COMMAND_MARKER,
+                "command": HUB_CLAUDE_HOOK_COMMAND,
             }
         ]
     }
@@ -64,16 +67,12 @@ def is_hub_claude_hook_entry(entry: Any) -> bool:
     if not isinstance(hooks, list):
         # Flat command form (rare)
         command = entry.get("command")
-        return isinstance(command, str) and HUB_CLAUDE_COMMAND_MARKER in command.replace(
-            "\\", "/"
-        )
+        return isinstance(command, str) and HUB_CLAUDE_COMMAND_MARKER in command.replace("\\", "/")
     for hook in hooks:
         if not isinstance(hook, dict):
             continue
         command = hook.get("command")
-        if isinstance(command, str) and HUB_CLAUDE_COMMAND_MARKER in command.replace(
-            "\\", "/"
-        ):
+        if isinstance(command, str) and HUB_CLAUDE_COMMAND_MARKER in command.replace("\\", "/"):
             return True
     return False
 
@@ -118,9 +117,7 @@ def merge_claude_settings(current: dict[str, Any] | None) -> dict[str, Any]:
             hooks[event_name] = [hub_claude_hook_block()]
             continue
         if not isinstance(entries, list):
-            raise TypeError(
-                f".claude/settings.json hooks.{event_name} must be an array"
-            )
+            raise TypeError(f".claude/settings.json hooks.{event_name} must be an array")
         kept = [e for e in entries if not is_hub_claude_hook_entry(e)]
         kept.append(hub_claude_hook_block())
         hooks[event_name] = kept
@@ -197,7 +194,8 @@ ADAPTER_STRENGTH: dict[str, dict[str, str]] = {
         "level": "medium",
         "summary": (
             "Claude Code PreToolUse can deny; PostToolUse observes evidence; "
-            "Stop can block-nudge once. SessionStart/End are not used for enforcement."
+            "Stop can block-nudge up to the configured retry limit "
+            "(default max_stop_retries=2). SessionStart/End are not used for enforcement."
         ),
     },
     "codex": {

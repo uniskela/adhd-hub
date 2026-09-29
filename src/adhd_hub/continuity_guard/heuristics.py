@@ -5,12 +5,16 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# Tools that mutate the workspace (Cursor Agent tool names / matchers).
+# Tools that mutate the workspace (Cursor / Claude Code tool names).
 MUTATION_TOOLS = frozenset(
     {
         "write",
+        "edit",  # Claude Code primary file mutation tool
+        "multiedit",
         "streplace",
+        "applypatch",
         "delete",
+        "deleted",
         "editnotebook",
         "shell",  # may mutate; refined by command heuristics
     }
@@ -155,7 +159,7 @@ def assess_tool(
         # Unknown shell: treat as mutation but not automatically meaningful
         return ToolAssessment(True, False, False, "shell_unknown")
 
-    if lower in {"write", "streplace", "applypatch", "editnotebook", "delete", "deleted"}:
+    if lower in MUTATION_TOOLS - {"shell"}:
         path = _path_from_input(tool_input)
         if path and _TRIVIAL_PATH.search(path) and not _is_code_path(path):
             return ToolAssessment(True, False, False, "trivial_path_edit")

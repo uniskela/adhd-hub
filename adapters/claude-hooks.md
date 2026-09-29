@@ -20,7 +20,7 @@ Canonical reference: [claude-hooks.json](claude-hooks.json).
 
 | Surface | Level | What Hub manages |
 |---------|-------|------------------|
-| Claude Code | **medium** | PreToolUse can deny mutations; PostToolUse observes Hub/forge evidence; Stop can block-nudge once |
+| Claude Code | **medium** | PreToolUse can deny mutations; PostToolUse observes Hub/forge evidence; Stop can block-nudge up to the configured retry limit (default `max_stop_retries=2`) |
 | Cursor | **strong** | Full lifecycle deny + stop loop_limit (see [cursor-hooks.md](cursor-hooks.md)) |
 | Codex / OpenClaw | **advisory** | Skills + MCP + forge; no Hub-managed lifecycle deny hooks |
 

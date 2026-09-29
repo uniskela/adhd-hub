@@ -64,6 +64,52 @@ def test_mutation_blocked_without_continuity(tmp_path: Path) -> None:
     assert load_state(project).phase_enum() == GuardPhase.required_unestablished
 
 
+def test_claude_edit_is_meaningful_mutation_and_blocked(tmp_path: Path) -> None:
+    """Claude Code's Edit tool must classify as meaningful mutation (not unknown)."""
+    from adhd_hub.continuity_guard.heuristics import assess_tool
+
+    assessment = assess_tool(
+        "Edit",
+        tool_input={
+            "file_path": "src/app.py",
+            "old_string": "x = 1",
+            "new_string": "x = 2\ny = 3\n",
+        },
+    )
+    assert assessment.is_mutation is True
+    assert assessment.is_meaningful is True
+    assert assessment.reason == "code_mutation"
+
+    multi = assess_tool(
+        "MultiEdit",
+        tool_input={
+            "file_path": "src/pkg/mod.py",
+            "edits": [{"old_string": "a", "new_string": "b\nc"}],
+        },
+    )
+    assert multi.is_mutation is True
+    assert multi.is_meaningful is True
+
+    project = _project(tmp_path)
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "src/app.py",
+                "old_string": "def main():\n    return 0\n",
+                "new_string": "def main():\n    return 1\n",
+            },
+            "conversation_id": "c-edit",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert out.get("permission") == "deny"
+    assert load_state(project).phase_enum() == GuardPhase.required_unestablished
+
+
 def test_hub_mcp_post_establishes_continuity(tmp_path: Path) -> None:
     project = _project(tmp_path)
     # Seed required_unestablished
@@ -125,12 +171,8 @@ def test_forge_action_observed(tmp_path: Path) -> None:
         {
             "hook_event_name": "postToolUse",
             "tool_name": "Shell",
-            "tool_input": {
-                "command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'
-            },
-            "tool_output": json.dumps(
-                {"url": "https://github.com/uniskela/adhd-hub/issues/265"}
-            ),
+            "tool_input": {"command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'},
+            "tool_output": json.dumps({"url": "https://github.com/uniskela/adhd-hub/issues/265"}),
             "conversation_id": "c1",
         },
         project_dir=project,
@@ -279,9 +321,7 @@ def test_forge_fallback_allowed_while_unestablished(tmp_path: Path) -> None:
         {
             "hook_event_name": "preToolUse",
             "tool_name": "Shell",
-            "tool_input": {
-                "command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'
-            },
+            "tool_input": {"command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'},
             "conversation_id": "c1",
         },
         project_dir=project,

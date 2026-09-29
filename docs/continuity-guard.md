@@ -82,7 +82,7 @@ python -c "from adhd_hub.project_sync import uninstall_continuity_guard as u; pr
 | Agent | Level | Notes |
 |-------|-------|-------|
 | Cursor | **strong** | Deny mutations, edit counts, stop follow-ups (`loop_limit`) |
-| Claude Code | **medium** | PreToolUse deny + PostToolUse evidence + Stop block-nudge; SessionStart/End unused |
+| Claude Code | **medium** | PreToolUse deny + PostToolUse evidence + Stop block-nudge up to `max_stop_retries` (default 2); SessionStart/End unused |
 | Codex | **advisory** | Skills + MCP + forge + optional `adhd-hub guard observe` — no Hub-managed deny hooks |
 | OpenClaw | **advisory** | Coding continuity is skills/MCP/forge; Hub→OpenClaw reminder hooks are a separate direction |
 

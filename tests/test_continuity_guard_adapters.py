@@ -89,10 +89,26 @@ def test_claude_pretool_deny_via_handle_hook(tmp_path: Path) -> None:
     }
     normalized = normalize_payload_for_guard(claude_payload, adapter="claude")
     response = handle_hook_payload(normalized, project_dir=project, enrolled=True)
-    out = translate_response_for_adapter(
-        response, adapter="claude", original_event="PreToolUse"
-    )
+    out = translate_response_for_adapter(response, adapter="claude", original_event="PreToolUse")
     assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    # Claude's primary mutation tool is Edit — same deny path.
+    edit_payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "c1",
+        "tool_name": "Edit",
+        "tool_input": {
+            "file_path": "src/x.py",
+            "old_string": "print(1)\n",
+            "new_string": "print(2)\n",
+        },
+    }
+    edit_norm = normalize_payload_for_guard(edit_payload, adapter="claude")
+    edit_resp = handle_hook_payload(edit_norm, project_dir=project, enrolled=True)
+    edit_out = translate_response_for_adapter(
+        edit_resp, adapter="claude", original_event="PreToolUse"
+    )
+    assert edit_out["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
 def test_sync_installs_claude_and_cursor(tmp_path: Path) -> None:
@@ -104,38 +120,28 @@ def test_sync_installs_claude_and_cursor(tmp_path: Path) -> None:
         json.dumps(
             {
                 "permissions": {"allow": ["Bash"]},
-                "hooks": {
-                    "PreToolUse": [
-                        {
-                            "hooks": [
-                                {"type": "command", "command": "./mine.sh"}
-                            ]
-                        }
-                    ]
-                },
+                "hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "./mine.sh"}]}]},
             },
             indent=2,
         )
         + "\n",
         encoding="utf-8",
     )
-    result = sync_project(
-        project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True
-    )
+    result = sync_project(project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True)
     assert result.ok
     cursor_script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
     claude_script = project / ".claude" / "hooks" / "adhd-hub-guard.sh"
     assert cursor_script.is_file() and cursor_script.stat().st_mode & stat.S_IXUSR
     assert claude_script.is_file() and claude_script.stat().st_mode & stat.S_IXUSR
-    settings = json.loads(
-        (project / ".claude" / "settings.json").read_text(encoding="utf-8")
-    )
+    settings = json.loads((project / ".claude" / "settings.json").read_text(encoding="utf-8"))
     assert settings["permissions"]["allow"] == ["Bash"]
     pre = settings["hooks"]["PreToolUse"]
     assert any(
         isinstance(e, dict)
         and any(
-            isinstance(h, dict) and "adhd-hub-guard.sh" in str(h.get("command", ""))
+            isinstance(h, dict)
+            and "adhd-hub-guard.sh" in str(h.get("command", ""))
+            and "CLAUDE_PROJECT_DIR" in str(h.get("command", ""))
             for h in (e.get("hooks") or [])
         )
         for e in pre
@@ -143,8 +149,7 @@ def test_sync_installs_claude_and_cursor(tmp_path: Path) -> None:
     assert any(
         isinstance(e, dict)
         and any(
-            isinstance(h, dict) and h.get("command") == "./mine.sh"
-            for h in (e.get("hooks") or [])
+            isinstance(h, dict) and h.get("command") == "./mine.sh" for h in (e.get("hooks") or [])
         )
         for e in pre
     )
