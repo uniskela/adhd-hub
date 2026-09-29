@@ -17,6 +17,7 @@ nav = [
     { "Connect an agent" = "connect.md" },
     { "Project agent setup" = "project-agent-setup.md" },
     { "Project sync" = "project-sync.md" },
+    { "Continuity guard" = "continuity-guard.md" },
     { "Personal setup" = "setup.md" },
     { "Writing & continuity" = "writing.md" },
   ]},
