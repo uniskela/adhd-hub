@@ -1949,6 +1949,49 @@ def run_doctor(
                     "skipped",
                     "optional reusable workflow wrapper not configured",
                 )
+
+            # Continuity guard: informational only when not enrolled.
+            try:
+                from adhd_hub.continuity_guard.audit import audit_project
+                from adhd_hub.project_sync import project_has_continuity_guard
+
+                if project_has_continuity_guard(project):
+                    guard_report = audit_project(project)
+                    errs = [f for f in guard_report.findings if f.severity == "error"]
+                    warns = [f for f in guard_report.findings if f.severity == "warn"]
+                    if errs:
+                        report.add(
+                            "continuity guard",
+                            "warn",
+                            errs[0].message,
+                        )
+                    elif warns:
+                        report.add(
+                            "continuity guard",
+                            "warn",
+                            "installed with drift — run: "
+                            "adhd-hub sync-project . --continuity-guard",
+                        )
+                    else:
+                        report.add(
+                            "continuity guard",
+                            "ok",
+                            "installed",
+                        )
+                    hooks_ok = any(
+                        f.code == "hooks_json" and f.severity == "ok"
+                        for f in guard_report.findings
+                    )
+                    if hooks_ok:
+                        report.add("Cursor hooks", "ok", "current")
+                else:
+                    report.add(
+                        "continuity guard",
+                        "skipped",
+                        "not enabled (opt-in: setup . --continuity-guard)",
+                    )
+            except Exception as exc:  # noqa: BLE001
+                report.add("continuity guard", "warn", f"could not evaluate: {exc}")
         except Exception as exc:  # noqa: BLE001 — doctor must not crash
             report.add("project sync", "warn", f"could not evaluate: {exc}")
         if ok and token_set:

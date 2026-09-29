@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh"
+      }
+    ],
+    "preCompact": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh",
+        "loop_limit": 2
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh"
+      }
+    ],
+    "afterMCPExecution": [
+      {
+        "command": ".cursor/hooks/adhd-hub-guard.sh"
+      }
+    ]
+  }
+}
