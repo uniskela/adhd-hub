@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.19.0](https://github.com/uniskela/adhd-hub/compare/v0.18.0...v0.19.0) (2026-09-29)
+
+
+### Features
+
+* add agent continuity guard and Cursor lifecycle hooks ([b25bf38](https://github.com/uniskela/adhd-hub/commit/b25bf38de9b91e3f4ec8e2c6fc3ce8ead3b37220))
+* add agent continuity guard and Cursor lifecycle hooks ([70e89df](https://github.com/uniskela/adhd-hub/commit/70e89dfe78947c1285c7f8abaeb381b843005f57))
+* add thin multi-agent continuity-guard adapters ([#268](https://github.com/uniskela/adhd-hub/issues/268)) ([af1dec7](https://github.com/uniskela/adhd-hub/commit/af1dec720c5257f718e42cfe4e0d2a8d73b8ad47))
+* harden Hub skills and add deterministic project-sync ([#263](https://github.com/uniskela/adhd-hub/issues/263)) ([9ef6375](https://github.com/uniskela/adhd-hub/commit/9ef63755a42cccc1fb6b21fbc924959dbb8d30a2))
+
+
+### Bug Fixes
+
+* address CodeRabbit findings on continuity guard ([8058301](https://github.com/uniskela/adhd-hub/commit/80583015b8bab497c767daeac4e34850aac1fae2))
+* keep guard wrapper when hooks.json uninstall fails ([9fe008f](https://github.com/uniskela/adhd-hub/commit/9fe008f8d05410643b43ee93145f20ae4d964d9b))
+* keep wrapper when hooks event shape is invalid ([f60ded4](https://github.com/uniskela/adhd-hub/commit/f60ded44ab36299c5c36fb21aad61ab330137f6b))
+
+
+### Documentation
+
+* add Project sync to the docs nav ([#267](https://github.com/uniskela/adhd-hub/issues/267)) ([ba871d3](https://github.com/uniskela/adhd-hub/commit/ba871d352edd5a3b651a8a4f84486a7a2a0a27e5))
+* stamp README and roadmap for v0.18.0 ([#261](https://github.com/uniskela/adhd-hub/issues/261)) ([58ce943](https://github.com/uniskela/adhd-hub/commit/58ce943859103d9056c82b472667d6b0676163a7))
+
 ## [0.18.0](https://github.com/uniskela/adhd-hub/compare/v0.17.0...v0.18.0) (2026-09-27)
 
 
