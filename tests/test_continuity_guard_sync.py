@@ -123,6 +123,40 @@ def test_uninstall_keeps_wrapper_when_hooks_json_malformed(tmp_path: Path) -> No
     assert hooks_path.read_text(encoding="utf-8") == "{ not valid json\n"
 
 
+def test_uninstall_keeps_wrapper_when_stop_event_is_object(tmp_path: Path) -> None:
+    """Non-array event values must not delete the wrapper (Hub refs would dangle)."""
+    project = _seed(tmp_path)
+    sync_project(project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True)
+    script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
+    hooks_path = project / ".cursor" / "hooks.json"
+    assert script.is_file()
+    # stop is an object (not a list) that still embeds the Hub command.
+    hooks_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "hooks": {
+                    "stop": {
+                        "command": ".cursor/hooks/adhd-hub-guard.sh",
+                        "loop_limit": 2,
+                    }
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    removed = uninstall_continuity_guard(project)
+
+    assert removed == []
+    assert script.is_file(), "wrapper must remain when stop is an object, not an array"
+    data = json.loads(hooks_path.read_text(encoding="utf-8"))
+    assert isinstance(data["hooks"]["stop"], dict)
+    assert "adhd-hub-guard.sh" in data["hooks"]["stop"]["command"]
+
+
 def test_idempotent_second_sync(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     sync_project(project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True)

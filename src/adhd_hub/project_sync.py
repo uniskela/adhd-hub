@@ -778,6 +778,15 @@ def uninstall_continuity_guard(project_dir: Path | str) -> list[str]:
             return removed
         if not isinstance(current, dict):
             return removed
+        hooks = current.get("hooks")
+        if hooks is not None and not isinstance(hooks, dict):
+            # Non-object hooks map — remove_hub_hooks would leave Hub refs.
+            return removed
+        if isinstance(hooks, dict) and any(
+            not isinstance(entries, list) for entries in hooks.values()
+        ):
+            # Event value is object/scalar, not array — keep wrapper.
+            return removed
         updated = remove_hub_hooks(current)
         _require_within_project(project, hooks_path)
         if updated is None:
