@@ -48,6 +48,19 @@ def test_detect_and_normalize_claude_pretool() -> None:
     assert normalized["command"] == "echo hi"
 
 
+def test_normalize_claude_mcp_tool_name() -> None:
+    payload = {
+        "hook_event_name": "PostToolUse",
+        "session_id": "sess-mcp",
+        "tool_name": "mcp__user-adhd-hub__resolve_project",
+        "tool_input": {"workspace_path": ".", "create_if_missing": False},
+    }
+    normalized = normalize_payload_for_guard(payload, adapter="claude")
+    assert normalized["hook_event_name"] == "postToolUse"
+    assert normalized["tool_name"] == "resolve_project"
+    assert normalized["mcp_server_name"] == "user-adhd-hub"
+
+
 def test_translate_deny_and_stop_for_claude() -> None:
     deny = translate_response_for_adapter(
         {
@@ -109,6 +122,39 @@ def test_claude_pretool_deny_via_handle_hook(tmp_path: Path) -> None:
         edit_resp, adapter="claude", original_event="PreToolUse"
     )
     assert edit_out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_claude_mcp_post_establishes_continuity_via_adapter(tmp_path: Path) -> None:
+    """End-to-end: Claude mcp__ names through adapter → active continuity."""
+    from adhd_hub.continuity_guard.config import GuardConfig
+    from adhd_hub.continuity_guard.machine import GuardEvent, GuardPhase, apply_event
+    from adhd_hub.continuity_guard.state import load_state, save_state
+
+    project = _seed(tmp_path)
+    sync_project(project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True)
+    cfg = GuardConfig(enabled=True, mode="balanced", source="default")
+    state = load_state(project)
+    apply_event(state, GuardEvent.begin_session, config=cfg, conversation_id="c-mcp")
+    state.meaningful_work = True
+    state.set_phase(GuardPhase.required_unestablished)
+    save_state(project, state)
+
+    for tool in (
+        "mcp__user-adhd-hub__resolve_project",
+        "mcp__user-adhd-hub__session_digest",
+    ):
+        payload = {
+            "hook_event_name": "PostToolUse",
+            "session_id": "c-mcp",
+            "tool_name": tool,
+            "tool_input": {"query": "work"} if "digest" in tool else {"workspace_path": "."},
+        }
+        normalized = normalize_payload_for_guard(payload, adapter="claude")
+        handle_hook_payload(normalized, project_dir=project, enrolled=True)
+
+    state = load_state(project)
+    assert state.evidence_resolve and state.evidence_digest
+    assert state.phase_enum() == GuardPhase.active
 
 
 def test_sync_installs_claude_and_cursor(tmp_path: Path) -> None:

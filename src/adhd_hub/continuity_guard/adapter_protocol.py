@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from adhd_hub.continuity_guard.evidence import parse_claude_mcp_tool_name
+
 # Claude Code uses PascalCase event names; Cursor uses camelCase.
 _CLAUDE_TO_CURSOR_EVENT: dict[str, str] = {
     "PreToolUse": "preToolUse",
@@ -76,6 +78,14 @@ def normalize_payload_for_guard(
             and isinstance(tool_input.get("command"), str)
         ):
             out["command"] = tool_input["command"]
+        # Claude MCP: mcp__<server>__<tool> → bare tool + mcp_server_name.
+        tool_name = out.get("tool_name")
+        if isinstance(tool_name, str):
+            server, bare = parse_claude_mcp_tool_name(tool_name)
+            if bare:
+                out["tool_name"] = bare
+                if server and not out.get("mcp_server_name"):
+                    out["mcp_server_name"] = server
         # stop_hook_active → treat like Cursor loop re-entry (allow stop).
         if out.get("stop_hook_active") is True and mapped == "stop":
             out["status"] = "aborted"
