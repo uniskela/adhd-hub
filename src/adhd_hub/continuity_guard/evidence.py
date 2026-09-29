@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-# Hub MCP tool names (bare and MCP: prefixed).
+# Hub MCP tool names (bare, MCP: prefixed, or Claude mcp__server__tool).
 HUB_TOOLS: dict[str, str] = {
     "resolve_project": "resolve",
     "session_digest": "digest",
@@ -45,12 +45,37 @@ class EvidenceHit:
     continuity_method: str | None = None
 
 
+def parse_claude_mcp_tool_name(tool_name: str | None) -> tuple[str | None, str | None]:
+    """Parse Claude ``mcp__<server>__<tool>`` → ``(server, tool)``.
+
+    Uses the last ``__`` as the tool separator so server ids may contain ``__``.
+    Returns ``(None, None)`` when the name is not Claude MCP form.
+    """
+    if not tool_name:
+        return None, None
+    name = tool_name.strip()
+    if not name.lower().startswith("mcp__"):
+        return None, None
+    rest = name[5:]
+    if "__" not in rest:
+        return None, None
+    server, tool = rest.rsplit("__", 1)
+    server = server.strip()
+    tool = tool.strip()
+    if not server or not tool:
+        return None, None
+    return server, tool
+
+
 def normalize_mcp_tool_name(tool_name: str | None) -> str:
     if not tool_name:
         return ""
     name = tool_name.strip()
     if name.upper().startswith("MCP:"):
         name = name.split(":", 1)[1]
+    _claude_server, claude_tool = parse_claude_mcp_tool_name(name)
+    if claude_tool:
+        name = claude_tool
     if "/" in name:
         name = name.rsplit("/", 1)[-1]
     if "." in name:
@@ -81,9 +106,14 @@ def observe_mcp_tool(
     kind = HUB_TOOLS.get(bare)
     if kind is None:
         return None
+    # Prefer explicit server; else recover from Claude mcp__server__tool form.
+    server = mcp_server_name
+    if not server:
+        embedded, _ = parse_claude_mcp_tool_name(tool_name)
+        server = embedded
     # If server name present, require Hub-ish server; if absent (cloud postToolUse),
     # trust tool name match alone.
-    if mcp_server_name and not is_hub_mcp_server(mcp_server_name):
+    if server and not is_hub_mcp_server(server):
         return None
     slug, thread = _extract_ids(tool_input)
     method = "mcp"

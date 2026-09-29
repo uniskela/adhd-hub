@@ -64,7 +64,11 @@ Writes / merges:
 |------|-----------|
 | `.cursor/hooks/adhd-hub-guard.sh` | Hub-owned thin wrapper → `adhd-hub guard hook` |
 | `.cursor/hooks.json` | Hub entries upserted; unrelated hooks preserved |
+| `.claude/hooks/adhd-hub-guard.sh` | Thin wrapper → `adhd-hub guard hook --adapter claude` |
+| `.claude/settings.json` | Hub PreToolUse / PostToolUse / Stop merged; unrelated settings preserved |
 | `adhd-hub.toml` | Seeded when missing (`[continuity_guard] enabled = true`) |
+
+**Codex** and **OpenClaw** are not given lifecycle deny hooks (no equivalent Hub-managed surface). They stay **advisory** via skills / AGENTS / MCP / forge — see the strength table below.
 
 Uninstall Hub integration only:
 
@@ -72,6 +76,17 @@ Uninstall Hub integration only:
 # Via Python API / future CLI — sync does not delete unrelated hooks
 python -c "from adhd_hub.project_sync import uninstall_continuity_guard as u; print(u('.'))"
 ```
+
+## Enforcement strength by agent
+
+| Agent | Level | Notes |
+|-------|-------|-------|
+| Cursor | **strong** | Deny mutations, edit counts, stop follow-ups (`loop_limit`) |
+| Claude Code | **medium** | PreToolUse deny + PostToolUse evidence + Stop block-nudge up to `max_stop_retries` (default 2); SessionStart/End unused |
+| Codex | **advisory** | Skills + MCP + forge + optional `adhd-hub guard observe` — no Hub-managed deny hooks |
+| OpenClaw | **advisory** | Coding continuity is skills/MCP/forge; Hub→OpenClaw reminder hooks are a separate direction |
+
+Adapters: [cursor-hooks.md](../adapters/cursor-hooks.md), [claude-hooks.md](../adapters/claude-hooks.md), [codex.md](../adapters/codex.md), [openclaw.md](../adapters/openclaw.md).
 
 ## CLI
 
@@ -83,7 +98,8 @@ adhd-hub guard checkpoint .
 adhd-hub guard finish .
 adhd-hub guard reset .
 adhd-hub guard audit .
-adhd-hub guard hook --project .   # Cursor stdin/stdout JSON
+adhd-hub guard hook .                    # Cursor (auto-detect)
+adhd-hub guard hook --adapter claude .   # Claude Code stdin/stdout JSON
 ```
 
 ## Local state

@@ -64,6 +64,64 @@ def test_mutation_blocked_without_continuity(tmp_path: Path) -> None:
     assert load_state(project).phase_enum() == GuardPhase.required_unestablished
 
 
+def test_claude_edit_is_meaningful_mutation_and_blocked(tmp_path: Path) -> None:
+    """Claude Code's Edit tool must classify as meaningful mutation (not unknown)."""
+    from adhd_hub.continuity_guard.heuristics import assess_tool
+
+    assessment = assess_tool(
+        "Edit",
+        tool_input={
+            "file_path": "src/app.py",
+            "old_string": "x = 1",
+            "new_string": "x = 2\ny = 3\n",
+        },
+    )
+    assert assessment.is_mutation is True
+    assert assessment.is_meaningful is True
+    assert assessment.reason == "code_mutation"
+
+    multi = assess_tool(
+        "MultiEdit",
+        tool_input={
+            "file_path": "src/pkg/mod.py",
+            "edits": [{"old_string": "a", "new_string": "b\nc"}],
+        },
+    )
+    assert multi.is_mutation is True
+    assert multi.is_meaningful is True
+
+    notebook = assess_tool(
+        "NotebookEdit",
+        tool_input={
+            "notebook_path": "src/analysis.ipynb",
+            "new_source": "x = 1\ny = 2\n",
+            "cell_id": "cell-1",
+            "cell_language": "python",
+        },
+    )
+    assert notebook.is_mutation is True
+    assert notebook.is_meaningful is True
+
+    project = _project(tmp_path)
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "src/app.py",
+                "old_string": "def main():\n    return 0\n",
+                "new_string": "def main():\n    return 1\n",
+            },
+            "conversation_id": "c-edit",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert out.get("permission") == "deny"
+    assert load_state(project).phase_enum() == GuardPhase.required_unestablished
+
+
 def test_hub_mcp_post_establishes_continuity(tmp_path: Path) -> None:
     project = _project(tmp_path)
     # Seed required_unestablished
@@ -119,18 +177,121 @@ def test_hub_mcp_post_establishes_continuity(tmp_path: Path) -> None:
     assert out.get("permission") == "allow"
 
 
+def test_claude_mcp_tool_names_establish_continuity(tmp_path: Path) -> None:
+    """Claude reports MCP as mcp__<server>__<tool>; PostToolUse must record Hub evidence."""
+    from adhd_hub.continuity_guard.evidence import (
+        normalize_mcp_tool_name,
+        observe_mcp_tool,
+        parse_claude_mcp_tool_name,
+    )
+
+    assert parse_claude_mcp_tool_name("mcp__user-adhd-hub__resolve_project") == (
+        "user-adhd-hub",
+        "resolve_project",
+    )
+    assert normalize_mcp_tool_name("mcp__user-adhd-hub__session_digest") == "session_digest"
+    assert observe_mcp_tool("mcp__adhd-hub__upsert_progress") is not None
+    # Non-Hub server with a Hub-shaped tool name must not count.
+    assert observe_mcp_tool("mcp__other-server__resolve_project") is None
+
+    project = _project(tmp_path)
+    handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Write",
+            "tool_input": {"path": "a.py", "contents": "x = 1\n"},
+            "conversation_id": "claude-mcp",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    handle_hook_payload(
+        {
+            "hook_event_name": "postToolUse",
+            "tool_name": "mcp__user-adhd-hub__resolve_project",
+            "tool_input": {"workspace_path": ".", "create_if_missing": False},
+            "conversation_id": "claude-mcp",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    handle_hook_payload(
+        {
+            "hook_event_name": "postToolUse",
+            "tool_name": "mcp__user-adhd-hub__session_digest",
+            "tool_input": {"query": "feature work"},
+            "conversation_id": "claude-mcp",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    state = load_state(project)
+    assert state.evidence_resolve and state.evidence_digest
+    assert state.phase_enum() == GuardPhase.active
+
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "b.py",
+                "old_string": "x = 1",
+                "new_string": "x = 2\ny = 3\n",
+            },
+            "conversation_id": "claude-mcp",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert out.get("permission") == "allow"
+
+
+def test_notebook_edit_is_meaningful_mutation_and_blocked(tmp_path: Path) -> None:
+    """Claude NotebookEdit (and Cursor EditNotebook) count as mutations."""
+    from adhd_hub.continuity_guard.heuristics import assess_tool
+
+    for tool in ("NotebookEdit", "notebookedit", "EditNotebook"):
+        assessment = assess_tool(
+            tool,
+            tool_input={
+                "notebook_path": "notebooks/demo.ipynb",
+                "new_source": "print('hi')\n",
+            },
+        )
+        assert assessment.is_mutation is True, tool
+
+    project = _project(tmp_path)
+    out = handle_hook_payload(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "NotebookEdit",
+            "tool_input": {
+                "notebook_path": "src/analysis.ipynb",
+                "new_source": "x = 1\ny = 2\n",
+                "cell_language": "python",
+            },
+            "conversation_id": "c-nb",
+        },
+        project_dir=project,
+        config=CFG,
+        enrolled=True,
+    )
+    assert out.get("permission") == "deny"
+    assert load_state(project).phase_enum() == GuardPhase.required_unestablished
+
+
 def test_forge_action_observed(tmp_path: Path) -> None:
     project = _project(tmp_path)
     handle_hook_payload(
         {
             "hook_event_name": "postToolUse",
             "tool_name": "Shell",
-            "tool_input": {
-                "command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'
-            },
-            "tool_output": json.dumps(
-                {"url": "https://github.com/uniskela/adhd-hub/issues/265"}
-            ),
+            "tool_input": {"command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'},
+            "tool_output": json.dumps({"url": "https://github.com/uniskela/adhd-hub/issues/265"}),
             "conversation_id": "c1",
         },
         project_dir=project,
@@ -279,9 +440,7 @@ def test_forge_fallback_allowed_while_unestablished(tmp_path: Path) -> None:
         {
             "hook_event_name": "preToolUse",
             "tool_name": "Shell",
-            "tool_input": {
-                "command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'
-            },
+            "tool_input": {"command": 'gh issue create --title "[ADHD] ship guard" --body "Goal"'},
             "conversation_id": "c1",
         },
         project_dir=project,

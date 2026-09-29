@@ -5,13 +5,18 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# Tools that mutate the workspace (Cursor Agent tool names / matchers).
+# Tools that mutate the workspace (Cursor / Claude Code tool names).
 MUTATION_TOOLS = frozenset(
     {
         "write",
+        "edit",  # Claude Code primary file mutation tool
+        "multiedit",
         "streplace",
+        "applypatch",
         "delete",
-        "editnotebook",
+        "deleted",
+        "editnotebook",  # Cursor EditNotebook
+        "notebookedit",  # Claude NotebookEdit
         "shell",  # may mutate; refined by command heuristics
     }
 )
@@ -84,7 +89,7 @@ _CODE_PATH = re.compile(
     r"(?i)\.("
     r"py|pyi|ts|tsx|js|jsx|mjs|cjs|go|rs|java|kt|swift|c|cc|cpp|h|hpp|"
     r"rb|php|cs|scala|toml|yaml|yml|json|sql|sh|bash|zsh|css|scss|html|"
-    r"vue|svelte|mdx"
+    r"vue|svelte|mdx|ipynb"
     r")$"
 )
 
@@ -105,6 +110,9 @@ def normalize_tool_name(tool_name: str | None) -> str:
     name = tool_name.strip()
     # Cursor matchers sometimes use MCP:tool_name
     if name.upper().startswith("MCP:"):
+        return name
+    # Claude Code MCP tools: mcp__<server>__<tool> — keep form for assess_tool
+    if name.lower().startswith("mcp__"):
         return name
     # Strip namespace prefixes like "functions.Write"
     if "." in name:
@@ -132,8 +140,9 @@ def assess_tool(
     name = normalize_tool_name(raw)
     lower = name.lower()
 
-    if lower.startswith("mcp:") or raw.upper().startswith("MCP:"):
+    if lower.startswith(("mcp:", "mcp__")) or raw.upper().startswith("MCP:"):
         # MCP tools are not workspace mutations by themselves
+        # (Cursor MCP:tool, Claude mcp__server__tool)
         return ToolAssessment(False, False, True, "mcp_tool")
 
     if lower in READ_ONLY_TOOLS or lower in {"readfile", "searchfiles"}:
@@ -155,7 +164,7 @@ def assess_tool(
         # Unknown shell: treat as mutation but not automatically meaningful
         return ToolAssessment(True, False, False, "shell_unknown")
 
-    if lower in {"write", "streplace", "applypatch", "editnotebook", "delete", "deleted"}:
+    if lower in MUTATION_TOOLS - {"shell"}:
         path = _path_from_input(tool_input)
         if path and _TRIVIAL_PATH.search(path) and not _is_code_path(path):
             return ToolAssessment(True, False, False, "trivial_path_edit")
@@ -203,7 +212,7 @@ def assess_file_edit(
 
 def _path_from_input(tool_input: dict | str | None) -> str | None:
     if isinstance(tool_input, dict):
-        for key in ("path", "file_path", "filePath", "target_file"):
+        for key in ("path", "file_path", "filePath", "target_file", "notebook_path"):
             val = tool_input.get(key)
             if isinstance(val, str) and val.strip():
                 return val.strip()
@@ -218,6 +227,7 @@ def _looks_tiny_edit(tool_input: dict | str | None) -> bool:
     if (
         isinstance(old, str)
         and isinstance(new, str)
+        and (old or new)
         and abs(len(new) - len(old)) <= _TRIVIAL_EDIT_MAX_CHARS
         and len(new) < 200
         and "\n" not in old
