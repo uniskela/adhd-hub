@@ -106,6 +106,23 @@ def test_uninstall_removes_only_hub(tmp_path: Path) -> None:
     )
 
 
+def test_uninstall_keeps_wrapper_when_hooks_json_malformed(tmp_path: Path) -> None:
+    """Malformed hooks.json must not delete the wrapper (avoid half uninstall)."""
+    project = _seed(tmp_path)
+    sync_project(project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True)
+    script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
+    hooks_path = project / ".cursor" / "hooks.json"
+    assert script.is_file()
+    assert hooks_path.is_file()
+    hooks_path.write_text("{ not valid json\n", encoding="utf-8")
+
+    removed = uninstall_continuity_guard(project)
+
+    assert removed == []
+    assert script.is_file(), "wrapper must remain when hooks.json is unreadable"
+    assert hooks_path.read_text(encoding="utf-8") == "{ not valid json\n"
+
+
 def test_idempotent_second_sync(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     sync_project(project, source=REPO_ROOT, mode=SyncMode.apply, continuity_guard=True)

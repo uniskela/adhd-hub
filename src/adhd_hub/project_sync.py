@@ -758,21 +758,23 @@ def sync_project(
 
 
 def uninstall_continuity_guard(project_dir: Path | str) -> list[str]:
-    """Remove Hub-owned continuity-guard hooks only; preserve unrelated hooks."""
+    """Remove Hub-owned continuity-guard hooks only; preserve unrelated hooks.
+
+    Process ``.cursor/hooks.json`` first. Only delete the wrapper script after
+    hooks cleanup succeeds — if hooks.json is malformed/unreadable, keep the
+    wrapper so a later retry can finish uninstall without dangling Hub refs.
+    """
     from adhd_hub.continuity_guard.hooks_sync import dumps_hooks, remove_hub_hooks
 
     project = Path(project_dir).expanduser().resolve()
     removed: list[str] = []
     script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
-    if script.is_file():
-        _require_within_project(project, script)
-        script.unlink()
-        removed.append(".cursor/hooks/adhd-hub-guard.sh")
     hooks_path = project / ".cursor" / "hooks.json"
     if hooks_path.is_file():
         try:
             current = json.loads(hooks_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+            # Leave wrapper in place — Hub hook refs would otherwise dangle.
             return removed
         if not isinstance(current, dict):
             return removed
@@ -787,6 +789,10 @@ def uninstall_continuity_guard(project_dir: Path | str) -> list[str]:
             if before != after:
                 hooks_path.write_text(after, encoding="utf-8", newline="\n")
                 removed.append(".cursor/hooks.json (Hub entries removed)")
+    if script.is_file():
+        _require_within_project(project, script)
+        script.unlink()
+        removed.append(".cursor/hooks/adhd-hub-guard.sh")
     return removed
 
 
