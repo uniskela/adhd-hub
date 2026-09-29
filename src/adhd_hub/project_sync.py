@@ -47,6 +47,8 @@ MANAGED_PATH_PREFIXES: tuple[str, ...] = (
     ".cursor/rules/adhd-hub.mdc",
     ".cursor/hooks/adhd-hub-guard.sh",
     ".cursor/hooks.json",
+    ".claude/hooks/adhd-hub-guard.sh",
+    ".claude/settings.json",
     ".agents/skills/adhd-hub-projects/",
     ".agents/skills/adhd-hub-session/",
     ".agents/skills/env-check/",
@@ -66,6 +68,7 @@ EXECUTABLE_REL_PATHS = frozenset(
     {
         ".agents/skills/env-check/scripts/check_runtime.sh",
         ".cursor/hooks/adhd-hub-guard.sh",
+        ".claude/hooks/adhd-hub-guard.sh",
     }
 )
 
@@ -212,6 +215,8 @@ def _managed_destination_errors(
     if continuity_guard:
         candidates.append(project / ".cursor" / "hooks" / "adhd-hub-guard.sh")
         candidates.append(project / ".cursor" / "hooks.json")
+        candidates.append(project / ".claude" / "hooks" / "adhd-hub-guard.sh")
+        candidates.append(project / ".claude" / "settings.json")
     for change, _payload, _exe in skill_payloads:
         candidates.append(project / change.relative_path)
     # Also gate the skill directory itself (covers unchanged trees under a symlink).
@@ -232,12 +237,20 @@ def _managed_destination_errors(
 
 def project_has_continuity_guard(project_dir: Path | str) -> bool:
     """True when Hub continuity-guard hooks are installed in the project."""
+    from adhd_hub.continuity_guard.agent_sync import claude_settings_has_hub_entries
     from adhd_hub.continuity_guard.hooks_sync import hooks_json_has_hub_entries
 
     project = Path(project_dir).expanduser().resolve()
-    script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
-    hooks = project / ".cursor" / "hooks.json"
-    return script.is_file() or hooks_json_has_hub_entries(hooks)
+    cursor_script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
+    cursor_hooks = project / ".cursor" / "hooks.json"
+    claude_script = project / ".claude" / "hooks" / "adhd-hub-guard.sh"
+    claude_settings = project / ".claude" / "settings.json"
+    return (
+        cursor_script.is_file()
+        or hooks_json_has_hub_entries(cursor_hooks)
+        or claude_script.is_file()
+        or claude_settings_has_hub_entries(claude_settings)
+    )
 
 
 def skill_sha256(skill_md: Path) -> str:
@@ -535,10 +548,10 @@ def sync_project(
     only gates whether the Cursor rule is written when ``cursor`` is selected.
     Codex/AGENTS guidance is always managed when syncing.
 
-    ``continuity_guard`` opt-in installs/repairs Hub-owned Cursor hook integration
-    (thin wrapper + merged ``.cursor/hooks.json`` entries). When the project is
-    already enrolled, check/apply modes keep repairing guard drift even if the
-    flag is omitted.
+    ``continuity_guard`` opt-in installs/repairs Hub-owned Cursor + Claude Code
+    hook integration (thin wrappers + merged settings). Codex and OpenClaw stay
+    advisory (documented strength). When the project is already enrolled,
+    check/apply modes keep repairing guard drift even if the flag is omitted.
     """
     from adhd_hub.continuity_guard.hooks_sync import (
         dumps_hooks,
@@ -629,6 +642,10 @@ def sync_project(
     guard_script_path = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
     hooks_path = project / ".cursor" / "hooks.json"
     desired_hooks_obj: dict | None = None
+    desired_claude_obj: dict | None = None
+    claude_script_text = ""
+    claude_script_path = project / ".claude" / "hooks" / "adhd-hub-guard.sh"
+    claude_settings_path = project / ".claude" / "settings.json"
     if manage_guard:
         script_change = _plan_text_file(
             relative_path=".cursor/hooks/adhd-hub-guard.sh",
@@ -670,6 +687,60 @@ def sync_project(
             result.changes.append(hooks_change)
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             result.errors.append(f"continuity guard hooks: {exc}")
+            return result
+
+        # Claude Code thin adapter (same --continuity-guard opt-in).
+        from adhd_hub.continuity_guard.agent_sync import (
+            dumps_claude_settings,
+            expected_claude_guard_script,
+            merge_claude_settings,
+            plan_claude_settings_merge,
+        )
+
+        claude_script_text = expected_claude_guard_script()
+        claude_script_path = project / ".claude" / "hooks" / "adhd-hub-guard.sh"
+        claude_settings_path = project / ".claude" / "settings.json"
+        claude_script_change = _plan_text_file(
+            relative_path=".claude/hooks/adhd-hub-guard.sh",
+            desired=claude_script_text,
+            current=_read_text(claude_script_path),
+        )
+        if (
+            claude_script_path.is_file()
+            and claude_script_change.kind == ChangeKind.unchanged
+            and not (claude_script_path.stat().st_mode & stat.S_IXUSR)
+        ):
+            claude_script_change = PlannedChange(
+                ".claude/hooks/adhd-hub-guard.sh",
+                ChangeKind.chmod,
+                "executable bit",
+            )
+        result.changes.append(claude_script_change)
+        try:
+            current_claude = None
+            if claude_settings_path.is_file():
+                current_claude = json.loads(
+                    claude_settings_path.read_text(encoding="utf-8")
+                )
+            if current_claude is not None and not isinstance(current_claude, dict):
+                raise TypeError(".claude/settings.json root must be a JSON object")
+            desired_claude_obj = merge_claude_settings(current_claude)
+            desired_claude_text = dumps_claude_settings(desired_claude_obj)
+            claude_settings_change = _plan_text_file(
+                relative_path=".claude/settings.json",
+                desired=desired_claude_text,
+                current=_read_text(claude_settings_path),
+            )
+            if claude_settings_change.kind != ChangeKind.unchanged:
+                drift = plan_claude_settings_merge(claude_settings_path)
+                claude_settings_change = PlannedChange(
+                    ".claude/settings.json",
+                    claude_settings_change.kind,
+                    drift[0] if drift else "merge Hub Claude guard hooks",
+                )
+            result.changes.append(claude_settings_change)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            result.errors.append(f"continuity guard Claude hooks: {exc}")
             return result
 
     containment = _managed_destination_errors(
@@ -749,6 +820,23 @@ def sync_project(
             hooks_path.write_text(
                 dumps_hooks(desired_hooks_obj), encoding="utf-8", newline="\n"
             )
+        if manage_guard and desired_claude_obj is not None:
+            from adhd_hub.continuity_guard.agent_sync import dumps_claude_settings
+
+            _require_within_project(project, claude_script_path)
+            claude_script_path.parent.mkdir(parents=True, exist_ok=True)
+            if _read_text(claude_script_path) != claude_script_text:
+                claude_script_path.write_text(
+                    claude_script_text, encoding="utf-8", newline="\n"
+                )
+            claude_script_path.chmod(claude_script_path.stat().st_mode | 0o111)
+            _require_within_project(project, claude_settings_path)
+            claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
+            claude_settings_path.write_text(
+                dumps_claude_settings(desired_claude_obj),
+                encoding="utf-8",
+                newline="\n",
+            )
     except (OSError, ValueError) as exc:
         result.errors.append(str(exc))
         return result
@@ -760,48 +848,99 @@ def sync_project(
 def uninstall_continuity_guard(project_dir: Path | str) -> list[str]:
     """Remove Hub-owned continuity-guard hooks only; preserve unrelated hooks.
 
-    Process ``.cursor/hooks.json`` first. Only delete the wrapper script after
-    hooks cleanup succeeds — if hooks.json is malformed/unreadable, keep the
-    wrapper so a later retry can finish uninstall without dangling Hub refs.
+    Process settings/hooks JSON first. Only delete wrappers after cleanup
+    succeeds — if a config file is malformed/unreadable, keep that surface's
+    wrapper so uninstall is not half-done.
     """
+    from adhd_hub.continuity_guard.agent_sync import (
+        dumps_claude_settings,
+        remove_claude_hub_hooks,
+    )
     from adhd_hub.continuity_guard.hooks_sync import dumps_hooks, remove_hub_hooks
 
     project = Path(project_dir).expanduser().resolve()
     removed: list[str] = []
+
+    # --- Cursor ---
     script = project / ".cursor" / "hooks" / "adhd-hub-guard.sh"
     hooks_path = project / ".cursor" / "hooks.json"
+    cursor_ok = True
     if hooks_path.is_file():
         try:
             current = json.loads(hooks_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-            # Leave wrapper in place — Hub hook refs would otherwise dangle.
-            return removed
-        if not isinstance(current, dict):
-            return removed
-        hooks = current.get("hooks")
-        if hooks is not None and not isinstance(hooks, dict):
-            # Non-object hooks map — remove_hub_hooks would leave Hub refs.
-            return removed
-        if isinstance(hooks, dict) and any(
-            not isinstance(entries, list) for entries in hooks.values()
-        ):
-            # Event value is object/scalar, not array — keep wrapper.
-            return removed
-        updated = remove_hub_hooks(current)
-        _require_within_project(project, hooks_path)
-        if updated is None:
-            hooks_path.unlink()
-            removed.append(".cursor/hooks.json")
-        else:
-            before = hooks_path.read_text(encoding="utf-8")
-            after = dumps_hooks(updated)
-            if before != after:
-                hooks_path.write_text(after, encoding="utf-8", newline="\n")
-                removed.append(".cursor/hooks.json (Hub entries removed)")
-    if script.is_file():
+            cursor_ok = False
+            current = None
+        if cursor_ok and not isinstance(current, dict):
+            cursor_ok = False
+        if cursor_ok and isinstance(current, dict):
+            hooks = current.get("hooks")
+            if (
+                (hooks is not None and not isinstance(hooks, dict))
+                or (
+                    isinstance(hooks, dict)
+                    and any(not isinstance(entries, list) for entries in hooks.values())
+                )
+            ):
+                cursor_ok = False
+            else:
+                updated = remove_hub_hooks(current)
+                _require_within_project(project, hooks_path)
+                if updated is None:
+                    hooks_path.unlink()
+                    removed.append(".cursor/hooks.json")
+                else:
+                    before = hooks_path.read_text(encoding="utf-8")
+                    after = dumps_hooks(updated)
+                    if before != after:
+                        hooks_path.write_text(after, encoding="utf-8", newline="\n")
+                        removed.append(".cursor/hooks.json (Hub entries removed)")
+    if cursor_ok and script.is_file():
         _require_within_project(project, script)
         script.unlink()
         removed.append(".cursor/hooks/adhd-hub-guard.sh")
+
+    # --- Claude Code ---
+    claude_script = project / ".claude" / "hooks" / "adhd-hub-guard.sh"
+    claude_settings = project / ".claude" / "settings.json"
+    claude_ok = True
+    if claude_settings.is_file():
+        try:
+            current_c = json.loads(claude_settings.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+            claude_ok = False
+            current_c = None
+        if claude_ok and not isinstance(current_c, dict):
+            claude_ok = False
+        if claude_ok and isinstance(current_c, dict):
+            hooks_c = current_c.get("hooks")
+            if (
+                (hooks_c is not None and not isinstance(hooks_c, dict))
+                or (
+                    isinstance(hooks_c, dict)
+                    and any(
+                        not isinstance(entries, list) for entries in hooks_c.values()
+                    )
+                )
+            ):
+                claude_ok = False
+            else:
+                updated_c = remove_claude_hub_hooks(current_c)
+                _require_within_project(project, claude_settings)
+                if updated_c is None:
+                    claude_settings.unlink()
+                    removed.append(".claude/settings.json")
+                else:
+                    before = claude_settings.read_text(encoding="utf-8")
+                    after = dumps_claude_settings(updated_c)
+                    if before != after:
+                        claude_settings.write_text(after, encoding="utf-8", newline="\n")
+                        removed.append(".claude/settings.json (Hub entries removed)")
+    if claude_ok and claude_script.is_file():
+        _require_within_project(project, claude_script)
+        claude_script.unlink()
+        removed.append(".claude/hooks/adhd-hub-guard.sh")
+
     return removed
 
 

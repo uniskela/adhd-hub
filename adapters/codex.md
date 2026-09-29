@@ -48,3 +48,12 @@ Use the [forge issue inbox](../docs/forge-issue-inbox.md):
 On session start: `resolve_project` → `session_digest` → `check_overlap` **if MCP is available**.
 Before ending with unfinished work: `upsert_progress` (Done/Next/Blockers) with `workspace_path`, or the forge mailbox above.
 When complete: `mark_done`.
+
+## Continuity guard (advisory)
+
+Codex has **no Hub-managed lifecycle deny hooks**. Opt-in
+`adhd-hub sync-project . --continuity-guard` still enrolls Cursor/Claude
+surfaces in the same repo; for Codex itself, continuity stays **advisory**
+via skills, this AGENTS guidance, MCP, forge `[ADHD]` fallback, and optional
+`adhd-hub guard observe . --tool …`. See the strength table in
+[docs/continuity-guard.md](../docs/continuity-guard.md).

@@ -45,7 +45,10 @@ def cmd_guard(args: argparse.Namespace) -> int:
     project = Path(getattr(args, "path", ".") or ".").expanduser().resolve()
     action = getattr(args, "guard_command", None)
     if action == "hook":
-        return run_hook_cli(project_dir=project, enrolled=True)
+        adapter = str(getattr(args, "adapter", "auto") or "auto")
+        return run_hook_cli(
+            project_dir=project, enrolled=True, adapter=adapter
+        )
     if action == "status":
         return _cmd_status(project)
     if action == "begin":
@@ -176,7 +179,6 @@ def add_guard_parser(sub: argparse._SubParsersAction) -> None:
         ("finish", "Record completion (mark_done) evidence"),
         ("reset", "Clear Git-local guard state"),
         ("audit", "CI-safe install/config audit (no runtime state)"),
-        ("hook", "Cursor hook entrypoint (JSON stdin → JSON stdout)"),
     ):
         p = gsub.add_parser(name, help=help_text)
         p.add_argument(
@@ -186,6 +188,24 @@ def add_guard_parser(sub: argparse._SubParsersAction) -> None:
             help="Project folder (default: --project / .)",
         )
         p.set_defaults(func=_guard_entry)
+
+    hook = gsub.add_parser(
+        "hook",
+        help="Lifecycle hook entrypoint (JSON stdin → JSON stdout; Cursor/Claude)",
+    )
+    hook.add_argument(
+        "path",
+        nargs="?",
+        default=argparse.SUPPRESS,
+        help="Project folder (default: --project / .)",
+    )
+    hook.add_argument(
+        "--adapter",
+        default="auto",
+        choices=("auto", "cursor", "claude"),
+        help="Hook payload dialect (default: auto-detect)",
+    )
+    hook.set_defaults(func=_guard_entry)
 
     observe = gsub.add_parser("observe", help="Record Hub/forge evidence manually")
     observe.add_argument(

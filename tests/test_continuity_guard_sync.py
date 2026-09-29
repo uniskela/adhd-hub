@@ -118,8 +118,8 @@ def test_uninstall_keeps_wrapper_when_hooks_json_malformed(tmp_path: Path) -> No
 
     removed = uninstall_continuity_guard(project)
 
-    assert removed == []
     assert script.is_file(), "wrapper must remain when hooks.json is unreadable"
+    assert ".cursor/hooks/adhd-hub-guard.sh" not in removed
     assert hooks_path.read_text(encoding="utf-8") == "{ not valid json\n"
 
 
@@ -150,8 +150,8 @@ def test_uninstall_keeps_wrapper_when_stop_event_is_object(tmp_path: Path) -> No
 
     removed = uninstall_continuity_guard(project)
 
-    assert removed == []
     assert script.is_file(), "wrapper must remain when stop is an object, not an array"
+    assert ".cursor/hooks/adhd-hub-guard.sh" not in removed
     data = json.loads(hooks_path.read_text(encoding="utf-8"))
     assert isinstance(data["hooks"]["stop"], dict)
     assert "adhd-hub-guard.sh" in data["hooks"]["stop"]["command"]

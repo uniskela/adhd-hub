@@ -400,16 +400,35 @@ def run_hook_cli(
     *,
     project_dir: Path | str | None = None,
     enrolled: bool = True,
+    adapter: str = "auto",
 ) -> int:
     """Read stdin, write JSON response to stdout. Always exit 0 (fail-open)."""
+    from adhd_hub.continuity_guard.adapter_protocol import (
+        detect_adapter,
+        normalize_payload_for_guard,
+        translate_response_for_adapter,
+    )
+
     try:
         payload = parse_hook_stdin()
+        resolved = detect_adapter(payload, explicit=adapter)
+        original_event = (
+            payload.get("hook_event_name")
+            if isinstance(payload.get("hook_event_name"), str)
+            else None
+        )
+        normalized = normalize_payload_for_guard(payload, adapter=resolved)
         response = handle_hook_payload(
-            payload,
+            normalized,
             project_dir=project_dir,
             enrolled=enrolled,
         )
-        sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+        out = translate_response_for_adapter(
+            response,
+            adapter=resolved,
+            original_event=original_event,
+        )
+        sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
     except Exception:  # noqa: BLE001 — hooks must fail-open
         sys.stdout.write("{}\n")
     return 0

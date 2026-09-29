@@ -46,6 +46,20 @@ Optional: run `adhd-hub index` on a machine that has `~/.claude/projects` transc
 
 Habits: `resolve_project` → `session_digest` → work → `upsert_progress` / `mark_done`.
 
+## Continuity guard (opt-in, medium strength)
+
+```bash
+adhd-hub setup . --continuity-guard
+# or
+adhd-hub sync-project . --continuity-guard
+```
+
+Installs Claude Code command hooks (PreToolUse / PostToolUse / Stop) that call
+the same deterministic guard core as Cursor. Strength is **medium**: mutations
+can be denied and Stop can nudge, but SessionStart/End are not used for
+enforcement. Details: [claude-hooks.md](claude-hooks.md),
+[docs/continuity-guard.md](../docs/continuity-guard.md).
+
 ## When MCP is unreachable (Claude remote / cloud)
 
 **Primary signal:** Hub MCP tools missing, errored, unauthorized, or auth failure — check that; do not invent “I'm in cloud.” On the first substantial Hub-worthy turn, say Hub MCP is unavailable (short `/mcp` + `ADHD_HUB_AUTH_TOKEN` + restart hint). Never invent Hub continuity/progress/thread state or claim a Hub write succeeded.
