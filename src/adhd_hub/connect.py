@@ -628,6 +628,14 @@ def _npx_bin() -> str | None:
     return shutil.which("npx") or shutil.which("npx.cmd")
 
 
+def _npx_missing_detail(*, opt_in: str) -> str:
+    """Warn detail when opt-in ``npx skills`` cannot run — never hard-fails connect."""
+    return (
+        f"npx not found on PATH ({opt_in} skipped) · Hub connect still succeeded; "
+        "install Node.js so `npx` is available, then re-run with the same flag"
+    )
+
+
 def install_openclaw_skills(source: str) -> int:
     npx = _npx_bin()
     if not npx:
@@ -1454,11 +1462,8 @@ def run_connect(
 
     if install_skills_flag:
         if _npx_bin() is None:
-            report.add(
-                "skills",
-                "warn" if dry_run else "error",
-                "npx not found on PATH",
-            )
+            # Opt-in skills install needs npx; missing toolchain must not fail Hub wire-up.
+            report.add("skills", "warn", _npx_missing_detail(opt_in="--skills"))
         elif dry_run:
             if skills_all_agents:
                 agent_flags = "--agent *"
@@ -1514,8 +1519,8 @@ def run_connect(
         if _npx_bin() is None:
             report.add(
                 "openclaw skills",
-                "warn" if dry_run else "error",
-                "npx not found on PATH",
+                "warn",
+                _npx_missing_detail(opt_in="--openclaw-skills"),
             )
         elif dry_run:
             report.add(

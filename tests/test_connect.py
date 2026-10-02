@@ -177,6 +177,43 @@ def test_run_connect_dry_run_writes_nothing(tmp_path: Path, monkeypatch) -> None
     assert any(s.name == "register" and s.detail.startswith("would resolve") for s in report.steps)
 
 
+def test_run_connect_missing_npx_warns_not_errors(tmp_path: Path, monkeypatch) -> None:
+    """Opt-in --skills / --openclaw-skills must not hard-fail Hub connect without npx."""
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+
+    with (
+        patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok (0.0)")),
+        patch("adhd_hub.connect._npx_bin", return_value=None),
+    ):
+        report = run_connect(
+            project=project,
+            hub_url="http://127.0.0.1:8787",
+            agents=["cursor"],
+            scope="project",
+            install_skills_flag=True,
+            skills_source="uniskela/adhd-hub",
+            cursor_rule=True,
+            openclaw_skills=True,
+            register=False,
+            find_roots=None,
+            token=None,
+            dry_run=False,
+        )
+
+    assert report.ok
+    skills = next(s for s in report.steps if s.name == "skills")
+    assert skills.status == "warn"
+    assert "npx not found" in skills.detail
+    assert "Hub connect still succeeded" in skills.detail
+    openclaw = next(s for s in report.steps if s.name == "openclaw skills")
+    assert openclaw.status == "warn"
+    assert "npx not found" in openclaw.detail
+    assert all(s.status != "error" for s in report.steps)
+
+
 def test_run_doctor_reports_missing_pieces(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     (tmp_path / "home").mkdir()

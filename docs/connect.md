@@ -183,8 +183,8 @@ For Cursor-only Marketplace install (skills + rule + BYO MCP variables, no per-p
 - **Codex / Claude** — optional MCP blocks when listed in `--agents`
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
 - **AGENTS.md** — same reversible managed block as `adhd-hub setup`
-- **Skills** — opt-in global `npx skills add` (`--skills`)
-- **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → OpenClaw**
+- **Skills** — opt-in global `npx skills add` (`--skills`). If `npx` is missing, connect **warns** and still succeeds (same soft-fail as optional companions); install Node.js and re-run with `--skills`
+- **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → OpenClaw**. Missing `npx` warns only (does not fail Hub connect)
 - **Register** — `GET /api/projects/resolve?create=true` when a CLI session or bearer token is available
 - **Find** — scan `--find-roots` for `.git` / `AGENTS.md` / `.cursor` folders and list them
 
