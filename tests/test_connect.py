@@ -207,7 +207,7 @@ def test_run_connect_missing_npx_warns_not_errors(tmp_path: Path, monkeypatch) -
     skills = next(s for s in report.steps if s.name == "skills")
     assert skills.status == "warn"
     assert "npx not found" in skills.detail
-    assert "Hub connect still succeeded" in skills.detail
+    assert "does not fail connect by itself" in skills.detail
     openclaw = next(s for s in report.steps if s.name == "openclaw skills")
     assert openclaw.status == "warn"
     assert "npx not found" in openclaw.detail

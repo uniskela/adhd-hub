@@ -631,7 +631,7 @@ def _npx_bin() -> str | None:
 def _npx_missing_detail(*, opt_in: str) -> str:
     """Warn detail when opt-in ``npx skills`` cannot run — never hard-fails connect."""
     return (
-        f"npx not found on PATH ({opt_in} skipped) · Hub connect still succeeded; "
+        f"npx not found on PATH ({opt_in} skipped) · missing npx does not fail connect by itself; "
         "install Node.js so `npx` is available, then re-run with the same flag"
     )
 
