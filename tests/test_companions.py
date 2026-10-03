@@ -300,7 +300,7 @@ def test_run_rtk_install_sh_downloads_before_exec(monkeypatch, tmp_path: Path) -
         def __init__(self, returncode: int) -> None:
             self.returncode = returncode
 
-    def fake_run(cmd, *, check=False, timeout=None):  # noqa: ARG001
+    def fake_run(cmd, *, check=False, timeout=None):
         calls.append(list(cmd))
         if cmd[0].endswith("curl") or Path(cmd[0]).name == "curl":
             out = Path(cmd[cmd.index("-o") + 1])
@@ -348,7 +348,7 @@ def test_run_rtk_install_sh_skips_sh_when_curl_fails(monkeypatch, tmp_path: Path
         def __init__(self, returncode: int) -> None:
             self.returncode = returncode
 
-    def fake_run(cmd, *, check=False, timeout=None):  # noqa: ARG001
+    def fake_run(cmd, *, check=False, timeout=None):
         calls.append(list(cmd))
         return Result(22)
 
