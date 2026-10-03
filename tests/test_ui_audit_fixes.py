@@ -281,6 +281,17 @@ def test_field_tips_are_visible_targets_that_keep_the_field_labelled():
     assert "width: 44px;" in tip and "height: 44px;" in tip
 
 
+def test_field_tip_panel_is_opaque_and_stacks_above_siblings():
+    """Open tips must not let later form fields paint through the panel."""
+    css = (UI / "app.css").read_text()
+    panel = css[css.index(".field-tip-panel {") :]
+    panel = panel[: panel.index("\n.field-tip.open .field-tip-panel")]
+    assert "background-color: var(--surface);" in panel
+    assert "opacity: 1;" in panel
+    assert "backdrop-filter: none;" in panel
+    assert ".field-tip.open { z-index: 40; }" in css
+
+
 def test_toasts_have_a_full_size_close_and_a_kind_dot():
     css = (UI / "app.css").read_text()
     close = css[css.index(".toast-close {") :]

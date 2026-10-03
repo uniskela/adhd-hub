@@ -749,9 +749,12 @@ button.field-tip:focus-visible,
 .field-tip:focus-visible,
 .field-tip.open {
   color: var(--ink);
-  filter: none;
+  filter: none !important;
   background: transparent !important;
 }
+/* Open tip must stack above later labels/inputs in the same card, or those
+   controls paint over the panel and look like a translucent tooltip. */
+.field-tip.open { z-index: 40; }
 .field-tip:hover .field-tip-mark, .field-tip.open .field-tip-mark { border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft); }
 .field-tip-panel {
   display: none;
@@ -764,7 +767,11 @@ button.field-tip:focus-visible,
   padding: .55rem .7rem;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: var(--card);
+  background-color: var(--surface);
+  background-image: none;
+  opacity: 1;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: var(--ink);
   box-shadow: var(--shadow);
   font-size: .8125rem;
