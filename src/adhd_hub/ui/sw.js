@@ -9,6 +9,7 @@ const PRECACHE = [
   "/ui/brand/icon-192.png",
   "/ui/brand/icon-512.png",
   "/ui/brand/figtree-latin.woff2",
+  "/ui/brand/figtree-latin-ext.woff2",
   "/ui/js/boot.js",
   "/ui/js/state.js",
   "/ui/js/api.js",

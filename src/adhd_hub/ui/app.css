@@ -1259,7 +1259,7 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
   font-weight: 500;
 }
 .desktop-nav button:hover { background: var(--surface); color: var(--ink); filter: none; }
-.desktop-nav button[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
+.desktop-nav button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .desktop-nav .nav-icon { width: 20px; height: 20px; }
 .app-header-actions { margin-top: auto; display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
 .app-header-actions #btn-capture { justify-content: flex-start; gap: .6rem; padding-inline: .85rem; }
