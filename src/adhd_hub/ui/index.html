@@ -344,143 +344,297 @@
         <p id="rewards-off" class="rewards-off">Ranks and milestones are off. <button type="button" class="link-button" data-screen="settings">Turn them on in Settings</button></p>
       </section>
       <section id="settings-view" class="view settings-view" aria-label="Settings" hidden>
+        <header class="settings-header">
+          <button type="button" class="link-button settings-index-back" id="btn-settings-index-back">← All settings</button>
+          <h1 id="settings-title">Settings</h1>
+          <p class="hint">Change only what you need. Most changes save on their own.</p>
+        </header>
+        <p id="settings-msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
         <div class="settings-page">
-          <aside class="settings-nav" role="tablist" aria-label="Settings categories" aria-orientation="vertical">
-            <p class="settings-nav-title">Settings</p>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-preferences" aria-controls="settings-preferences" aria-selected="true" data-settings-tab="preferences">Preferences</button>
+          <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+            <p class="settings-nav-group" aria-hidden="true">You</p>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-preferences" aria-controls="settings-preferences" aria-selected="true" data-settings-tab="preferences">Appearance</button>
             <button type="button" class="settings-nav-item" role="tab" id="tab-account" aria-controls="settings-account" aria-selected="false" tabindex="-1" data-settings-tab="account">Account</button>
-            <p class="settings-nav-group">Connections</p>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-connections" aria-controls="settings-connections" aria-selected="false" tabindex="-1" data-settings-tab="connections">Agents &amp; install</button>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-mcp" aria-controls="settings-mcp" aria-selected="false" tabindex="-1" data-settings-tab="mcp">Windows / MCP</button>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-openclaw" aria-controls="settings-openclaw" aria-selected="false" tabindex="-1" data-settings-tab="openclaw">OpenClaw</button>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-ai" aria-controls="settings-ai" aria-selected="false" tabindex="-1" data-settings-tab="ai">AI scan-lines</button>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-forge" aria-controls="settings-forge" aria-selected="false" tabindex="-1" data-settings-tab="forge">Forge</button>
-            <button type="button" class="settings-nav-item" role="tab" id="tab-data" aria-controls="settings-data" aria-selected="false" tabindex="-1" data-settings-tab="data">Data</button>
-          </aside>
+            <p class="settings-nav-group" aria-hidden="true">Connections</p>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-connections" aria-controls="settings-connections" aria-selected="false" tabindex="-1" data-settings-tab="connections">Coding agents</button>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-mcp" aria-controls="settings-mcp" aria-selected="false" tabindex="-1" data-settings-tab="mcp">Remote access</button>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-openclaw" aria-controls="settings-openclaw" aria-selected="false" tabindex="-1" data-settings-tab="openclaw">Phone alerts</button>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-forge" aria-controls="settings-forge" aria-selected="false" tabindex="-1" data-settings-tab="forge">Issue sync</button>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-ai" aria-controls="settings-ai" aria-selected="false" tabindex="-1" data-settings-tab="ai">AI helpers</button>
+            <p class="settings-nav-group" aria-hidden="true">Data</p>
+            <button type="button" class="settings-nav-item" role="tab" id="tab-data" aria-controls="settings-data" aria-selected="false" tabindex="-1" data-settings-tab="data">Your data</button>
+          </nav>
           <div class="settings-main">
-            <div class="settings-header">
-              <button type="button" class="text-button settings-index-back" id="btn-settings-index-back">← Back to settings</button>
-              <div>
-                <h1 id="settings-title">Settings</h1>
-                <p class="hint">Preferences, connections and data — change only what you need.</p>
-              </div>
-            </div>
-            <p id="settings-msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
             <div class="settings-content">
-              <section id="settings-preferences" role="tabpanel" aria-labelledby="tab-preferences" tabindex="0">
-                <h2>Your space, your pace.</h2>
-                <p class="hint">Appearance and rewards save automatically in this browser.</p>
-                <p class="appearance-label" id="settings-appearance-label">Appearance</p>
-                <div class="theme-toggle theme-toggle-labeled" role="radiogroup" aria-labelledby="settings-appearance-label" data-theme-toggle>
-                  <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="system" title="System" aria-label="System theme">
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v9A2.5 2.5 0 0 1 17.5 17H13v2h2.5a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1 0-1.5H11v-2H6.5A2.5 2.5 0 0 1 4 14.5v-9Zm1.5 0v9A1 1 0 0 0 6.5 15.5h11a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-11a1 1 0 0 0-1 1Z"/></svg>
-                    <span>System</span>
-                  </button>
-                  <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="light" title="Light" aria-label="Light theme">
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 7.25a4.75 4.75 0 1 1 0 9.5 4.75 4.75 0 0 1 0-9.5Zm0-4.5a.75.75 0 0 1 .75.75v1.2a.75.75 0 0 1-1.5 0V3.5A.75.75 0 0 1 12 2.75Zm0 15.3a.75.75 0 0 1 .75.75v1.2a.75.75 0 0 1-1.5 0v-1.2a.75.75 0 0 1 .75-.75Zm9.25-6.3a.75.75 0 0 1-.75.75h-1.2a.75.75 0 0 1 0-1.5H20.5a.75.75 0 0 1 .75.75ZM5.7 12a.75.75 0 0 1-.75.75H3.75a.75.75 0 0 1 0-1.5H4.95A.75.75 0 0 1 5.7 12Zm12.43-6.13a.75.75 0 0 1 0 1.06l-.85.85a.75.75 0 1 1-1.06-1.06l.85-.85a.75.75 0 0 1 1.06 0ZM8.78 16.28a.75.75 0 0 1 0 1.06l-.85.85a.75.75 0 0 1-1.06-1.06l.85-.85a.75.75 0 0 1 1.06 0Zm9.56 1.06a.75.75 0 0 1-1.06 0l-.85-.85a.75.75 0 1 1 1.06-1.06l.85.85a.75.75 0 0 1 0 1.06ZM7.93 6.93a.75.75 0 0 1-1.06 0l-.85-.85A.75.75 0 0 1 7.08 5l.85.85a.75.75 0 0 1 0 1.06Z"/></svg>
-                    <span>Light</span>
-                  </button>
-                  <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="dark" title="Dark" aria-label="Dark theme">
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12.4 3.1a.75.75 0 0 1 .78.98 7.5 7.5 0 1 0 6.74 6.74.75.75 0 0 1 .98.78A8.75 8.75 0 1 1 12.4 3.1Z"/></svg>
-                    <span>Dark</span>
-                  </button>
-                </div>
-                <fieldset class="accent-settings">
-                  <legend>Accent colour</legend>
-                  <p class="hint" id="accent-hint">Choose a colour for buttons and highlights. We adjust its shade to stay readable in each theme.</p>
-                  <div class="accent-presets" role="group" aria-label="Accent presets">
-                    <button type="button" class="ghost compact" data-accent="" aria-pressed="true">Default</button>
-                    <button type="button" class="ghost compact" data-accent="#4f46c8" aria-pressed="false"><span class="accent-dot accent-indigo" aria-hidden="true"></span>Indigo</button>
-                    <button type="button" class="ghost compact" data-accent="#2563eb" aria-pressed="false"><span class="accent-dot accent-blue" aria-hidden="true"></span>Blue</button>
-                    <button type="button" class="ghost compact" data-accent="#be185d" aria-pressed="false"><span class="accent-dot accent-rose" aria-hidden="true"></span>Rose</button>
-                    <button type="button" class="ghost compact" data-accent="#b45309" aria-pressed="false"><span class="accent-dot accent-amber" aria-hidden="true"></span>Amber</button>
+              <section id="settings-preferences" class="settings-panel" role="tabpanel" aria-labelledby="tab-preferences" tabindex="0">
+                <div class="settings-panel-head"><h2>Appearance</h2><p class="hint">How the hub looks and counts your day. Saves as you go.</p></div>
+                <div class="settings-card">
+                  <div class="setting">
+                    <div class="setting-text"><p class="setting-label" id="settings-appearance-label">Theme</p><p class="hint">Follows your device unless you pick one.</p></div>
+                    <div class="theme-toggle segmented" role="radiogroup" aria-labelledby="settings-appearance-label" data-theme-toggle>
+                      <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="system" aria-label="System theme">System</button>
+                      <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="light" aria-label="Light theme">Light</button>
+                      <button type="button" class="theme-option" role="radio" aria-checked="false" data-theme-value="dark" aria-label="Dark theme">Dark</button>
+                    </div>
                   </div>
-                  <div class="accent-custom"><label for="accent-colour">Custom colour</label><input type="color" id="accent-colour" value="#176b60" aria-describedby="accent-hint" /><span id="accent-value" class="hint">Default palette</span></div>
-                </fieldset>
-                <div class="preference-row"><div><strong>Gentle rewards</strong><p class="hint">Ranks, badges, and shareable wins. No streaks to lose.</p></div><label class="switch"><input type="checkbox" id="rewards-enabled" /> <span>Enable rewards</span></label></div>
-                <label>Daily goal <select id="daily-goal"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select></label>
-                <div class="settings-divider"><label for="timezone">Hub timezone</label><select id="timezone"></select><p class="hint">Used for daily activity across this hub.</p><button type="button" class="primary" id="btn-save-settings">Save</button></div>
+                  <fieldset class="setting accent-settings">
+                    <legend class="visually-hidden">Accent colour</legend>
+                    <div class="setting-text"><p class="setting-label" aria-hidden="true">Accent colour</p><p class="hint" id="accent-hint">Used for buttons and highlights. Shades adjust to stay readable in each theme. Now: <span id="accent-value">Default palette</span>.</p></div>
+                    <div class="accent-presets" role="group" aria-label="Accent presets">
+                      <button type="button" class="swatch" data-accent="" aria-pressed="true" aria-label="Default teal" title="Default teal"><span class="swatch-dot accent-default" aria-hidden="true"></span></button>
+                      <button type="button" class="swatch" data-accent="#4f46c8" aria-pressed="false" aria-label="Indigo" title="Indigo"><span class="swatch-dot accent-indigo" aria-hidden="true"></span></button>
+                      <button type="button" class="swatch" data-accent="#2563eb" aria-pressed="false" aria-label="Blue" title="Blue"><span class="swatch-dot accent-blue" aria-hidden="true"></span></button>
+                      <button type="button" class="swatch" data-accent="#be185d" aria-pressed="false" aria-label="Rose" title="Rose"><span class="swatch-dot accent-rose" aria-hidden="true"></span></button>
+                      <button type="button" class="swatch" data-accent="#b45309" aria-pressed="false" aria-label="Amber" title="Amber"><span class="swatch-dot accent-amber" aria-hidden="true"></span></button>
+                      <label class="accent-custom"><input type="color" id="accent-colour" value="#176b60" aria-describedby="accent-hint" />Custom<span class="visually-hidden"> colour</span></label>
+                    </div>
+                  </fieldset>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="rewards-enabled">Gentle rewards</label><p class="hint" id="rewards-hint">Ranks and milestones for finished steps. No streaks to lose.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="rewards-enabled" aria-describedby="rewards-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="daily-goal">Daily goal</label><p class="hint" id="daily-goal-hint">A soft target while rewards are on. Missing it changes nothing.</p></div>
+                    <select id="daily-goal" aria-describedby="daily-goal-hint"><option value="1">One small win</option><option value="3">Three small wins</option><option value="5">Five small wins</option></select>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="timezone">Time zone</label><p class="hint" id="timezone-hint">Decides when a new day starts, for everyone using this hub.</p></div>
+                    <select id="timezone" aria-describedby="timezone-hint"></select>
+                  </div>
+                </div>
               </section>
-              <section id="settings-account" role="tabpanel" aria-labelledby="tab-account" tabindex="0" hidden>
-                <h2>Sign-in &amp; security</h2>
+              <section id="settings-account" class="settings-panel" role="tabpanel" aria-labelledby="tab-account" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>Account</h2><p class="hint">Your sign-in for this hub.</p></div>
                 <section id="password-banner" class="setup-banner" hidden><div><strong>Make your next sign-in simpler</strong><p>Create a dashboard password. Keep your access token for your assistants.</p></div><button type="button" class="primary" id="btn-setup-password">Create password</button></section>
-                <p class="hint" id="password-status"></p><button type="button" class="ghost" id="btn-manage-password">Create or change password</button>
-                <p class="hint">Changing your password signs out other browsers. Your MCP access token keeps working.</p>
-                <div class="settings-divider"><h3>This session</h3><p class="hint">Sign out on a shared device when you’re finished.</p><button type="button" class="ghost" id="btn-logout">Log out</button></div>
+                <div class="settings-card">
+                  <div class="setting">
+                    <div class="setting-text"><p class="setting-label">Password</p><p class="hint" id="password-status"></p><p class="hint">Changing it signs out other browsers. Your MCP access token keeps working.</p></div>
+                    <button type="button" class="ghost" id="btn-manage-password">Create or change password</button>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><p class="setting-label">This session</p><p class="hint">Sign out on a shared device when you’re finished.</p></div>
+                    <button type="button" class="ghost" id="btn-logout">Log out</button>
+                  </div>
+                </div>
               </section>
-              <section id="settings-connections" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
-                <h2>Connect this computer</h2>
-                <p class="hint">One next step. Do <strong>not</strong> export your server access token into the shell.</p>
-                <div class="preference-row"><div><strong>Agents to wire up</strong><p class="hint">Choose which assistants get MCP config and Hub skills. Saved on this Hub and used by the install scripts below. Claude uses skills.sh id <code>claude-code</code>.</p></div></div>
-                <div class="checks" id="connect-agents-checks">
-                  <label><input type="checkbox" id="ca_cursor" value="cursor" /> Cursor</label>
-                  <label><input type="checkbox" id="ca_codex" value="codex" /> Codex</label>
-                  <label><input type="checkbox" id="ca_claude" value="claude" /> Claude Code</label>
-                  <label><input type="checkbox" id="ca_all" value="*" /> All skills.sh agents (*)</label>
-                </div>
-                <div class="settings-divider">
-                  <div class="preference-row"><div><strong>Hub skills install</strong><p class="hint">Where Hub’s own skills (session, projects, env-check) go. Global needs <code>npx</code> on the machine. Project writes under <code>.agents/skills/</code> in the repo you connect. Companions below are separate.</p></div></div>
-                  <div class="checks" id="connect-skills-mode-checks" role="radiogroup" aria-label="Hub skills install mode">
-                    <label><input type="radio" name="connect_skills_mode" id="csm_global" value="global" checked /> Global (all projects via npx skills add -g)</label>
-                    <label><input type="radio" name="connect_skills_mode" id="csm_project" value="project" /> This project only (<code>.agents/skills</code>)</label>
-                    <label><input type="radio" name="connect_skills_mode" id="csm_off" value="off" /> Don’t install Hub skills</label>
+              <section id="settings-connections" class="settings-panel" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Connect a computer so its agents save progress here. Do <strong>not</strong> export your server access token into the shell. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md" target="_blank" rel="noopener">Full guide</a></p></div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><label class="setting-label" for="install-cmd">1. Run this in the project folder</label><p class="hint">It installs the Hub tools for the agents you pick below. Your browser opens, or the command prints a short code. Nothing lands in shell history as <code>export TOKEN=…</code>.</p></div>
+                    <div class="copy-field"><input id="install-cmd" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install" aria-label="Copy install command">Copy</button></div>
                   </div>
-                </div>
-                <div class="settings-divider">
-                  <div class="preference-row"><div><strong>Third-party companions (optional)</strong><p class="hint">Pick what fits your workflow—do not install everything by default. Checked items are baked into the install script for the agents above. Categories: ADHD &amp; interaction, agent workflow, code quality, code intelligence, execution &amp; verification, writing. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md" target="_blank" rel="noopener">Full guide</a>.</p></div></div>
-                  <p class="hint"><strong>Hub can install</strong> (opt-in via install script)</p>
-                  <div class="checks" id="connect-companions-checks">
-                    <label><input type="checkbox" id="cc_all" /> Select all companions <span class="hint">(includes advanced Serena)</span></label>
-                    <label><input type="checkbox" id="cc_i_have_adhd" value="i-have-adhd" /> i-have-adhd · ADHD &amp; interaction · <a href="https://github.com/ayghri/i-have-adhd" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_superpowers" value="superpowers" /> Superpowers · Agent workflow · <a href="https://github.com/obra/superpowers" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_ponytail" value="ponytail" /> Ponytail · Code quality · <a href="https://github.com/DietrichGebert/ponytail" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_graphify" value="graphify" /> Graphify · Code intelligence · <a href="https://github.com/Graphify-Labs/graphify" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_serena" value="serena" /> Serena · Code intelligence (advanced) · <a href="https://github.com/oraios/serena" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_context7" value="context7" /> Context7 · Code intelligence · <a href="https://github.com/upstash/context7" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_agent_browser" value="agent-browser" /> agent-browser · Execution &amp; verification · <a href="https://github.com/vercel-labs/agent-browser" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_rtk" value="rtk" /> RTK · Execution &amp; verification · <a href="https://github.com/rtk-ai/rtk" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_humanizer" value="humanizer" /> Humanizer · Writing · <a href="https://github.com/blader/humanizer" target="_blank" rel="noopener">source</a></label>
-                  </div>
-                </div>
-                <div class="actions"><button type="button" class="primary compact" id="btn-save-connect-agents">Save connect defaults</button></div>
-                <p id="connect-agents-msg" class="msg" role="status"></p>
-                <label>In the project folder, run <input id="install-cmd" readonly /></label>
-                <button type="button" class="primary" id="btn-copy-install">Copy command</button>
-                <p class="hint">Your browser opens (or the CLI prints a short code). Come back here and press <strong>Allow</strong>. The CLI saves a session on this computer — nothing lands in shell history as <code>export TOKEN=…</code>.</p>
-                <div id="cli-connect-panel" class="setup-banner">
-                  <div>
-                    <strong>Allow a waiting CLI</strong>
-                    <p class="hint">Type the code from the terminal if the browser did not open.</p>
-                    <label>Connect code <input id="cli-connect-code-input" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /></label>
+                  <div class="setting is-stacked" id="cli-connect-panel">
+                    <div class="setting-text"><label class="setting-label" for="cli-connect-code-input">2. Enter the code the command shows</label><p class="hint">Only needed if the browser did not open. This lets that computer talk to your hub.</p></div>
+                    <div class="copy-field"><input id="cli-connect-code-input" class="code-field connect-code" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /><button type="button" class="primary" id="btn-allow-cli">Allow this computer</button></div>
                     <p id="cli-connect-msg" class="msg" role="status"></p>
                   </div>
-                  <button type="button" class="primary compact" id="btn-allow-cli">Allow this CLI</button>
+                </div>
+                <div class="settings-card">
+                  <fieldset class="setting is-top">
+                    <legend class="visually-hidden">Agents to set up</legend>
+                    <div class="setting-text"><p class="setting-label" aria-hidden="true">Agents to set up</p><p class="hint">Which assistants get MCP config and Hub skills. Used by the install command above. Claude Code is skills.sh id <code>claude-code</code>.</p></div>
+                    <div class="checks setting-choices" id="connect-agents-checks">
+                      <label><input type="checkbox" id="ca_claude" value="claude" /> Claude Code</label>
+                      <label><input type="checkbox" id="ca_cursor" value="cursor" /> Cursor</label>
+                      <label><input type="checkbox" id="ca_codex" value="codex" /> Codex</label>
+                      <label><input type="checkbox" id="ca_all" value="*" /> Every skills.sh agent (*)</label>
+                    </div>
+                  </fieldset>
+                  <div class="setting is-top">
+                    <div class="setting-text"><p class="setting-label" id="skills-mode-label">Where Hub skills go</p><p class="hint">The Hub’s own skills (session, projects, env-check). All projects needs <code>npx</code>. This project writes to <code>.agents/skills/</code>.</p></div>
+                    <div class="checks setting-choices" id="connect-skills-mode-checks" role="radiogroup" aria-labelledby="skills-mode-label">
+                      <label><input type="radio" name="connect_skills_mode" id="csm_global" value="global" checked /> All projects <span class="hint">(npx skills add -g)</span></label>
+                      <label><input type="radio" name="connect_skills_mode" id="csm_project" value="project" /> This project only</label>
+                      <label><input type="radio" name="connect_skills_mode" id="csm_off" value="off" /> Don’t install Hub skills</label>
+                    </div>
+                  </div>
+                  <fieldset class="setting is-top">
+                    <legend class="visually-hidden">Helpful extras</legend>
+                    <div class="setting-text"><p class="setting-label" aria-hidden="true">Helpful extras</p><p class="hint">Optional third-party companions, grouped by what they help with. Pick what fits; you don’t need them all. Each links to its source.</p></div>
+                    <div class="checks setting-choices companion-checks" id="connect-companions-checks">
+                      <label class="select-all"><input type="checkbox" id="cc_all" /> Select all <span class="hint">(includes advanced Serena)</span></label>
+                      <label><input type="checkbox" id="cc_i_have_adhd" value="i-have-adhd" /> i-have-adhd <span class="hint">· ADHD &amp; interaction · <a href="https://github.com/ayghri/i-have-adhd" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_superpowers" value="superpowers" /> Superpowers <span class="hint">· Agent workflow · <a href="https://github.com/obra/superpowers" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_ponytail" value="ponytail" /> Ponytail <span class="hint">· Code quality · <a href="https://github.com/DietrichGebert/ponytail" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_graphify" value="graphify" /> Graphify <span class="hint">· Code intelligence · <a href="https://github.com/Graphify-Labs/graphify" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_serena" value="serena" /> Serena <span class="hint">· Code intelligence (advanced) · <a href="https://github.com/oraios/serena" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_context7" value="context7" /> Context7 <span class="hint">· Code intelligence · <a href="https://github.com/upstash/context7" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_agent_browser" value="agent-browser" /> agent-browser <span class="hint">· Execution &amp; verification · <a href="https://github.com/vercel-labs/agent-browser" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_rtk" value="rtk" /> RTK <span class="hint">· Execution &amp; verification · <a href="https://github.com/rtk-ai/rtk" target="_blank" rel="noopener">source</a></span></label>
+                      <label><input type="checkbox" id="cc_humanizer" value="humanizer" /> Humanizer <span class="hint">· Writing · <a href="https://github.com/blader/humanizer" target="_blank" rel="noopener">source</a></span></label>
+                    </div>
+                  </fieldset>
+                  <div class="setting setting-save">
+                    <p id="connect-agents-msg" class="msg" role="status"></p>
+                    <button type="button" class="primary" id="btn-save-connect-agents">Save as defaults</button>
+                  </div>
+                </div>
+                <div class="settings-card" id="cli-sessions-wrap" hidden>
+                  <div class="setting is-top">
+                    <div class="setting-text"><p class="setting-label">Connected computers</p><p class="hint">Revoke one and that computer will need to connect again.</p></div>
+                    <ul id="cli-sessions-list" class="cli-sessions-list"></ul>
+                  </div>
                 </div>
               </section>
-              <section id="settings-mcp" role="tabpanel" aria-labelledby="tab-mcp" tabindex="0" hidden>
-                <h2>Windows / MCP / skills</h2>
-                <label>Windows PowerShell <input id="install-cmd-win" readonly /></label>
-                <button type="button" class="ghost" id="btn-copy-install-win">Copy Windows install</button>
-                <p class="hint">MCP URL for assistants that still use a bearer header. Project MCP files stay token-free so they are safe to commit. The saved CLI session is a different token from your server access token.</p>
-                <label>MCP server URL <input id="mcp-url" readonly /></label>
-                <button type="button" class="ghost" id="btn-copy-mcp">Copy URL</button>
-                <p class="hint">Install the ADHD Hub skills for all of your projects:</p>
-                <pre class="snippet">npx skills add uniskela/adhd-hub -g</pre>
-                <p class="hint">Working on an unreleased local checkout? Use <code>npx skills add ./skills -g</code> instead.</p>
-                <p class="hint">Restart your assistant and ask it to call <code>session_digest</code> to verify MCP. Existing server-token setups keep working.</p>
-                <div id="cli-sessions-wrap" hidden>
-                  <p class="hint"><strong>CLI sessions on this Hub</strong></p>
-                  <ul id="cli-sessions-list" class="hint"></ul>
+              <section id="settings-mcp" class="settings-panel" role="tabpanel" aria-labelledby="tab-mcp" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>Remote access</h2><p class="hint">For Windows machines and tools that connect over MCP.</p></div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><label class="setting-label" for="install-cmd-win">Windows install</label><p class="hint">Paste into PowerShell in the project folder.</p></div>
+                    <div class="copy-field"><input id="install-cmd-win" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install-win" aria-label="Copy Windows install command">Copy</button></div>
+                  </div>
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><label class="setting-label" for="mcp-url">MCP server address</label><p class="hint">For assistants that still use a bearer header. Project MCP files stay token-free, so they are safe to commit. A saved CLI session is a different token from your server access token.</p></div>
+                    <div class="copy-field"><input id="mcp-url" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-mcp" aria-label="Copy MCP server address">Copy</button></div>
+                  </div>
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><p class="setting-label">Hub skills for every project</p><p class="hint">Working on an unreleased local checkout? Use <code>npx skills add ./skills -g</code> instead. Restart your assistant and ask it to call <code>session_digest</code> to check MCP. Existing server-token setups keep working.</p></div>
+                    <pre class="snippet">npx skills add uniskela/adhd-hub -g</pre>
+                  </div>
                 </div>
               </section>
-              <section id="settings-ai" role="tabpanel" aria-labelledby="tab-ai" tabindex="0" hidden>
-                <h2>AI scan-lines</h2>
-                <p class="hint">Optional. Heuristic scan-lines always work. Turn AI on only when you have a local or trusted OpenAI-compatible endpoint (Ollama preferred). API keys are encrypted with this Hub’s access token and never returned to the browser. For Gemini, prefer <code>gemini-3.6-flash</code> — older flash ids may still appear in lists but 404 for new users. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>. The same setting powers Notes reader <strong>Summarise</strong>.</p>
-                <div class="preference-row"><div><strong>Use AI for scan-lines</strong><p class="hint">Off by default. When on, you can rewrite the short line for a step from the notes reader’s ⋯ menu, or rewrite all open threads for a selected project from the project title’s ⋯ menu. Notes <strong>Summarise</strong> uses the same endpoint for a persisted Done / Plan·Focus / Next card (notes feed unchanged).</p></div><label class="switch"><input type="checkbox" id="ai_enabled" /> <span>Enable AI</span></label></div>
-                <div class="preference-row"><div><strong>Auto review scan lines</strong><p class="hint">Off by default. When Enable AI is on, Hub rewrites scan lines for new or changed threads (once per content hash). Unchanged threads skip the provider. Manual Rewrite / Rewrite all still work when this is off.</p></div><label class="switch"><input type="checkbox" id="ai_auto_review_scan" /> <span>Auto review</span></label></div>
-                <div class="preference-row"><div><strong>Auto summarise notes</strong><p class="hint">Off by default. When opening Notes &amp; Context, run Summarise if there is no saved card or notes/continuity drifted. Matching hash shows the cached card with no AI call.</p></div><label class="switch"><input type="checkbox" id="ai_auto_summarise_notes" /> <span>Auto summarise</span></label></div>
-                <div class="form-grid">
-                  <label class="span2">Base URL preset
+              <section id="settings-openclaw" class="settings-panel" role="tabpanel" aria-labelledby="tab-openclaw" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>Phone alerts</h2><p class="hint">Gentle nudges about stalled work, sent through OpenClaw. Keep OpenClaw on your LAN or Tailscale.</p></div>
+                <div class="settings-card">
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="oc_enabled">Send alerts</label><p class="hint" id="oc-enabled-hint">Stays quiet when nothing needs attention.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="oc_enabled" aria-describedby="oc-enabled-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><p class="setting-label">Pair OpenClaw</p><p class="hint">Start a code here, paste the prompt into OpenClaw, then approve what it sends. No Hub access token goes into OpenClaw.</p><p id="oc-pair-status" class="hint" role="status"></p></div>
+                    <div class="setting-actions">
+                      <button type="button" class="primary" id="btn-oc-pair-start">Start pairing</button>
+                      <button type="button" class="ghost" id="btn-oc-pair-approve" hidden>Approve submitted pair</button>
+                      <button type="button" class="ghost" id="btn-oc-pair-cancel" hidden>Cancel pairing</button>
+                    </div>
+                  </div>
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><label class="setting-label" for="oc-setup-prompt">Setup prompt</label><p class="hint">Paste this into OpenClaw after you start pairing.</p></div>
+                    <textarea id="oc-setup-prompt" class="code-field" readonly rows="6" spellcheck="false"></textarea>
+                    <div class="setting-actions"><button type="button" class="ghost" id="btn-copy-oc-prompt">Copy setup prompt</button></div>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="oc_stale_days">Stalled after</label><p class="hint" id="oc-stale-hint">Days with no progress before a step counts as stalled.</p></div>
+                    <input id="oc_stale_days" class="short-field" type="number" min="1" max="365" value="3" aria-describedby="oc-stale-hint" />
+                  </div>
+                  <details class="setting setting-advanced">
+                    <summary>Advanced</summary>
+                    <div class="form-grid">
+                      <label class="span2">Webhook URL <input id="oc_webhook_url" type="url" placeholder="http://openclaw:18789/hooks/wake" /></label>
+                      <label class="span2">Agent URL <span class="hint">· optional</span><input id="oc_agent_url" type="url" placeholder="http://openclaw:18789/hooks/agent" /></label>
+                      <label class="span2">Bearer token <input id="oc_token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved token" /></label>
+                      <label>Alert schedule <span class="hint">· cron</span><input id="oc_cron" value="0 9 * * *" /></label>
+                      <label>Days between repeats <input id="oc_cooldown_days" type="number" min="1" max="365" value="3" /></label>
+                      <label>Items per alert <input id="oc_digest_limit" type="number" min="1" max="10" value="2" /></label>
+                    </div>
+                    <p id="oc_token_status" class="hint">No saved token.</p>
+                    <div class="checks"><label><input type="checkbox" id="oc_clear_token" /> Remove the saved token</label></div>
+                    <p class="hint">The saved token is encrypted with this Hub’s access token and never returned to the browser. To configure by hand instead:</p>
+                    <pre class="snippet">npx skills add uniskela/adhd-hub -g -a openclaw</pre>
+                  </details>
+                  <div class="setting setting-save">
+                    <p id="openclaw-msg" class="msg" role="status"></p>
+                    <div class="setting-actions"><button type="button" class="ghost" id="btn-test-openclaw">Save and send a test</button><button type="button" class="primary" id="btn-save-openclaw">Save phone alerts</button></div>
+                  </div>
+                </div>
+              </section>
+              <section id="settings-forge" class="settings-panel" role="tabpanel" aria-labelledby="tab-forge" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>Issue sync</h2><p class="hint">Mirror progress to GitHub or Gitea, and bring <code>[ADHD]</code> issues in. <a class="forge-learn-more" href="https://uniskela.github.io/adhd-hub/forge-permissions/" target="_blank" rel="noopener">How permissions work</a></p></div>
+                <div class="settings-card">
+                  <div class="setting">
+                    <div class="setting-text">
+                      <p class="setting-label">Last sync</p>
+                      <div id="sync-health" class="sync-health" hidden aria-live="polite">
+                        <p id="sync-health-status" class="sync-health-status">Checking sync…</p>
+                        <p id="sync-health-detail" class="hint"></p>
+                        <p id="sync-health-conflicts" class="sync-health-conflicts" hidden></p>
+                      </div>
+                    </div>
+                    <div class="setting-actions"><button type="button" class="ghost" id="btn-sync-forge">Sync now</button><button type="button" class="ghost" id="btn-retry-forge-sync">Retry sync</button></div>
+                  </div>
+                  <section id="forge-jobs" class="setting is-stacked forge-jobs" hidden aria-live="polite">
+                    <h3 class="setting-label forge-jobs-heading">Background jobs</h3>
+                    <ul id="forge-jobs-list" class="forge-jobs-list"></ul>
+                  </section>
+                  <details class="setting setting-advanced">
+                    <summary>Recent changes</summary>
+                    <ul id="sync-health-history" class="sync-health-history"><li class="hint">Not checked yet.</li></ul>
+                  </details>
+                </div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-row-head">
+                      <div class="setting-text"><p class="setting-label">Connections</p><p class="hint">Each connection holds a token and an import policy. Projects pick one, or stay local-only.</p></div>
+                      <button type="button" class="ghost" id="btn-add-forge-profile">Add connection</button>
+                    </div>
+                    <div id="forge-profiles" class="forge-profiles"></div>
+                    <details class="forge-setup-steps">
+                      <summary>Setup steps</summary>
+                      <ol>
+                        <li>Add a connection, paste its token, then <strong>Save issue sync</strong>. Test works on drafts; Save keeps it.</li>
+                        <li>Set <strong>Import policy</strong> away from Manual if you want Sync to import new issues.</li>
+                        <li>On the project, pick the connection, set owner and <strong>repo name</strong> (not a URL), Save, then Sync.</li>
+                      </ol>
+                    </details>
+                  </div>
+                </div>
+                <div class="settings-card">
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="wiki_enabled">Wiki sync</label><p class="hint" id="wiki-enabled-hint">Push PROGRESS.md and INDEX.md to the default connection’s memory repo.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="wiki_enabled" aria-describedby="wiki-enabled-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="board_enabled">Board and issues</label><p class="hint" id="board-enabled-hint">Create and update forge issues for steps on each project’s forge target.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="board_enabled" aria-describedby="board-enabled-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="board_inbox_enabled">Import agent issues</label><p class="hint" id="inbox-enabled-hint">Bring in <code>[ADHD]</code> issues opened by cloud agents. Only authors on the allowlist under Advanced count.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="board_inbox_enabled" aria-describedby="inbox-enabled-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="primary_memory_repo">Primary memory repo</label><p class="hint" id="primary-memory-hint">Treat the default connection’s repo as the Hub memory tree (<code>projects/&lt;slug&gt;/PROGRESS.md</code>).</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="primary_memory_repo" aria-describedby="primary-memory-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><p class="setting-label">Import issues now</p><p class="hint">Check for new projects or inbox issues.</p></div>
+                    <div class="setting-actions"><button type="button" class="ghost" id="btn-scan-forge">Scan for projects</button><button type="button" class="ghost" id="btn-import-inbox">Import issue inbox</button></div>
+                  </div>
+                  <details class="setting setting-advanced">
+                    <summary>Advanced</summary>
+                    <div class="form-grid">
+                      <label>Default connection <span class="hint">· Hub wiki and memory</span><select id="default_connection_profile_id"></select></label>
+                      <label>Inbox authors <span class="hint">· allowlist</span><input id="board_inbox_authors" placeholder="user123, automation-bot" autocomplete="username" /></label>
+                      <label>Wiki path <input id="wiki_path" placeholder="Blank means repo root" /></label>
+                      <label>Wiki branch <input id="wiki_branch" placeholder="main" /></label>
+                      <label>Hub public address <input id="hub_public_url" placeholder="https://hub.example.com" /></label>
+                      <label>Gitea project id <input id="project_id" placeholder="42" /></label>
+                    </div>
+                    <p class="hint">For the <code>adhd_inbox</code> import policy, Import agent issues must be on and authors allowlisted. An empty list imports nothing.</p>
+                  </details>
+                  <div class="setting setting-save">
+                    <p class="hint">Connections, switches and Advanced save together.</p>
+                    <button type="button" class="primary" id="btn-save-forge">Save issue sync</button>
+                  </div>
+                </div>
+              </section>
+              <section id="settings-ai" class="settings-panel" role="tabpanel" aria-labelledby="tab-ai" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>AI helpers</h2><p class="hint">Optional and off unless you turn it on. Lists always lead with where you left off.</p></div>
+                <div class="settings-card">
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="ai_enabled">Use AI helpers</label><p class="hint" id="ai-enabled-hint">Notes go to the provider you choose below. Unlocks <strong>Rewrite scan line</strong> in the notes reader’s ⋯ menu, <strong>Rewrite all scan lines</strong> in a project’s ⋯ menu, and notes <strong>Summarise</strong>.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="ai_enabled" aria-describedby="ai-enabled-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="ai_auto_summarise_notes">Summarise notes on their own</label><p class="hint" id="ai-summarise-hint">When you open a step’s notes, add a short Done, Plan and Next card if there isn’t a current one. Unchanged notes reuse the saved card.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="ai_auto_summarise_notes" aria-describedby="ai-summarise-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="ai_auto_review_scan">Rewrite scan lines on their own</label><p class="hint" id="ai-review-hint">For new or changed steps, once each. The manual rewrites still work when this is off.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="ai_auto_review_scan" aria-describedby="ai-review-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="ai_base_url_preset">Provider</label><p class="hint">Any OpenAI-compatible endpoint. A local one such as Ollama keeps notes on your network.</p></div>
                     <select id="ai_base_url_preset" aria-describedby="ai-base-url-hint">
                       <option value="http://127.0.0.1:11434/v1">Ollama (local)</option>
                       <option value="http://127.0.0.1:1234/v1">LM Studio (local)</option>
@@ -490,143 +644,70 @@
                       <option value="https://api.groq.com/openai/v1">Groq</option>
                       <option value="">Custom…</option>
                     </select>
-                  </label>
-                  <label class="span2">Base URL
-                    <input id="ai_base_url" type="url" list="ai_base_url_list" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" />
-                    <datalist id="ai_base_url_list">
-                      <option value="http://127.0.0.1:11434/v1" label="Ollama (local)"></option>
-                      <option value="http://127.0.0.1:1234/v1" label="LM Studio (local)"></option>
-                      <option value="https://api.openai.com/v1" label="OpenAI"></option>
-                      <option value="https://generativelanguage.googleapis.com/v1beta/openai/" label="Gemini (OpenAI-compatible)"></option>
-                      <option value="https://openrouter.ai/api/v1" label="OpenRouter"></option>
-                      <option value="https://api.groq.com/openai/v1" label="Groq"></option>
-                    </datalist>
-                  </label>
-                  <p id="ai-base-url-hint" class="hint span2">Pick a common OpenAI-compatible endpoint or enter a custom base URL (must end with the API root your provider expects). Saved URLs that do not match a preset open as Custom… with the URL filled in.</p>
-                  <label>Model <select id="ai_model"><option value="llama3.2">llama3.2</option></select></label>
-                  <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="1" max="30" step="1" value="15" /></label>
-                  <label class="span2">API key <span class="hint">· optional</span><input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" /></label>
-                </div>
-                <p id="ai_key_status" class="hint">No saved API key.</p>
-                <label><input type="checkbox" id="ai_clear_key" /> Remove the saved API key</label>
-                <p id="ai-status" class="hint" role="status">AI: off</p>
-                <div class="actions"><button type="button" class="ghost" id="btn-load-ai-models" disabled>Test &amp; Load Models</button><button type="button" class="primary" id="btn-save-ai">Save AI settings</button></div>
-                <p id="ai-msg" class="msg" role="status"></p>
-              </section>
-              <section id="settings-openclaw" role="tabpanel" aria-labelledby="tab-openclaw" tabindex="0" hidden>
-                <h2>OpenClaw connection &amp; gentle alerts</h2>
-                <p class="hint">Pair like the CLI: start a code here, paste the prompt into OpenClaw, then approve what it submits. No Hub access token goes into OpenClaw. Keep OpenClaw on LAN or Tailscale.</p>
-                <div class="actions">
-                  <button type="button" class="primary compact" id="btn-oc-pair-start">Start OpenClaw pairing</button>
-                  <button type="button" class="ghost compact" id="btn-oc-pair-approve" hidden>Approve submitted pair</button>
-                  <button type="button" class="ghost compact" id="btn-oc-pair-cancel" hidden>Cancel pairing</button>
-                </div>
-                <p id="oc-pair-status" class="hint" role="status"></p>
-                <label class="span2">OpenClaw setup prompt
-                  <textarea id="oc-setup-prompt" readonly rows="12" spellcheck="false"></textarea>
-                </label>
-                <button type="button" class="primary compact" id="btn-copy-oc-prompt">Copy OpenClaw prompt</button>
-                <p class="hint">Or configure manually:</p>
-                <pre class="snippet">npx skills add uniskela/adhd-hub -g -a openclaw</pre>
-                <p class="hint">The saved bearer token is encrypted with this Hub's access token and is never returned to the browser.</p>
-                <div class="preference-row"><div><strong>Gentle stale-work alerts</strong><p class="hint">Stay quiet when nothing needs attention.</p></div><label class="switch"><input type="checkbox" id="oc_enabled" /> <span>Enable alerts</span></label></div>
-                <div class="form-grid">
-                  <label class="span2">Webhook URL <input id="oc_webhook_url" type="url" placeholder="http://openclaw:18789/hooks/wake" /></label>
-                  <label class="span2">Agent URL <span class="hint">· Optional</span><input id="oc_agent_url" type="url" placeholder="http://openclaw:18789/hooks/agent" /></label>
-                  <label class="span2">Bearer token <input id="oc_token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved token" /></label>
-                  <label>Alert schedule <input id="oc_cron" value="0 9 * * *" /></label>
-                  <label>Stale after <span class="hint">· days</span><input id="oc_stale_days" type="number" min="1" max="365" value="3" /></label>
-                  <label>Repeat cooldown <span class="hint">· days</span><input id="oc_cooldown_days" type="number" min="1" max="365" value="3" /></label>
-                  <label>Items per alert <input id="oc_digest_limit" type="number" min="1" max="10" value="2" /></label>
-                </div>
-                <p id="oc_token_status" class="hint">No saved token.</p>
-                <label><input type="checkbox" id="oc_clear_token" /> Remove the saved token</label>
-                <div class="actions"><button type="button" class="primary" id="btn-save-openclaw">Save OpenClaw</button><button type="button" class="ghost" id="btn-test-openclaw">Save &amp; send test</button></div>
-                <p id="openclaw-msg" class="msg" role="status"></p>
-              </section>
-              <section id="settings-forge" role="tabpanel" aria-labelledby="tab-forge" tabindex="0" hidden>
-                <h2>Forge mirror</h2>
-                <p class="hint">Connection profiles hold credentials and import policy. Projects pick a profile (or stay local-only). Hub-wide wiki/inbox flags below apply to the default memory connection. <a class="forge-learn-more" href="https://uniskela.github.io/adhd-hub/forge-permissions/" target="_blank" rel="noopener">Learn more</a></p>
-                <div class="forge-setup-steps">
-                  <strong>Setup order</strong>
-                  <ol>
-                    <li>Add a profile → paste token → <strong>Save forge</strong> (Test works on drafts; Save keeps it).</li>
-                    <li>Set <strong>Import policy</strong> away from Manual if you want Sync to import new issues.</li>
-                    <li>On the project: pick the connection → set owner + <strong>repo name</strong> (not a URL) → Save → Sync.</li>
-                  </ol>
-                </div>
-
-                <h3>Connection profiles</h3>
-                <div id="forge-profiles" class="forge-profiles"></div>
-                <div class="actions">
-                  <button type="button" class="ghost" id="btn-add-forge-profile">Add profile</button>
-                </div>
-                <label>Default profile (Hub wiki / memory)
-                  <select id="default_connection_profile_id"></select>
-                </label>
-
-                <div class="settings-divider">
-                  <h3>Hub-wide forge options</h3>
-                  <p class="hint">These apply to Hub memory sync and inbox mailbox behaviour, not per-project credentials.</p>
-                </div>
-                <div class="form-grid">
-                  <label>Wiki path <input id="wiki_path" placeholder="blank = repo root" /></label>
-                  <label>Wiki branch <input id="wiki_branch" placeholder="main" /></label>
-                  <label>Hub public URL <input id="hub_public_url" placeholder="https://hub.example.com" /></label>
-                  <label>Gitea project id <input id="project_id" placeholder="42" /></label>
-                </div>
-                <div class="checks">
-                  <label><input type="checkbox" id="wiki_enabled" /> Wiki sync</label>
-                  <label><input type="checkbox" id="board_enabled" /> Board / issues</label>
-                  <label><input type="checkbox" id="board_inbox_enabled" /> Import cloud-agent issues (inbox)</label>
-                  <label><input type="checkbox" id="primary_memory_repo" /> Primary memory repo</label>
-                </div>
-                <label>Inbox authors (allowlist) <input id="board_inbox_authors" placeholder="user123, automation-bot" autocomplete="username" /></label>
-                <p class="hint">For <code>adhd_inbox</code> policy on a profile, inbox must be enabled and authors allowlisted (fail closed).</p>
-                <div class="actions">
-                  <button type="button" class="primary" id="btn-save-forge">Save forge</button>
-                  <button type="button" class="ghost" id="btn-sync-forge">Sync now</button>
-                  <button type="button" class="ghost" id="btn-scan-forge">Scan for import</button>
-                  <button type="button" class="ghost" id="btn-import-inbox">Import issue inbox</button>
-                </div>
-                <section id="sync-health" class="sync-health" hidden aria-live="polite">
-                  <h3 class="sync-health-heading">Sync health</h3>
-                  <p id="sync-health-status" class="sync-health-status">Checking sync…</p>
-                  <p id="sync-health-detail" class="hint"></p>
-                  <p id="sync-health-conflicts" class="sync-health-conflicts" hidden></p>
-                  <div class="actions">
-                    <button type="button" class="ghost" id="btn-retry-forge-sync">Retry sync</button>
                   </div>
-                  <h4 class="sync-health-subheading">Recent changes</h4>
-                  <ul id="sync-health-history" class="sync-health-history"></ul>
-                </section>
-                <section id="forge-jobs" class="forge-jobs" hidden aria-live="polite">
-                  <h3 class="forge-jobs-heading">Forge jobs</h3>
-                  <ul id="forge-jobs-list" class="forge-jobs-list"></ul>
-                </section>
-              </section>
-              <section id="settings-data" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden>
-                <h2>Keep your work with you.</h2>
-                <p class="hint">Download a backup of your hub’s records, notes, and settings. Optional passphrase encrypts the file (scrypt). Older passphrase backups still restore.</p>
-                <label>Backup passphrase <span class="hint">· Optional</span>
-                  <input id="backup-passphrase" type="password" autocomplete="new-password" placeholder="Leave blank for a plain zip" />
-                </label>
-                <button type="button" class="primary" id="btn-export">Download backup</button>
-                <div class="settings-divider">
-                  <h3>Restore a backup</h3>
-                  <p class="hint">Restoring replaces the hub’s current data. Download a backup first if you want to keep it. Use the same passphrase if the file is encrypted.</p>
-                  <label>Restore passphrase <span class="hint">· If encrypted</span>
-                    <input id="import-passphrase" type="password" autocomplete="current-password" />
-                  </label>
-                  <label class="ghost file-btn">Choose backup file<input type="file" id="import-file" accept=".zip,.enc,application/zip,application/octet-stream" hidden /></label>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="ai_model">Model</label><p class="hint">Test and load models fills this list from the provider. For Gemini, prefer <code>gemini-3.6-flash</code>.</p><p id="ai-status" class="hint" role="status">AI: off</p></div>
+                    <div class="setting-actions"><select id="ai_model"><option value="llama3.2">llama3.2</option></select><button type="button" class="ghost" id="btn-load-ai-models" disabled>Test and load models</button></div>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="ai_api_key">API key</label><p class="hint">Only cloud providers need one. Encrypted with this Hub’s access token and never shown again.</p><p id="ai_key_status" class="hint">No saved API key.</p></div>
+                    <input id="ai_api_key" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key" />
+                  </div>
+                  <details class="setting setting-advanced">
+                    <summary>Advanced</summary>
+                    <div class="form-grid">
+                      <label class="span2">Base URL
+                        <input id="ai_base_url" type="url" list="ai_base_url_list" placeholder="http://127.0.0.1:11434/v1" autocomplete="off" />
+                        <datalist id="ai_base_url_list">
+                          <option value="http://127.0.0.1:11434/v1" label="Ollama (local)"></option>
+                          <option value="http://127.0.0.1:1234/v1" label="LM Studio (local)"></option>
+                          <option value="https://api.openai.com/v1" label="OpenAI"></option>
+                          <option value="https://generativelanguage.googleapis.com/v1beta/openai/" label="Gemini (OpenAI-compatible)"></option>
+                          <option value="https://openrouter.ai/api/v1" label="OpenRouter"></option>
+                          <option value="https://api.groq.com/openai/v1" label="Groq"></option>
+                        </datalist>
+                      </label>
+                      <p id="ai-base-url-hint" class="hint span2">Pick a provider above or enter a custom base URL (the API root your provider expects). Saved URLs that match no preset open as Custom… with the URL filled in. See <a href="https://uniskela.github.io/adhd-hub/environment-variables/" target="_blank" rel="noopener">environment variables</a>.</p>
+                      <label>Timeout <span class="hint">· seconds</span><input id="ai_timeout" type="number" min="1" max="30" step="1" value="15" /></label>
+                    </div>
+                    <div class="checks"><label><input type="checkbox" id="ai_clear_key" /> Remove the saved API key</label></div>
+                  </details>
+                  <div class="setting setting-save">
+                    <p id="ai-msg" class="msg" role="status"></p>
+                    <button type="button" class="primary" id="btn-save-ai">Save AI settings</button>
+                  </div>
                 </div>
-                <div class="settings-divider"><h3>Refresh your hub</h3><p class="hint">Load the latest changes from your assistants.</p><button type="button" class="ghost" id="btn-refresh">Refresh</button></div>
+              </section>
+              <section id="settings-data" class="settings-panel" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden>
+                <div class="settings-panel-head"><h2>Your data</h2><p class="hint">Keep your work with you.</p></div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><p class="setting-label">Download a backup</p><p class="hint">Your hub’s records, notes and settings. A passphrase encrypts the file; older passphrase backups still restore.</p></div>
+                    <div class="copy-field">
+                      <label class="visually-hidden" for="backup-passphrase">Backup passphrase (optional)</label>
+                      <input id="backup-passphrase" type="password" autocomplete="new-password" placeholder="Passphrase (optional)" />
+                      <button type="button" class="primary" id="btn-export">Download backup</button>
+                    </div>
+                  </div>
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><p class="setting-label">Restore a backup</p><p class="hint">This replaces the hub’s current data, so download a backup first if you want to keep it. Use the same passphrase if the file is encrypted.</p></div>
+                    <div class="copy-field">
+                      <label class="visually-hidden" for="import-passphrase">Restore passphrase (if encrypted)</label>
+                      <input id="import-passphrase" type="password" autocomplete="current-password" placeholder="Passphrase (if encrypted)" />
+                      <label class="ghost file-btn">Choose backup file<input type="file" id="import-file" accept=".zip,.enc,application/zip,application/octet-stream" hidden /></label>
+                    </div>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><p class="setting-label">Refresh your hub</p><p class="hint">Load the latest changes from your assistants.</p></div>
+                    <button type="button" class="ghost" id="btn-refresh">Refresh</button>
+                  </div>
+                </div>
               </section>
             </div>
             <footer class="settings-footer">
-              <a id="repo-link" href="https://github.com/uniskela/adhd-hub" target="_blank" rel="noopener noreferrer" aria-label="Progress Hub on GitHub">
+              <a id="repo-link" href="https://github.com/uniskela/adhd-hub" target="_blank" rel="noopener noreferrer" aria-label="Progress Hub source on GitHub">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 .75a11.25 11.25 0 0 0-3.56 21.92c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.64 1.22 3.28.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.28-.5-1.43.11-2.98 0 0 .95-.3 3.09 1.16a10.75 10.75 0 0 1 5.62 0c2.14-1.45 3.08-1.16 3.08-1.16.62 1.55.24 2.7.12 2.98.72.79 1.15 1.79 1.15 3.02 0 4.32-2.63 5.27-5.14 5.55.4.35.76 1.03.76 2.08v3.11c0 .3.2.65.78.54A11.25 11.25 0 0 0 12 .75Z"/></svg>
-                <span>GitHub</span>
+                <span>Source on GitHub</span>
               </a>
               <span id="app-version" class="hint" aria-live="polite">Version unavailable</span>
             </footer>

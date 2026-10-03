@@ -86,7 +86,7 @@ def _discover_failure_hint(cfg: ForgeConfig, status_code: int, body: str) -> str
     if status_code == 401:
         return (
             "Unauthorized (401). Re-paste a valid PAT on the connection profile "
-            "(Save forge), confirm provider kind matches the host, then Sync again."
+            "(Save issue sync), confirm provider kind matches the host, then Sync again."
         )
     if kind_mismatch:
         return (

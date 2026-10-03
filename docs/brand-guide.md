@@ -46,11 +46,12 @@ Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, 
 - **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
 - **Secondary:** white (dark: card) fill with a soft control border. Use for alternatives such as Choose another, Copy text, or Settings.
 - **Destructive:** berry/rose with an explicit action label and confirmation where data will be lost.
-- **Close:** a visible 44 × 44 px × button with an accessible label. Settings keeps it visible while content scrolls.
+- **Close:** a visible 44 × 44 px × button with an accessible label.
+- **Settings rows:** label and one-line hint on the left, the control on the right, separated by a hairline inside a 14 px card. On/off choices are switches (a real checkbox with `role="switch"` over a 48 px track, 60 × 44 px target); theme is one segmented control; accent colours are 44 px swatches. Rarely used fields fold under **Advanced**. Settings save as they change unless the section holds keys or tokens, which keeps one Save button at its foot.
 - **Focus:** 3 px accent outline with space around it. Never remove keyboard focus styling.
 - **Motion:** brief colour transitions only; honour reduced-motion preferences. No animated XP counters, confetti, audio, or pulsing reminders.
 
-Controls target at least 44 px height on phones and touch screens. The installed app uses `viewport-fit=cover` and safe-area padding, so the top bar and bottom tabs stay clear of the notch and home indicator. Settings tabs support Left/Right, Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Desktop and tablet use a left sidebar with the navigation, Save a thought and sync status; phones use a top bar with bottom tabs. Page changes do not animate; colour transitions honour reduced-motion preferences.
+Controls target at least 44 px height on phones and touch screens. The installed app uses `viewport-fit=cover` and safe-area padding, so the top bar and bottom tabs stay clear of the notch and home indicator. Settings sections support Up/Down (or Left/Right), Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Desktop and tablet use a left sidebar with the navigation, Save a thought and sync status; phones use a top bar with bottom tabs. Page changes do not animate; colour transitions honour reduced-motion preferences.
 
 ## Voice and attention
 

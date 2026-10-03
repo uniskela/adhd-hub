@@ -22,7 +22,7 @@ ADHD Hub requires a persistent data directory. In the container image that direc
 | Path | Contents |
 | --- | --- |
 | `hub.sqlite3` | Projects (including **tags**), threads, progress notes, AI **scan-line cache**, meta |
-| `ai.json` | **AI scan-line / Settings → AI scan-lines** (API key encrypted with `ADHD_HUB_AUTH_TOKEN`) |
+| `ai.json` | **AI scan-line / Settings → AI helpers** (API key encrypted with `ADHD_HUB_AUTH_TOKEN`) |
 | `prefs.json` | Dashboard preferences (timezone, etc.) |
 | `forge.json` / `openclaw.json` | Optional forge / OpenClaw config |
 | `wiki/` | Local markdown wiki / progress files |
@@ -209,7 +209,7 @@ Only trust forwarded headers from a proxy you control. For a Proxmox/Tailscale l
 
 ## Connect coding agents after the server is running
 
-Open **Settings → Agents & install** and copy the generated command, or run the CLI directly:
+Open **Settings → Coding agents** and copy the generated command, or run the CLI directly:
 
 ```bash
 adhd-hub connect /path/to/project \
@@ -258,4 +258,4 @@ The repository Compose file tags a **local** image (`adhd-hub:X.Y.Z`). `docker c
 
 ## Back up before important changes
 
-Use **Settings → Download backup** or the CLI export before a major upgrade/migration. Keep `/data` persistent and backed up as well. The [Homelab deployment](deploy-homelab.md#7-move-an-existing-local-hub-to-this-lxc) guide covers a full instance migration and encrypted exports.
+Use **Settings → Your data → Download backup** or the CLI export before a major upgrade/migration. Keep `/data` persistent and backed up as well. The [Homelab deployment](deploy-homelab.md#7-move-an-existing-local-hub-to-this-lxc) guide covers a full instance migration and encrypted exports.

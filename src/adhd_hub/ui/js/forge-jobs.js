@@ -53,7 +53,7 @@ export async function waitForForgeJob(jobId, { onUpdate } = {}) {
     if (job.status === "done" || job.status === "failed") return job;
     await new Promise((r) => setTimeout(r, 450));
   }
-  throw new Error("Forge job timed out — check Settings → Forge jobs.");
+  throw new Error("Forge job timed out — check Settings → Issue sync.");
 }
 
 export async function enqueueForgeJob(path, body, { pendingLabel } = {}) {

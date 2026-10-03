@@ -15,7 +15,7 @@ Use a **dedicated bot/machine user** token when you can. Prefer **least privileg
 
 | Setting | Owns |
 |---------|------|
-| **Default profile** (Settings → Forge) | Hub **memory**: wiki / `PROGRESS.md` / `INDEX.md` for **all** projects |
+| **Default connection** (Settings → Issue sync → Advanced) | Hub **memory**: wiki / `PROGRESS.md` / `INDEX.md` for **all** projects |
 | **Project → Forge owner / repo** | **Issues / board** for that project only |
 
 A project’s forge owner/repo never becomes the wiki target. Fill **owner** and **repo** as name fragments (`user123`, `my-repo`) — not full URLs. Put the clone URL in **Repository URL**; Hub can prefill blank owner/repo from it on blur/save.
@@ -34,7 +34,7 @@ Changing a project’s forge connection does **not** migrate threads already pin
 
 ### Suggested setup order
 
-1. Add a connection profile → paste token → **Save forge**  
+1. Add a connection profile → paste token → **Save issue sync**  
 2. Leave import policy on **Manual** until you want discovery; then pick a policy and Save again  
 3. On each project: pick the connection → set owner + **repo name** (or let Repository URL prefill) → Save project → **Sync forge**
 

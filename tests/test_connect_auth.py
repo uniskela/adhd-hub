@@ -278,6 +278,7 @@ def test_ui_connections_copy_has_no_export(tmp_path: Path) -> None:
         assert home.status_code == 200
         text = home.text
         assert "Do <strong>not</strong> export your server access token" in text
+        assert "Allow this computer" in text
         assert "Allow this CLI" in text
         assert "btn-allow-cli" in text
         assert "install-cmd" in text

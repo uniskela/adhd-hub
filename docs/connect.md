@@ -4,7 +4,7 @@ Point coding agents at a running ADHD Progress Hub without hand-editing every co
 
 ## Safer CLI connect (recommended)
 
-Stay signed in to the Hub UI. In **Settings → Agents & install** copy the command (no token in it):
+Stay signed in to the Hub UI. In **Settings → Coding agents** copy the command (no token in it):
 
 ### macOS / Linux / WSL / Git Bash
 
@@ -40,7 +40,7 @@ Answer `y` to install uv via Astral’s official installer, `uv tool install --f
 What happens next:
 
 1. The CLI opens your browser to this Hub (or prints a short code like `ABCD-WXYZ`).
-2. Press **Allow this CLI** (or type the code under **Settings → Windows / MCP**).
+2. Press **Allow** in the browser prompt (or type the code under **Settings → Coding agents** and choose **Allow this computer**).
 3. The CLI saves a **CLI session** under `~/.config/adhd-hub/credentials.json` (mode `0600`). That file is local to this computer.
 
 ### Windows TLS note
@@ -92,7 +92,7 @@ adhd-hub connect /path/to/project --hub https://adhd-hub.example.com --agents cu
 | One-time connect code | Hub SQLite for ~10 minutes, single-use | Reuse / replay; it expires |
 | CLI session (`ahcli_…`) | `~/.config/adhd-hub/credentials.json` on the client | Shell `export`, git, progress notes |
 
-The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it in **Settings → Windows / MCP** or with `adhd-hub logout`. Dashboard password login is unchanged.
+The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it under **Settings → Coding agents → Connected computers** or with `adhd-hub logout`. Dashboard password login is unchanged.
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
 
@@ -138,7 +138,7 @@ authorization URL or expose the callback publicly.
 **Still supported (no Auth button required):**
 
 - Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).
-- CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in **Settings → Windows / MCP**).
+- CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in **Settings → Coding agents**).
 
 **Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` always probes that Hub’s OAuth well-known when diagnosing a non-loopback Hub (or when `ADHD_HUB_PUBLIC_URL` is set), independent of any local `ADHD_HUB_OAUTH_ENABLED` in the doctor process; it warns on missing/malformed metadata. Unreachable Hub is a warning, not a hard failure.
 
@@ -146,7 +146,7 @@ authorization URL or expose the callback publicly.
 
 Both install scripts refresh an existing `adhd-hub` on PATH from **this Hub's** `/install/cli-wheel.url` when `uv` is available, then prefer that durable CLI (ephemeral `uvx --from <wheel>` is the fallback; GitHub git if the wheel URL is missing). If `uv` itself is missing, they offer an interactive Astral bootstrap (see above) or honor `ADHD_HUB_INSTALL_UV=1`. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
 
-`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Agents & install**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
+`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Coding agents**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
 
 ```powershell
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents 'cursor,codex,claude'"
@@ -156,7 +156,7 @@ iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents '*'"
 
 `--skill *` in the skills CLI means “Hub skills (session, projects, env-check)” (projects + session), not “every coding agent.”
 
-**Hub skills mode** (Settings → Connections, or flags/env):
+**Hub skills mode** (Settings → Coding agents → Where Hub skills go, or flags/env):
 
 | Mode | Flag | Effect |
 |------|------|--------|
@@ -194,7 +194,7 @@ For Cursor-only Marketplace install (skills + rule + BYO MCP variables, no per-p
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
 - **AGENTS.md** — same reversible managed block as `adhd-hub setup`
 - **Skills** — Hub skills via Settings mode or flags: `--skills` (global npx `-g`) or `--project-skills` (repo `.agents/skills`). Missing `npx` for global **warns** and still succeeds; project sync failures warn the same way. Companions (i-have-adhd, etc.) stay separate opt-ins / Select all in Settings.
-- **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → OpenClaw**. Missing `npx` warns only (does not fail Hub connect)
+- **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → Phone alerts**. Missing `npx` warns only (does not fail Hub connect)
 - **Register** — `GET /api/projects/resolve?create=true` when a CLI session or bearer token is available
 - **Find** — scan `--find-roots` for `.git` / `AGENTS.md` / `.cursor` folders and list them
 
@@ -243,7 +243,7 @@ Color is on when stdout is a TTY. It is off when output is piped (including typi
 
 ## Optional third-party companions
 
-In **Settings → Agents & install**, under **Third-party companions**, toggle opt-in companions (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer) and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
+In **Settings → Coding agents**, under **Helpful extras**, toggle opt-in companions (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer) and **Save as defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
 
 `connect` / `doctor` also list them when missing. You can pass flags manually:
 

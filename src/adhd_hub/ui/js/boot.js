@@ -215,10 +215,8 @@ $("login-form").addEventListener("submit", (e) =>
     if (!$("app-shell").hidden) offerPendingConnect();
   })
 );
-$("btn-save-settings").addEventListener("click", (e) => {
-  e.preventDefault();
-  saveSettings();
-});
+// Appearance has no Save button: the time zone saves as soon as it changes.
+$("timezone").addEventListener("change", () => saveSettings());
 $("btn-save-ai")?.addEventListener("click", () =>
   saveAiConfig().catch((e) => {
     const msg = $("ai-msg");

@@ -6,7 +6,7 @@ The hub has two independent credentials: a dashboard password for everyday brows
 
 1. Set `ADHD_HUB_AUTH_TOKEN` to a private random value on the server and restart the hub. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Keep it in your environment or untracked `.env`.
 2. Open `/ui/` and sign in with that access token.
-3. Choose **Create password**, or **Settings → Sign-in & security → Create or change password**. Verify with your access token, then enter and confirm a password of at least 12 characters. It must differ from your access token.
+3. Choose **Create password**, or **Settings → Account → Create or change password**. Verify with your access token, then enter and confirm a password of at least 12 characters. It must differ from your access token.
 4. Future visits default to password sign-in. The page supports password managers and a show/hide control.
 
 No password is configured automatically. Local development with the default token can still run on loopback, but password setup requires a private server token first.

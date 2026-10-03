@@ -25,7 +25,7 @@ This connection involves two separate services:
 - **ADHD Hub** finds stale open work and sends a reminder.
 - **OpenClaw Gateway** receives that reminder through its HTTP hook.
 
-The **hook bearer token** is the shared password for that private connection. It is created/configured on the OpenClaw Gateway, then copied once into ADHD Hub's **Settings → OpenClaw** form. It is not the ADHD Hub auth token, not the Gateway login token, and not part of either URL.
+The **hook bearer token** is the shared password for that private connection. It is created/configured on the OpenClaw Gateway, then copied once into ADHD Hub's **Settings → Phone alerts** form. It is not the ADHD Hub auth token, not the Gateway login token, and not part of either URL.
 
 An OpenClaw agent can help inspect configuration, explain errors, or submit the pairing request, but it must not print or reveal the hook token. A human operator or the deployment's secret-management mechanism must make the token available to both services.
 
@@ -62,22 +62,22 @@ OPENCLAW_HOOK_TOKEN=<dedicated-long-random-hook-token>
 
 OpenClaw supports `${UPPERCASE_ENV_NAME}` substitution in config strings. Keep the `.env` file out of Git and restrict its file permissions. Do not use the normal `OPENCLAW_GATEWAY_TOKEN` for this value: the hook token must be separate. A generic SecretRef object cannot be pasted directly into `hooks.token` on current OpenClaw versions, so use environment substitution or another supported deployment secret mechanism instead.
 
-After hooks are enabled, configure ADHD Hub with the matching URL and token, then use **Save & send test**. The token remains in the Gateway `.env` and is entered into the Hub UI only through the protected settings form; it should not be pasted into an agent prompt.
+After hooks are enabled, configure ADHD Hub with the matching URL and token, then use **Save and send a test**. The token remains in the Gateway `.env` and is entered into the Hub UI only through the protected settings form; it should not be pasted into an agent prompt.
 
-**Pairing (recommended):** In ADHD Hub, open **Settings → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
+**Pairing (recommended):** In ADHD Hub, open **Settings → Phone alerts**, click **Start pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
 
 Secure pairing has one prerequisite on the OpenClaw side: `hooks.token` must be provisioned without exposing the raw bearer token to the pairing agent. Use a protected runtime SecretRef when the installed OpenClaw version supports it, or inject the hook token through the gateway service environment when that is the supported secure path. The pairing agent must never print, echo, reveal, or paste the hook token into chat, command arguments, config files, or tool output.
 
 The Hub still needs the **actual** hook token eventually because it authenticates outbound stale-work nudges to `/hooks/wake` and `/hooks/agent`. A SecretRef itself is meaningful only inside the OpenClaw gateway, so the successful pairing request must inject the resolved token directly into the request body without surfacing it to the agent or operator transcript.
 
-If OpenClaw cannot securely provision `hooks.token`, the generated pairing prompt reports the structured failure `hooks_token_secretref_unsupported` to the Hub and stops. The **Settings → OpenClaw** panel then explains the prerequisite instead of leaving the pairing attempt apparently stuck. Do not work around that status by asking an agent to expose the token.
+If OpenClaw cannot securely provision `hooks.token`, the generated pairing prompt reports the structured failure `hooks_token_secretref_unsupported` to the Hub and stops. The **Settings → Phone alerts** panel then explains the prerequisite instead of leaving the pairing attempt apparently stuck. Do not work around that status by asking an agent to expose the token.
 
-**Manual path:** Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use **Settings → OpenClaw** to:
+**Manual path:** Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use **Settings → Phone alerts** to:
 
-1. Add the private webhook URL, or the optional agent URL for a richer message.
-2. Enter the OpenClaw hook bearer token directly into the Hub UI.
-3. Choose whether alerts are enabled.
-4. Save, then choose **Save & send test**.
+1. Open **Advanced** and add the private webhook URL, or the optional agent URL for a richer message.
+2. Enter the OpenClaw hook bearer token (also under **Advanced**) directly into the Hub UI.
+3. Turn **Send alerts** on or off.
+4. Save, then choose **Save and send a test**.
 
 The token is encrypted using the Hub's server access token before it is stored in `openclaw.json`. The API returns only whether a token is configured, never the token or a fragment of it. If you rotate `ADHD_HUB_AUTH_TOKEN`, enter the OpenClaw token again.
 
@@ -117,7 +117,7 @@ Restart the Hub after changing `.env`; changes saved in the web UI apply immedia
 
 The Hub checks for stale open threads every day at 09:00 by default. It sends nothing when there is no stale work, and it uses the Hub's reminder cooldown plus optional triage snooze to avoid repeats. Soft UI triage (**Still relevant?** / ask later) never auto-dismisses a thread; intentional abandon still uses dismiss. Dashboard **Help me choose** and MCP `suggest_next_up` use the same calm Next-up ranking (quiet/resume-first; optional energy / focus-project).
 
-Choose the schedule, stale age, repeat cooldown, and maximum items in **Settings → OpenClaw**. Changes take effect immediately. For an environment-provisioned schedule, set this on the Hub server and restart it:
+Choose the schedule, stale age, repeat cooldown, and maximum items in **Settings → Phone alerts**. Changes take effect immediately. For an environment-provisioned schedule, set this on the Hub server and restart it:
 
 ```env
 ADHD_HUB_STALE_NUDGE_CRON=0 18 * * 1-5
@@ -127,7 +127,7 @@ That example sends one weekday check-in at 18:00. Keep the message useful: one s
 
 ## 4. Test once
 
-Use **Save & send test** for a harmless connection check. To exercise the complete stale-work path, create or keep one deliberately stale open thread, then trigger the check with the Hub access token from a trusted machine:
+Use **Save and send a test** for a harmless connection check. To exercise the complete stale-work path, create or keep one deliberately stale open thread, then trigger the check with the Hub access token from a trusted machine:
 
 ```bash
 curl -sS -X POST \
@@ -151,4 +151,4 @@ Treat the token as a secret and limit network access to trusted devices.
 
 ## Why reminder hooks have no OAuth callback
 
-The supported OpenClaw hook interface uses bearer authentication and does not provide an OAuth authorization contract for ADHD Hub to complete. **Settings → OpenClaw** therefore uses the same private, token-authenticated hook flow rather than presenting a callback that cannot be verified.
+The supported OpenClaw hook interface uses bearer authentication and does not provide an OAuth authorization contract for ADHD Hub to complete. **Settings → Phone alerts** therefore uses the same private, token-authenticated hook flow rather than presenting a callback that cannot be verified.

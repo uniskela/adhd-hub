@@ -236,10 +236,10 @@ def main() -> None:
                 expect(page.locator("#rewards-panel")).to_be_visible()
                 shot("progress-desktop.png")
 
-                # Settings → Preferences
+                # Settings → Appearance
                 page.locator("#btn-settings:visible, #btn-mobile-settings:visible").first.click()
                 if not page.locator("#settings-preferences").is_visible():
-                    page.get_by_role("tab", name="Preferences", exact=True).click()
+                    page.get_by_role("tab", name="Appearance", exact=True).click()
                 expect(page.locator("#settings-preferences")).to_be_visible()
                 shot("settings-desktop.png")
 

@@ -877,7 +877,7 @@ class ForgeFacade:
                 "reason": "board_inbox_authors_required",
                 "imported": [],
                 "skipped_issues": [],
-                "hint": "Add allowed forge usernames under Settings → Forge → Inbox authors.",
+                "hint": "Add allowed forge usernames under Settings → Issue sync → Advanced → Inbox authors.",
             }
         board = self._board(cfg)
         mapped_numbers = {
