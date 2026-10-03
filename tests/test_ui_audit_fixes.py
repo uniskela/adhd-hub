@@ -292,6 +292,28 @@ def test_field_tip_panel_is_opaque_and_stacks_above_siblings():
     assert ".field-tip.open { z-index: 40; }" in css
 
 
+def test_capture_save_does_not_click_through_to_progress():
+    """Saving a thought must not land on Progress via a dialog close click-through.
+
+    At mid widths the Save thought control sits over Now's "finished this week"
+    overview link (data-screen=progress).
+    """
+    dom = (UI / "js" / "dom.js").read_text()
+    now = (UI / "js" / "now.js").read_text()
+    boot = (UI / "js" / "boot.js").read_text()
+    html = (UI / "index.html").read_text()
+    assert "export function closeModal" in dom
+    assert "pointerEvents" in dom
+    start = now.index("export async function captureStep")
+    capture = now[start : start + 1800]
+    assert "closeModal($(\"capture-dialog\"))" in capture
+    assert "const screen = state.activeScreen" in capture
+    assert "showScreen(screen, { focusHeading: false })" in capture
+    assert "closeModal" in boot
+    assert 'data-screen="progress"' in html
+    assert 'id="now-done-count"' in html
+
+
 def test_toasts_have_a_full_size_close_and_a_kind_dot():
     css = (UI / "app.css").read_text()
     close = css[css.index(".toast-close {") :]

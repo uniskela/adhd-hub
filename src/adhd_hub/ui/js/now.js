@@ -1,6 +1,6 @@
 import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
-import { copyReference, copyText, formatNotesTimes, formatRelative, safeHttpUrl, syncNeedsYou, wireMenu, wireOverflowMenu } from './dom.js';
+import { closeModal, copyReference, copyText, formatNotesTimes, formatRelative, safeHttpUrl, syncNeedsYou, wireMenu, wireOverflowMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
@@ -595,7 +595,14 @@ export async function captureStep(event) {
         setMsg("Thought saved to inbox notes (no open task).");
       }
       $("capture-summary").value = "";
-      $("capture-dialog").close();
+      // Keep the screen the operator was on — mid-width layouts put Save thought
+      // over Now's "finished this week" Progress shortcut, and a closing click
+      // can fall through and switch views.
+      const screen = state.activeScreen;
+      closeModal($("capture-dialog"));
+      if (state.activeScreen !== screen) {
+        showScreen(screen, { focusHeading: false });
+      }
       await loadOverview();
       if (state.activeScreen === "work") await loadThreads();
     } catch (error) {

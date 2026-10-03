@@ -1,7 +1,7 @@
 import { state, preferences, $, setMsg, initRepoLinks } from './state.js';
 import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
-import { fillTimezoneSelect, positionOverflowMenu, toggleNeedsYou, wireMenu } from './dom.js';
+import { closeModal, fillTimezoneSelect, positionOverflowMenu, toggleNeedsYou, wireMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
@@ -265,7 +265,7 @@ $("btn-close-project").addEventListener("click", () => $("project-dialog").close
 // Every dialog's X button closes it as a cancel; "cancel" never counts as a confirm.
 document.addEventListener("click", (event) => {
   const button = event.target.closest?.("[data-dialog-close]");
-  if (button) button.closest("dialog")?.close("cancel");
+  if (button) closeModal(button.closest("dialog"), "cancel");
 });
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
 $("btn-rewrite-all-scan")?.addEventListener("click", () =>
@@ -363,7 +363,7 @@ $("btn-capture").addEventListener("click", () => {
   $("capture-dialog").showModal();
   $("capture-summary").focus();
 });
-$("btn-cancel-capture").addEventListener("click", () => $("capture-dialog").close());
+$("btn-cancel-capture").addEventListener("click", () => closeModal($("capture-dialog")));
 $("btn-login-method").addEventListener("click", () => {
   setLoginMode(state.loginMode === "password" ? "token" : "password");
   $("login-token").value = "";

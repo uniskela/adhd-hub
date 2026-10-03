@@ -216,6 +216,27 @@ export function toggleNeedsYou() {
     syncNeedsYou();
   }
 
+/**
+ * Close a modal <dialog> without letting the closing pointer event fall through
+ * to controls underneath (e.g. Now overview links that switch to Progress).
+ */
+export function closeModal(dialog, returnValue) {
+  if (!dialog) return;
+  const root = document.documentElement;
+  const prev = root.style.pointerEvents;
+  root.style.pointerEvents = "none";
+  try {
+    if (returnValue !== undefined) dialog.close(returnValue);
+    else dialog.close();
+  } finally {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.style.pointerEvents = prev;
+      });
+    });
+  }
+}
+
 export function confirmDialog({ title, body, extraHtml }) {
     return new Promise((resolve) => {
       $("confirm-title").textContent = title;
