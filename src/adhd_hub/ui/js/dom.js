@@ -133,7 +133,7 @@ function overflowMenuFloor() {
  */
 export function positionOverflowMenu(details) {
     const panel = details?.querySelector(
-      ":scope > .thread-utility-panel, :scope > .project-mobile-actions-panel, :scope > .rail-mobile-actions-panel"
+      ":scope > .thread-utility-panel"
     );
     if (!panel) return;
     panel.classList.remove("opens-up");
@@ -171,6 +171,49 @@ export function wireOverflowMenu(details) {
         positionOverflowMenu(details);
       }
     });
+  }
+
+/**
+ * Details-based menu: flips to fit, closes on Escape (focus back to its
+ * button) and after an item inside is chosen. Idempotent.
+ */
+export function wireMenu(details) {
+    if (!details || details.dataset.menuWired === "true") return;
+    details.dataset.menuWired = "true";
+    wireOverflowMenu(details);
+    const summary = details.querySelector(":scope > summary");
+    details.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !details.open) return;
+      event.preventDefault();
+      event.stopPropagation();
+      details.open = false;
+      summary?.focus();
+    });
+    details.addEventListener("click", (event) => {
+      const item = event.target.closest(".thread-utility-actions button, .thread-utility-actions a");
+      if (item && details.contains(item)) details.open = false;
+    });
+  }
+
+/** "Needs you" on My work: one summary line over approvals, imports and due reminders. */
+let needsExpanded = false;
+export function syncNeedsYou() {
+    const wrap = $("needs-you");
+    const body = $("needs-you-body");
+    if (!wrap || !body) return;
+    const count = body.querySelectorAll(".need").length;
+    wrap.hidden = count === 0;
+    if (!count) needsExpanded = false;
+    $("needs-you-summary").textContent =
+      count === 1 ? "1 thing needs a quick look" : `${count} things need a quick look`;
+    body.hidden = !needsExpanded;
+    const toggle = $("btn-toggle-needs");
+    toggle.textContent = needsExpanded ? "Hide" : "Review";
+    toggle.setAttribute("aria-expanded", String(needsExpanded));
+  }
+export function toggleNeedsYou() {
+    needsExpanded = !needsExpanded;
+    syncNeedsYou();
   }
 
 export function confirmDialog({ title, body, extraHtml }) {

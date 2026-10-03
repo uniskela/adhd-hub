@@ -1308,13 +1308,13 @@ class HubService:
             "</p></section>"
         )
 
-        # 1b. Persisted AI summary card (replaceable; never rewrites notes)
+        # 2. Where you left off, Goal, Focus, Next steps (always visible)
+        parts.append(self._notes_continuity_card_html(thread))
+
+        # 2b. Persisted AI summary card (replaceable; never rewrites notes)
         summary_html = self._notes_summary_card_html(thread.id)
         if summary_html:
             parts.append(summary_html)
-
-        # 2. This thread continuity card (always visible)
-        parts.append(self._notes_continuity_card_html(thread, heading="This thread"))
 
         # 3. Thread notes — coalesce BEFORE open/closed; `open` only toggles <details>.
         notes: list[dict[str, str]] = []
@@ -1345,7 +1345,7 @@ class HubService:
         )
         parts.append(
             f'<details class="notes-section-details notes-thread-notes"{open_notes}>'
-            "<summary>Thread notes</summary>"
+            "<summary>Notes and history</summary>"
             f'<div class="notes-section-body">{notes_inner}</div>'
             "</details>"
         )
@@ -1367,7 +1367,7 @@ class HubService:
                 "Choose this step</button>"
                 "</span></summary>"
                 f'<div class="notes-section-body">'
-                f"{self._notes_continuity_card_html(sibling, heading=None, compact=True)}"
+                f"{self._notes_continuity_card_html(sibling, compact=True)}"
                 "</div></details>"
             )
 
@@ -1456,46 +1456,38 @@ class HubService:
         self,
         thread: Thread,
         *,
-        heading: str | None = "This thread",
         compact: bool = False,
     ) -> str:
         from html import escape
 
         from adhd_hub.markdown import render_markdown
 
-        status = escape(thread.status.value)
         blocks: list[str] = []
-        if heading:
-            blocks.append(
-                f'<header class="notes-continuity-head">'
-                f'<p class="notes-continuity-title">{escape(thread.summary or "Untitled")}</p>'
-                f'<span class="notes-status-chip">{status}</span>'
-                f"</header>"
-            )
-        elif not compact:
-            blocks.append(f'<span class="notes-status-chip">{status}</span>')
+        # The reader header already names the step and its status, so the card
+        # leads with where you left off instead of repeating the title.
 
-        def field(label: str, html: str) -> str:
+        def field(label: str, html: str, cls: str = "") -> str:
+            extra = f" {cls}" if cls else ""
             return (
-                f'<div class="notes-continuity-field">'
+                f'<div class="notes-continuity-field{extra}">'
                 f'<p class="notes-continuity-label">{escape(label)}</p>'
                 f'<div class="notes-continuity-value">{html}</div>'
                 f"</div>"
             )
 
+        if thread.resume_step:
+            # Allow light markdown in resume for emphasis; still sanitized.
+            resume_html = render_markdown(thread.resume_step)
+            blocks.append(field("Where you left off", resume_html, "notes-continuity-resume"))
         if thread.goal:
             blocks.append(field("Goal", f"<p>{escape(thread.goal)}</p>"))
         if thread.focus:
             blocks.append(field("Focus", f"<p>{escape(thread.focus)}</p>"))
         if thread.next_steps:
             items = "".join(f"<li>{escape(step)}</li>" for step in thread.next_steps[:3])
-            blocks.append(field("Next", f"<ol>{items}</ol>"))
+            blocks.append(field("Next steps", f"<ol>{items}</ol>"))
         if thread.blocked_reason:
             blocks.append(field("Blocked", f"<p>{escape(thread.blocked_reason)}</p>"))
-        if thread.resume_step:
-            # Allow light markdown in resume for emphasis; still sanitized.
-            resume_html = render_markdown(thread.resume_step)
-            blocks.append(field("Resume", resume_html))
         if not any(
             [
                 thread.goal,

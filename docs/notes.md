@@ -2,13 +2,15 @@
 
 ![Notes & context reader](images/my-work-notes-hero.png)
 
-**Notes & context** is the reader for one thread’s saved continuity. Open it from **My work**: each thread has a **Read notes** button. On the list itself, a short **scan line** under the title (when Focus / Resume / Goal / Next is set) keeps the card scannable; the reader still holds the full continuity. The reader sits beside the thread list on a wide screen (**Dock right**). **Expand** uses the work area for reading; **Dock right** returns to the split layout. On a narrow screen the reader opens expanded. Close it with × or Escape.
+**Notes & context** is the reader for one thread’s saved continuity. Open it from **My work** by clicking a step’s row; the row stays tinted while its notes are open. On a wide screen the reader sits beside the list. **Expand** gives it the whole work area and pressing it again docks it beside the list. On a narrow screen it opens as a full sheet. Close it with × or Escape, and focus returns to the row you opened it from.
+
+The header shows the project, status, and where the step came from (for example *Demo website · Open · from Codex*), then the title. The foot of the reader holds **Focus on this** (**Return to focus** when it is already chosen; hidden for finished steps), **Mark done**, and a **⋯** menu with **Open issue #**, **Refresh from source issue**, **Copy link**, and, when AI is on, **Summarise notes with AI** and **Rewrite scan line**.
 
 The reader shows what is already stored. It does not edit Goal, Focus, Next, Blocked, or Resume. Use **Now** (**Pause and leave a note**) or your agent’s `upsert_progress` for that.
 
 ## Summarise (AI)
 
-When a thread’s notes are open, the reader toolbar offers **Focus on this** (same choose-thread behaviour as the My work card — hidden for finished threads; label becomes **Return to focus** when already chosen) beside **Summarise**. With AI enabled in **Settings → AI scan-lines** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
+When a thread’s notes are open and AI is on, the reader’s **⋯** menu offers **Summarise notes with AI**. With AI enabled in **Settings → AI scan-lines** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
 
 1. **Done**
 2. **Plan · Focus**
@@ -18,30 +20,23 @@ When a thread’s notes are open, the reader toolbar offers **Focus on this** (s
 
 The card is **persisted on the thread** with an **input hash** of continuity fields plus scrubbed note snippets, so reopen keeps the last card until regenerate. **Auto summarise notes** (Settings, default off) runs Summarise when you open Notes & Context if there is no card or the hash drifted; a matching hash shows the cached card with no AI call (`POST …/notes-summary` with `{"mode":"ensure"}`). **Regenerate** (press Summarise) always forces a new card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
 
-## Project overview
+## Where you left off
 
-The strip at the top stays visible:
+The continuity card at the top is always visible. It is built from the thread’s structured fields, in this order, and empty fields are left out:
 
-- Project title and slug.
-- How many threads in that project are still active (open or blocked, including this one).
-- **Updated** — this thread’s last Hub update, shown in the hub timezone (the same clock as other dashboard times).
-- A forge link when one exists: the linked issue, or the project repository when there is no issue URL.
+1. **Where you left off** — the resume step, in a tinted panel
+2. **Goal**
+3. **Focus**
+4. **Next steps** — at most three
+5. **Blocked** — only when something is waiting
 
-## This thread
+The title and status are in the reader header, so the card does not repeat them. If none of those fields are set, it says so and points you to **Pause and leave a note** on Now or an agent checkpoint. A persisted AI summary, when there is one, sits under this card.
 
-The continuity card under the strip is always visible. It is built from the thread’s structured fields, in this order, and empty fields are left out:
+The project overview strip (title, slug, active count, last update, forge link) is still part of the notes HTML and shows in Now’s project notes. The My work reader hides it because its header and menus already carry the same facts.
 
-1. **Goal**
-2. **Focus**
-3. **Next** — at most three steps
-4. **Blocked** — only when something is waiting
-5. **Resume**
+## Notes and history
 
-The card also shows the thread title and status. If none of those fields are set, it says so and points you to **Pause and leave a note** on Now or an agent checkpoint.
-
-## Thread notes
-
-**Thread notes** is the feed of notes saved on this thread. It opens when the feed is short or clearly written by a person, and stays closed when it is mostly ritual checkpoints. Open or close it without losing the feed.
+**Notes and history** is the feed of notes saved on this thread. It opens when the feed is short or clearly written by a person, and stays closed when it is mostly ritual checkpoints. Open or close it without losing the feed.
 
 Human notes are shown as Markdown and kept visually stronger. Ritual milestones — field-change lines and ceremony such as “Thread upserted from …” — are muted one-line summaries, with small chips for the fields that changed (Goal, Focus, Next, and so on). Consecutive checkpoints collapse into one closed line: **N checkpoints · last: …**. Expand that line to see each checkpoint.
 

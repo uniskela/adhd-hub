@@ -141,113 +141,148 @@
         </section>
       </section>
       <section id="work-view" class="view" aria-label="My work" hidden>
-        <div class="view-heading work-heading-row">
+        <section id="drift-banner" class="focus-bar" role="status" hidden></section>
+        <header class="view-heading work-header">
           <div class="work-heading-copy-wrap">
-            <p class="eyebrow">A place for everything</p>
             <h1>My work</h1>
-            <p class="work-heading-copy">Find your next step. The context is here when you need it.</p>
+            <p class="work-heading-copy">Everything you’ve started, with notes for picking it back up.</p>
           </div>
-          <button type="button" class="ghost" id="btn-new-reminder">Leave a reminder</button>
-        </div>
-        <section id="drift-banner" class="pending-banner drift-banner" hidden></section>
-        <section id="reminder-banner" class="pending-banner reminder-banner" hidden></section>
-        <section id="triage-banner" class="pending-banner triage-banner" hidden></section>
-        <section id="pending-banner" class="pending-banner" hidden></section>
-        <section id="import-banner" class="pending-banner import-banner" hidden></section>
+          <div class="work-header-tools">
+            <label class="search-field work-search" for="thread-search">
+              <span class="visually-hidden">Search your work</span>
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+              <input id="thread-search" type="search" placeholder="Search your work" autocomplete="off" />
+            </label>
+            <details class="overflow-menu new-menu" id="work-new-menu">
+              <summary class="menu-button" aria-label="New project or reminder"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></summary>
+              <div class="thread-utility-panel">
+                <div class="thread-utility-actions">
+                  <button type="button" id="btn-new-project">New project</button>
+                  <button type="button" id="btn-new-reminder">Leave a reminder</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </header>
+        <section id="needs-you" class="needs-you" aria-labelledby="needs-you-title" hidden>
+          <div class="needs-you-head">
+            <h2 id="needs-you-title"><span class="needs-dot" aria-hidden="true"></span><span id="needs-you-summary">Nothing needs you</span></h2>
+            <button type="button" class="link-button" id="btn-toggle-needs" aria-expanded="false" aria-controls="needs-you-body">Review</button>
+          </div>
+          <div id="needs-you-body" class="needs-you-body" hidden>
+            <div id="reminder-banner" class="need-group" hidden></div>
+            <div id="pending-banner" class="need-group" hidden></div>
+            <div id="import-banner" class="need-group" hidden></div>
+          </div>
+        </section>
         <div class="layout">
       <aside class="rail" id="projects-rail" aria-label="Projects">
         <div class="rail-head">
           <h2 id="projects-rail-title">Projects</h2>
           <div class="rail-head-actions">
-            <button type="button" class="ghost compact projects-drawer-close" id="btn-close-projects-drawer" aria-label="Close projects">Close</button>
-            <button type="button" class="ghost compact" id="btn-organise-projects" title="Suggest tags">Suggest tags</button>
-            <button type="button" class="primary compact" id="btn-new-project">New</button>
-            <details class="rail-mobile-actions">
-              <summary aria-label="More project list actions" title="More project list actions">•••</summary>
-              <div class="rail-mobile-actions-panel">
-                <button type="button" class="ghost compact" id="btn-organise-projects-mobile">Suggest tags</button>
+            <button type="button" class="icon-button" id="btn-toggle-project-filters" aria-label="Find or filter projects" title="Find or filter projects" aria-expanded="false" aria-controls="project-filters">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>
+            </button>
+            <details class="overflow-menu rail-menu" id="rail-menu">
+              <summary class="icon-button" aria-label="Project list actions" title="Project list actions"><svg class="ui-icon dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
+              <div class="thread-utility-panel">
+                <div class="thread-utility-actions">
+                  <button type="button" id="btn-organise-projects">Suggest tags</button>
+                  <button type="button" id="btn-new-project-rail">New project</button>
+                </div>
+                <p class="hint proj-dnd-hint">Drag the six-dot grip onto another project to nest it, or between rows to reorder. With a keyboard, focus the grip and press Up or Down.</p>
               </div>
             </details>
+            <button type="button" class="icon-button projects-drawer-close" id="btn-close-projects-drawer" aria-label="Close projects" title="Close">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
           </div>
         </div>
-        <button type="button" class="proj" data-slug="" id="proj-all">All projects</button>
-        <label class="project-search-label" for="project-search">Find a project</label>
-        <input id="project-search" type="search" placeholder="Search projects…" autocomplete="off" />
-        <p id="project-results" class="project-results" role="status"></p>
-        <label class="tag-filter-label" for="tag-filter">Tag filter</label>
-        <select id="tag-filter" aria-label="Filter projects by tag">
-          <option value="">All tags</option>
-        </select>
-        <p class="hint proj-dnd-hint">Drag the six-dot grip onto another project to nest it, or between rows to reorder. With a keyboard, focus the grip and press Up or Down.</p>
+        <div class="project-filters" id="project-filters" hidden>
+          <label class="search-field small" for="project-search">
+            <span class="visually-hidden">Find a project</span>
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+            <input id="project-search" type="search" placeholder="Find a project" autocomplete="off" />
+          </label>
+          <div id="tag-filter" class="tag-chips" role="group" aria-label="Filter projects by tag" hidden></div>
+          <p id="project-results" class="project-results" role="status"></p>
+        </div>
         <div class="rail-scroll">
+          <button type="button" class="proj" data-slug="" id="proj-all"><span class="proj-title-line"><span class="proj-title">All projects</span></span></button>
           <div id="project-list"></div>
           <details class="archived-projects" id="archived-projects-wrap" hidden>
-            <summary>Archived projects</summary>
+            <summary id="archived-projects-summary">Archived projects</summary>
             <div id="archived-project-list"></div>
           </details>
         </div>
       </aside>
       <div id="projects-drawer-backdrop" class="projects-drawer-backdrop" hidden></div>
-          <div class="work-content">
+          <section class="work-content threads-panel" aria-labelledby="work-title">
             <div class="work-heading">
               <div class="project-title-row">
-                <button type="button" class="ghost compact projects-drawer-open project-switcher" id="btn-open-projects-drawer" aria-controls="projects-rail" aria-expanded="false" aria-haspopup="dialog">
+                <button type="button" class="projects-drawer-open project-switcher" id="btn-open-projects-drawer" aria-controls="projects-rail" aria-expanded="false" aria-haspopup="dialog">
                   <span id="work-title-mobile">All projects</span>
                   <svg class="project-switcher-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <h2 id="work-title">All projects</h2>
-                <button type="button" class="edit-project-button" id="btn-edit-project" aria-label="Edit project" title="Edit project" hidden>
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 16.5V20h3.5L18.3 9.2l-3.5-3.5L4 16.5Zm16.7-9.7a1 1 0 0 0 0-1.4l-2.1-2.1a1 1 0 0 0-1.4 0l-1.6 1.6 3.5 3.5 1.6-1.6Z"/></svg>
+                <button type="button" class="icon-button edit-project-button" id="btn-edit-project" aria-label="Edit project" title="Edit project" hidden>
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h3.5L19 8.5 15.5 5 5 15.5V19Z"/><path d="m13.5 7 3.5 3.5"/></svg>
                 </button>
-                <a class="btn ghost compact" id="btn-open-project-repo" target="_blank" rel="noopener noreferrer" hidden>Open repo</a>
-                <button type="button" class="ghost compact" id="btn-rewrite-all-scan" hidden>Rewrite all scan lines</button>
-                <details class="project-mobile-actions" id="project-mobile-actions" hidden>
-                  <summary aria-label="Project actions" title="Project actions">•••</summary>
-                  <div class="project-mobile-actions-panel">
-                    <button type="button" class="ghost compact" id="btn-edit-project-mobile">Edit project</button>
-                    <a class="btn ghost compact" id="btn-open-project-repo-mobile" target="_blank" rel="noopener noreferrer" hidden>Open repo</a>
-                    <button type="button" class="ghost compact" id="btn-rewrite-all-scan-mobile" hidden>Rewrite all scan lines</button>
+                <a class="icon-button" id="btn-open-project-repo" aria-label="Open repository" title="Open repository" target="_blank" rel="noopener noreferrer" hidden>
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/></svg>
+                </a>
+                <details class="overflow-menu project-menu" id="project-menu" hidden>
+                  <summary class="icon-button" aria-label="More project actions" title="More project actions"><svg class="ui-icon dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
+                  <div class="thread-utility-panel">
+                    <div class="thread-utility-actions">
+                      <button type="button" id="btn-rewrite-all-scan" hidden>Rewrite all scan lines</button>
+                    </div>
                   </div>
                 </details>
               </div>
-              <div id="focus-links" class="focus-links"></div>
+              <div class="tabs segmented" role="group" aria-label="Show">
+                <button type="button" class="tab active" data-view="open" aria-pressed="true"><span>Open</span><span class="tab-count" data-tab-count="open" aria-hidden="true"></span></button>
+                <button type="button" class="tab" data-view="stale" aria-pressed="false"><span>Later</span><span class="tab-count" data-tab-count="stale" aria-hidden="true"></span></button>
+                <button type="button" class="tab" data-view="done" aria-pressed="false"><span>Finished</span><span class="tab-count" data-tab-count="done" aria-hidden="true"></span></button>
+              </div>
             </div>
-        <section class="threads-panel">
-          <div class="tabs" role="group" aria-label="Thread status">
-            <button type="button" class="tab active" data-view="open" aria-pressed="true"><span>Open</span><span class="tab-count" data-tab-count="open" aria-hidden="true"></span></button>
-            <button type="button" class="tab" data-view="stale" aria-pressed="false"><span>Later</span><span class="tab-count" data-tab-count="stale" aria-hidden="true"></span></button>
-            <button type="button" class="tab" data-view="done" aria-pressed="false"><span>Finished</span><span class="tab-count" data-tab-count="done" aria-hidden="true"></span></button>
-          </div>
-          <div class="thread-list-toolbar">
-            <p id="thread-count" class="hint" role="status"></p>
-            <button type="button" class="ghost compact thread-search-toggle" id="btn-toggle-thread-search" aria-expanded="false" aria-controls="thread-search-row">
-              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              <span>Search</span>
-            </button>
-          </div>
-          <div class="thread-search-row" id="thread-search-row">
-            <label for="thread-search" class="visually-hidden">Search loaded threads</label>
-            <input id="thread-search" type="search" placeholder="Search work, projects, or progress…" />
-          </div>
-          <div id="threads"></div>
-        </section>
-          </div>
+            <p id="thread-count" class="thread-count visually-hidden" role="status"></p>
+            <div id="threads" class="thread-card"></div>
+          </section>
           <aside id="notes-reader" class="notes-reader" aria-labelledby="notes-reader-title" hidden>
             <header class="notes-reader-header">
               <div class="notes-reader-heading">
-                <p class="eyebrow">Notes &amp; context</p>
-                <h2 id="notes-reader-title">Saved context</h2>
                 <p id="notes-reader-meta" class="notes-reader-meta"></p>
+                <h2 id="notes-reader-title">Saved context</h2>
               </div>
               <div class="notes-reader-actions" aria-label="Reader layout">
-                <button type="button" class="ghost compact" id="btn-notes-focus" hidden title="Focus on this thread">Focus on this</button>
-                <button type="button" class="ghost compact" id="btn-notes-summarise" hidden title="Summarise notes with AI">Summarise</button>
-                <button type="button" class="ghost compact" id="btn-notes-dock" aria-pressed="true" title="Dock reader on the right">Dock right</button>
-                <button type="button" class="ghost compact" id="btn-notes-expand" aria-pressed="false" title="Expand reader">Expand</button>
-                <button type="button" class="notes-reader-close" id="btn-notes-close" aria-label="Close notes reader" title="Close">×</button>
+                <button type="button" class="icon-button" id="btn-notes-expand" aria-pressed="false" aria-label="Expand notes" title="Expand notes">
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M10 19H5v-5M19 5l-6 6M5 19l6-6"/></svg>
+                </button>
+                <button type="button" class="icon-button notes-reader-close" id="btn-notes-close" aria-label="Close notes" title="Close">
+                  <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                </button>
               </div>
             </header>
+            <div id="notes-reader-source" class="notes-reader-source" role="status" hidden></div>
             <div id="notes-reader-body" class="notes-reader-body" tabindex="0" aria-live="polite"></div>
+            <footer class="notes-reader-footer">
+              <button type="button" class="primary" id="btn-notes-focus" hidden>Focus on this</button>
+              <button type="button" class="ghost" id="btn-notes-done" hidden>Mark done</button>
+              <details class="overflow-menu reader-menu" id="notes-reader-menu">
+                <summary class="icon-button" aria-label="More actions for this step" title="More actions"><svg class="ui-icon dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
+                <div class="thread-utility-panel">
+                  <p class="hint" id="notes-reader-source-name"></p>
+                  <div class="thread-utility-actions">
+                    <a class="btn" id="notes-open-issue" target="_blank" rel="noopener noreferrer" hidden>Open issue</a>
+                    <button type="button" id="btn-notes-refresh-source" hidden>Refresh from source issue</button>
+                    <button type="button" id="btn-notes-copy">Copy link</button>
+                    <button type="button" id="btn-notes-summarise" hidden>Summarise notes with AI</button>
+                    <button type="button" id="btn-notes-rewrite-scan" hidden>Rewrite scan line</button>
+                  </div>
+                </div>
+              </details>
+            </footer>
           </aside>
         </div>
       </section>

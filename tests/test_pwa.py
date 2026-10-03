@@ -53,11 +53,12 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert b'name="apple-mobile-web-app-capable"' in home.content
         assert b'id="notes-reader"' in home.content
         assert b'id="work-title-mobile"' in home.content
-        assert b'id="btn-toggle-thread-search"' in home.content
-        assert b'id="project-mobile-actions"' in home.content
-        assert b'id="btn-rewrite-all-scan-mobile"' in home.content
+        assert b'id="thread-search"' in home.content
+        assert b'id="project-menu"' in home.content
+        assert b'id="needs-you"' in home.content
         assert b'id="btn-notes-focus"' in home.content
-        assert b'id="btn-notes-dock"' in home.content
+        assert b'id="btn-notes-done"' in home.content
+        assert b'id="notes-reader-menu"' in home.content
         assert b'id="btn-notes-expand"' in home.content
         assert b'id="btn-notes-close"' in home.content
         assert b'data-theme-cycle' in home.content

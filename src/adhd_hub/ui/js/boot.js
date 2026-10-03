@@ -1,14 +1,14 @@
 import { state, preferences, $, setMsg, initRepoLinks } from './state.js';
 import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
-import { fillTimezoneSelect, positionOverflowMenu, wireOverflowMenu } from './dom.js';
+import { fillTimezoneSelect, positionOverflowMenu, toggleNeedsYou, wireMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, wireProjectsDrawer } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 import { registerPwaUpdates } from './pwa-update.js';
@@ -45,16 +45,22 @@ async function loadOpenClawSecureStatus() {
 
 $("proj-all").addEventListener("click", () => selectAllProjectsFromRail().catch((e) => setMsg(e.message)));
 $("project-search")?.addEventListener("input", onProjectSearchChange);
-$("tag-filter")?.addEventListener("change", () => onTagFilterChange());
+$("tag-filter")?.addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-tag]");
+  if (chip) onTagFilterChange(chip.dataset.tag);
+});
+$("btn-toggle-project-filters")?.addEventListener("click", () => toggleProjectFilters());
+$("project-search")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || $("project-search").value) return;
+  event.stopPropagation();
+  toggleProjectFilters(false);
+  $("btn-toggle-project-filters")?.focus();
+});
+$("btn-toggle-needs")?.addEventListener("click", toggleNeedsYou);
 $("btn-organise-projects")?.addEventListener("click", () =>
   openOrganiseDialog().catch((e) => setMsg(e.message))
 );
-$("btn-organise-projects-mobile")?.addEventListener("click", () => {
-  const menu = document.querySelector(".rail-mobile-actions");
-  if (menu) menu.open = false;
-  openOrganiseDialog().catch((e) => setMsg(e.message));
-});
-document.querySelectorAll(".rail-mobile-actions").forEach((menu) => wireOverflowMenu(menu));
+document.querySelectorAll("#work-view details.overflow-menu").forEach((menu) => wireMenu(menu));
 $("btn-organise-apply")?.addEventListener("click", () =>
   applyOrganiseSelection().catch((e) => setMsg(e.message))
 );
@@ -290,15 +296,7 @@ $("project-form").addEventListener("submit", (event) => {
 });
 $("btn-close-project").addEventListener("click", () => $("project-dialog").close());
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
-$("btn-edit-project-mobile")?.addEventListener("click", () => {
-  const menu = $("project-mobile-actions");
-  if (menu) menu.open = false;
-  openProjectDialog(state.detailCache);
-});
 $("btn-rewrite-all-scan")?.addEventListener("click", () =>
-  rewriteAllProjectScanLines().catch((e) => setMsg(String(e)))
-);
-$("btn-rewrite-all-scan-mobile")?.addEventListener("click", () =>
   rewriteAllProjectScanLines().catch((e) => setMsg(String(e)))
 );
 $("btn-rename-project").addEventListener("click", () => renameProject());
@@ -316,7 +314,7 @@ $("btn-new-reminder").addEventListener("click", openReminderDialog);
 $("btn-cancel-reminder").addEventListener("click", () => $("reminder-dialog").close());
 $("reminder-kind").addEventListener("change", toggleReminderDue);
 $("reminder-form").addEventListener("submit", (e) => saveReminder(e).catch((err) => setMsg(String(err))));
-$("btn-new-project").addEventListener("click", () => {
+function openNewProject() {
   const newProject = {
     title: "",
     slug: "",
@@ -332,24 +330,11 @@ $("btn-new-project").addEventListener("click", () => {
   setMsg("Creating a new project.");
   $("project-dialog").showModal();
   $("p_title").focus();
-});
+}
+$("btn-new-project").addEventListener("click", openNewProject);
+$("btn-new-project-rail")?.addEventListener("click", openNewProject);
 
 $("thread-search").addEventListener("input", () => renderThreads(state.threadsCache));
-$("btn-toggle-thread-search")?.addEventListener("click", () => {
-  const row = $("thread-search-row");
-  const button = $("btn-toggle-thread-search");
-  if (!row || row.classList.contains("is-large-list")) return;
-  const open = !row.classList.contains("is-open");
-  row.classList.toggle("is-open", open);
-  button?.setAttribute("aria-expanded", String(open));
-  if (open) $("thread-search").focus();
-});
-$("thread-search").addEventListener("keydown", (event) => {
-  if (event.key !== "Escape" || $("thread-search").value || $("thread-search-row")?.classList.contains("is-large-list")) return;
-  $("thread-search-row")?.classList.remove("is-open");
-  $("btn-toggle-thread-search")?.setAttribute("aria-expanded", "false");
-  $("btn-toggle-thread-search")?.focus();
-});
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((t) => {
@@ -378,9 +363,8 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
       state.tagFilter = null;
       state.currentView = "open";
       $("project-search").value = "";
+      toggleProjectFilters(false);
       $("thread-search").value = "";
-      $("thread-search-row")?.classList.remove("is-open");
-      $("btn-toggle-thread-search")?.setAttribute("aria-expanded", "false");
       document.querySelectorAll(".tab").forEach((tab) => {
         const active = tab.dataset.view === "open";
         tab.classList.toggle("active", active);
@@ -457,12 +441,12 @@ loadAuthStatus().then(() => tryAuth())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
 
 document.addEventListener("pointerdown", (event) => {
-  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open], .focus-menu[open]").forEach((panel) => {
+  document.querySelectorAll("details.overflow-menu[open], .focus-menu[open]").forEach((panel) => {
     if (!panel.contains(event.target)) panel.open = false;
   });
 });
 window.addEventListener("resize", () => {
-  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open], .focus-menu[open]").forEach((panel) => {
+  document.querySelectorAll("details.overflow-menu[open], .focus-menu[open]").forEach((panel) => {
     positionOverflowMenu(panel);
   });
 });

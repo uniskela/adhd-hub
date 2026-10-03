@@ -30,10 +30,10 @@ assert(
   "triage-actions do not shrink under long titles"
 );
 assert(
-  /\.triage-item,\s*\n\.thread-triage\s*\{[^}]*flex-wrap:\s*wrap/.test(css) ||
-    /\.triage-item,\s*\.thread-triage\s*\{[^}]*flex-wrap:\s*wrap/.test(css),
-  "Quiet strip and in-card triage share flex wrap row"
+  /\.triage-item\s*\{[^}]*flex-wrap:\s*wrap/.test(css),
+  "Still relevant rows wrap instead of squeezing the actions"
 );
+assert(!nowSrc.includes("triage-banner"), "Still relevant lives on Now only (no My work banner)");
 
 assert(nowSrc.includes('class="triage-copy"'), "Quiet check-in uses triage-copy");
 assert(
@@ -44,10 +44,6 @@ assert(nowSrc.includes("Is this still on your list?"), "Now-screen gentle check 
 assert(
   /\.check-actions\s*\{[^}]*flex:\s*0\s+0\s+auto/.test(css),
   "gentle check actions do not shrink under long step names"
-);
-assert(
-  /\.thread-triage\s*>\s*\.hint\s*\{[^}]*min-width:\s*0/.test(css),
-  "in-card triage hint shrinks via CSS (no work.js markup change)"
 );
 
 assert(sw.includes("adhd-hub-shell-v44"), "PWA shell cache bumped for triage CSS");

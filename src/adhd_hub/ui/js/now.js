@@ -1,10 +1,10 @@
 import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
-import { copyText, formatNotesTimes, formatRelative, formatWhen, wireOverflowMenu } from './dom.js';
+import { copyReference, copyText, formatNotesTimes, formatRelative, safeHttpUrl, syncNeedsYou, wireMenu, wireOverflowMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
-import { loadThreads, selectProject } from './work.js';
+import { SOURCE_SYNC_LABELS, loadThreads, openSourceRefresh, rewriteScanLine, selectProject, sourceNeedsAttention, threadSourceName } from './work.js';
 import { threadDisplayTitle } from './thread-title.mjs';
 
 export { threadDisplayTitle };
@@ -263,9 +263,80 @@ function setNotesMode(mode) {
     const expanded = mode === "expanded";
     layout.classList.toggle("notes-expanded", expanded);
     layout.classList.toggle("notes-docked", !expanded);
-    $("btn-notes-dock")?.setAttribute("aria-pressed", String(!expanded));
-    $("btn-notes-expand")?.setAttribute("aria-pressed", String(expanded));
+    const toggle = $("btn-notes-expand");
+    if (toggle) {
+      toggle.setAttribute("aria-pressed", String(expanded));
+      const label = expanded ? "Dock notes beside the list" : "Expand notes";
+      toggle.setAttribute("aria-label", label);
+      toggle.title = label;
+    }
     requestAnimationFrame(syncNotesReaderHeight);
+  }
+
+function aiHelpersOn() {
+    const cfg = state.aiConfigCache;
+    if (!cfg) return false;
+    if (cfg.active != null) return Boolean(cfg.active);
+    return Boolean(cfg.enabled && String(cfg.base_url || "").trim());
+  }
+
+/** The reader's footer and ⋯ menu are built from the step that opened it. */
+function fillReaderActions(thread) {
+    const id = thread?.id || null;
+    const done = thread?.status === "done";
+    const focusBtn = $("btn-notes-focus");
+    if (focusBtn) {
+      focusBtn.hidden = !id || done;
+      focusBtn.textContent = id && id === state.chosenId ? "Return to focus" : "Focus on this";
+    }
+    const doneBtn = $("btn-notes-done");
+    if (doneBtn) doneBtn.hidden = !id || done;
+    const menu = $("notes-reader-menu");
+    if (menu) {
+      menu.open = false;
+      menu.hidden = !id;
+      wireMenu(menu);
+    }
+    const sourceName = $("notes-reader-source-name");
+    if (sourceName) sourceName.textContent = thread ? `From ${threadSourceName(thread)}` : "";
+    const issue = $("notes-open-issue");
+    if (issue) {
+      const url = thread?.forge_issue_url ? safeHttpUrl(thread.forge_issue_url) : "";
+      issue.hidden = !url;
+      if (url) {
+        issue.href = url;
+        issue.textContent = `Open issue #${thread.forge_issue_number}`;
+      } else {
+        issue.removeAttribute("href");
+      }
+    }
+    const refresh = $("btn-notes-refresh-source");
+    if (refresh) refresh.hidden = !thread?.source_issue_url;
+    const ai = aiHelpersOn();
+    const summarise = $("btn-notes-summarise");
+    if (summarise) {
+      summarise.hidden = !id || !ai;
+      summarise.disabled = false;
+      summarise.textContent = "Summarise notes with AI";
+    }
+    const rewrite = $("btn-notes-rewrite-scan");
+    if (rewrite) rewrite.hidden = !id || !ai;
+    const notice = $("notes-reader-source");
+    if (notice) {
+      if (thread && sourceNeedsAttention(thread)) {
+        const when = thread.display_source_at || thread.source_imported_at;
+        const label = SOURCE_SYNC_LABELS[thread.source_sync_state];
+        notice.hidden = false;
+        notice.className = `notes-reader-source source-sync-${thread.source_sync_state}`;
+        notice.innerHTML = `<p><strong>${escapeHtml(label)}</strong>${when ? ` · ${escapeHtml(formatRelative(when))}` : ""}</p>${
+          thread.source_issue_url ? '<button type="button" class="link-button" data-reader-refresh-source>Review changes</button>' : ""
+        }`;
+        notice.querySelector("[data-reader-refresh-source]")?.addEventListener("click", () => openSourceRefresh(thread.id));
+      } else {
+        notice.hidden = true;
+        notice.innerHTML = "";
+      }
+    }
   }
 
 export function closeNotesReader({ restoreFocus = true } = {}) {
@@ -273,14 +344,7 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
     if (!reader || reader.hidden) return;
     ++notesRequest;
     notesThreadId = null;
-    const summariseBtn = $("btn-notes-summarise");
-    if (summariseBtn) {
-      summariseBtn.hidden = true;
-      summariseBtn.disabled = false;
-      summariseBtn.textContent = "Summarise";
-    }
-    const focusBtn = $("btn-notes-focus");
-    if (focusBtn) focusBtn.hidden = true;
+    fillReaderActions(null);
     reader.hidden = true;
     reader.closest(".layout")?.classList.remove("notes-docked", "notes-expanded");
     document.body.classList.remove("notes-reader-open");
@@ -289,17 +353,7 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
     );
     const restoreTarget = notesTrigger;
     notesTrigger = null;
-    if (restoreFocus && restoreTarget?.isConnected) {
-      // A trigger inside a step's Actions menu hands focus back to the menu button.
-      const menu = restoreTarget.closest("details");
-      const menuSummary = menu?.querySelector(":scope > summary");
-      if (menuSummary) {
-        menu.open = false;
-        menuSummary.focus();
-      } else {
-        restoreTarget.focus();
-      }
-    }
+    if (restoreFocus && restoreTarget?.isConnected) restoreTarget.focus();
   }
 
 function wireNotesActions(root) {
@@ -341,7 +395,7 @@ export async function summariseNotes({ mode = "force", quiet = false } = {}) {
     const toastKey = "notes-summarise";
     if (btn) {
       btn.disabled = true;
-      btn.textContent = mode === "ensure" ? "Checking…" : "Summarising…";
+      btn.textContent = mode === "ensure" ? "Checking notes…" : "Summarising…";
     }
     // Sticky keyed toast: AI calls can outlast the default info dismiss window.
     if (!quiet) {
@@ -390,9 +444,29 @@ export async function summariseNotes({ mode = "force", quiet = false } = {}) {
     } finally {
       if (btn && isCurrent()) {
         btn.disabled = false;
-        btn.textContent = "Summarise";
+        btn.textContent = "Summarise notes with AI";
       }
     }
+  }
+
+/**
+ * After the list re-renders (live refresh, tab counts), keep the reader on the
+ * same step when it is still listed; close it quietly when it is gone.
+ */
+export function reconcileNotesReader(root) {
+    const reader = $("notes-reader");
+    if (!reader || reader.hidden || !notesThreadId) return;
+    const row = [...root.querySelectorAll("button[data-notes]")].find((el) => el.dataset.notes === notesThreadId);
+    if (!row) {
+      closeNotesReader({ restoreFocus: false });
+      return;
+    }
+    const hadFocus = notesTrigger && document.activeElement === document.body;
+    notesTrigger = row;
+    row.setAttribute("aria-expanded", "true");
+    if (hadFocus) row.focus({ preventScroll: true });
+    const thread = (state.threadsCache || []).find((t) => t.id === notesThreadId);
+    if (thread && !reader.querySelector(".overflow-menu[open]")) fillReaderActions(thread);
   }
 
 async function openNotesReader(trigger) {
@@ -405,40 +479,31 @@ async function openNotesReader(trigger) {
     );
     notesTrigger = trigger;
     trigger.setAttribute("aria-expanded", "true");
-    const thread = trigger.closest(".thread");
     notesThreadId = trigger.dataset.notes || null;
-    const summariseBtn = $("btn-notes-summarise");
-    if (summariseBtn) {
-      summariseBtn.hidden = !notesThreadId;
-      summariseBtn.disabled = false;
-      summariseBtn.textContent = "Summarise";
-    }
-    const focusBtn = $("btn-notes-focus");
-    if (focusBtn) {
-      // Reuse the thread-card Focus control: same chooseThread path and labels.
-      const cardChoose = thread?.querySelector("button[data-choose]");
-      if (cardChoose && notesThreadId) {
-        focusBtn.hidden = false;
-        focusBtn.textContent = cardChoose.textContent || "Focus on this";
-      } else {
-        focusBtn.hidden = true;
-      }
-    }
-    $("notes-reader-title").textContent = thread?.querySelector("h3")?.textContent || "Saved context";
-    $("notes-reader-meta").textContent = [...(thread?.querySelectorAll(".thread-meta span") || [])]
-      .map((item) => item.textContent.trim())
-      .filter(Boolean)
-      .join(" · ");
+    const thread = (state.threadsCache || []).find((t) => t.id === notesThreadId) || null;
+    const status = thread
+      ? thread.id === state.chosenId ? "In focus" : thread.status === "done" ? "Finished" : state.currentView === "stale" ? "Later" : "Open"
+      : "";
+    $("notes-reader-title").textContent = thread?.summary || "Saved context";
+    $("notes-reader-meta").textContent = thread
+      ? [projectTitleForSlug(thread.project_slug), status, `from ${threadSourceName(thread)}`].join(" · ")
+      : "";
+    fillReaderActions(thread || (notesThreadId ? { id: notesThreadId } : null));
+    const wasOpen = !reader.hidden;
     reader.hidden = false;
     document.body.classList.add("notes-reader-open");
-    setNotesMode(matchMedia("(max-width: 1099px)").matches ? "expanded" : "docked");
+    // Keep an expanded reader expanded when moving between steps; phones always get the full sheet.
+    const keepExpanded = wasOpen && reader.closest(".layout")?.classList.contains("notes-expanded");
+    setNotesMode(keepExpanded || matchMedia("(max-width: 1099px)").matches ? "expanded" : "docked");
     body.textContent = "Loading notes…";
     try {
       const data = await api("/threads/" + encodeURIComponent(trigger.dataset.notes));
       if (request !== notesRequest) return;
       body.innerHTML = data.progress_html || "<p class=\"notes-empty-hint\">No saved notes yet.</p>";
       wireNotesActions(body);
-      body.focus({ preventScroll: true });
+      // Move focus into the notes only if the person has not already moved on (e.g. into the ⋯ menu).
+      const active = document.activeElement;
+      if (!active || active === document.body || active === trigger) body.focus({ preventScroll: true });
       if (
         notesThreadId
         && aiAutoSummariseNotesEnabled()
@@ -464,13 +529,30 @@ function wireNotesReaderControls() {
       closeNotesReader({ restoreFocus: false });
       chooseThread(id).catch((error) => setMsg(error.message));
     });
-    $("btn-notes-dock")?.addEventListener("click", () => setNotesMode("docked"));
-    $("btn-notes-expand")?.addEventListener("click", () => setNotesMode("expanded"));
+    $("btn-notes-done")?.addEventListener("click", () => {
+      const id = notesThreadId;
+      if (!id) return;
+      closeNotesReader({ restoreFocus: false });
+      markDone(id).catch((error) => setMsg(error.message));
+    });
+    $("btn-notes-copy")?.addEventListener("click", () => {
+      if (notesThreadId) copyReference(notesThreadId);
+    });
+    $("btn-notes-refresh-source")?.addEventListener("click", () => {
+      if (notesThreadId) openSourceRefresh(notesThreadId);
+    });
+    $("btn-notes-rewrite-scan")?.addEventListener("click", () => {
+      if (notesThreadId) rewriteScanLine(notesThreadId);
+    });
+    $("btn-notes-expand")?.addEventListener("click", () => {
+      const expanded = $("btn-notes-expand").getAttribute("aria-pressed") === "true";
+      setNotesMode(expanded ? "docked" : "expanded");
+    });
     $("btn-notes-close")?.addEventListener("click", () => closeNotesReader());
     window.addEventListener("resize", syncNotesReaderHeight);
     window.visualViewport?.addEventListener("resize", syncNotesReaderHeight);
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !reader.hidden) {
+      if (event.key === "Escape" && !reader.hidden && !document.querySelector("dialog[open]")) {
         event.preventDefault();
         closeNotesReader();
       }
@@ -801,25 +883,27 @@ export function renderReminders(due, all) {
       strip.hidden = true;
       strip.innerHTML = "";
       syncNowChecks();
+      syncNeedsYou();
       return;
     }
-    const items = dueList
-      .map((r) => {
-        const dueLabel = r.due_at ? formatWhen(r.due_at) : r.kind;
-        return `<div class="pending-item" data-reminder="${escapeHtml(r.id)}">
-          <div>
-            <div>${escapeHtml(r.message)}</div>
-            <div class="meta">${escapeHtml(String(r.kind))} · ${escapeHtml(dueLabel)}</div>
-          </div>
-          <div class="actions" style="margin:0">
-            <button type="button" class="ghost compact" data-snooze="${escapeHtml(r.id)}">Snooze 1h</button>
-            <button type="button" class="ghost compact" data-dismiss-reminder="${escapeHtml(r.id)}">Dismiss</button>
-          </div>
-        </div>`;
-      })
-      .join("");
+    const reminderMeta = (r) => {
+      const when = r.due_at ? formatRelative(r.due_at) : "";
+      const label = r.kind === "daily" ? "Daily reminder" : "Reminder";
+      return `${label}${when ? ` · due ${when}` : ""}`;
+    };
     banner.hidden = false;
-    banner.innerHTML = `<h2>Reminders</h2><p class="hint">Due now — gentle nudges, not alarms.</p>${items}`;
+    banner.innerHTML = dueList
+      .map((r) => `<div class="need" data-reminder="${escapeHtml(r.id)}">
+          <div class="need-copy">
+            <p class="need-title">${escapeHtml(r.message)}</p>
+            <p class="need-detail">${escapeHtml(reminderMeta(r))}</p>
+          </div>
+          <div class="need-actions">
+            <button type="button" class="ghost" data-snooze="${escapeHtml(r.id)}">Snooze 1 hour</button>
+            <button type="button" class="link-button" data-dismiss-reminder="${escapeHtml(r.id)}">Dismiss</button>
+          </div>
+        </div>`)
+      .join("");
     banner.querySelectorAll("[data-snooze]").forEach((btn) =>
       btn.addEventListener("click", () => snoozeReminder(btn.dataset.snooze))
     );
@@ -831,11 +915,9 @@ export function renderReminders(due, all) {
       strip.innerHTML = dueList
         .slice(0, 3)
         .map((r) => {
-          const when = r.due_at ? formatRelative(r.due_at) : "";
-          const label = r.kind === "daily" ? "Daily reminder" : "Reminder";
           return `<div class="check-item" data-reminder="${escapeHtml(r.id)}">
             ${CHECK_ICONS.reminder}
-            <div class="check-copy"><h3 class="check-title">${escapeHtml(r.message)}</h3><p class="check-meta">${escapeHtml(label)}${when ? ` · due ${escapeHtml(when)}` : ""}</p></div>
+            <div class="check-copy"><h3 class="check-title">${escapeHtml(r.message)}</h3><p class="check-meta">${escapeHtml(reminderMeta(r))}</p></div>
             <div class="check-actions">
               <button type="button" class="ghost" data-snooze="${escapeHtml(r.id)}">Snooze 1 hour</button>
               <button type="button" class="link-button" data-dismiss-reminder="${escapeHtml(r.id)}">Dismiss</button>
@@ -854,6 +936,7 @@ export function renderReminders(due, all) {
       strip.innerHTML = "";
     }
     syncNowChecks();
+    syncNeedsYou();
   }
 
 const CHECK_ICONS = {
@@ -869,74 +952,40 @@ function syncNowChecks() {
   }
 
 export function renderTriage(candidates) {
-    const banner = $("triage-banner");
     const strip = $("now-triage");
+    if (!strip) return;
     const items = (candidates || []).filter((t) => t && t.id && t.needs_triage !== false);
-    if (!items.length) {
-      if (banner) {
-        banner.hidden = true;
-        banner.innerHTML = "";
-      }
-      if (strip) {
-        strip.hidden = true;
-        strip.innerHTML = "";
-      }
+    if (!items.length || state.activeScreen !== "now") {
+      strip.hidden = true;
+      strip.innerHTML = "";
       syncNowChecks();
       return;
     }
-    const row = (t) => `
-      <div class="pending-item triage-item" data-triage="${escapeHtml(t.id)}">
-        <div class="triage-copy">
-          <div class="triage-title">${escapeHtml(t.summary || "Open step")}</div>
-          <div class="meta">Still relevant? Confirm or ask again later — never auto-dismissed.</div>
-        </div>
-        <div class="actions triage-actions" style="margin:0">
-          <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
-          <button type="button" class="ghost compact" data-triage-snooze="${escapeHtml(t.id)}">Ask in a week</button>
+    strip.hidden = false;
+    strip.innerHTML = items
+      .slice(0, 2)
+      .map((t) => {
+        const touched = formatRelative(t.display_updated_at || t.updated_at);
+        const meta = [threadDisplayTitle(t) || t.summary || "Open step", touched && `last touched ${touched}`]
+          .filter(Boolean)
+          .join(" · ");
+        return `<div class="check-item triage-item" data-triage="${escapeHtml(t.id)}">
+        ${CHECK_ICONS.triage}
+        <div class="triage-copy"><strong class="triage-title">Is this still on your list?</strong>
+        <p class="check-meta">${escapeHtml(meta)}</p></div>
+        <div class="check-actions triage-actions">
+          <button type="button" class="ghost" data-triage-confirm="${escapeHtml(t.id)}">Yes, keep it</button>
+          <button type="button" class="link-button" data-triage-snooze="${escapeHtml(t.id)}">Ask me next week</button>
         </div>
       </div>`;
-    if (banner) {
-      banner.hidden = false;
-      banner.innerHTML = `<h2>Quiet check-in</h2><p class="hint">Older open steps — soft only; nothing closes itself.</p>${items.map(row).join("")}`;
-      banner.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
-        btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
-      );
-      banner.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
-        btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
-      );
-    }
-    if (strip) {
-      if (state.activeScreen === "now") {
-        strip.hidden = false;
-        strip.innerHTML = items
-          .slice(0, 2)
-          .map((t) => {
-            const touched = formatRelative(t.display_updated_at || t.updated_at);
-            const meta = [threadDisplayTitle(t) || t.summary || "Open step", touched && `last touched ${touched}`]
-              .filter(Boolean)
-              .join(" · ");
-            return `<div class="check-item triage-item" data-triage="${escapeHtml(t.id)}">
-            ${CHECK_ICONS.triage}
-            <div class="triage-copy"><strong class="triage-title">Is this still on your list?</strong>
-            <p class="check-meta">${escapeHtml(meta)}</p></div>
-            <div class="check-actions triage-actions">
-              <button type="button" class="ghost" data-triage-confirm="${escapeHtml(t.id)}">Yes, keep it</button>
-              <button type="button" class="link-button" data-triage-snooze="${escapeHtml(t.id)}">Ask me next week</button>
-            </div>
-          </div>`;
-          })
-          .join("");
-        strip.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
-          btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
-        );
-        strip.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
-          btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
-        );
-      } else {
-        strip.hidden = true;
-        strip.innerHTML = "";
-      }
-    }
+      })
+      .join("");
+    strip.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
+      btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
+    );
+    strip.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
+      btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
+    );
     syncNowChecks();
   }
 
@@ -977,11 +1026,8 @@ export function renderDriftBanner() {
     }
     el.hidden = false;
     el.innerHTML = `
-      <div>
-        <strong>Still focusing on ${escapeHtml(threadDisplayTitle(state.chosenThread) || "this task")}</strong>
-        <p class="hint">My work is available — return to Now when you’re ready.</p>
-      </div>
-      <button type="button" class="primary compact" id="btn-return-focus">Back to Now</button>`;
+      <p><strong>Focus mode is on.</strong> You’re working on ${escapeHtml(threadDisplayTitle(state.chosenThread) || "this step")}.</p>
+      <button type="button" class="link-button" id="btn-return-focus">Back to Now</button>`;
     $("btn-return-focus").addEventListener("click", () => {
       showScreen("now");
       renderFocus();

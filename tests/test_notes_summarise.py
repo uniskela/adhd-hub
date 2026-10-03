@@ -260,7 +260,9 @@ def test_reader_html_includes_persisted_summary_without_api(tmp_path: Path) -> N
     assert "notes-summary-card" in html
     assert "Already summarised" in html
     assert "notes-continuity-card" in html
-    assert "Reopen" in html
+    # The reader header names the step; the card itself leads with its fields.
+    assert "Show card" in html
+    assert html.index("notes-continuity-card") < html.index("notes-summary-card")
 
 
 def test_notes_summary_ensure_skips_when_hash_matches(tmp_path: Path, monkeypatch) -> None:
