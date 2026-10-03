@@ -216,6 +216,38 @@ export function toggleNeedsYou() {
     syncNeedsYou();
   }
 
+/** Nested closeModal calls must restore the pre-lock pointer-events value once. */
+let _modalPointerLock = 0;
+let _modalPointerPrev = "";
+
+/**
+ * Close a modal <dialog> without letting the closing pointer event fall through
+ * to controls underneath (e.g. Now overview links that switch to Progress).
+ */
+export function closeModal(dialog, returnValue) {
+  if (!dialog) return;
+  const root = document.documentElement;
+  if (_modalPointerLock === 0) {
+    _modalPointerPrev = root.style.pointerEvents;
+    root.style.pointerEvents = "none";
+  }
+  _modalPointerLock += 1;
+  try {
+    if (returnValue !== undefined) dialog.close(returnValue);
+    else dialog.close();
+  } finally {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        _modalPointerLock = Math.max(0, _modalPointerLock - 1);
+        if (_modalPointerLock === 0) {
+          root.style.pointerEvents = _modalPointerPrev;
+          _modalPointerPrev = "";
+        }
+      });
+    });
+  }
+}
+
 export function confirmDialog({ title, body, extraHtml }) {
     return new Promise((resolve) => {
       $("confirm-title").textContent = title;

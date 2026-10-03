@@ -246,7 +246,10 @@ def test_every_dialog_has_a_title_row_with_a_close_button():
         assert 'class="eyebrow"' not in block
     boot = (UI / "js" / "boot.js").read_text()
     assert '.closest?.("[data-dialog-close]")' in boot
-    assert 'button.closest("dialog")?.close("cancel")' in boot
+    assert 'closeModal(button.closest("dialog"), "cancel")' in boot
+    dom = (UI / "js" / "dom.js").read_text()
+    assert "export function closeModal" in dom
+    assert "_modalPointerLock" in dom
 
 
 def test_confirm_dialog_forgets_the_last_answer():
@@ -279,6 +282,39 @@ def test_field_tips_are_visible_targets_that_keep_the_field_labelled():
     tip = css[css.index("button.field-tip,\n.field-tip {") :]
     tip = tip[: tip.index("}")]
     assert "width: 44px;" in tip and "height: 44px;" in tip
+
+
+def test_field_tip_panel_is_opaque_and_stacks_above_siblings():
+    """Open tips must not let later form fields paint through the panel."""
+    css = (UI / "app.css").read_text()
+    panel = css[css.index(".field-tip-panel {") :]
+    panel = panel[: panel.index("\n.field-tip.open .field-tip-panel")]
+    assert "background-color: var(--surface);" in panel
+    assert "opacity: 1;" in panel
+    assert "backdrop-filter: none;" in panel
+    assert ".field-tip.open { z-index: 40; }" in css
+
+
+def test_capture_save_does_not_click_through_to_progress():
+    """Saving a thought must not land on Progress via a dialog close click-through.
+
+    At mid widths the Save thought control sits over Now's "finished this week"
+    overview link (data-screen=progress).
+    """
+    dom = (UI / "js" / "dom.js").read_text()
+    now = (UI / "js" / "now.js").read_text()
+    boot = (UI / "js" / "boot.js").read_text()
+    html = (UI / "index.html").read_text()
+    assert "export function closeModal" in dom
+    assert "_modalPointerLock" in dom
+    start = now.index("export async function captureStep")
+    capture = now[start : start + 1800]
+    assert "closeModal($(\"capture-dialog\"))" in capture
+    assert "const screen = state.activeScreen" in capture
+    assert "showScreen(screen, { focusHeading: false })" in capture
+    assert "closeModal" in boot
+    assert 'data-screen="progress"' in html
+    assert 'id="now-done-count"' in html
 
 
 def test_toasts_have_a_full_size_close_and_a_kind_dot():
