@@ -246,7 +246,11 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert 'id="btn-rewrite-all-scan-mobile"' not in index
     assert "Rewrite all scan lines" in index
     work = (root / "src/adhd_hub/ui/js/work.js").read_text(encoding="utf-8")
-    assert "data-rewrite-scan" in work
+    # Single rewrite targets the reader's ⋯ menu button (rows have no actions).
+    assert "data-rewrite-scan" not in work
+    assert '$("btn-notes-rewrite-scan")' in work
+    assert 'id="btn-notes-rewrite-scan"' in index
+    assert "notes reader’s ⋯ menu" in index
     assert "Rewrite scan line" in work
     assert "rewriteAllProjectScanLines" in work
     assert "/projects/" in work and "scan-lines" in work

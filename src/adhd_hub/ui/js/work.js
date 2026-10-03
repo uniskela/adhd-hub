@@ -973,20 +973,19 @@ async function pumpAutoScanQueue() {
         state.threadsCache = state.threadsCache.map((t) =>
           t.id === updated.id ? { ...t, ...updated } : t
         );
-        // Soft refresh of scan line text without re-queuing (clear needs_ai).
-        const article = document.querySelector(
-          `.thread [data-rewrite-scan="${CSS.escape(threadId)}"]`
-        )?.closest(".thread");
-        const scan = article?.querySelector(".thread-scan");
-        if (scan && updated.scan_line) scan.textContent = updated.scan_line;
-        else if (article && updated.scan_line && !scan) {
-          const main = article.querySelector(".thread-main");
-          if (main) {
-            const p = document.createElement("p");
-            p.className = "thread-scan";
-            p.textContent = updated.scan_line;
-            main.appendChild(p);
+        // Soft refresh of the row's "Left off" line without re-rendering the
+        // list (keeps focus and scroll) or re-queuing (needs_ai is cleared).
+        const merged = state.threadsCache.find((t) => t.id === updated.id);
+        const row = document.querySelector(`#threads [data-notes="${CSS.escape(threadId)}"]`);
+        const leftOff = leftOffLine(merged);
+        if (row && leftOff) {
+          let scan = row.querySelector(".thread-scan");
+          if (!scan) {
+            scan = document.createElement("span");
+            scan.className = "thread-scan";
+            row.querySelector(".thread-title")?.after(scan);
           }
+          scan.textContent = `Left off: ${leftOff}`;
         }
       }
     } catch (_e) {
@@ -1308,7 +1307,9 @@ export async function rewriteScanLine(threadId) {
       setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
       return;
     }
-    const btn = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
+    // The single rewrite lives in the notes reader's ⋯ menu.
+    const btn = $("btn-notes-rewrite-scan");
+    if (btn?.disabled) return;
     if (btn) {
       btn.disabled = true;
       btn.textContent = "Rewriting…";
@@ -1329,10 +1330,9 @@ export async function rewriteScanLine(threadId) {
     } catch (e) {
       setMsg(e.message || "Could not rewrite scan line.");
     } finally {
-      const again = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
-      if (again) {
-        again.disabled = false;
-        again.textContent = "Rewrite scan line";
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Rewrite scan line";
       }
     }
   }
