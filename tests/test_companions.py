@@ -146,9 +146,13 @@ def test_install_refuses_without_agents() -> None:
         with_i_have_adhd=True,
         dry_run=True,
     )
-    assert len(steps) == 1
+    assert len(steps) == 2
+    assert steps[0].name == "companions install"
     assert steps[0].status == "warn"
     assert "No --agents" in steps[0].detail
+    assert steps[1].name == "install i-have-adhd"
+    assert steps[1].status == "warn"
+    assert "pass --agents" in steps[1].detail
 
 
 def test_install_dry_run_i_have_adhd_for_codex_claude() -> None:
@@ -268,15 +272,131 @@ def test_optional_iha_failure_is_warn_not_error(monkeypatch) -> None:
 
 
 def test_missing_rtk_is_warn_not_error() -> None:
+    from adhd_hub.companions import CompanionStep
+
     with (
         patch("adhd_hub.companions.detect_rtk", return_value=False),
-        patch("adhd_hub.companions._try_install_rtk_binary", return_value=None),
+        patch(
+            "adhd_hub.companions._try_install_rtk_binary",
+            return_value=CompanionStep("install rtk binary", "warn", "rtk not on PATH"),
+        ),
         patch("adhd_hub.companions.resolve_rtk_bin", return_value=None),
     ):
         steps = install_companions(["cursor", "codex"], with_rtk=True, dry_run=False)
     assert steps
     assert steps[0].name == "install rtk binary"
     assert steps[0].status == "warn"
+    assert not any(s.status == "error" for s in steps)
+
+
+def test_rtk_install_uses_install_sh_without_brew(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.setattr(
+        companions,
+        "_which",
+        lambda *names: "/usr/bin/curl" if "curl" in names else None,
+    )
+    monkeypatch.setattr(
+        companions,
+        "_run_rtk_install_sh",
+        lambda *, dry_run: (
+            "ok",
+            f"curl -fsSL {companions.RTK_INSTALL_SH_URL} | sh (exit 0)",
+        ),
+    )
+    step = companions._try_install_rtk_binary(dry_run=False)
+    assert step.status == "ok"
+    assert "install.sh" in step.detail
+
+    # Full connect path: after install.sh, binary is resolvable → init runs.
+    seen = {"install": False}
+
+    def detect() -> bool:
+        return seen["install"]
+
+    def try_install(*, dry_run: bool):
+        seen["install"] = True
+        return companions.CompanionStep(
+            "install rtk binary",
+            "ok",
+            f"curl -fsSL {companions.RTK_INSTALL_SH_URL} | sh (exit 0)",
+        )
+
+    monkeypatch.setattr(companions, "detect_rtk", detect)
+    monkeypatch.setattr(companions, "_try_install_rtk_binary", try_install)
+    monkeypatch.setattr(companions, "resolve_rtk_bin", lambda: "/home/x/.local/bin/rtk")
+    monkeypatch.setattr(
+        companions,
+        "_run",
+        lambda cmd, *, dry_run: ("ok", " ".join(cmd) + " (exit 0)"),
+    )
+    steps = companions.install_companions(["cursor"], with_rtk=True, dry_run=False)
+    assert any(s.name == "install rtk binary" and s.status == "ok" for s in steps)
+    assert any(s.name == "install rtk init" and s.status == "ok" for s in steps)
+
+
+def test_rtk_install_dry_run_prefers_install_sh_without_brew(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.setattr(companions, "detect_rtk", lambda: False)
+    monkeypatch.setattr(
+        companions,
+        "_which",
+        lambda *names: "/usr/bin/curl" if "curl" in names else (
+            "/bin/sh" if "sh" in names else None
+        ),
+    )
+    step = companions._try_install_rtk_binary(dry_run=True)
+    assert step.status == "ok"
+    assert "install.sh" in step.detail
+    assert "would run:" in step.detail
+
+
+def test_rtk_install_prefers_brew_when_present(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.setattr(
+        companions,
+        "_which",
+        lambda *names: "/opt/homebrew/bin/brew" if "brew" in names else None,
+    )
+    monkeypatch.setattr(
+        companions,
+        "_run",
+        lambda cmd, *, dry_run: ("ok", f"would run: {' '.join(cmd)}"),
+    )
+    step = companions._try_install_rtk_binary(dry_run=True)
+    assert step.status == "ok"
+    assert "brew install rtk" in step.detail
+
+
+def test_with_rtk_without_agents_still_installs_binary(monkeypatch) -> None:
+    """Regression: no --agents used to refuse before any RTK binary install."""
+    from adhd_hub import companions
+
+    installed = {"ok": False}
+
+    def detect() -> bool:
+        return installed["ok"]
+
+    def try_install(*, dry_run: bool):
+        installed["ok"] = True
+        return companions.CompanionStep(
+            "install rtk binary",
+            "ok",
+            f"curl -fsSL {companions.RTK_INSTALL_SH_URL} | sh (exit 0)",
+        )
+
+    monkeypatch.setattr(companions, "detect_rtk", detect)
+    monkeypatch.setattr(companions, "resolve_rtk_bin", lambda: "/home/x/.local/bin/rtk")
+    monkeypatch.setattr(companions, "_try_install_rtk_binary", try_install)
+    steps = companions.install_companions([], with_rtk=True, dry_run=False)
+    assert any(s.name == "companions install" and s.status == "warn" for s in steps)
+    assert any(s.name == "install rtk binary" and s.status == "ok" for s in steps)
+    assert any(
+        s.name == "install rtk init" and "pass --agents" in s.detail for s in steps
+    )
     assert not any(s.status == "error" for s in steps)
 
 
