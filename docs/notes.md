@@ -4,7 +4,7 @@
 
 **Notes & context** is the reader for one thread’s saved continuity. Open it from **My work**: each thread has a **Read notes** button. On the list itself, a short **scan line** under the title (when Focus / Resume / Goal / Next is set) keeps the card scannable; the reader still holds the full continuity. The reader sits beside the thread list on a wide screen (**Dock right**). **Expand** uses the work area for reading; **Dock right** returns to the split layout. On a narrow screen the reader opens expanded. Close it with × or Escape.
 
-The reader shows what is already stored. It does not edit Goal, Focus, Next, Blocked, or Resume. Use **Now** (**Pause here**, **Save continuity**) or your agent’s `upsert_progress` for that.
+The reader shows what is already stored. It does not edit Goal, Focus, Next, Blocked, or Resume. Use **Now** (**Pause and leave a note**) or your agent’s `upsert_progress` for that.
 
 ## Summarise (AI)
 
@@ -37,7 +37,7 @@ The continuity card under the strip is always visible. It is built from the thre
 4. **Blocked** — only when something is waiting
 5. **Resume**
 
-The card also shows the thread title and status. If none of those fields are set, it says so and points you to **Pause here** or **Save continuity** on Now.
+The card also shows the thread title and status. If none of those fields are set, it says so and points you to **Pause and leave a note** on Now or an agent checkpoint.
 
 ## Thread notes
 

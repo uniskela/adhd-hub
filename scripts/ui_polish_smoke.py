@@ -139,7 +139,7 @@ def main() -> None:
                     page.reload()
                     expect(page.locator("html")).to_have_attribute("data-theme", theme)
                     expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
-                        "content", "#14141c" if theme == "dark" else "#f7f7fa"
+                        "content", "#15171a" if theme == "dark" else "#f7f6f3"
                     )
                     for width, height, label in ((1440, 900, "desktop"), (768, 1024, "tablet"), (390, 844, "mobile")):
                         page.set_viewport_size({"width": width, "height": height})
@@ -159,7 +159,8 @@ def main() -> None:
                 assert page.locator("#project-list").evaluate(
                     "el => el.scrollWidth <= el.clientWidth + 1"
                 ), "Mobile project list must not require horizontal scrolling"
-                expect(page.locator("#project-list .proj-drag-handle:visible")).to_have_count(0)
+                # Drawer drag-and-drop keeps grips visible on phones (#209).
+                expect(page.locator("#project-list .proj-drag-handle:visible")).to_have_count(4)
                 expect(page.locator("#btn-organise-projects")).to_be_hidden()
                 page.locator(".rail-mobile-actions > summary").click()
                 expect(page.locator("#btn-organise-projects-mobile")).to_be_visible()
@@ -184,7 +185,7 @@ def main() -> None:
                 box = overflow_btn.bounding_box()
                 assert box and box["x"] + box["width"] <= 390 + 1, "Project ⋯ must stay on-screen with a long title"
                 page.locator("#project-mobile-actions > summary").click()
-                expect(page.locator("#btn-rewrite-all-scan-mobile")).to_be_visible()
+                expect(page.locator("#btn-rewrite-all-scan-mobile")).to_be_hidden()  # AI scan lines are off
                 expect(page.locator("#btn-edit-project-mobile")).to_be_visible()
                 page.locator("#project-mobile-actions > summary").click()
                 page.locator("#btn-toggle-thread-search").click()
@@ -209,14 +210,15 @@ def main() -> None:
                 expect(page.locator("#capture-dialog")).to_be_visible()
                 page.keyboard.press("Escape")
                 expect(page.locator("#capture-dialog")).to_be_hidden()
-                actions = page.locator("#next-card details.focus-options")
-                if actions.count():
+                actions = page.locator("#focus-menu")
+                if actions.is_visible():
                     expect(actions).not_to_have_attribute("open", "")
                     actions.locator("summary").focus()
                     page.keyboard.press("Enter")
-                    assert actions.evaluate("el => el.open"), "More actions disclosure did not open from keyboard"
-                    page.keyboard.press("Enter")
-                    assert not actions.evaluate("el => el.open"), "More actions disclosure did not close"
+                    assert actions.evaluate("el => el.open"), "More actions menu did not open from keyboard"
+                    page.keyboard.press("Escape")
+                    assert not actions.evaluate("el => el.open"), "More actions menu did not close on Escape"
+                    expect(actions.locator("summary")).to_be_focused()
                 open_screen("work")
                 page.locator("#project-search").fill("website")
                 expect(page.locator("#project-list .proj")).to_have_count(1)
@@ -237,7 +239,15 @@ def main() -> None:
                 open_screen("now")
                 expect(page.locator("#now-open-count")).to_have_text("5")
                 expect(page.locator("#now-done-count")).to_have_text("2")
+                if not page.locator("#focus-mode-row").is_visible():
+                    # The Focus mode switch belongs to a step you're working on.
+                    open_screen("work")
+                    page.locator("#threads [data-choose]").first.click()
+                    page.locator("#btn-start").click()
+                expect(page.locator("#btn-focus-mode")).to_have_attribute("aria-checked", "false")
                 page.locator("#btn-focus-mode").click()
+                expect(page.locator("#btn-focus-mode")).to_have_attribute("aria-checked", "true")
+                expect(page.locator("#btn-focus-mode")).to_be_focused()
                 expect(page.locator(".now-overview")).to_be_hidden()
                 page.locator("#btn-focus-mode").click()
                 expect(page.locator(".now-overview")).to_be_visible()
@@ -249,8 +259,8 @@ def main() -> None:
                 page.screenshot(path=str(screenshots / "organise-dark-desktop.png"), animations="disabled")
                 page.keyboard.press("Escape")
                 open_screen("settings")
-                page.locator('[data-accent="#176b60"]').click()
-                expect(page.locator('[data-accent="#176b60"]')).to_have_attribute("aria-pressed", "true")
+                page.locator('[data-accent="#4f46c8"]').click()
+                expect(page.locator('[data-accent="#4f46c8"]')).to_have_attribute("aria-pressed", "true")
                 page.locator("#accent-colour").fill("#ffff00")
                 expect(page.locator("#accent-value")).to_have_text("#FFFF00")
                 page.reload()

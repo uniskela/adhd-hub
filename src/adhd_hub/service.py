@@ -1518,7 +1518,8 @@ class HubService:
                 blocks.append(
                     '<p class="notes-empty-hint">'
                     "No Goal / Focus / Next / Resume on this thread yet. "
-                    "Use Pause here or Save continuity to add them."
+                    "Use Pause and leave a note on Now, or checkpoint from "
+                    "your agent, to add them."
                     "</p>"
                 )
         cls = "notes-continuity-card"

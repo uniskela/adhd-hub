@@ -85,6 +85,26 @@ export function formatWhen(iso, timeZone) {
       return String(iso).slice(0, 19);
     }
   }
+/** Calm relative label ("yesterday", "3 days ago"); falls back to formatWhen past a year. */
+export function formatRelative(iso, now = Date.now()) {
+    const d = parseHubInstant(iso);
+    if (!d) return "";
+    const seconds = Math.round((d.getTime() - now) / 1000);
+    const abs = Math.abs(seconds);
+    if (abs < 60) return "just now";
+    const units = [
+      ["minute", 60, 3600],
+      ["hour", 3600, 86400],
+      ["day", 86400, 86400 * 7],
+      ["week", 86400 * 7, 86400 * 30],
+      ["month", 86400 * 30, 86400 * 365],
+    ];
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    for (const [unit, size, limit] of units) {
+      if (abs < limit) return rtf.format(Math.round(seconds / size), unit);
+    }
+    return formatWhen(iso);
+  }
 /** Reformat injected Notes HTML <time datetime> labels using prefs / browser TZ. */
 export function formatNotesTimes(root) {
     if (!root) return;

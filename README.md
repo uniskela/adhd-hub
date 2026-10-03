@@ -18,7 +18,7 @@ My work with Notes & context (projects rail, docked reader, Summarise):
 | --- | --- | --- | --- |
 | ![Now](docs/images/now-desktop.png) | ![My work](docs/images/my-work-desktop.png) | ![Progress](docs/images/progress-desktop.png) | ![Settings](docs/images/settings-desktop.png) |
 
-Gallery shots use dummy demo data (including a soft Quiet check-in). More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
+Gallery shots use dummy demo data (Now shows a saved “Where you left off” step and a gentle “Is this still on your list?” check). More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
 
 ## Why
 

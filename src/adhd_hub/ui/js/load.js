@@ -14,12 +14,18 @@ export async function loadOverview() {
     }
     renderStats(state.overviewCache);
     const overview = state.overviewCache;
-    $("now-open-count").textContent = overview.open || 0;
+    const openCount = overview.open || 0;
+    const projectCount = (overview.projects || []).length;
+    $("now-open-count").textContent = openCount;
+    $("now-open-label").textContent = openCount === 1 ? "open step" : "open steps";
     $("now-done-count").textContent = overview.done_week || 0;
-    $("now-project-count").textContent = (overview.projects || []).length;
-    $("now-overview-caption").textContent = overview.blocked
-      ? `${overview.blocked} ${overview.blocked === 1 ? "step needs" : "steps need"} a nudge. Open My work when you’re ready.`
-      : "No need to do it all today. Focus mode keeps just your chosen step in view.";
+    $("now-project-count").textContent = projectCount;
+    $("now-project-label").textContent = projectCount === 1 ? "project" : "projects";
+    const caption = $("now-overview-caption");
+    caption.textContent = overview.blocked
+      ? `${overview.blocked} ${overview.blocked === 1 ? "step is" : "steps are"} blocked. Open My work when you’re ready.`
+      : "";
+    caption.hidden = !overview.blocked;
     renderProjects(state.overviewCache.projects || []);
     renderPending(state.overviewCache.pending_actions || []);
     renderReminders(state.overviewCache.due_reminders || [], state.overviewCache.reminders || []);

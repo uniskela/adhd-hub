@@ -184,8 +184,16 @@ def main() -> None:
                 page.get_by_role("button", name="Sign in", exact=True).click()
                 expect(page.locator("#now-view")).to_be_visible()
 
-                # Prefer light theme for public README (matches brand sheet).
-                page.evaluate("localStorage.setItem('adhd_hub_theme', 'light')")
+                # Prefer light theme for public README (matches brand sheet), and
+                # open Now on the seeded landing-page step so "Where you left off" shows.
+                page.evaluate(
+                    """(id) => {
+                      localStorage.setItem('adhd_hub_theme', 'light');
+                      localStorage.setItem('adhd_hub_chosen_thread', id);
+                      localStorage.setItem('adhd_hub_focus_state', 'paused');
+                    }""",
+                    first_thread_id,
+                )
                 page.reload()
                 expect(page.locator("html")).to_have_attribute("data-theme", "light")
 
@@ -199,8 +207,9 @@ def main() -> None:
 
                 # Now (with Quiet check-in when a seeded thread is stale)
                 expect(page.locator("#now-view")).to_be_visible()
+                expect(page.locator("#next-card .resume-step")).to_contain_text("Draft one clearer headline")
                 expect(page.locator("#now-triage")).to_be_visible()
-                expect(page.locator("#now-triage")).to_contain_text("Still relevant")
+                expect(page.locator("#now-triage")).to_contain_text("Is this still on your list?")
                 shot("now-desktop.png")
 
                 # My work with projects rail + thread cards

@@ -38,7 +38,12 @@ assert(
 assert(nowSrc.includes('class="triage-copy"'), "Quiet check-in uses triage-copy");
 assert(
   /<div class="triage-copy"><strong class="triage-title">/.test(nowSrc),
-  "Now-screen strip uses the triage title markup"
+  "Now-screen gentle check uses the triage title markup"
+);
+assert(nowSrc.includes("Is this still on your list?"), "Now-screen gentle check asks plainly");
+assert(
+  /\.check-actions\s*\{[^}]*flex:\s*0\s+0\s+auto/.test(css),
+  "gentle check actions do not shrink under long step names"
 );
 assert(
   /\.thread-triage\s*>\s*\.hint\s*\{[^}]*min-width:\s*0/.test(css),

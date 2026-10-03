@@ -1,10 +1,10 @@
 import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
-import { copyText, formatNotesTimes, formatWhen } from './dom.js';
+import { copyText, formatNotesTimes, formatRelative, wireOverflowMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
-import { loadThreads } from './work.js';
+import { loadThreads, selectProject } from './work.js';
 import { threadDisplayTitle } from './thread-title.mjs';
 
 export { threadDisplayTitle };
@@ -130,7 +130,7 @@ export function rememberFocus() {
   }
 export async function chooseThread(id) {
     const request = ++state.focusRequest;
-    setMsg("Loading your choice…");
+    setMsg("Loading your choice…", { key: "choose-thread" });
     try {
       const thread = await api("/threads/" + encodeURIComponent(id));
       if (request !== state.focusRequest) return;
@@ -146,9 +146,9 @@ export async function chooseThread(id) {
       rememberFocus();
       showScreen("now");
       renderFocus();
-      setMsg("");
       $("focus-title").focus();
     } catch (error) { setMsg("Could not choose this task: " + error.message); }
+    finally { setMsg("", { key: "choose-thread", dismiss: true }); }
   }
 export async function loadChosenThread() {
     const request = ++state.focusRequest;
@@ -205,13 +205,24 @@ export async function suggestThread() {
     } catch (error) { setMsg("Could not suggest a task: " + error.message); }
     finally { button.disabled = false; }
   }
+/** True while the inline "leave a note" form is showing on the focus card. */
+let pausing = false;
+
 export function openPause() {
     state.pauseTarget = state.chosenThread?.id;
     if (!state.pauseTarget) return;
-    $("pause-step").value = state.chosenThread.resume_step || "";
-    $("pause-task").textContent = threadDisplayTitle(state.chosenThread) || "This task";
-    $("pause-error").textContent = "";
-    $("pause-dialog").showModal();
+    pausing = true;
+    renderFocus();
+    const field = $("pause-step");
+    field.value = state.chosenThread.resume_step || "";
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  }
+export function cancelPause() {
+    if (!pausing) return;
+    pausing = false;
+    renderFocus();
+    $("btn-pause")?.focus();
   }
 export async function pauseHere(event) {
     event.preventDefault();
@@ -223,13 +234,14 @@ export async function pauseHere(event) {
       await api("/threads/" + encodeURIComponent(state.pauseTarget) + "/pause", {
         method: "POST", body: JSON.stringify({ next_step: step }),
       });
+      pausing = false;
       state.focusState = "paused";
       rememberFocus();
-      $("pause-dialog").close();
       await loadChosenThread();
+      $("btn-start")?.focus();
       setMsg("Next step saved. You can stop here.");
     } catch (error) { $("pause-error").textContent = error.message; }
-    finally { button.disabled = false; }
+    finally { if (button.isConnected) button.disabled = false; }
   }
 let notesTrigger = null;
 let notesRequest = 0;
@@ -509,62 +521,164 @@ export async function captureStep(event) {
       else setMsg("Thought saved; could not refresh your list.");
     } finally { button.disabled = false; }
   }
+const GREETINGS = [[5, "Good morning."], [12, "Good afternoon."], [18, "Good evening."]];
+
+/** Date line and time-of-day greeting above the focus card. */
+export function renderGreeting(now = new Date()) {
+    const dateEl = $("now-date");
+    const greetingEl = $("now-greeting");
+    if (!dateEl || !greetingEl) return;
+    try {
+      dateEl.textContent = new Intl.DateTimeFormat(undefined, {
+        timeZone: state.currentTz || undefined,
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }).format(now);
+    } catch (_) {
+      dateEl.textContent = now.toDateString();
+    }
+    let hour = now.getHours();
+    try {
+      hour = Number(new Intl.DateTimeFormat("en-GB", {
+        timeZone: state.currentTz || undefined, hour: "numeric", hourCycle: "h23",
+      }).format(now));
+    } catch (_) { /* browser clock */ }
+    let text = "Hello.";
+    for (const [from, label] of GREETINGS) if (hour >= from) text = label;
+    if (hour < 5) text = "Hello.";
+    greetingEl.textContent = text;
+  }
+
+function focusStageLabel() {
+    if (pausing) return "Leave a note for later";
+    if (state.focusState === "working") return "You’re on it";
+    if (state.focusState === "paused") return "Welcome back";
+    return "Your next step";
+  }
+
+function wireFocusMenu() {
+    const menu = $("focus-menu");
+    if (!menu || menu.dataset.wired) return;
+    menu.dataset.wired = "true";
+    wireOverflowMenu(menu);
+    const run = (fn) => () => {
+      menu.open = false;
+      Promise.resolve(fn()).catch((error) => setMsg(error.message));
+    };
+    $("btn-choose-another").addEventListener("click", run(() => openWork()));
+    $("btn-open-in-work").addEventListener("click", run(async () => {
+      const slug = state.chosenThread?.project_slug || null;
+      showScreen("work");
+      renderDriftBanner();
+      await selectProject(slug);
+    }));
+    $("btn-copy-agent-prompt").addEventListener("click", run(() => copyCodingAgentPrompt(state.chosenThread)));
+    $("btn-menu-done").addEventListener("click", run(() => state.chosenThread && markDone(state.chosenThread.id)));
+    menu.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && menu.open) {
+        event.preventDefault();
+        event.stopPropagation();
+        menu.open = false;
+        menu.querySelector("summary").focus();
+      }
+    });
+  }
+
 export function renderFocus() {
     const card = $("next-card");
     const thread = state.chosenThread;
+    const menu = $("focus-menu");
+    const meta = $("focus-meta");
     $("focus-title").setAttribute("tabindex", "-1");
-    updateFocusModeUi();
+    renderGreeting();
+    wireFocusMenu();
     if (!thread) {
-      $("focus-eyebrow").textContent = "Your choice";
+      pausing = false;
+      menu.open = false;
+      menu.hidden = true;
+      meta.hidden = true;
+      meta.textContent = "";
+      $("focus-eyebrow").textContent = "Nothing chosen yet";
       $("focus-title").textContent = "What would you like to work on?";
       card.className = "next-card empty";
       card.innerHTML = `<p>${escapeHtml(state.nowMessage || "Choose one task. Everything else can wait.")}</p><div class="next-actions"><button type="button" class="primary" id="btn-choose-work">Choose a task</button><button type="button" class="ghost" id="btn-suggest">Help me choose</button>${state.chosenId ? '<button type="button" class="ghost" id="btn-retry-focus">Retry saved task</button>' : ""}</div><div id="suggestion" aria-live="polite"></div>`;
       $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
       $("btn-suggest").addEventListener("click", suggestThread);
       $("btn-retry-focus")?.addEventListener("click", loadChosenThread);
+      updateFocusModeUi();
       return;
     }
-    const returning = state.focusState === "paused" && !!thread.resume_step;
-    $("focus-eyebrow").textContent = `${
-      state.focusState === "working"
-        ? "Working on"
-        : returning
-          ? "Where you left off"
-          : state.focusState === "paused"
-            ? "Saved for your return"
-            : "Your choice"
-    } · ${projectTitleForSlug(thread.project_slug)}`;
+    if (state.pauseTarget && state.pauseTarget !== thread.id) pausing = false;
+    // Live refreshes re-render the card; keep a half-written note and its caret.
+    const draftField = pausing ? $("pause-step") : null;
+    const draft = draftField ? { value: draftField.value, focused: document.activeElement === draftField, at: draftField.selectionStart } : null;
+    const working = state.focusState === "working";
+    $("focus-eyebrow").textContent = focusStageLabel();
     $("focus-title").textContent = threadDisplayTitle(thread) || "Untitled step";
+    const touched = formatRelative(thread.display_updated_at || thread.updated_at);
+    meta.textContent = [projectTitleForSlug(thread.project_slug), touched && `last touched ${touched}`]
+      .filter(Boolean)
+      .join(" · ");
+    meta.hidden = false;
+    menu.hidden = false;
+    // Done lives in the card while working; otherwise it waits in More actions.
+    $("btn-menu-done").hidden = working && !pausing;
     card.className = "next-card has-item";
     const resumeBlock = thread.resume_step
-      ? `<div class="resume-step${returning ? " resume-step-prominent" : ""}"><p class="eyebrow">${returning ? "Pick up here" : "Next tiny step"}</p><div class="markdown-body">${thread.resume_step_html}</div>${returning ? '<p class="hint welcome-back">Welcome back. One small step is enough.</p>' : ""}</div>`
-      : '<p class="start-cue">Start with the smallest part. You can leave a next step whenever you stop.</p>';
+      ? `<div class="resume-step"><p class="resume-label">Where you left off</p><div class="markdown-body">${thread.resume_step_html}</div></div>`
+      : '<p class="start-cue">Start with the smallest part. You can leave a note for later whenever you stop.</p>';
+    let actions;
+    if (pausing) {
+      actions = `<form id="pause-form" class="pause-form">
+        <label for="pause-step">What’s the next tiny step?</label>
+        <textarea id="pause-step" placeholder="Open the draft and write the first sentence" maxlength="2000" required></textarea>
+        <p id="pause-error" class="msg error" role="alert"></p>
+        <div class="next-actions"><button type="submit" class="primary">Save and pause</button><button type="button" class="ghost" id="btn-cancel-pause">Keep working</button></div>
+      </form>`;
+    } else if (working) {
+      actions = `<div class="next-actions">
+        <button type="button" class="primary" data-done="${escapeHtml(thread.id)}">Mark step done</button>
+        <button type="button" class="ghost" id="btn-pause">Pause and leave a note</button>
+      </div>`;
+    } else {
+      actions = `<div class="next-actions">
+        <button type="button" class="primary" id="btn-start">${state.focusState === "paused" ? "Resume" : "Start this step"}</button>
+        <button type="button" class="ghost" id="btn-choose-work">Choose something else</button>
+      </div>`;
+    }
     card.innerHTML = `
       ${resumeBlock}
-      ${state.focusState === "working" ? `<p class="work-state" role="status">${state.focusModeOn ? "Focus mode is on — stay with this project when you can." : "This is your focus. No timer, no rush."}</p>` : ""}
-      <div class="next-actions">
-        <button type="button" class="primary" id="btn-start">${state.focusState === "working" ? "Pause here" : returning || state.focusState === "paused" ? "Resume" : "Start"}</button>
-        <button type="button" class="ghost" data-done="${escapeHtml(thread.id)}">Done</button>
-      </div>
-      <details class="focus-options"><summary>More actions</summary><div class="actions">
-        <button type="button" class="ghost" id="btn-choose-work">Choose another</button>
-        <button type="button" class="ghost" id="btn-copy-agent-prompt" title="Copy as prompt for Coding Agent to begin work">Copy agent prompt</button>
-      </div></details>
-      <details class="progress-details"><summary>Project notes</summary><p class="hint">Saved project notes</p><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Use Pause here to leave a next step.</p>"}</div></details>`;
-    $("btn-start").addEventListener("click", () => {
-      if (state.focusState === "working") { openPause(); return; }
+      ${actions}
+      <details class="progress-details"><summary>Project notes</summary><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Pause and leave a note to add one.</p>"}</div></details>`;
+    $("btn-start")?.addEventListener("click", () => {
       state.focusState = "working";
       rememberFocus();
       if (state.focusModeOn) startFocusSession();
       renderFocus();
-      $("btn-start").focus();
+      $("btn-pause")?.focus();
     });
-    $("btn-choose-work").addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
-    card.querySelector("[data-done]").addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
-    $("btn-copy-agent-prompt")?.addEventListener("click", () => {
-      copyCodingAgentPrompt(thread).catch((error) => setMsg(error.message));
-    });
+    $("btn-pause")?.addEventListener("click", openPause);
+    $("btn-choose-work")?.addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
+    card.querySelector("[data-done]")?.addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
+    const pauseForm = $("pause-form");
+    if (pauseForm && draft) {
+      const field = $("pause-step");
+      field.value = draft.value;
+      if (draft.focused) {
+        field.focus();
+        field.setSelectionRange(draft.at, draft.at);
+      }
+    }
+    if (pauseForm) {
+      pauseForm.addEventListener("submit", pauseHere);
+      $("btn-cancel-pause").addEventListener("click", cancelPause);
+      pauseForm.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") { event.preventDefault(); cancelPause(); }
+      });
+    }
     wireNotesActions(card);
+    updateFocusModeUi();
   }
 export async function markDone(id) {
     if (completing.has(id)) return;
@@ -686,6 +800,7 @@ export function renderReminders(due, all) {
       banner.innerHTML = "";
       strip.hidden = true;
       strip.innerHTML = "";
+      syncNowChecks();
       return;
     }
     const items = dueList
@@ -713,14 +828,44 @@ export function renderReminders(due, all) {
     );
     if (state.activeScreen === "now") {
       strip.hidden = false;
-      strip.innerHTML = `<p class="eyebrow">Reminders</p>${dueList
+      strip.innerHTML = dueList
         .slice(0, 3)
-        .map((r) => `<p>${escapeHtml(r.message)}</p>`)
-        .join("")}`;
+        .map((r) => {
+          const when = r.due_at ? formatRelative(r.due_at) : "";
+          const label = r.kind === "daily" ? "Daily reminder" : "Reminder";
+          return `<div class="check-item" data-reminder="${escapeHtml(r.id)}">
+            ${CHECK_ICONS.reminder}
+            <div class="check-copy"><h3 class="check-title">${escapeHtml(r.message)}</h3><p class="check-meta">${escapeHtml(label)}${when ? ` · due ${escapeHtml(when)}` : ""}</p></div>
+            <div class="check-actions">
+              <button type="button" class="ghost" data-snooze="${escapeHtml(r.id)}">Snooze 1 hour</button>
+              <button type="button" class="link-button" data-dismiss-reminder="${escapeHtml(r.id)}">Dismiss</button>
+            </div>
+          </div>`;
+        })
+        .join("");
+      strip.querySelectorAll("[data-snooze]").forEach((btn) =>
+        btn.addEventListener("click", () => snoozeReminder(btn.dataset.snooze))
+      );
+      strip.querySelectorAll("[data-dismiss-reminder]").forEach((btn) =>
+        btn.addEventListener("click", () => dismissReminder(btn.dataset.dismissReminder))
+      );
     } else {
       strip.hidden = true;
       strip.innerHTML = "";
     }
+    syncNowChecks();
+  }
+
+const CHECK_ICONS = {
+  reminder: '<svg class="check-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
+  triage: '<svg class="check-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>',
+};
+
+/** Gentle checks wrapper shows only while a reminder or still-relevant row is visible. */
+function syncNowChecks() {
+    const wrap = $("now-checks");
+    if (!wrap) return;
+    wrap.hidden = $("now-reminders").hidden && $("now-triage").hidden;
   }
 
 export function renderTriage(candidates) {
@@ -736,6 +881,7 @@ export function renderTriage(candidates) {
         strip.hidden = true;
         strip.innerHTML = "";
       }
+      syncNowChecks();
       return;
     }
     const row = (t) => `
@@ -762,19 +908,24 @@ export function renderTriage(candidates) {
     if (strip) {
       if (state.activeScreen === "now") {
         strip.hidden = false;
-        strip.innerHTML = `<p class="eyebrow">Still relevant?</p>${items
+        strip.innerHTML = items
           .slice(0, 2)
-          .map(
-            (t) => `<div class="triage-item">
-            <div class="triage-copy"><strong class="triage-title">${escapeHtml(t.summary || "Open step")}</strong>
-            <p class="hint">A calm check — confirm or snooze. Nothing dismisses itself.</p></div>
-            <div class="actions triage-actions">
-              <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
-              <button type="button" class="ghost compact" data-triage-snooze="${escapeHtml(t.id)}">Ask in a week</button>
+          .map((t) => {
+            const touched = formatRelative(t.display_updated_at || t.updated_at);
+            const meta = [threadDisplayTitle(t) || t.summary || "Open step", touched && `last touched ${touched}`]
+              .filter(Boolean)
+              .join(" · ");
+            return `<div class="check-item triage-item" data-triage="${escapeHtml(t.id)}">
+            ${CHECK_ICONS.triage}
+            <div class="triage-copy"><strong class="triage-title">Is this still on your list?</strong>
+            <p class="check-meta">${escapeHtml(meta)}</p></div>
+            <div class="check-actions triage-actions">
+              <button type="button" class="ghost" data-triage-confirm="${escapeHtml(t.id)}">Yes, keep it</button>
+              <button type="button" class="link-button" data-triage-snooze="${escapeHtml(t.id)}">Ask me next week</button>
             </div>
-          </div>`
-          )
-          .join("")}`;
+          </div>`;
+          })
+          .join("");
         strip.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
           btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
         );
@@ -786,6 +937,7 @@ export function renderTriage(candidates) {
         strip.innerHTML = "";
       }
     }
+    syncNowChecks();
   }
 
 export async function confirmThreadTriage(id) {
@@ -905,6 +1057,11 @@ export async function saveReminder(event) {
   }
 export function startFocusSession() {
     const minutes = Number($("focus-minutes").value || 25);
+    if (!minutes) {
+      // "No timer": focus mode stays on without a countdown.
+      clearFocusSession();
+      return;
+    }
     state.focusEndsAt = Date.now() + minutes * 60 * 1000;
     preferences.setItem("adhd_hub_focus_ends_at", String(state.focusEndsAt));
     if (state.focusTimerId) {
@@ -933,7 +1090,7 @@ export function tickFocusSession() {
     const remaining = state.focusEndsAt - Date.now();
     if (remaining <= 0) {
       el.hidden = false;
-      el.textContent = "Session complete. Pause here or keep going gently.";
+      el.textContent = "Session complete. Pause and leave a note, or keep going gently.";
       if (state.focusTimerId) {
         clearInterval(state.focusTimerId);
         state.focusTimerId = null;
@@ -958,9 +1115,13 @@ export function tickFocusSession() {
 export function updateFocusModeUi() {
     document.body.classList.toggle("focus-mode", state.focusModeOn);
     const btn = $("btn-focus-mode");
-    btn.setAttribute("aria-pressed", String(state.focusModeOn));
-    btn.textContent = state.focusModeOn ? "Exit focus" : "Focus mode";
+    btn.setAttribute("aria-checked", String(state.focusModeOn));
     $("focus-timer-wrap").hidden = !state.focusModeOn;
+    // The switch belongs to working on a step; it stays reachable while focus mode is on.
+    $("focus-mode-row").hidden = !(state.focusModeOn || (state.chosenThread && state.focusState === "working" && !pausing));
+    $("focus-mode-hint").textContent = state.focusModeOn
+      ? "My work will remind you to come back here."
+      : "No timer, no rush.";
     if (state.focusModeOn) tickFocusSession();
     else clearFocusSession();
     renderDriftBanner();
@@ -971,7 +1132,7 @@ export function toggleFocusMode() {
     if (state.focusModeOn) {
       if (state.focusState === "working") startFocusSession();
       else clearFocusSession();
-      showScreen("now");
+      showScreen("now", { focusHeading: false });
     } else {
       clearFocusSession();
     }
