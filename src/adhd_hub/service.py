@@ -2604,6 +2604,15 @@ class HubService:
             manual_values=manual_values,
         )
 
+    def ignore_thread_source(self, thread_id: str) -> Thread:
+        """Stop flagging a source issue the user chose to set aside; Hub fields stay as they are."""
+        thread = self.store.get_thread(thread_id)
+        if not thread:
+            raise KeyError("thread_not_found")
+        if not thread.source_issue_url:
+            raise ValueError("thread_has_no_forge_source")
+        return self.store.set_forge_source_state(thread.id, "ignored")
+
     def _run_forge_job(self, job: ForgeJob) -> dict:
         kind = job.kind
         payload = job.payload or {}

@@ -46,6 +46,6 @@ assert(
   "gentle check actions do not shrink under long step names"
 );
 
-assert(sw.includes("adhd-hub-shell-v48"), "PWA shell cache bumped for triage CSS");
+assert(sw.includes("adhd-hub-shell-v49"), "PWA shell cache bumped for triage CSS");
 
 console.log("triage_layout_smoke: ok");

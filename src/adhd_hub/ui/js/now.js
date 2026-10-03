@@ -551,6 +551,15 @@ function wireNotesReaderControls() {
     $("btn-notes-close")?.addEventListener("click", () => closeNotesReader());
     window.addEventListener("resize", syncNotesReaderHeight);
     window.visualViewport?.addEventListener("resize", syncNotesReaderHeight);
+    // The docked reader is sticky, so let it grow to the full window height as the list scrolls.
+    let readerHeightFrame = 0;
+    window.addEventListener("scroll", () => {
+      if (readerHeightFrame || reader.hidden) return;
+      readerHeightFrame = requestAnimationFrame(() => {
+        readerHeightFrame = 0;
+        syncNotesReaderHeight();
+      });
+    }, { passive: true });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !reader.hidden && !document.querySelector("dialog[open]")) {
         event.preventDefault();

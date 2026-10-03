@@ -241,6 +241,31 @@ def test_closed_source_manual_refresh_and_unavailable_source_are_non_destructive
     assert service.store.get_thread(thread_id).focus == "Review closed source"
 
 
+def test_ignoring_an_unavailable_source_clears_the_warning_without_touching_hub_fields(tmp_path) -> None:
+    service = _service(tmp_path)
+    first = _import(service, _issue(body=INITIAL))
+    thread_id = first["imported"][0]["thread_id"]
+    response = httpx.Response(404, request=httpx.Request("GET", "https://git.example/issue/7"))
+    with patch.object(BoardForgeSync, "get_issue", side_effect=httpx.HTTPStatusError("missing", request=response.request, response=response)):
+        service.refresh_thread_from_source(thread_id, preview_only=True)
+    before = service.store.get_thread(thread_id)
+    assert before.source_sync_state == "unavailable"
+
+    ignored = service.ignore_thread_source(thread_id)
+    assert ignored.source_sync_state == "ignored"
+    assert ignored.source_conflicts == {}
+    assert ignored.source_issue_url == before.source_issue_url
+    assert ignored.focus == before.focus
+
+    plain_id = service.store.upsert_thread(ThreadUpsert(summary="No source here")).id
+    try:
+        service.ignore_thread_source(plain_id)
+    except ValueError as exc:
+        assert str(exc) == "thread_has_no_forge_source"
+    else:
+        raise AssertionError("threads without a source cannot be ignored")
+
+
 def test_additive_migration_only_enables_threads_with_stable_identity(tmp_path) -> None:
     service = _service(tmp_path)
     imported = service.store.upsert_thread(
