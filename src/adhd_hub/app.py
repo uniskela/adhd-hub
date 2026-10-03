@@ -247,6 +247,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with_context7=prefs.companion_enabled("context7"),
             with_agent_browser=prefs.companion_enabled("agent-browser"),
             with_serena=prefs.companion_enabled("serena"),
+            with_ponytail=prefs.companion_enabled("ponytail"),
+            with_humanizer=prefs.companion_enabled("humanizer"),
         )
         return PlainTextResponse(script, media_type="text/x-shellscript")
 
@@ -265,6 +267,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with_context7=prefs.companion_enabled("context7"),
             with_agent_browser=prefs.companion_enabled("agent-browser"),
             with_serena=prefs.companion_enabled("serena"),
+            with_ponytail=prefs.companion_enabled("ponytail"),
+            with_humanizer=prefs.companion_enabled("humanizer"),
         )
         return PlainTextResponse(script, media_type="text/plain")
 

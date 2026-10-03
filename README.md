@@ -109,7 +109,7 @@ npx skills add ./skills -g
 
 Or use `adhd-hub connect … --agents cursor --cursor-rule --skills` — see [docs/connect.md](docs/connect.md).
 
-**Optional coding companions** (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Agents & install** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
+**Optional third-party companions** (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Agents & install** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
 
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 

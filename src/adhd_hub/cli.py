@@ -280,6 +280,8 @@ def cmd_connect(args: argparse.Namespace) -> int:
         with_context7=args.with_context7,
         with_agent_browser=args.with_agent_browser,
         with_serena=args.with_serena,
+        with_ponytail=args.with_ponytail,
+        with_humanizer=args.with_humanizer,
     )
     print_report(report, verbose=args.verbose)
     return 0 if report.ok else 1
@@ -640,6 +642,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--with-serena",
         action="store_true",
         help="Opt-in: install Serena and merge MCP for selected --agents",
+    )
+    connect.add_argument(
+        "--with-ponytail",
+        action="store_true",
+        help=(
+            "Opt-in: install Ponytail for selected --agents "
+            "(upstream plugins / Cursor hooks / Gemini extension)"
+        ),
+    )
+    connect.add_argument(
+        "--with-humanizer",
+        action="store_true",
+        help=(
+            "Opt-in: install blader/humanizer skill for selected --agents "
+            "(on-demand prose rewrite; not auto-applied)"
+        ),
     )
     connect.set_defaults(func=cmd_connect)
 

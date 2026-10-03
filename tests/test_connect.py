@@ -925,7 +925,11 @@ def test_render_install_sh_supports_flags() -> None:
     assert "--with-context7)" in script
     assert "--with-agent-browser)" in script
     assert "--with-serena)" in script
+    assert "--with-ponytail)" in script
+    assert "--with-humanizer)" in script
     assert "ADHD_HUB_CONNECT_WITH_GRAPHIFY" in script
+    assert "ADHD_HUB_CONNECT_WITH_PONYTAIL" in script
+    assert "ADHD_HUB_CONNECT_WITH_HUMANIZER" in script
 
 
 def test_render_install_ps1_supports_flags() -> None:
@@ -978,6 +982,8 @@ def test_render_install_bakes_companion_defaults() -> None:
         with_rtk=False,
         with_context7=True,
         with_serena=True,
+        with_ponytail=True,
+        with_humanizer=False,
     )
     assert "WITH_I_HAVE_ADHD=1" in sh
     assert "WITH_GRAPHIFY=1" in sh
@@ -985,18 +991,25 @@ def test_render_install_bakes_companion_defaults() -> None:
     assert "WITH_CONTEXT7=1" in sh
     assert "WITH_SERENA=1" in sh
     assert "WITH_SUPERPOWERS=0" in sh
+    assert "WITH_PONYTAIL=1" in sh
+    assert "WITH_HUMANIZER=0" in sh
     assert "--with-context7" in sh
+    assert "--with-ponytail" in sh
     ps1 = render_install_ps1(
         "http://example:8787",
         with_rtk=True,
         with_graphify=False,
         with_agent_browser=True,
         with_superpowers=True,
+        with_humanizer=True,
     )
     assert "if (-not $WithRtk -and $true)" in ps1
     assert "if (-not $WithGraphify -and $false)" in ps1
     assert "if (-not $WithAgentBrowser -and $true)" in ps1
     assert "if (-not $WithSuperpowers -and $true)" in ps1
+    assert "if (-not $WithHumanizer -and $true)" in ps1
+    assert "[switch]$WithPonytail" in ps1
+    assert "[switch]$WithHumanizer" in ps1
     assert "--with-agent-browser" in ps1
 
 
