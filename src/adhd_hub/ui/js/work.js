@@ -1101,11 +1101,19 @@ function sourceValue(value) {
     return value == null ? "—" : String(value);
   }
 
+let sourceRefreshRequest = 0;
+
 export async function openSourceRefresh(threadId) {
     const dialog = $("source-refresh-dialog");
     const body = $("source-refresh-body");
     const apply = $("btn-apply-source-refresh");
     const ignore = $("btn-ignore-source-refresh");
+    // A late answer for a dialog that was closed (or reopened for another step) must not touch it.
+    const request = ++sourceRefreshRequest;
+    const stale = () => request !== sourceRefreshRequest;
+    dialog.addEventListener("close", () => {
+      if (!stale()) sourceRefreshRequest += 1;
+    }, { once: true });
     body.textContent = "Checking the linked issue…";
     apply.hidden = false;
     apply.disabled = true;
@@ -1113,6 +1121,7 @@ export async function openSourceRefresh(threadId) {
     dialog.showModal();
     // A source that can't be reached can be set aside so it stops asking for a look.
     const offerIgnore = (message) => {
+      if (stale()) return;
       body.innerHTML = `<p>${escapeHtml(message)} No Hub data was changed.</p>
         <p class="hint">Ignore it to clear the warning. You can still refresh from the ⋯ menu later.</p>`;
       apply.hidden = true;
@@ -1122,13 +1131,14 @@ export async function openSourceRefresh(threadId) {
         ignore.disabled = true;
         try {
           await api(`/threads/${encodeURIComponent(threadId)}/source-refresh/ignore`, { method: "POST" });
-          dialog.close();
-          setMsg("Source ignored. Your Hub notes are unchanged.");
-          await loadAll();
         } catch (error) {
           setMsg(`Could not ignore the source: ${error.message}`, { variant: "error" });
           ignore.disabled = false;
+          return;
         }
+        dialog.close();
+        setMsg("Source ignored. Your Hub notes are unchanged.");
+        loadAll().catch((error) => setMsg(`Could not refresh your work: ${error.message}`, { variant: "error" }));
       };
     };
     let preview;
@@ -1142,6 +1152,7 @@ export async function openSourceRefresh(threadId) {
       offerIgnore("The source issue is unavailable, deleted, or this connection cannot access it.");
       return;
     }
+    if (stale()) return;
     const changes = Object.entries(preview.changes || {});
     const conflicts = Object.entries(preview.conflicts || {});
     const rows = [];
