@@ -29,7 +29,7 @@ export function tipHtml(text, { id } = {}) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-  return `<button type="button" class="field-tip" aria-expanded="false" aria-controls="${tipId}" aria-label="More info">?<span id="${tipId}" class="field-tip-panel" role="tooltip" hidden>${safe}</span></button>`;
+  return `<button type="button" class="field-tip" aria-expanded="false" aria-controls="${tipId}" aria-label="More info"><span class="field-tip-mark" aria-hidden="true">?</span><span id="${tipId}" class="field-tip-panel" role="tooltip" hidden>${safe}</span></button>`;
 }
 
 let _tipsDocBound = false;
@@ -56,9 +56,21 @@ function ensureTipsDocumentClose() {
   });
 }
 
+let _fieldSeq = 0;
+
+/** A tip button inside a <label> would become the labelled control, so point the label at its field. */
+function keepLabelOnField(tip) {
+  const label = tip.closest("label");
+  const control = label?.querySelector("input, select, textarea");
+  if (!label || !control || label.htmlFor) return;
+  if (!control.id) control.id = `field-${++_fieldSeq}`;
+  label.htmlFor = control.id;
+}
+
 function bindFieldTipButton(tip) {
   if (!tip || tip.dataset.tipBound === "1") return;
   tip.dataset.tipBound = "1";
+  keepLabelOnField(tip);
   tip.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -92,7 +104,11 @@ export function attachTip(labelEl, text) {
   panel.hidden = true;
   panel.textContent = text;
   tip.setAttribute("aria-controls", panel.id);
-  tip.appendChild(panel);
+  const mark = document.createElement("span");
+  mark.className = "field-tip-mark";
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = "?";
+  tip.append(mark, panel);
   const control = labelEl.querySelector("input, select, textarea");
   if (control) labelEl.insertBefore(tip, control);
   else labelEl.appendChild(tip);

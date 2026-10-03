@@ -47,6 +47,11 @@ Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, 
 - **Secondary:** white (dark: card) fill with a soft control border. Use for alternatives such as Choose another, Copy text, or Settings.
 - **Destructive:** berry/rose with an explicit action label and confirmation where data will be lost.
 - **Close:** a visible 44 × 44 px × button with an accessible label.
+- **Dialogs:** one pattern everywhere. An 18 px-radius card (480 px, wider only for project settings and the share preview) with a title row (22 px title, optional muted subtitle, Close at the top right), labelled fields stacked one per row with 6 px between label and field, and actions with the main one first and a quiet Cancel beside it. Escape and Close always cancel. Rare fields fold under **More options**; destructive actions sit on their own row under a hairline.
+- **Sign in:** one centred 400 px column: the logo, "Welcome back", a one-line subtitle, a card that holds only the field, Sign in and the method switch, then **Need help signing in?** folded underneath.
+- **Toasts:** a white card with a small dot for the kind (teal info, green success, amber warning, berry error), an optional action button, and a 44 px dismiss button. Errors get a faint berry tint.
+- **Folds:** every `<details>` summary shows the same small chevron, pointing down when closed and up when open.
+- **Field tips:** a 20 px “?” circle inside a 44 px target beside the label; the panel opens on click and closes on Escape or a click elsewhere.
 - **Settings rows:** label and one-line hint on the left, the control on the right, separated by a hairline inside a 14 px card. On/off choices are switches (a real checkbox with `role="switch"` over a 48 px track, 60 × 44 px target); theme is one segmented control; accent colours are 44 px swatches. Rarely used fields fold under **Advanced**. Settings save as they change unless the section holds keys or tokens, which keeps one Save button at its foot.
 - **Focus:** 3 px accent outline with space around it. Never remove keyboard focus styling.
 - **Motion:** brief colour transitions only; honour reduced-motion preferences. No animated XP counters, confetti, audio, or pulsing reminders.

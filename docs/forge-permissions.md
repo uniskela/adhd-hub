@@ -36,7 +36,7 @@ Changing a project’s forge connection does **not** migrate threads already pin
 
 1. Add a connection profile → paste token → **Save issue sync**  
 2. Leave import policy on **Manual** until you want discovery; then pick a policy and Save again  
-3. On each project: pick the connection → set owner + **repo name** (or let Repository URL prefill) → Save project → **Sync forge**
+3. On each project: open **More options**, pick the issue sync connection → set owner + **repository name** (or let Repository prefill them) → Save project → **Sync now**
 
 See also [Forge issue inbox](forge-issue-inbox.md) for the ADHD inbox policy.
 

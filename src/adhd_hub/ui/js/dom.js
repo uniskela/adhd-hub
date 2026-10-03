@@ -242,6 +242,8 @@ export function confirmDialog({ title, body, extraHtml }) {
         });
       };
       dlg.addEventListener("close", onClose);
+      // Escape keeps the old returnValue, so clear it or a past "yes" would count again.
+      dlg.returnValue = "";
       dlg.showModal();
     });
   }
