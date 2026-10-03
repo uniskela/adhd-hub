@@ -72,6 +72,6 @@ My work has project search (name, slug, or tag) combined with the tag filter, pl
 
 Thread **Actions** opens a compact panel without expanding the row. Only one panel stays open, Escape closes it and returns focus, and tabbing away closes it. When space below the trigger is short (especially above the mobile bottom nav), the panel opens upward so it stays fully reachable. **Focus on this** remains directly available; on phones **Read notes** moves into Actions to reduce repeated controls. Scan lines are clamped for compact phone scanning, while source conflicts stay visible. AI scan-line rewriting and source refresh remain in Actions.
 
-Light uses porcelain surfaces and indigo controls; dark uses charcoal surfaces and periwinkle controls. Theme cycling and AI Test / Load Models settings remain available.
+Light uses warm paper surfaces and teal controls; dark uses charcoal surfaces and mint controls. Text is set in the bundled Figtree font. Theme cycling and AI Test / Load Models settings remain available.
 
-Appearance also offers named accent presets and a custom colour picker. The selection saves in this browser; Default restores the two built-in palettes. Custom shades adapt to maintain readable text and selected states in light and dark mode. Status and warning colours keep their semantic roles.
+Appearance also offers named accent presets (Indigo keeps the previous look) and a custom colour picker. The selection saves in this browser; Default restores the two built-in palettes. Custom shades adapt to maintain readable text and selected states in light and dark mode. Status and warning colours keep their semantic roles.

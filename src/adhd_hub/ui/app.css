@@ -1285,12 +1285,10 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
 #main-content { padding: 2.5rem var(--shell-pad) 4rem; min-width: 0; }
 .mobile-nav { display: none; }
 
-/* Focus remains obvious without turning page headings into giant boxes. */
+/* Headings take focus programmatically on view change; they are not controls, so no ring. */
 .view-heading h1[tabindex="-1"]:focus,
 .settings-header h1[tabindex="-1"]:focus {
   outline: 0;
-  box-shadow: inset 3px 0 0 var(--accent);
-  padding-left: .75rem;
 }
 
 /* Now is intentionally narrow and centred. */

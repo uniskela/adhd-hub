@@ -277,7 +277,17 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
     );
     const restoreTarget = notesTrigger;
     notesTrigger = null;
-    if (restoreFocus && restoreTarget?.isConnected) restoreTarget.focus();
+    if (restoreFocus && restoreTarget?.isConnected) {
+      // A trigger inside a step's Actions menu hands focus back to the menu button.
+      const menu = restoreTarget.closest("details");
+      const menuSummary = menu?.querySelector(":scope > summary");
+      if (menuSummary) {
+        menu.open = false;
+        menuSummary.focus();
+      } else {
+        restoreTarget.focus();
+      }
+    }
   }
 
 function wireNotesActions(root) {
