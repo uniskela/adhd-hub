@@ -37,7 +37,7 @@ Gold `#EFC978` is a small accent, not body text on white. Use colour with labels
 
 ## Type, spacing, and buttons
 
-Use Figtree, bundled with the app as a variable woff2 under the SIL Open Font License (see `ATTRIBUTION.md`), so it works offline with no font download; the system sans-serif stack is the fallback. Body: 16 px / 1.55. Headings: weight 700, slight negative tracking, 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. Labels and eyebrows use sentence case; avoid all-caps text.
+Use Figtree, bundled with the app as a variable woff2 under the SIL Open Font License (see `ATTRIBUTION.md`), so it works offline with no font download; the system sans-serif stack is the fallback. Body: 16 px / 1.55. Headings: weight 700, slight negative tracking, 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Nothing is smaller than 12 px. Keep long notes near 65 characters per line. Labels and eyebrows use sentence case; avoid all-caps text.
 
 Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 14 px corners; controls use 10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
 
@@ -48,7 +48,7 @@ Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, 
 - **Focus:** 3 px accent outline with space around it. Never remove keyboard focus styling.
 - **Motion:** brief colour transitions only; honour reduced-motion preferences. No animated XP counters, confetti, audio, or pulsing reminders.
 
-Controls target at least 44 px height. Settings tabs support Left/Right, Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Desktop and tablet use a left sidebar with the navigation, Save a thought and sync status; phones use a top bar with bottom tabs. Page changes do not animate; colour transitions honour reduced-motion preferences.
+Controls target at least 44 px height on phones and touch screens. The installed app uses `viewport-fit=cover` and safe-area padding, so the top bar and bottom tabs stay clear of the notch and home indicator. Settings tabs support Left/Right, Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Desktop and tablet use a left sidebar with the navigation, Save a thought and sync status; phones use a top bar with bottom tabs. Page changes do not animate; colour transitions honour reduced-motion preferences.
 
 ## Voice and attention
 
