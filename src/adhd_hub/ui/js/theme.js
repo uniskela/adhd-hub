@@ -59,7 +59,7 @@ export function applyTheme(selection = getThemePreference()) {
     ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
     : selection;
   document.documentElement.dataset.theme = resolved;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#14141c" : "#f7f7fa");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#15171a" : "#f7f6f3");
   syncThemeToggles(selection);
   applyAccent();
 }

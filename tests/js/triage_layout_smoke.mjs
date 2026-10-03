@@ -45,6 +45,6 @@ assert(
   "in-card triage hint shrinks via CSS (no work.js markup change)"
 );
 
-assert(sw.includes("adhd-hub-shell-v43"), "PWA shell cache bumped for triage CSS");
+assert(sw.includes("adhd-hub-shell-v44"), "PWA shell cache bumped for triage CSS");
 
 console.log("triage_layout_smoke: ok");

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ADHD Progress Hub</title>
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f7f7fa" />
+  <meta name="theme-color" content="#f7f6f3" />
   <meta name="application-name" content="Progress Hub" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -64,11 +64,11 @@
         <button type="button" data-screen="now" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span>Now</span></button>
         <button type="button" data-screen="work"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="15" rx="2"/><path d="M8 6V3h8v3M3 11h18"/></svg><span>My work</span></button>
         <button type="button" data-screen="progress"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10m8 10V4m8 16v-7"/></svg><span>Progress</span></button>
+        <button type="button" id="btn-settings"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Settings</span></button>
       </nav>
       <div class="app-header-actions">
+        <button type="button" class="ghost" id="btn-capture" aria-haspopup="dialog"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Save a thought</span></button>
         <span id="live-connection" class="live-connection" data-state="offline" hidden title="">Offline</span>
-        <button type="button" class="primary" id="btn-capture" aria-haspopup="dialog"><span aria-hidden="true">+</span> Save a thought</button>
-        <button type="button" class="ghost" id="btn-settings">Settings</button>
         <button
           type="button"
           id="appearance-menu"
@@ -88,10 +88,10 @@
       <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
       <p id="msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
       <section id="now-view" class="view now-view" aria-label="Now">
-        <div class="view-heading"><p class="eyebrow">YOUR WORKSPACE, AT A GLANCE</p><h1>A little clarity for today.</h1><p>See where things stand, then choose one small step.</p></div>
+        <div class="view-heading"><p class="eyebrow">Your workspace at a glance</p><h1>A little clarity for today.</h1><p>See where things stand, then choose one small step.</p></div>
         <section class="focus" id="focus-panel" aria-labelledby="focus-title">
           <div class="focus-toolbar">
-            <p class="eyebrow" id="focus-eyebrow">YOUR CHOICE</p>
+            <p class="eyebrow" id="focus-eyebrow">Your choice</p>
             <div class="focus-toolbar-actions">
               <label class="focus-timer-label" for="focus-minutes" hidden id="focus-timer-wrap">
                 <span class="visually-hidden">Focus minutes</span>
@@ -109,7 +109,7 @@
           <div id="next-card" class="next-card empty"></div>
         </section>
         <section class="now-overview" aria-labelledby="overview-title">
-          <div class="overview-heading"><div><p class="eyebrow">A QUICK LOOK</p><h2 id="overview-title">Your workspace</h2></div><button type="button" class="ghost compact" data-screen="work">Open My work</button></div>
+          <div class="overview-heading"><div><p class="eyebrow">A quick look</p><h2 id="overview-title">Your workspace</h2></div><button type="button" class="ghost compact" data-screen="work">Open My work</button></div>
           <div class="overview-links">
             <button type="button" class="overview-link" data-screen="work"><strong id="now-open-count">0</strong><span>Open steps</span></button>
             <button type="button" class="overview-link" data-screen="progress"><strong id="now-done-count">0</strong><span>Finished this week</span></button>
@@ -123,7 +123,7 @@
       <section id="work-view" class="view" aria-label="My work" hidden>
         <div class="view-heading work-heading-row">
           <div class="work-heading-copy-wrap">
-            <p class="eyebrow">A PLACE FOR EVERYTHING</p>
+            <p class="eyebrow">A place for everything</p>
             <h1>My work</h1>
             <p class="work-heading-copy">Find your next step. The context is here when you need it.</p>
           </div>
@@ -232,7 +232,7 @@
         </div>
       </section>
       <section id="progress-view" class="view progress-view" aria-label="Progress" hidden>
-        <div class="view-heading"><p class="eyebrow">LOOK HOW FAR YOU’VE COME</p><h1>Progress, at your pace.</h1><p>Your finished work stays here when you take a break.</p></div>
+        <div class="view-heading"><p class="eyebrow">Look how far you’ve come</p><h1>Progress, at your pace.</h1><p>Your finished work stays here when you take a break.</p></div>
         <details class="progress-numbers" id="activity-section" open><summary>Show my activity</summary><div class="stats" id="stats"></div>
           <details class="activity-details" open><summary>Your last 14 days</summary><div class="chart-wrap" id="chart-wrap" hidden>
             <p id="chart-summary" class="chart-summary visually-hidden"></p>
@@ -242,7 +242,7 @@
           </div></details>        </details>
         <section id="rewards-panel" class="milestones" aria-labelledby="rewards-title" hidden>
           <div class="rank-hero">
-            <div class="rank-copy"><p class="eyebrow">YOUR JOURNEY</p><h2 id="rank-name">Seedling</h2>
+            <div class="rank-copy"><p class="eyebrow">Your journey</p><h2 id="rank-name">Seedling</h2>
               <p id="reward-level" class="rank-level"></p><p id="rank-next" class="hint"></p>
               <progress id="rank-progress" aria-label="Progress to next rank" max="5" value="0"></progress>
             </div>
@@ -305,7 +305,7 @@
                   <p class="hint" id="accent-hint">Choose a colour for buttons and highlights. We adjust its shade to stay readable in each theme.</p>
                   <div class="accent-presets" role="group" aria-label="Accent presets">
                     <button type="button" class="ghost compact" data-accent="" aria-pressed="true">Default</button>
-                    <button type="button" class="ghost compact" data-accent="#176b60" aria-pressed="false"><span class="accent-dot accent-teal" aria-hidden="true"></span>Teal</button>
+                    <button type="button" class="ghost compact" data-accent="#4f46c8" aria-pressed="false"><span class="accent-dot accent-indigo" aria-hidden="true"></span>Indigo</button>
                     <button type="button" class="ghost compact" data-accent="#2563eb" aria-pressed="false"><span class="accent-dot accent-blue" aria-hidden="true"></span>Blue</button>
                     <button type="button" class="ghost compact" data-accent="#be185d" aria-pressed="false"><span class="accent-dot accent-rose" aria-hidden="true"></span>Rose</button>
                     <button type="button" class="ghost compact" data-accent="#b45309" aria-pressed="false"><span class="accent-dot accent-amber" aria-hidden="true"></span>Amber</button>
@@ -666,7 +666,7 @@
 
   <dialog id="password-dialog" aria-labelledby="password-title">
     <form id="password-form" class="dialog-card">
-      <p class="eyebrow">YOUR SPACE, YOUR PASSWORD</p><h2 id="password-title">Set a dashboard password</h2>
+      <p class="eyebrow">Your space, your password</p><h2 id="password-title">Set a dashboard password</h2>
       <p class="hint">Use at least 12 characters. A few memorable words work well.</p>
       <input type="text" name="username" value="dashboard" autocomplete="username" hidden />
       <label>Verify with <select id="password-method"><option value="password">Current password</option><option value="token">Recovery access token</option></select></label>
@@ -717,7 +717,7 @@
   </dialog>
   <dialog id="cli-connect-dialog" aria-labelledby="cli-connect-title">
     <form method="dialog" class="dialog-card">
-      <p class="eyebrow">CLI CONNECT</p>
+      <p class="eyebrow">Connect from the command line</p>
       <h2 id="cli-connect-title">Allow this CLI?</h2>
       <p class="hint">A Hub command on this computer wants a session. Your server access token stays on the Hub.</p>
       <p>Code: <strong id="cli-connect-code-label"></strong></p>

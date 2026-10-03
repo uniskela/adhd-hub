@@ -88,6 +88,8 @@ def build_ui_router() -> APIRouter:
             "logo-dark.svg": (brand_dir / "logo-dark.svg", "image/svg+xml"),
             "icon-192.png": (brand_dir / "icon-192.png", "image/png"),
             "icon-512.png": (brand_dir / "icon-512.png", "image/png"),
+            "figtree-latin.woff2": (brand_dir / "figtree-latin.woff2", "font/woff2"),
+            "figtree-latin-ext.woff2": (brand_dir / "figtree-latin-ext.woff2", "font/woff2"),
         }
         asset = allowed.get(name)
         if asset is None:

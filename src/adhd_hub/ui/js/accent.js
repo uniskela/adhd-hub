@@ -26,7 +26,7 @@ export function contrast(a, b) {
 export function accentPalette(value, dark) {
   const chosen = normalizeAccent(value);
   if (!chosen) return null;
-  const surfaces = dark ? ["#14141c", "#1e1e29", "#292937"] : ["#f7f7fa", "#ffffff", "#eeeef4"];
+  const surfaces = dark ? ["#15171a", "#1d2024", "#272b30"] : ["#f7f6f3", "#ffffff", "#efede8"];
   const target = dark ? "#ffffff" : "#000000";
   let accent = chosen;
   let soft;

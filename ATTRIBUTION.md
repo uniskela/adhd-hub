@@ -19,3 +19,11 @@ with optional OpenClaw notifications.
 
 claude-adhd remains the Claude Code–native plugin; this repo is intentionally
 tool-agnostic.
+
+## Figtree typeface
+
+The dashboard bundles [Figtree](https://github.com/erikdkennedy/figtree)
+(Copyright 2022 The Figtree Project Authors) as variable WOFF2 files from
+[Fontsource](https://fontsource.org/fonts/figtree). Figtree is licensed under
+the SIL Open Font License 1.1; the full text ships at
+`src/adhd_hub/ui/brand/OFL-Figtree.txt`.

@@ -505,7 +505,7 @@ export function renderFocus() {
     $("focus-title").setAttribute("tabindex", "-1");
     updateFocusModeUi();
     if (!thread) {
-      $("focus-eyebrow").textContent = "YOUR CHOICE";
+      $("focus-eyebrow").textContent = "Your choice";
       $("focus-title").textContent = "What would you like to work on?";
       card.className = "next-card empty";
       card.innerHTML = `<p>${escapeHtml(state.nowMessage || "Choose one task. Everything else can wait.")}</p><div class="next-actions"><button type="button" class="primary" id="btn-choose-work">Choose a task</button><button type="button" class="ghost" id="btn-suggest">Help me choose</button>${state.chosenId ? '<button type="button" class="ghost" id="btn-retry-focus">Retry saved task</button>' : ""}</div><div id="suggestion" aria-live="polite"></div>`;
@@ -517,17 +517,17 @@ export function renderFocus() {
     const returning = state.focusState === "paused" && !!thread.resume_step;
     $("focus-eyebrow").textContent = `${
       state.focusState === "working"
-        ? "WORKING ON"
+        ? "Working on"
         : returning
-          ? "WHERE YOU LEFT OFF"
+          ? "Where you left off"
           : state.focusState === "paused"
-            ? "SAVED FOR YOUR RETURN"
-            : "YOUR CHOICE"
+            ? "Saved for your return"
+            : "Your choice"
     } · ${projectTitleForSlug(thread.project_slug)}`;
     $("focus-title").textContent = threadDisplayTitle(thread) || "Untitled step";
     card.className = "next-card has-item";
     const resumeBlock = thread.resume_step
-      ? `<div class="resume-step${returning ? " resume-step-prominent" : ""}"><p class="eyebrow">${returning ? "PICK UP HERE" : "NEXT TINY STEP"}</p><div class="markdown-body">${thread.resume_step_html}</div>${returning ? '<p class="hint welcome-back">Welcome back. One small step is enough.</p>' : ""}</div>`
+      ? `<div class="resume-step${returning ? " resume-step-prominent" : ""}"><p class="eyebrow">${returning ? "Pick up here" : "Next tiny step"}</p><div class="markdown-body">${thread.resume_step_html}</div>${returning ? '<p class="hint welcome-back">Welcome back. One small step is enough.</p>' : ""}</div>`
       : '<p class="start-cue">Start with the smallest part. You can leave a next step whenever you stop.</p>';
     card.innerHTML = `
       ${resumeBlock}
@@ -703,7 +703,7 @@ export function renderReminders(due, all) {
     );
     if (state.activeScreen === "now") {
       strip.hidden = false;
-      strip.innerHTML = `<p class="eyebrow">REMINDERS</p>${dueList
+      strip.innerHTML = `<p class="eyebrow">Reminders</p>${dueList
         .slice(0, 3)
         .map((r) => `<p>${escapeHtml(r.message)}</p>`)
         .join("")}`;
@@ -752,7 +752,7 @@ export function renderTriage(candidates) {
     if (strip) {
       if (state.activeScreen === "now") {
         strip.hidden = false;
-        strip.innerHTML = `<p class="eyebrow">STILL RELEVANT?</p>${items
+        strip.innerHTML = `<p class="eyebrow">Still relevant?</p>${items
           .slice(0, 2)
           .map(
             (t) => `<div class="triage-item">
