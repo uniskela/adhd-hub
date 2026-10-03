@@ -212,22 +212,18 @@ def main() -> None:
                 expect(page.locator("#now-triage")).to_contain_text("Is this still on your list?")
                 shot("now-desktop.png")
 
-                # My work with projects rail + thread cards
+                # My work: projects list + calm rows
                 page.locator('[data-screen="work"]:visible').first.click()
                 expect(page.locator("#work-view")).to_be_visible()
-                expect(page.locator("#threads [data-choose]").first).to_be_visible()
+                expect(page.locator("#threads .thread").first).to_be_visible()
                 page.locator('#project-list .proj[data-slug="demo-site"]').click()
                 expect(page.locator("#threads")).to_contain_text("landing page")
                 shot("my-work-desktop.png")
 
-                # Notes reader (docked)
-                notes_btn = page.locator(".thread-notes-inline:visible").first
-                if notes_btn.count():
-                    notes_btn.click()
-                else:
-                    page.locator(".thread-utility").first.locator("summary").click()
-                    page.locator(".thread-notes-menu").first.click()
+                # Notes reader (docked): clicking a row opens it
+                page.locator("#threads .thread", has_text="landing page").first.click()
                 expect(page.locator("#notes-reader")).to_be_visible()
+                expect(page.locator("#notes-reader-body .notes-continuity-resume")).to_be_visible()
                 shot("notes-reader-desktop.png")
                 # Primary README/docs hero — same framing as the Notes reader shot.
                 shutil.copy2(out / "notes-reader-desktop.png", out / "my-work-notes-hero.png")

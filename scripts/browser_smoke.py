@@ -178,16 +178,36 @@ def main():
                 reminder = page.locator("#now-reminders .check-item")
                 expect(reminder).to_contain_text("Stretch, then open the draft")
                 expect(reminder).to_contain_text(re.compile(r"due \d+ minutes ago"))
+                # My work folds the same reminder into one quiet "Needs you" line.
+                page.get_by_role("button", name="My work", exact=True).click()
+                expect(page.locator("#needs-you-summary")).to_have_text("1 thing needs a quick look")
+                expect(page.locator("#needs-you-body")).to_be_hidden()
+                page.locator("#btn-toggle-needs").click()
+                expect(page.locator("#btn-toggle-needs")).to_have_attribute("aria-expanded", "true")
+                expect(page.locator("#reminder-banner .need")).to_contain_text("Stretch, then open the draft")
+                page.screenshot(path=str(screenshots / "my-work-needs-you.png"), full_page=True)
+                page.get_by_role("button", name="Now", exact=True).click()
                 reminder.get_by_role("button", name="Snooze 1 hour", exact=True).click()
                 expect(page.locator("#now-checks")).not_to_contain_text("Stretch, then open the draft")
                 page.get_by_role("button", name="Choose a task", exact=True).click()
                 expect(page.locator("#work-view")).to_be_visible()
                 page.locator('#project-list button.proj[data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Personal website")
-                notes_trigger = page.locator("#threads [data-notes]").first
+                # Each row opens the reader; there is no separate Read notes button.
+                notes_trigger = page.locator("#threads .thread").first
+                expect(notes_trigger.locator(".thread-title")).to_be_visible()
                 notes_trigger.click()
                 expect(page.locator("#notes-reader")).to_be_visible()
-                expect(page.locator("#notes-reader-body")).to_contain_text("Personal website")
+                expect(notes_trigger).to_have_attribute("aria-expanded", "true")
+                expect(page.locator("#notes-reader-meta")).to_contain_text("Personal website")
+                expect(page.locator("#btn-notes-focus")).to_be_visible()
+                expect(page.locator("#btn-notes-done")).to_be_visible()
+                page.locator("#notes-reader-menu > summary").click()
+                expect(page.locator("#btn-notes-copy")).to_be_visible()
+                expect(page.locator("#btn-notes-summarise")).to_be_hidden()  # AI helpers are off
+                page.keyboard.press("Escape")
+                expect(page.locator("#notes-reader-menu > summary")).to_be_focused()
+                expect(page.locator("#notes-reader")).to_be_visible()
                 expect(page.locator("#work-view .layout")).to_have_class(re.compile(r"notes-docked"))
                 reader_box = page.locator("#notes-reader").bounding_box()
                 assert reader_box and reader_box["y"] + reader_box["height"] <= page.viewport_size["height"]
@@ -208,11 +228,13 @@ def main():
                     print(f"Screenshots: {screenshots}")
                     return
                 page.set_viewport_size({"width": 1440, "height": 1080})
-                page.locator("#btn-notes-dock").click()
+                page.locator("#btn-notes-expand").click()
+                expect(page.locator("#work-view .layout")).to_have_class(re.compile(r"notes-docked"))
                 page.keyboard.press("Escape")
                 expect(page.locator("#notes-reader")).to_be_hidden()
                 expect(notes_trigger).to_be_focused()
-                page.locator("#threads [data-choose]").first.click()
+                notes_trigger.click()
+                page.locator("#btn-notes-focus").click()
                 expect(page.locator("#now-view")).to_be_visible()
                 notes = page.locator("#next-card .progress-details")
                 assert notes.evaluate("el => !el.open")
@@ -374,7 +396,8 @@ def main():
                 page.get_by_role("button", name="All projects", exact=True).click()
                 expect(page.locator("#threads .thread-project").first).to_be_visible()
                 expect(page.locator("#threads .thread-status").first).to_have_text("In focus")
-                expect(page.get_by_role("button", name="Focus on this").first).to_be_visible()
+                # Rows are calm: no per-row buttons; Focus on this lives in the reader.
+                expect(page.locator("#threads .thread button")).to_have_count(0)
                 page.screenshot(path=str(screenshots / "my-work-dense-list.png"), full_page=True)
                 # Deliver project A after B; B must remain selected and editable.
                 held = []
@@ -425,18 +448,18 @@ def main():
                 # Phones keep the project list in a drawer.
                 page.locator("#btn-open-projects-drawer").click()
                 page.locator('#project-list button.proj[data-slug="my-website"]').click()
-                # On phones, Read notes lives in each step's Actions menu.
-                page.locator("#threads .thread-utility > summary").first.click()
-                mobile_notes_trigger = page.locator("#threads .thread-notes-menu").first
+                # On phones the row opens the reader as a full sheet.
+                mobile_notes_trigger = page.locator("#threads .thread").first
                 mobile_notes_trigger.click()
                 expect(page.locator("#notes-reader")).to_be_visible()
-                expect(page.locator("#notes-reader-body")).to_contain_text("Personal website")
+                expect(page.locator("#notes-reader-meta")).to_contain_text("Personal website")
+                expect(page.locator("#btn-notes-expand")).to_be_hidden()
                 assert page.locator("#notes-reader").evaluate("el => el.scrollWidth <= el.clientWidth")
                 assert page.locator("#notes-reader-body").evaluate("el => el.scrollWidth <= el.clientWidth")
                 page.screenshot(path=str(screenshots / "notes-reader-mobile.png"), full_page=True)
                 page.locator("#btn-notes-close").click()
-                # On phones focus returns to the Actions menu the reader was opened from.
-                expect(page.locator("#threads .thread-utility > summary").first).to_be_focused()
+                # Focus returns to the row the reader was opened from.
+                expect(mobile_notes_trigger).to_be_focused()
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Settings", exact=True).click()
                 for name in [

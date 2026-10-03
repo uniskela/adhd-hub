@@ -59,10 +59,10 @@ def test_project_grips_support_keyboard_reorder():
     assert "focus the grip and press Up or Down" in html
 
 
-def test_thread_row_stays_highlighted_while_actions_menu_open():
-    """A flipped-up Actions panel may overlap its own card; the row keeps context."""
+def test_thread_row_stays_highlighted_while_its_notes_are_open():
+    """The row that opened the reader keeps a tint so the list keeps its place."""
     css = (UI / "app.css").read_text()
-    assert '.thread:has(.notes-trigger[aria-expanded="true"]),\n.thread:has(.thread-utility[open]) {' in css
+    assert '#threads .thread[aria-expanded="true"] { background: var(--accent-tint); }' in css
 
 
 def _panel(html: str, panel_id: str) -> str:
@@ -91,30 +91,18 @@ def test_ai_scan_lines_has_its_own_settings_tab():
     assert "Settings → Preferences" not in work
 
 
-def test_quiet_check_in_banner_stacks_its_heading_above_the_item_list():
-    """Pending-request banners (Quiet check-in, Reminders, Pending requests) render
-    a heading + hint above a list of rows — they must not flex all of it into one
-    wrapping row, which crammed the heading, hint, and first row's title together."""
+def test_needs_you_is_one_summary_line_over_its_rows():
+    """Approvals, imports and due reminders share one collapsible "Needs you"
+    panel; .setup-banner keeps its own single-row layout."""
     css = (UI / "app.css").read_text()
-    banner = re.search(r"^\.pending-banner \{[^}]*\}", css, re.MULTILINE)
-    assert banner is not None
-    assert "display: block" in banner.group(0)
-    # .setup-banner (a single description + one action, e.g. "Create password")
-    # keeps its own row layout and must not be coupled to .pending-banner again.
+    html = (UI / "index.html").read_text()
+    for group in ("reminder-banner", "pending-banner", "import-banner"):
+        assert f'<div id="{group}" class="need-group" hidden></div>' in html
+    assert 'id="btn-toggle-needs" aria-expanded="false"' in html
+    assert 'id="triage-banner"' not in html  # Still relevant lives on Now only.
+    need = re.search(r"^\.need \{[^}]*\}", css, re.MULTILINE)
+    assert need is not None and "flex-wrap: wrap" in need.group(0)
     setup = re.search(r"^\.setup-banner \{[^}]*\}", css, re.MULTILINE)
     assert setup is not None
     assert "display: flex" in setup.group(0)
-    assert ".pending-banner, .setup-banner" not in css
 
-
-def test_quiet_check_in_rows_get_a_calm_card_not_a_bare_divider():
-    """Quiet check-in rows read as distinct cards, matching the in-card
-    .thread-triage treatment, instead of a hairline divider between rows."""
-    css = (UI / "app.css").read_text()
-    rows = re.search(r"^\.triage-banner \.pending-item \{[^}]*\}", css, re.MULTILINE)
-    assert rows is not None
-    assert "border-radius" in rows.group(0)
-    assert "background: color-mix" in rows.group(0)
-    title = re.search(r"^\.triage-title \{[^}]*\}", css, re.MULTILINE)
-    assert title is not None
-    assert "font-weight: 600" in title.group(0)

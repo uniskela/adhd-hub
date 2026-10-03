@@ -1,8 +1,8 @@
 import { state, $, setMsg, escapeHtml, preferences } from './state.js';
 import { api } from './api.js';
-import { confirmDialog, copyReference, formatWhen, safeHttpUrl, safeLink, wireOverflowMenu } from './dom.js';
+import { confirmDialog, formatRelative, formatWhen, safeHttpUrl, safeLink, syncNeedsYou, wireMenu } from './dom.js';
 import { loadAll } from './load.js';
-import { chooseThread, closeNotesReader, confirmThreadTriage, snoozeThreadTriage, wireNotes } from './now.js';
+import { closeNotesReader, reconcileNotesReader, wireNotes } from './now.js';
 import {
   IMPORT_POLICY_HINTS,
   IMPORT_POLICY_LABELS,
@@ -78,12 +78,14 @@ function buildProjectForest(projects) {
 function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
     const open = (p.counts && p.counts.open) || 0;
     const isActive = state.projectFilter === p.slug ? "active" : "";
-    const tags = (p.tags || []).slice(0, 3).map((t) => escapeHtml(t)).join(", ");
-    const tagLine = tags ? `<div class="proj-tags">${tags}</div>` : "";
     const title = escapeHtml(p.slug === "unclassified" ? "Inbox" : p.title || p.slug);
     const isOpen = expanded.has(p.slug);
     const canDrag = !p.unregistered && p.slug !== "unclassified";
-    const lastTouch = p.last_touch_at ? `Updated ${formatWhen(p.last_touch_at)}` : (open ? "Open work" : "No open work");
+    const touched = p.last_touch_at ? formatRelative(p.last_touch_at) : "";
+    const tags = (p.tags || []).filter(Boolean).slice(0, 3).join(", ");
+    const tip = [touched ? `Updated ${touched}` : open ? "Open work" : "No open work", tags && `Tags: ${tags}`]
+      .filter(Boolean)
+      .join(" · ");
     const chevron = hasChildren
       ? `<button type="button" class="proj-chevron" data-toggle-slug="${escapeHtml(p.slug)}" aria-expanded="${isOpen}" aria-label="${isOpen ? "Collapse" : "Expand"} ${title}">
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="${isOpen ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6"}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -98,10 +100,8 @@ function renderProjectTreeRow(p, { depth, expanded, hasChildren }) {
       <div class="proj-row ${isActive}${open ? "" : " is-empty"}" data-slug="${escapeHtml(p.slug)}" data-parent-slug="${escapeHtml(p.parent_slug || "")}" data-drop="nest">
         ${handle}
         ${chevron}
-        <button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}">
-          <div class="proj-title-line"><span class="proj-title">${title}</span><span class="proj-count" aria-label="${open} open ${open === 1 ? "step" : "steps"}">${open}</span></div>
-          <div class="meta proj-last-touch">${escapeHtml(lastTouch)}</div>
-          ${tagLine}
+        <button type="button" class="proj ${isActive}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${state.projectFilter === p.slug}" title="${escapeHtml(tip)}">
+          <span class="proj-title-line"><span class="proj-title">${title}</span><span class="proj-count" aria-label="${open} open ${open === 1 ? "step" : "steps"}">${open}</span></span>
         </button>
       </div>
     </div>`;
@@ -520,8 +520,8 @@ export function renderProjects(projects) {
   }
 
 function populateTagFilter(projects) {
-    const sel = $("tag-filter");
-    if (!sel) return;
+    const group = $("tag-filter");
+    if (!group) return;
     const tags = new Set();
     for (const p of projects || []) {
       for (const t of p.tags || []) {
@@ -529,30 +529,47 @@ function populateTagFilter(projects) {
       }
     }
     const sorted = [...tags].sort((a, b) => a.localeCompare(b));
-    const previous = state.tagFilter || "";
-    sel.innerHTML =
-      `<option value="">All tags</option>` +
-      sorted
-        .map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`)
-        .join("");
-    if (previous && sorted.includes(previous)) {
-      sel.value = previous;
-      state.tagFilter = previous;
-    } else {
-      sel.value = "";
-      state.tagFilter = null;
-    }
+    if (state.tagFilter && !sorted.includes(state.tagFilter)) state.tagFilter = null;
+    const chip = (value, label) => {
+      const on = (state.tagFilter || "") === value;
+      return `<button type="button" class="chip${on ? " is-on" : ""}" data-tag="${escapeHtml(value)}" aria-pressed="${on}">${escapeHtml(label)}</button>`;
+    };
+    group.hidden = !sorted.length;
+    group.innerHTML = sorted.length
+      ? chip("", "All tags") + sorted.map((t) => chip(t, t)).join("")
+      : "";
   }
 
 export function onProjectSearchChange() {
     renderProjects(state.overviewCache?.projects || []);
   }
 
-export function onTagFilterChange() {
-    const sel = $("tag-filter");
-    state.tagFilter = (sel && sel.value) || null;
-    const projects = state.overviewCache?.projects || [];
-    renderProjects(projects);
+export function onTagFilterChange(tag) {
+    state.tagFilter = tag || null;
+    renderProjects(state.overviewCache?.projects || []);
+    // Re-rendering replaces the chips; keep keyboard focus on the chosen one.
+    const chosen = [...($("tag-filter")?.querySelectorAll("[data-tag]") || [])]
+      .find((el) => el.dataset.tag === (tag || ""));
+    chosen?.focus();
+  }
+
+/** Search and tag chips sit behind the filter button; closing it clears them. */
+export function toggleProjectFilters(force) {
+    const panel = $("project-filters");
+    const button = $("btn-toggle-project-filters");
+    if (!panel || !button) return;
+    const open = typeof force === "boolean" ? force : panel.hidden;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    button.classList.toggle("is-on", open);
+    if (open) {
+      $("project-search")?.focus();
+      return;
+    }
+    const hadFilter = Boolean(($("project-search")?.value || "").trim() || state.tagFilter);
+    if ($("project-search")) $("project-search").value = "";
+    state.tagFilter = null;
+    if (hadFilter) renderProjects(state.overviewCache?.projects || []);
   }
 
 export function renderArchivedProjects() {
@@ -565,12 +582,14 @@ export function renderArchivedProjects() {
       return;
     }
     wrap.hidden = false;
+    const summary = $("archived-projects-summary");
+    if (summary) summary.textContent = `Archived projects (${archived.length})`;
     list.innerHTML = archived
       .map((p) => {
         const open = (p.counts && p.counts.open) || 0;
-        return `<button type="button" class="proj archived" data-slug="${escapeHtml(p.slug)}">
-          <div>${escapeHtml(p.title || p.slug)}</div>
-          <div class="meta">${open} open · archived</div>
+        const active = state.projectFilter === p.slug;
+        return `<button type="button" class="proj archived${active ? " active" : ""}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${active}">
+          <span class="proj-title-line"><span class="proj-title">${escapeHtml(p.title || p.slug)}</span><span class="proj-count" aria-label="${open} open ${open === 1 ? "step" : "steps"}">${open}</span></span>
         </button>`;
       })
       .join("");
@@ -877,13 +896,22 @@ function setWorkTitle(title) {
   }
 
 function setRewriteAllButtons({ hidden, disabled, text } = {}) {
-    for (const id of ["btn-rewrite-all-scan", "btn-rewrite-all-scan-mobile"]) {
-      const btn = $(id);
-      if (!btn) continue;
-      if (hidden !== undefined) btn.hidden = hidden;
-      if (disabled !== undefined) btn.disabled = disabled;
-      if (text !== undefined) btn.textContent = text;
-    }
+    const btn = $("btn-rewrite-all-scan");
+    if (!btn) return;
+    if (hidden !== undefined) btn.hidden = hidden;
+    if (disabled !== undefined) btn.disabled = disabled;
+    if (text !== undefined) btn.textContent = text;
+    syncProjectMenu();
+  }
+
+/** The project ⋯ menu only shows while it has something in it. */
+function syncProjectMenu() {
+    const menu = $("project-menu");
+    if (!menu) return;
+    const hasItems = [...menu.querySelectorAll(".thread-utility-actions > *")].some((el) => !el.hidden);
+    menu.hidden = !hasItems;
+    if (!hasItems) menu.open = false;
+    else wireMenu(menu);
   }
 
 /** True when Settings → Enable AI is on and a base URL is configured (matches server ai_configured). */
@@ -945,20 +973,19 @@ async function pumpAutoScanQueue() {
         state.threadsCache = state.threadsCache.map((t) =>
           t.id === updated.id ? { ...t, ...updated } : t
         );
-        // Soft refresh of scan line text without re-queuing (clear needs_ai).
-        const article = document.querySelector(
-          `.thread [data-rewrite-scan="${CSS.escape(threadId)}"]`
-        )?.closest(".thread");
-        const scan = article?.querySelector(".thread-scan");
-        if (scan && updated.scan_line) scan.textContent = updated.scan_line;
-        else if (article && updated.scan_line && !scan) {
-          const main = article.querySelector(".thread-main");
-          if (main) {
-            const p = document.createElement("p");
-            p.className = "thread-scan";
-            p.textContent = updated.scan_line;
-            main.appendChild(p);
+        // Soft refresh of the row's "Left off" line without re-rendering the
+        // list (keeps focus and scroll) or re-queuing (needs_ai is cleared).
+        const merged = state.threadsCache.find((t) => t.id === updated.id);
+        const row = document.querySelector(`#threads [data-notes="${CSS.escape(threadId)}"]`);
+        const leftOff = leftOffLine(merged);
+        if (row && leftOff) {
+          let scan = row.querySelector(".thread-scan");
+          if (!scan) {
+            scan = document.createElement("span");
+            scan.className = "thread-scan";
+            row.querySelector(".thread-title")?.after(scan);
           }
+          scan.textContent = `Left off: ${leftOff}`;
         }
       }
     } catch (_e) {
@@ -1015,23 +1042,11 @@ export function syncAiRewriteUi() {
 
 export function renderProjectHeader(p) {
     const edit = $("btn-edit-project");
-    const editMobile = $("btn-edit-project-mobile");
     const repo = $("btn-open-project-repo");
-    const repoMobile = $("btn-open-project-repo-mobile");
-    const mobileActions = $("project-mobile-actions");
     if (!p) {
       edit.hidden = true;
-      if (editMobile) editMobile.hidden = true;
       repo.hidden = true;
       repo.removeAttribute("href");
-      if (repoMobile) {
-        repoMobile.hidden = true;
-        repoMobile.removeAttribute("href");
-      }
-      if (mobileActions) {
-        mobileActions.hidden = true;
-        mobileActions.open = false;
-      }
       // Keep Rewriting… visible across mid-flight loadAll/selectProject refresh.
       if (rewriteAllInFlightFor(state.projectFilter)) {
         setRewriteAllButtons({
@@ -1048,24 +1063,10 @@ export function renderProjectHeader(p) {
     edit.hidden = false;
     edit.setAttribute("aria-label", editLabel);
     edit.title = p.unregistered ? "Register project" : "Edit project";
-    if (editMobile) {
-      editMobile.hidden = false;
-      editMobile.textContent = p.unregistered ? "Register project" : "Edit project";
-      editMobile.setAttribute("aria-label", editLabel);
-    }
     const href = safeHttpUrl(p.repo_url);
     repo.hidden = !href;
     if (href) repo.href = href;
     else repo.removeAttribute("href");
-    if (repoMobile) {
-      repoMobile.hidden = !href;
-      if (href) repoMobile.href = href;
-      else repoMobile.removeAttribute("href");
-    }
-    if (mobileActions) {
-      mobileActions.hidden = false;
-      wireOverflowMenu(mobileActions);
-    }
     const inFlight = rewriteAllInFlightFor(p.slug || state.projectFilter);
     // Hide rewrite-all when Enable AI is off (unless a batch is already in flight).
     const showRewrite = inFlight || aiScanLinesEnabled();
@@ -1206,161 +1207,94 @@ async function refreshSiblingTabCounts(request) {
     for (const [view, total] of results) setTabCount(view, total);
   }
 
+/** Where a step came from, in plain words (reader meta and ⋯ menu). */
+export function threadSourceName(thread) {
+    const source = thread?.source_tool || thread?.origin;
+    return {
+      web: "Quick capture",
+      codex: "Codex",
+      cursor: "Cursor",
+      openclaw: "OpenClaw",
+    }[String(source || "").toLowerCase()] || source || "Saved work";
+  }
+
+/** Source issue states that ask for a look (shown in the reader above Goal). */
+export const SOURCE_SYNC_LABELS = {
+    current: "Source current",
+    refresh_available: "Refresh available",
+    conflicted: "Source conflict",
+    unavailable: "Source unavailable",
+    untracked: "Source linked",
+  };
+export function sourceNeedsAttention(thread) {
+    return ["refresh_available", "conflicted", "unavailable"].includes(thread?.source_sync_state);
+  }
+
+/** One plain line for "Left off:", from the resume step or the scan line. */
+export function leftOffLine(thread) {
+    const raw = String(thread?.resume_step || thread?.scan_line || "").trim();
+    if (!raw) return "";
+    const first = raw.split(/\n+/).find((line) => line.trim()) || "";
+    return first
+      .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+|#+\s+|>\s*)/, "")
+      .replace(/\*\*|__|`/g, "")
+      .trim();
+  }
+
 export function renderThreads(threads) {
-    closeNotesReader({ restoreFocus: false });
     const query = $("thread-search").value.trim().toLowerCase();
     const total = threads.length;
     setTabCount(state.currentView, total);
-    const searchRow = $("thread-search-row");
-    const searchToggle = $("btn-toggle-thread-search");
-    const largeList = total >= 12;
-    if (searchRow) {
-      searchRow.classList.toggle("is-large-list", largeList);
-      if (query) searchRow.classList.add("is-open");
-    }
-    if (searchToggle) {
-      searchToggle.hidden = largeList;
-      searchToggle.setAttribute(
-        "aria-expanded",
-        String(largeList || Boolean(searchRow?.classList.contains("is-open")))
-      );
-    }
     threads = threads.filter((thread) =>
-      [thread.summary, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
+      [thread.summary, thread.resume_step, thread.goal, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
         String(value || "").toLowerCase().includes(query)
       )
     );
-    $("thread-count").textContent = query
+    const count = $("thread-count");
+    count.textContent = query
       ? `${threads.length} ${threads.length === 1 ? "match" : "matches"} out of ${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · searching the latest 100" : ""}`
       : `${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · latest 100" : ""}`;
+    // Quiet by default; the count only shows while searching or when the list is capped.
+    count.classList.toggle("visually-hidden", !query && total !== 100);
     const root = $("threads");
     if (!threads.length) {
       const message = query ? "No matches. Try a different search." :
-        state.currentView === "done" ? "Finished work will appear here when you mark a thread done." :
-        state.currentView === "stale" ? "Nothing waiting here. Return whenever you’re ready." :
-        "No open threads here. Save progress from your connected assistant to pick it up later.";
-      root.innerHTML = `<p class="hint">${message}</p>`;
+        state.currentView === "done" ? "Finished work will appear here when you mark a step done." :
+        state.currentView === "stale" ? "Nothing waiting here. Come back whenever you’re ready." :
+        state.projectFilter ? "Nothing here. That’s fine." :
+        "Nothing open right now. Use Save a thought, or save progress from your assistant, to add a step.";
+      root.innerHTML = `<p class="thread-empty">${message}</p>`;
+      closeNotesReader({ restoreFocus: false });
       return;
     }
+    const showProject = !state.projectFilter;
     const projectName = (slug) => {
       if (!slug || slug === "unclassified") return "Inbox";
       const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
       return project?.title || slug;
     };
-    const sourceName = (source) => ({
-      web: "Quick capture",
-      codex: "Codex",
-      cursor: "Cursor",
-      openclaw: "OpenClaw",
-    }[String(source || "").toLowerCase()] || source || "Saved work");
-    root.innerHTML = threads
-      .map((t, index) => {
+    root.innerHTML = `<ul class="thread-list" role="list">${threads
+      .map((t) => {
         const isChosen = t.id === state.chosenId;
-        const statusLabel = isChosen ? "In focus" : t.status === "done" ? "Finished" : state.currentView === "stale" ? "Later" : "";
-        const sourceState = ({
-          current: "Source current",
-          refresh_available: "Refresh available",
-          conflicted: "Source conflict",
-          unavailable: "Source unavailable",
-          untracked: "Source linked",
-        })[t.source_sync_state] || "";
-        const sourceNeedsAttention = ["refresh_available", "conflicted", "unavailable"].includes(t.source_sync_state);
-        const sourceSync = sourceState
-          ? `<span class="source-sync source-sync-${escapeHtml(t.source_sync_state)}">${escapeHtml(sourceState)}${(t.display_source_at || t.source_imported_at) ? ` · ${escapeHtml(formatWhen(t.display_source_at || t.source_imported_at))}` : ""}</span>`
-          : "";
-        return `<article class="thread${isChosen ? " chosen" : ""}" aria-labelledby="thread-title-${index}">
-          <div class="thread-topline">
-            <span class="thread-number">${index + 1}</span>
-            <span class="thread-project">${escapeHtml(projectName(t.project_slug))}</span>
-            ${statusLabel ? `<span class="thread-status">${escapeHtml(statusLabel)}</span>` : ""}
-          </div>
-          <div class="thread-main">
-            <h3 id="thread-title-${index}">${escapeHtml(t.summary)}</h3>
-            ${t.scan_line ? `<p class="thread-scan">${escapeHtml(t.scan_line)}</p>` : ""}
-          </div>
-          <div class="thread-meta"><span>Updated ${escapeHtml(formatWhen(t.display_updated_at || t.updated_at))}</span></div>
-          ${sourceNeedsAttention ? sourceSync : ""}
-          ${
-            t.needs_triage
-              ? `<div class="thread-triage" role="group" aria-label="Still relevant check for ${escapeHtml(t.summary)}">
-                  <p class="hint">Still relevant? Soft check — confirm or ask later. Nothing dismisses itself.</p>
-                  <div class="actions triage-actions" style="margin:0">
-                    <button type="button" class="primary compact" data-triage-confirm="${escapeHtml(t.id)}">Still relevant</button>
-                    <button type="button" class="ghost compact" data-triage-snooze="${escapeHtml(t.id)}">Ask in a week</button>
-                  </div>
-                </div>`
-              : ""
-          }
-          <div class="actions thread-actions">
-            ${
-              t.status !== "done"
-                ? `<button type="button" class="thread-primary compact" data-choose="${escapeHtml(t.id)}">${isChosen ? "Return to focus" : "Focus on this"}</button>`
-                : ""
-            }
-            <button type="button" class="notes-trigger thread-notes-inline" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Read notes</span></button>
-          </div>
-          <details class="thread-utility">
-            <summary aria-label="Actions for ${escapeHtml(t.summary)}"><span class="thread-utility-dots" aria-hidden="true">•••</span><span class="thread-utility-label">Actions</span></summary>
-            <div class="thread-utility-panel">
-            <p class="hint">${escapeHtml(sourceName(t.source_tool || t.origin))}</p>
-            <div class="actions thread-utility-actions">
-            <button type="button" class="ghost compact notes-trigger thread-notes-menu" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false">Read notes</button>
-            ${!sourceNeedsAttention ? sourceSync : ""}
-            ${
-              t.forge_issue_url
-                ? `<a class="btn ghost compact" href="${safeLink(t.forge_issue_url)}" target="_blank" rel="noopener">Open issue #${escapeHtml(t.forge_issue_number)}</a>`
-                : ""
-            }
-            ${t.source_issue_url ? `<button type="button" class="ghost compact" data-refresh-source="${escapeHtml(t.id)}">Refresh from source issue</button>` : ""}
-            ${
-              aiScanLinesEnabled()
-                ? `<button type="button" class="ghost compact" data-rewrite-scan="${escapeHtml(t.id)}">Rewrite scan line</button>`
-                : ""
-            }
-            <button type="button" class="ghost compact thread-secondary" data-copy="${escapeHtml(t.id)}">Copy link</button>
-            </div>
-            </div>
-          </details>
-        </article>`;
+        const leftOff = leftOffLine(t);
+        const when = formatRelative(t.display_updated_at || t.updated_at);
+        const flag = isChosen
+          ? `<span class="thread-status">In focus</span>`
+          : sourceNeedsAttention(t)
+            ? `<span class="thread-status is-warning">${escapeHtml(SOURCE_SYNC_LABELS[t.source_sync_state])}</span>`
+            : "";
+        return `<li><button type="button" class="thread${isChosen ? " chosen" : ""}" data-notes="${escapeHtml(t.id)}" aria-controls="notes-reader" aria-expanded="false">
+          <span class="thread-copy">
+            <span class="thread-title">${escapeHtml(t.summary || "Untitled step")}</span>
+            ${leftOff ? `<span class="thread-scan">Left off: ${escapeHtml(leftOff)}</span>` : ""}
+            ${showProject ? `<span class="thread-project">${escapeHtml(projectName(t.project_slug))}</span>` : ""}
+          </span>
+          <span class="thread-side">${flag}${when ? `<span class="thread-when">${escapeHtml(when)}</span>` : ""}</span>
+        </button></li>`;
       })
-      .join("");
-    root.querySelectorAll(".thread-utility").forEach((panel) => {
-      wireOverflowMenu(panel);
-      panel.addEventListener("toggle", () => {
-        if (panel.open) root.querySelectorAll(".thread-utility[open]").forEach((other) => {
-          if (other !== panel) other.open = false;
-        });
-      });
-      panel.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          panel.open = false;
-          panel.querySelector("summary").focus();
-          event.stopPropagation();
-        }
-      });
-      panel.addEventListener("focusout", () => {
-        requestAnimationFrame(() => { if (!panel.contains(document.activeElement)) panel.open = false; });
-      });
-    });
+      .join("")}</ul>`;
     wireNotes(root);
-    root.querySelectorAll("[data-choose]").forEach((btn) =>
-      btn.addEventListener("click", () => chooseThread(btn.dataset.choose))
-    );
-    root.querySelectorAll("[data-copy]").forEach((btn) =>
-      btn.addEventListener("click", () => copyReference(btn.dataset.copy))
-    );
-    root.querySelectorAll("[data-refresh-source]").forEach((btn) =>
-      btn.addEventListener("click", () => openSourceRefresh(btn.dataset.refreshSource))
-    );
-    root.querySelectorAll("[data-rewrite-scan]").forEach((btn) =>
-      btn.addEventListener("click", () => rewriteScanLine(btn.dataset.rewriteScan))
-    );
-    root.querySelectorAll("[data-triage-confirm]").forEach((btn) =>
-      btn.addEventListener("click", () => confirmThreadTriage(btn.dataset.triageConfirm))
-    );
-    root.querySelectorAll("[data-triage-snooze]").forEach((btn) =>
-      btn.addEventListener("click", () => snoozeThreadTriage(btn.dataset.triageSnooze))
-    );
+    reconcileNotesReader(root);
     if (aiAutoReviewScanEnabled()) {
       const needs = (threads || []).filter((t) => t && t.id && t.scan_line_needs_ai);
       if (needs.length) enqueueAutoScanEnsure(needs);
@@ -1373,7 +1307,9 @@ export async function rewriteScanLine(threadId) {
       setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
       return;
     }
-    const btn = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
+    // The single rewrite lives in the notes reader's ⋯ menu.
+    const btn = $("btn-notes-rewrite-scan");
+    if (btn?.disabled) return;
     if (btn) {
       btn.disabled = true;
       btn.textContent = "Rewriting…";
@@ -1394,10 +1330,9 @@ export async function rewriteScanLine(threadId) {
     } catch (e) {
       setMsg(e.message || "Could not rewrite scan line.");
     } finally {
-      const again = document.querySelector(`[data-rewrite-scan="${CSS.escape(threadId)}"]`);
-      if (again) {
-        again.disabled = false;
-        again.textContent = "Rewrite scan line";
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Rewrite scan line";
       }
     }
   }
@@ -1434,8 +1369,8 @@ export async function rewriteAllProjectScanLines() {
       return;
     }
     state.rewriteAllInFlight.add(slug);
-    const mobileMenu = $("project-mobile-actions");
-    if (mobileMenu) mobileMenu.open = false;
+    const projectMenu = $("project-menu");
+    if (projectMenu) projectMenu.open = false;
     setRewriteAllButtons({ disabled: true, text: "Rewriting…" });
     const toastKey = rewriteAllToastKey(slug);
     // One batch POST — no incremental 0/N (the server does not stream progress).
@@ -1521,7 +1456,6 @@ export async function selectProject(slug) {
       // selectProjectFromRail, which closes the drawer before loading.
       $("threads").textContent = "Loading your steps…";
       $("thread-count").textContent = "";
-      $("focus-links").replaceChildren();
     } else {
       // Visibility/SSE refresh mid-batch: keep the list and Rewriting… state.
       renderProjects(state.overviewCache?.projects || []);
@@ -1557,49 +1491,47 @@ export function renderPending(actions) {
     if (!list.length) {
       banner.hidden = true;
       banner.innerHTML = "";
+      syncNeedsYou();
       return;
     }
     banner.hidden = false;
-    banner.innerHTML = `
-      <h2>Pending agent requests</h2>
-      <p class="hint">Confirm or reject destructive project changes requested via MCP.</p>
-      ${list
-        .map((a) => {
-          const p = a.payload || {};
-          let summary = a.kind;
-          if (a.kind === "delete_project") {
-            summary = `Delete project <strong>${escapeHtml(p.slug)}</strong>`;
-            if (p.delete_progress || p.delete_remote) {
-              summary += ` <span class="meta">(${[
-                p.delete_progress ? "local wiki" : null,
-                p.delete_remote ? "remote file" : null,
-              ]
-                .filter(Boolean)
-                .join(" + ")})</span>`;
-            }
-          } else if (a.kind === "rename_project") {
-            summary = `Rename <strong>${escapeHtml(p.slug)}</strong> → <strong>${escapeHtml(p.new_slug)}</strong>`;
+    banner.innerHTML = list
+      .map((a) => {
+        const p = a.payload || {};
+        let summary = escapeHtml(a.kind);
+        if (a.kind === "delete_project") {
+          summary = `Delete the project <strong>${escapeHtml(p.slug)}</strong>?`;
+          if (p.delete_progress || p.delete_remote) {
+            summary += ` <span class="need-extra">Also removes the ${[
+              p.delete_progress ? "local wiki" : null,
+              p.delete_remote ? "remote file" : null,
+            ]
+              .filter(Boolean)
+              .join(" and ")}.</span>`;
           }
-          return `<div class="pending-item" data-id="${escapeHtml(a.id)}">
-            <div>
-              <div>${summary}</div>
-              <div class="meta">${escapeHtml(a.source_tool || "agent")}${
-            a.reason ? " · " + escapeHtml(a.reason) : ""
-          }</div>
-            </div>
-            <div class="actions" style="margin:0">
-              <button type="button" class="primary compact" data-approve="${escapeHtml(a.id)}">Approve</button>
-              <button type="button" class="ghost compact" data-reject="${escapeHtml(a.id)}">Reject</button>
-            </div>
-          </div>`;
-        })
-        .join("")}`;
+        } else if (a.kind === "rename_project") {
+          summary = `Rename <strong>${escapeHtml(p.slug)}</strong> to <strong>${escapeHtml(p.new_slug)}</strong>?`;
+        }
+        const detail = `Asked by ${escapeHtml(a.source_tool || "your agent")}${a.reason ? ` · ${escapeHtml(a.reason)}` : ""}`;
+        return `<div class="need pending-item" data-id="${escapeHtml(a.id)}">
+          <div class="need-copy">
+            <p class="need-title">${summary}</p>
+            <p class="need-detail">${detail}</p>
+          </div>
+          <div class="need-actions">
+            <button type="button" class="ghost" data-approve="${escapeHtml(a.id)}">Approve</button>
+            <button type="button" class="link-button" data-reject="${escapeHtml(a.id)}">Reject</button>
+          </div>
+        </div>`;
+      })
+      .join("");
     banner.querySelectorAll("[data-approve]").forEach((btn) =>
       btn.addEventListener("click", () => approvePending(btn.dataset.approve))
     );
     banner.querySelectorAll("[data-reject]").forEach((btn) =>
       btn.addEventListener("click", () => rejectPending(btn.dataset.reject))
     );
+    syncNeedsYou();
   }
 export async function approvePending(id) {
     try {

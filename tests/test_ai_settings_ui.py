@@ -241,10 +241,16 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert 'min="1"' in index
     assert 'max="30"' in index
     assert 'id="btn-rewrite-all-scan"' in index
-    assert 'id="btn-rewrite-all-scan-mobile"' in index
+    # One rewrite-all control, in the project ⋯ menu (no phone duplicate).
+    assert 'id="project-menu"' in index
+    assert 'id="btn-rewrite-all-scan-mobile"' not in index
     assert "Rewrite all scan lines" in index
     work = (root / "src/adhd_hub/ui/js/work.js").read_text(encoding="utf-8")
-    assert "data-rewrite-scan" in work
+    # Single rewrite targets the reader's ⋯ menu button (rows have no actions).
+    assert "data-rewrite-scan" not in work
+    assert '$("btn-notes-rewrite-scan")' in work
+    assert 'id="btn-notes-rewrite-scan"' in index
+    assert "notes reader’s ⋯ menu" in index
     assert "Rewrite scan line" in work
     assert "rewriteAllProjectScanLines" in work
     assert "/projects/" in work and "scan-lines" in work
@@ -307,7 +313,7 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     boot = (root / "src/adhd_hub/ui/js/boot.js").read_text(encoding="utf-8")
     assert "rewriteAllProjectScanLines" in boot
     assert "btn-rewrite-all-scan" in boot
-    assert "btn-rewrite-all-scan-mobile" in boot
+    assert "btn-rewrite-all-scan-mobile" not in boot
     assert "btn-load-ai-models" in boot
     assert "testAndLoadAiModels" in boot
     assert "applyAiBaseUrlPreset" in boot

@@ -1,7 +1,7 @@
 import { state, preferences, tzKey, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
 import { logout, showLogin } from './auth.js';
-import { browserTz, confirmDialog, fillTimezoneSelect } from './dom.js';
+import { browserTz, confirmDialog, fillTimezoneSelect, syncNeedsYou } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { saveRewardPreferences } from './progress.js';
 import { syncAiRewriteUi } from './work.js';
@@ -862,6 +862,7 @@ export function renderImportBanner(preview) {
     if (!preview || preview.skipped || !preview.importable_count) {
       el.hidden = true;
       el.innerHTML = "";
+      syncNeedsYou();
       return;
     }
     const names = (preview.candidates || [])
@@ -873,15 +874,18 @@ export function renderImportBanner(preview) {
       preview.importable_count > names.length
         ? ` (+${preview.importable_count - names.length} more)`
         : "";
+    const count = preview.importable_count;
     el.hidden = false;
     el.innerHTML = `
-      <div>
-        <strong>Forge has ${preview.importable_count} project(s) not in this hub</strong>
-        <p class="hint">${escapeHtml(names.join(", "))}${escapeHtml(extra)}. Import registers them and pulls PROGRESS.md.</p>
-      </div>
-      <div class="actions">
-        <button type="button" class="primary compact" id="btn-import-forge">Import</button>
-        <button type="button" class="ghost compact" id="btn-dismiss-import">Dismiss</button>
+      <div class="need">
+        <div class="need-copy">
+          <p class="need-title">Import ${count} ${count === 1 ? "project" : "projects"} from your forge?</p>
+          <p class="need-detail">${escapeHtml(names.join(", "))}${escapeHtml(extra)}. Importing adds them here and pulls in their PROGRESS.md.</p>
+        </div>
+        <div class="need-actions">
+          <button type="button" class="ghost" id="btn-import-forge">Import</button>
+          <button type="button" class="link-button" id="btn-dismiss-import">Dismiss</button>
+        </div>
       </div>
     `;
     $("btn-import-forge").onclick = () =>
@@ -889,7 +893,9 @@ export function renderImportBanner(preview) {
     $("btn-dismiss-import").onclick = () => {
       el.hidden = true;
       el.innerHTML = "";
+      syncNeedsYou();
     };
+    syncNeedsYou();
   }
 
 export async function scanForgeImport() {
@@ -919,6 +925,8 @@ export async function runForgeImport() {
     const n = (out.imported || []).length;
     setMsg(`Imported ${n} project(s) from forge.`);
     $("import-banner").hidden = true;
+    $("import-banner").innerHTML = "";
+    syncNeedsYou();
     await loadAll();
   }
 export async function exportBackup() {

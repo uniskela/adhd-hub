@@ -203,10 +203,11 @@ def test_prefs_prefer_browser_tz_over_default_utc():
 def test_my_work_cards_use_display_forge_stamps():
     """My Work Updated / Source lines prefer display_* (forge wall-clock) fields."""
     work = (UI_JS / "work.js").read_text()
+    now = (UI_JS / "now.js").read_text()
     assert "display_updated_at" in work
-    assert "display_source_at" in work
-    assert "formatWhen(t.display_updated_at || t.updated_at)" in work
-    assert "formatWhen(t.display_source_at || t.source_imported_at)" in work
+    assert "formatRelative(t.display_updated_at || t.updated_at)" in work
+    # Source attention moved to the reader, which uses the same display stamp.
+    assert "thread.display_source_at || thread.source_imported_at" in now
 
 
 def test_project_rail_hierarchy_tree_markers():
@@ -257,7 +258,7 @@ def test_project_rail_hierarchy_tree_markers():
     # Mobile keeps grips for organise; fine pointers reveal grips on row hover.
     assert "@media (hover: hover) and (pointer: fine)" in css
     assert "@media (pointer: coarse)" in css
-    assert "display: inline-flex !important" in css
+    assert "#work-view .proj-drag-handle { flex: 0 0 2.5rem; width: 2.5rem; min-width: 2.5rem; min-height: 2.75rem; margin: 0; opacity: 1; }" in css
     assert "#work-view .proj-drag-handle,\n  #work-view .proj-drop-gap,\n  #work-view .proj-dnd-hint {\n    display: none !important;" not in css
     assert 'width="16" height="16"' in work
 
@@ -314,20 +315,20 @@ def test_mobile_overflow_menu_and_notes_focus_markers():
     boot = (UI_JS / "boot.js").read_text()
     css = (UI_JS.parent / "app.css").read_text()
     html = (UI_JS.parent / "index.html").read_text()
-    assert 'id="btn-rewrite-all-scan-mobile"' in html
+    assert 'id="project-menu"' in html
     assert 'id="btn-notes-focus"' in html
     assert "wireOverflowMenu" in dom
     assert "positionOverflowMenu" in dom
     assert "opens-up" in dom
-    assert "wireOverflowMenu" in work
-    assert "wireOverflowMenu" in boot
+    assert "wireMenu" in work
+    assert "wireOverflowMenu" in dom
     assert "btn-notes-focus" in now
     assert "chooseThread(id)" in now
-    assert "#btn-rewrite-all-scan" in css
-    assert "display: none !important" in css
     assert ".opens-up" in css
-    assert "#btn-notes-focus.ghost" in css
-    assert "btn-rewrite-all-scan-mobile" in boot
+    # Reader actions sit in its footer; phones hide only Expand.
+    assert "#btn-notes-expand { display: none; }" in css
+    assert "syncProjectMenu" in work
+    assert "wireMenu" in boot
     assert "This may take a moment." in work
     assert "autoScrollProjectsList" in work
     assert "suppressProjectSelectBriefly" in work
