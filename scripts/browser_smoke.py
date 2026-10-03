@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -78,6 +79,15 @@ def main():
                 ("home", "Little life admin", None),
             ]:
                 seed("/projects", {"slug": slug, "title": title, "repo_url": project_repo})
+            # A reminder that is already due shows as a Gentle check on Now.
+            seed(
+                "/reminders",
+                {
+                    "message": "Stretch, then open the draft",
+                    "kind": "once",
+                    "due_at": (datetime.now(UTC) - timedelta(minutes=10)).isoformat(),
+                },
+            )
             for summary, slug, status in [
                 ("Collect a few homepage ideas", "my-website", "done"),
                 ("Make a place for project notes", "learning", "done"),
@@ -165,6 +175,11 @@ def main():
                 assert "adhd_hub_session" not in page.evaluate("document.cookie")
                 page.reload()
                 expect(page.locator("#app-shell")).to_be_visible()
+                reminder = page.locator("#now-reminders .check-item")
+                expect(reminder).to_contain_text("Stretch, then open the draft")
+                expect(reminder).to_contain_text("due 10 minutes ago")
+                reminder.get_by_role("button", name="Snooze 1 hour", exact=True).click()
+                expect(page.locator("#now-checks")).not_to_contain_text("Stretch, then open the draft")
                 page.get_by_role("button", name="Choose a task", exact=True).click()
                 expect(page.locator("#work-view")).to_be_visible()
                 page.locator('#project-list button.proj[data-slug="my-website"]').click()

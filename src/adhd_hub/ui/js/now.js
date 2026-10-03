@@ -1,6 +1,6 @@
 import { state, preferences, completing, prefersReducedMotion, $, setMsg, escapeHtml } from './state.js';
 import { api } from './api.js';
-import { copyText, formatNotesTimes, formatRelative, wireOverflowMenu } from './dom.js';
+import { copyText, formatNotesTimes, formatRelative, formatWhen, wireOverflowMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
