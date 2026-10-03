@@ -2156,10 +2156,10 @@ body.focus-mode .now-overview { display: none; }
 .chart .col { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-radius: 6px 6px 0 0; outline: none; }
 .chart .col:hover { background: var(--line-soft); }
 .chart .col:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
-.chart .bar { width: 10px; max-width: 45%; border-radius: 4px 4px 0 0; }
+.chart .bar { width: 10px; max-width: 45%; min-height: 4px; border-radius: 4px 4px 0 0; }
 .chart .bar.add { background: var(--chart-added); }
 .chart .bar.done { background: var(--chart-finished); }
-.chart .bar.is-zero { height: 2px; background: var(--line); }
+.chart .bar.is-zero { height: 2px; min-height: 0; background: var(--line); }
 .chart-days { display: flex; gap: 4px; padding: .375rem 4px 0; }
 .chart-days span { flex: 1 1 0; min-width: 0; text-align: center; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .chart-day-tip { position: absolute; z-index: 20; padding: .375rem .625rem; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: .8125rem; line-height: 1.4; white-space: nowrap; pointer-events: none; transform: translate(-50%, calc(-100% - .5rem)); }

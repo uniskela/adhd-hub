@@ -141,7 +141,9 @@ export function renderStats(o) {
     const chart = $("chart");
     const summary = $("chart-summary");
     const totals = $("activity-totals");
-    if (!series.length) {
+    // A quiet fortnight (every count zero) gets the calm empty line, not 14 stubs.
+    const active = series.some((d) => (Number(d.added) || 0) + (Number(d.finished) || 0) > 0);
+    if (!series.length || !active) {
       wrap.hidden = true;
       $("chart-empty").hidden = false;
       if (summary) summary.textContent = "";
@@ -168,7 +170,7 @@ export function renderStats(o) {
     // Side-by-side bars share one scale, so the taller of the two sets the top.
     const max = Math.max(1, ...days.map((d) => Math.max(d.added, d.finished)));
     const bar = (kind, value) => value
-      ? `<span class="bar ${kind}" style="height:${Math.round((value / max) * 100)}%"></span>`
+      ? `<span class="bar ${kind}" style="height:${((value / max) * 100).toFixed(1)}%"></span>`
       : `<span class="bar ${kind} is-zero"></span>`;
     chart.innerHTML = days
       .map((d) => `<div class="col" tabindex="0" role="img" aria-label="${escapeHtml(`${d.name}: ${d.added} added, ${d.finished} finished`)}" data-date="${escapeHtml(d.name)}" data-added="${d.added}" data-finished="${d.finished}">${bar("add", d.added)}${bar("done", d.finished)}</div>`)

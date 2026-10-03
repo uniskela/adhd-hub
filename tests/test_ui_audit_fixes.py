@@ -42,6 +42,11 @@ def test_activity_chart_days_have_a_visible_baseline():
     assert "height: 2px" in zero.group(0)
     progress = (UI / "js" / "progress.js").read_text()
     assert 'class="bar ${kind} is-zero"' in progress
+    # Small non-zero days stay visible next to a busy day.
+    bar = re.search(r"^\.chart \.bar \{[^}]*\}", css, re.MULTILINE)
+    assert bar is not None and "min-height: 4px" in bar.group(0)
+    # An all-zero fortnight shows the empty line instead of 14 stubs.
+    assert "if (!series.length || !active)" in progress
 
 
 def test_activity_chart_has_a_table_view_and_validated_colours():
