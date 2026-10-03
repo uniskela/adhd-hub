@@ -293,6 +293,11 @@ $("project-form").addEventListener("submit", (event) => {
   saveProject().catch((e) => setMsg(String(e)));
 });
 $("btn-close-project").addEventListener("click", () => $("project-dialog").close());
+// Every dialog's X button closes it as a cancel; "cancel" never counts as a confirm.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("[data-dialog-close]");
+  if (button) button.closest("dialog")?.close("cancel");
+});
 $("btn-edit-project").addEventListener("click", () => openProjectDialog(state.detailCache));
 $("btn-rewrite-all-scan")?.addEventListener("click", () =>
   rewriteAllProjectScanLines().catch((e) => setMsg(String(e)))

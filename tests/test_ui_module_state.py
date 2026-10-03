@@ -334,12 +334,12 @@ def test_mobile_overflow_menu_and_notes_focus_markers():
     assert "suppressProjectSelectBriefly" in work
 
 def test_organisation_norepo_project_ui_markers():
-    """Create Project offers Organisation / no repository and toggles repo fields."""
+    """Create Project offers "This project has no repository" and toggles repo fields."""
     work = (UI_JS / "work.js").read_text()
     boot = (UI_JS / "boot.js").read_text()
     html = (UI_JS.parent / "index.html").read_text()
     assert 'id="p_org_norepo"' in html
-    assert "Organisation / no repository" in html
+    assert "This project has no repository" in html
     assert "export function applyOrgNorepoUi" in work
     assert "orgNorepo" in work
     assert 'reason === "no_repository"' in work

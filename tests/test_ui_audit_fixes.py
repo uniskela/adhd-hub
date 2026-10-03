@@ -220,3 +220,72 @@ def test_needs_you_is_one_summary_line_over_its_rows():
     assert setup is not None
     assert "display: flex" in setup.group(0)
 
+
+
+def test_sign_in_is_one_calm_column_with_help_below_the_card():
+    html = (UI / "index.html").read_text()
+    gate = html[html.index('<div id="login-gate"') : html.index('<div id="app-shell"')]
+    assert 'class="login-column"' in gate
+    assert '<h1 id="login-title">Welcome back</h1>' in gate
+    assert "A fresh start" not in gate and "login-promise" not in gate
+    # Help sits under the card, not inside the form.
+    assert gate.index("</form>") < gate.index('class="login-help"')
+    assert "Sessions last 12 hours on this browser." in gate
+    auth = (UI / "js" / "auth.js").read_text()
+    assert '"Use access token instead" : "Use password instead"' in auth
+
+
+def test_every_dialog_has_a_title_row_with_a_close_button():
+    html = (UI / "index.html").read_text()
+    dialogs = re.findall(r'<dialog id="([\w-]+)".*?</dialog>', html, re.DOTALL)
+    assert len(dialogs) == 9
+    for block in re.findall(r"<dialog .*?</dialog>", html, re.DOTALL):
+        assert 'class="dialog-head"' in block
+        assert 'class="icon-button dialog-close"' in block
+        assert 'aria-label="Close"' in block
+        assert 'class="eyebrow"' not in block
+    boot = (UI / "js" / "boot.js").read_text()
+    assert '.closest?.("[data-dialog-close]")' in boot
+    assert 'button.closest("dialog")?.close("cancel")' in boot
+
+
+def test_confirm_dialog_forgets_the_last_answer():
+    """Escape keeps returnValue, so an old "yes" must not confirm the next dialog."""
+    dom = (UI / "js" / "dom.js").read_text()
+    reset = dom.index('dlg.returnValue = "";')
+    assert reset < dom.index("dlg.showModal();", reset)
+
+
+def test_project_dialog_shows_basics_and_folds_the_rest():
+    html = (UI / "index.html").read_text()
+    block = html[html.index('<dialog id="project-dialog"') :]
+    block = block[: block.index("</dialog>")]
+    more = block.index('<details class="dialog-more" id="project-more">')
+    for field in ("p_title", "p_desc", "p_tags", "p_repo_url", "p_org_norepo"):
+        assert block.index(f'id="{field}"') < more
+    for field in ("p_slug", "p_parent_slug", "p_forge_connection_profile_id", "p_path", "p_forge_owner"):
+        assert block.index(f'id="{field}"') > more
+    assert "Separate tags with commas." in block
+    assert block.index('id="btn-save-project"') < block.index('id="btn-close-project"')
+    assert block.index('class="dialog-danger-row"') < block.index('id="btn-delete-project"')
+
+
+def test_field_tips_are_visible_targets_that_keep_the_field_labelled():
+    help_js = (UI / "js" / "help.js").read_text()
+    assert 'mark.className = "field-tip-mark"' in help_js
+    assert '<span class="field-tip-mark" aria-hidden="true">?</span>' in help_js
+    assert "label.htmlFor = control.id" in help_js
+    css = (UI / "app.css").read_text()
+    tip = css[css.index("button.field-tip,\n.field-tip {") :]
+    tip = tip[: tip.index("}")]
+    assert "width: 44px;" in tip and "height: 44px;" in tip
+
+
+def test_toasts_have_a_full_size_close_and_a_kind_dot():
+    css = (UI / "app.css").read_text()
+    close = css[css.index(".toast-close {") :]
+    close = close[: close.index("}")]
+    assert "width: 44px;" in close and "height: 44px;" in close
+    assert ".toast-error::before { background: var(--danger); }" in css
+    state = (UI / "js" / "state.js").read_text()
+    assert 'close.setAttribute("aria-label", "Dismiss notification")' in state

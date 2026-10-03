@@ -119,7 +119,7 @@ export const setMsg = (t, opts = {}) => {
   close.type = "button";
   close.className = "toast-close";
   close.setAttribute("aria-label", "Dismiss notification");
-  close.textContent = "×";
+  close.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   close.addEventListener("click", () => {
     clearTimeout(Number(el.dataset.timer || 0) || undefined);
     el.remove();

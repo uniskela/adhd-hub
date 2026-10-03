@@ -26,31 +26,29 @@
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div id="login-gate" class="login-gate" hidden>
-    <div class="login-intro">
-      <img class="brand-mark" src="/ui/brand/icon.svg" alt="" width="64" height="64" />
-      <p class="eyebrow">Your place to pick things up</p>
-      <h1>A fresh start.<br />Every time.</h1>
-      <p>Your projects, your pace. Keep a little context for the next time you’re ready.</p>
-      <div class="login-promise"><span aria-hidden="true">✓</span> Small steps count. Breaks belong here, too.</div>
-    </div>
-    <form id="login-form" class="login-card" autocomplete="on">
-      <p class="eyebrow">ADHD Progress Hub</p>
-      <h2>Welcome back</h2>
-      <p class="tagline" id="login-description">Sign in to your space.</p>
-      <input type="text" name="username" value="dashboard" autocomplete="username" hidden />
-      <label for="login-token" id="login-label">Password</label>
-      <div class="password-input">
-        <input id="login-token" name="password" type="password" autocomplete="current-password" required maxlength="4096" />
-        <button id="btn-show-password" type="button" class="ghost" aria-label="Show password" aria-pressed="false">Show</button>
+    <div class="login-column">
+      <div class="login-intro">
+        <img class="brand-mark" src="/ui/brand/icon.svg" alt="" width="48" height="48" />
+        <h1 id="login-title">Welcome back</h1>
+        <p id="login-description">Your work is right where you left it.</p>
       </div>
-      <p id="login-error" class="msg error" role="alert"></p>
-      <button type="submit" class="primary">Sign in</button>
-      <button type="button" class="text-button" id="btn-login-method">Use access token instead</button>
+      <form id="login-form" class="login-card" autocomplete="on" aria-labelledby="login-title" aria-describedby="login-description">
+        <input type="text" name="username" value="dashboard" autocomplete="username" hidden />
+        <div class="login-field">
+          <label for="login-token" id="login-label">Password</label>
+          <div class="password-input">
+            <input id="login-token" name="password" type="password" autocomplete="current-password" required maxlength="4096" aria-describedby="login-error" />
+            <button id="btn-show-password" type="button" class="ghost" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+        </div>
+        <p id="login-error" class="msg error" role="alert"></p>
+        <button type="submit" class="primary">Sign in</button>
+        <button type="button" class="text-button" id="btn-login-method">Use access token instead</button>
+      </form>
       <details class="login-help"><summary>Need help signing in?</summary>
-        <p class="hint">On your first visit, use the server’s <code>ADHD_HUB_AUTH_TOKEN</code>. You can create a separate dashboard password in Settings. The same token lets you reset a forgotten password.</p>
+        <p>On your first visit, use the server’s <code>ADHD_HUB_AUTH_TOKEN</code>. You can set a password in Settings › Account, and the same token resets a forgotten one. Sessions last 12 hours on this browser.</p>
       </details>
-      <p class="session-note">A private, 12-hour session on this browser.</p>
-    </form>
+    </div>
   </div>
 
   <div id="app-shell" hidden>
@@ -726,66 +724,65 @@
 
   <dialog id="project-dialog" aria-labelledby="edit-heading">
     <form id="project-form" class="dialog-card">
-      <div class="section-heading"><h2 id="edit-heading">Project settings</h2></div>
-      <div class="form-grid">
-        <label>Title <input id="p_title" required /></label>
-        <label>Slug <input id="p_slug" placeholder="my-project" /></label>
-        <label class="span2 checkbox-row" id="p_org_norepo_label">
-          <input type="checkbox" id="p_org_norepo" />
-          Organisation / no repository
-        </label>
-        <p id="p_org_norepo_hint" class="hint span2" hidden>
-          Container for nesting other projects. No forge or repository URL required.
-        </p>
-        <label class="span2" id="p_repo_url_label">Repository URL <input id="p_repo_url" type="url" placeholder="https://github.com/owner/repository" /></label>
-        <label class="span2">Forge connection
-          <select id="p_forge_connection_profile_id">
-            <option value="">None (local-only)</option>
-          </select>
-        </label>
-        <p id="p_effective_import_policy" class="effective-import-policy hint span2" hidden></p>
-        <label class="span2">Workspace path <input id="p_path" placeholder="Z:\Projects\…" /></label>
-        <label class="span2">Description <textarea id="p_desc"></textarea></label>
-        <label class="span2">Tags <input id="p_tags" placeholder="homelab, docs, client (comma-separated)" /></label>
-        <details class="advanced span2" id="parent-advanced">
-          <summary>Parent (fallback)</summary>
-          <p class="hint">Prefer drag-and-drop in the Projects list. Use this select when you need an exact parent.</p>
-          <label>Parent
-            <select id="p_parent_slug" aria-label="Parent project">
+      <header class="dialog-head">
+        <div><h2 id="edit-heading">Project settings</h2><p class="dialog-sub" id="edit-subtitle" hidden></p></div>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <label>Name <input id="p_title" required /></label>
+      <label>Description <textarea id="p_desc" rows="3"></textarea></label>
+      <label>Tags <input id="p_tags" placeholder="homelab, docs, client" /><span class="field-hint">Separate tags with commas.</span></label>
+      <label id="p_repo_url_label">Repository <input id="p_repo_url" type="url" placeholder="https://github.com/owner/repository" /></label>
+      <label class="check-row" id="p_org_norepo_label"><input type="checkbox" id="p_org_norepo" /> This project has no repository</label>
+      <p id="p_org_norepo_hint" class="hint" hidden>It works as a folder for other projects. No repository or issue sync needed.</p>
+      <details class="dialog-more" id="project-more">
+        <summary>More options</summary>
+        <div class="dialog-more-body">
+          <label>Short name (slug) <input id="p_slug" placeholder="my-project" /></label>
+          <label id="parent-advanced">Parent project
+            <select id="p_parent_slug">
               <option value="">None (top-level)</option>
             </select>
+            <span class="field-hint">You can also drag projects in the list to nest them.</span>
           </label>
-        </details>
-      </div>
-      <details class="advanced">
-        <summary>Advanced forge overrides</summary>
-        <p class="hint">Owner and repo are <strong>name fragments only</strong> (issues/board). Full URLs go in Repository URL above. Wiki/PROGRESS still uses the Hub Default profile.</p>
-        <div class="form-grid">
-          <label>Forge owner <input id="p_forge_owner" placeholder="user123" /></label>
-          <label>Forge repo <input id="p_forge_repo" placeholder="my-repo" /></label>
-          <label>Wiki path <input id="p_forge_wiki" placeholder="(blank = repo root)" /></label>
-          <label>Project board id <input id="p_forge_project_id" placeholder="42" /></label>
+          <label>Issue sync connection
+            <select id="p_forge_connection_profile_id">
+              <option value="">None (local-only)</option>
+            </select>
+          </label>
+          <p id="p_effective_import_policy" class="effective-import-policy hint" hidden></p>
+          <label>Folder on your computer <input id="p_path" placeholder="Z:\Projects\…" /></label>
+          <fieldset class="dialog-group">
+            <legend>Issue sync overrides</legend>
+            <p class="hint">Names only, never full URLs. Leave blank to use the connection’s defaults. Notes and PROGRESS.md still use the default connection.</p>
+            <div class="form-grid">
+              <label>Owner <input id="p_forge_owner" placeholder="user123" /></label>
+              <label>Repository name <input id="p_forge_repo" placeholder="my-repo" /></label>
+              <label>Wiki path <input id="p_forge_wiki" placeholder="(blank = repo root)" /></label>
+              <label>Project board id <input id="p_forge_project_id" placeholder="42" /></label>
+            </div>
+          </fieldset>
         </div>
       </details>
       <div class="actions">
         <button type="submit" class="primary" id="btn-save-project">Save project</button>
-        <button type="button" class="ghost" id="btn-sync-project">Sync forge</button>
+        <button type="button" class="ghost" id="btn-sync-project">Sync now</button>
         <button type="button" class="ghost" id="btn-archive-project">Archive</button>
         <button type="button" class="ghost" id="btn-restore-project" hidden>Restore</button>
-        <button type="button" class="ghost" id="btn-rename-project">Rename slug…</button>
-        <button type="button" class="danger" id="btn-delete-project">Delete…</button>
         <button type="button" class="ghost" id="btn-close-project">Cancel</button>
+      </div>
+      <div class="dialog-danger-row">
+        <button type="button" class="ghost" id="btn-rename-project">Rename short name…</button>
+        <button type="button" class="danger" id="btn-delete-project">Delete project…</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="organise-dialog" aria-labelledby="organise-title">
     <form method="dialog" id="organise-form" class="dialog-card">
-      <div class="section-heading">
-        <h2 id="organise-title">Suggest project tags</h2>
-        <button type="submit" class="icon-button" value="cancel" aria-label="Close">×</button>
-      </div>
-      <p class="hint">Review suggestions before applying. Nothing is saved until you confirm.</p>
+      <header class="dialog-head">
+        <div><h2 id="organise-title">Suggest project tags</h2><p class="dialog-sub">Nothing is saved until you apply it.</p></div>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
       <div id="organise-list" class="organise-list"></div>
       <p id="organise-empty" class="hint" hidden>No new tag suggestions right now.</p>
       <div class="actions">
@@ -797,20 +794,25 @@
 
   <dialog id="share-dialog" aria-labelledby="share-title">
     <div class="dialog-card share-dialog-card">
-      <div class="section-heading"><h2 id="share-title">Share your progress</h2><button type="button" class="icon-button" id="btn-close-share" aria-label="Close share preview">×</button></div>
-      <p class="hint">The card shows your rank, totals, earned milestones and the project link. It never includes task names, project names or account details.</p>
+      <header class="dialog-head">
+        <div><h2 id="share-title">Share your progress</h2><p class="dialog-sub">Shows your rank, totals, milestones and the project link. Never task names, project names or account details.</p></div>
+        <button type="button" class="icon-button dialog-close" id="btn-close-share" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
       <canvas id="share-card" width="1200" height="720" role="img" aria-label="Progress card preview"></canvas>
-      <label for="share-text">Text version</label><textarea id="share-text" readonly></textarea>
+      <label>Text version <textarea id="share-text" readonly></textarea></label>
       <p id="share-msg" class="msg" role="status"></p>
       <div class="actions"><button type="button" class="primary" id="btn-download-card">Download PNG</button><button type="button" class="ghost" id="btn-copy-progress">Copy text</button><button type="button" class="ghost" id="btn-native-share" hidden>Share…</button></div>
       <p class="hint">Nothing is shared until you choose where it goes.</p>
     </div>
   </dialog>
 
-  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-body">
     <form method="dialog" class="dialog-card">
-      <h2 id="confirm-title">Confirm</h2>
-      <p id="confirm-body" class="hint"></p>
+      <header class="dialog-head">
+        <h2 id="confirm-title">Confirm</h2>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <p id="confirm-body" class="dialog-body"></p>
       <div id="confirm-extra"></div>
       <div class="actions">
         <button type="submit" class="danger" value="yes" id="confirm-yes">Confirm</button>
@@ -821,19 +823,24 @@
 
   <dialog id="source-refresh-dialog" aria-labelledby="source-refresh-title">
     <div class="dialog-card">
-      <h2 id="source-refresh-title">Refresh from source issue</h2>
+      <header class="dialog-head">
+        <h2 id="source-refresh-title">Refresh from source issue</h2>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
       <div id="source-refresh-body"></div>
       <div class="actions">
+        <button type="button" class="primary" id="btn-apply-source-refresh">Apply refresh</button>
         <button type="button" class="ghost" id="btn-cancel-source-refresh">Cancel</button>
-        <button type="button" id="btn-apply-source-refresh">Apply refresh</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="password-dialog" aria-labelledby="password-title">
     <form id="password-form" class="dialog-card">
-      <p class="eyebrow">Your space, your password</p><h2 id="password-title">Set a dashboard password</h2>
-      <p class="hint">Use at least 12 characters. A few memorable words work well.</p>
+      <header class="dialog-head">
+        <div><h2 id="password-title">Set a dashboard password</h2><p class="dialog-sub">Use at least 12 characters. A few memorable words work well.</p></div>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
       <input type="text" name="username" value="dashboard" autocomplete="username" hidden />
       <label>Verify with <select id="password-method"><option value="password">Current password</option><option value="token">Recovery access token</option></select></label>
       <label>Current password or access token <input id="password-current" type="password" autocomplete="current-password" required maxlength="4096" /></label>
@@ -845,9 +852,11 @@
   </dialog>
   <dialog id="capture-dialog" aria-labelledby="capture-title">
     <form id="quick-capture" class="dialog-card">
-      <h2 id="capture-title">Save a thought</h2>
-      <label for="capture-summary">What do you want to remember?</label>
-      <textarea id="capture-summary" placeholder="An idea, a task, something to come back to…" maxlength="500" required></textarea>
+      <header class="dialog-head">
+        <h2 id="capture-title">Save a thought</h2>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <label>What do you want to remember? <textarea id="capture-summary" placeholder="An idea, a task, something to come back to…" maxlength="500" required></textarea></label>
       <label class="check-row"><input type="checkbox" id="capture-as-thread" checked /> Create an open task in Inbox</label>
       <p class="hint" id="capture-project">Saved to your inbox. You can sort it out later.</p>
       <p id="capture-error" class="msg error" role="alert"></p>
@@ -856,30 +865,33 @@
   </dialog>
   <dialog id="reminder-dialog" aria-labelledby="reminder-title">
     <form id="reminder-form" class="dialog-card">
-      <h2 id="reminder-title">Leave a reminder</h2>
-      <label for="reminder-message">What should you come back to?</label>
-      <textarea id="reminder-message" maxlength="500" required placeholder="Stretch, then open the draft…"></textarea>
-      <label for="reminder-kind">When</label>
-      <select id="reminder-kind">
-        <option value="once">At a time</option>
-        <option value="session">Next time I open the hub</option>
-        <option value="daily">Once a day</option>
-      </select>
-      <label for="reminder-due" id="reminder-due-label">Due (local time)</label>
-      <input id="reminder-due" type="datetime-local" />
+      <header class="dialog-head">
+        <h2 id="reminder-title">Leave a reminder</h2>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <label>What should you come back to? <textarea id="reminder-message" maxlength="500" required placeholder="Stretch, then open the draft…"></textarea></label>
+      <label>When
+        <select id="reminder-kind">
+          <option value="once">At a time</option>
+          <option value="session">Next time I open the hub</option>
+          <option value="daily">Once a day</option>
+        </select>
+      </label>
+      <label id="reminder-due-label">Date and time <input id="reminder-due" type="datetime-local" /></label>
       <p id="reminder-error" class="msg error" role="alert"></p>
       <div class="actions"><button type="submit" class="primary">Save reminder</button><button type="button" class="ghost" id="btn-cancel-reminder">Cancel</button></div>
     </form>
   </dialog>
   <dialog id="cli-connect-dialog" aria-labelledby="cli-connect-title">
     <form method="dialog" class="dialog-card">
-      <p class="eyebrow">Connect from the command line</p>
-      <h2 id="cli-connect-title">Allow this CLI?</h2>
-      <p class="hint">A Hub command on this computer wants a session. Your server access token stays on the Hub.</p>
-      <p>Code: <strong id="cli-connect-code-label"></strong></p>
+      <header class="dialog-head">
+        <div><h2 id="cli-connect-title">Allow this CLI?</h2><p class="dialog-sub">A Hub command on this computer wants a session. Your server access token stays on the Hub.</p></div>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <p class="dialog-code">Code <strong id="cli-connect-code-label"></strong></p>
       <p id="cli-connect-dialog-msg" class="msg" role="status"></p>
       <div class="actions">
-        <button type="submit" class="primary" value="allow" id="btn-dialog-allow-cli">Allow</button>
+        <button type="submit" class="primary" value="allow" id="btn-dialog-allow-cli" autofocus>Allow</button>
         <button type="submit" class="ghost" value="cancel">Not now</button>
       </div>
     </form>

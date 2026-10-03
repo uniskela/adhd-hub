@@ -603,9 +603,12 @@ export function fillProjectForm(p) {
     if (!p) return;
     $("edit-heading").textContent = p.unregistered
       ? p.slug
-        ? `Register ${p.slug}`
+        ? "Register this project"
         : "New project"
-      : `Edit ${p.title || p.slug}`;
+      : "Project settings";
+    const subtitle = $("edit-subtitle");
+    subtitle.textContent = p.unregistered ? p.slug || "" : p.title || p.slug || "";
+    subtitle.hidden = !subtitle.textContent;
     $("p_title").value = p.title || "";
     $("p_slug").value = p.slug || "";
     $("p_slug").readOnly = !p.unregistered;
@@ -806,24 +809,24 @@ function attachProjectForgeTips() {
     const tips = [
       [
         "p_forge_connection_profile_id",
-        "Which forge profile’s credentials and import policy this project uses for issues/board sync.",
+        "Which issue sync connection (and its import rules) this project uses for issues and the board.",
       ],
       [
         "p_forge_owner",
-        "Forge owner/org name only (user123). Overrides the profile default for issues/board — not the Hub wiki memory repo.",
+        "Owner or organisation name only (user123). Overrides the connection’s default for issues and the board, not the Hub’s notes repository.",
       ],
       [
         "p_forge_repo",
-        "Repository name only (my-repo), never a full URL. Full URLs belong in Repository URL above.",
+        "Repository name only (my-repo), never a full URL. Full URLs belong in Repository at the top.",
       ],
       [
         "p_forge_wiki",
-        "Optional wiki path override for this project’s forge target. Blank = repo root. Hub PROGRESS.md still uses the Default profile.",
+        "Optional wiki path for this project. Blank means the repository root. Hub PROGRESS.md still uses the default connection.",
       ],
       ["p_forge_project_id", "Optional Gitea/Forgejo project board id for this project."],
       [
         "p_repo_url",
-        "Full repository URL for display/open-repo. When Advanced forge owner/repo are blank, owner/repo are derived from this URL on blur.",
+        "Full repository URL for the open-repository button. When the owner and repository name under More options are blank, they are filled in from this URL.",
       ],
     ];
     for (const [id, tip] of tips) {
@@ -1698,9 +1701,9 @@ export async function saveProject() {
 export async function renameProject() {
     if (!state.projectFilter) return;
     const result = await confirmDialog({
-      title: "Rename project slug",
-      body: "Updates threads, local wiki folder, and forge path when sync is on.",
-      extraHtml: `<label>New slug <input id="rename_slug" value="${escapeHtml(state.projectFilter)}" /></label>`,
+      title: "Rename the short name?",
+      body: "Updates threads, the local wiki folder, and the issue sync path when sync is on.",
+      extraHtml: `<label>New short name <input id="rename_slug" value="${escapeHtml(state.projectFilter)}" /></label>`,
     });
     if (!result.ok) return;
     const newSlug = (result.data.rename_slug || "").trim();
@@ -1721,7 +1724,7 @@ export async function renameProject() {
 export async function deleteProject() {
     if (!state.projectFilter) return;
     const result = await confirmDialog({
-      title: "Delete project",
+      title: "Delete this project?",
       body: "Removes the registry entry. Open threads keep their notes but lose the project link. Forge issues are never deleted.",
       extraHtml: `
         <label><input type="checkbox" id="del_progress" /> Also delete local PROGRESS.md</label>

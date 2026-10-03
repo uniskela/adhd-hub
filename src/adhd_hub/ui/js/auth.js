@@ -125,9 +125,9 @@ export function setLoginMode(mode) {
     state.loginMode = mode;
     const password = mode === "password";
     $("login-label").textContent = password ? "Password" : "Access token";
-    $("login-description").textContent = password ? "Your next step is right where you left it." :
-      "Use your hub token to get started. You can create a password once you’re in.";
-    $("btn-login-method").textContent = password ? "Use recovery access token" : "Use dashboard password";
+    $("login-description").textContent = password ? "Your work is right where you left it." :
+      "Use your hub’s access token to get started. You can set a password once you’re in.";
+    $("btn-login-method").textContent = password ? "Use access token instead" : "Use password instead";
     $("btn-login-method").hidden = !state.authStatus.password_configured;
     $("login-token").type = "password";
     $("btn-show-password").textContent = "Show";
