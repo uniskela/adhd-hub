@@ -105,7 +105,7 @@ function applyAccent() {
     else root.style.removeProperty(token);
   }
   const picker = document.getElementById("accent-colour");
-  if (picker) picker.value = chosen || "#4f46c8";
+  if (picker) picker.value = chosen || "#176b60";
   const label = document.getElementById("accent-value");
   if (label) label.textContent = chosen ? chosen.toUpperCase() : "Default palette";
   document.querySelectorAll("[data-accent]").forEach((button) => {
