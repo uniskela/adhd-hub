@@ -1279,8 +1279,12 @@ def _ensure_ponytail_clone(*, dry_run: bool) -> tuple[Status, str, Path | None]:
         return "warn", detail, None
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists() and not marker.is_file():
-        # Incomplete prior attempt — replace.
-        shutil.rmtree(dest, ignore_errors=True)
+        # Do not delete an existing path — it may be a user checkout or modified tree.
+        detail = (
+            f"existing destination lacks {marker.name}; left unchanged: {dest} · "
+            f"move/remove it or install Cursor hooks manually · {COMPANIONS_DOC}"
+        )
+        return "warn", detail, None
     status, detail = _optional_result(
         *_run([git, "clone", "--depth", "1", PONYTAIL_REPO, str(dest)], dry_run=False)
     )

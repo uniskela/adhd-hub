@@ -684,6 +684,32 @@ def test_install_dry_run_ponytail_cursor_and_codex() -> None:
     assert all(s.status != "error" for s in steps)
 
 
+def test_ponytail_clone_preserves_existing_destination(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from adhd_hub import companions
+
+    dest = tmp_path / "ponytail"
+    dest.mkdir()
+    keep = dest / "user-notes.txt"
+    keep.write_text("keep me", encoding="utf-8")
+    monkeypatch.setattr(companions, "ponytail_clone_dir", lambda: dest)
+    monkeypatch.setattr(companions, "_which", lambda *names: "/usr/bin/git")
+    ran: list[list[str]] = []
+
+    def fake_run(cmd: list[str], *, dry_run: bool):
+        ran.append(cmd)
+        return "ok", "would run"
+
+    monkeypatch.setattr(companions, "_run", fake_run)
+    status, detail, path = companions._ensure_ponytail_clone(dry_run=False)
+    assert status == "warn"
+    assert "left unchanged" in detail
+    assert path is None
+    assert keep.is_file()
+    assert ran == []
+
+
 def test_cursor_hooks_invalid_utf8_does_not_abort(tmp_path: Path, monkeypatch) -> None:
     from adhd_hub import companions
 
