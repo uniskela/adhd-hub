@@ -3,7 +3,7 @@ import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
 import { fillTimezoneSelect, positionOverflowMenu, wireOverflowMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
-import { captureStep, chooseThread, loadChosenThread, openReminderDialog, pauseHere, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
+import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
@@ -403,8 +403,6 @@ $("btn-capture").addEventListener("click", () => {
   $("capture-summary").focus();
 });
 $("btn-cancel-capture").addEventListener("click", () => $("capture-dialog").close());
-$("pause-form").addEventListener("submit", pauseHere);
-$("btn-cancel-pause").addEventListener("click", () => $("pause-dialog").close());
 $("btn-login-method").addEventListener("click", () => {
   setLoginMode(state.loginMode === "password" ? "token" : "password");
   $("login-token").value = "";
@@ -459,12 +457,12 @@ loadAuthStatus().then(() => tryAuth())
   .catch(() => showLogin("Could not reach your hub. Check your connection and try again."));
 
 document.addEventListener("pointerdown", (event) => {
-  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open]").forEach((panel) => {
+  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open], .focus-menu[open]").forEach((panel) => {
     if (!panel.contains(event.target)) panel.open = false;
   });
 });
 window.addEventListener("resize", () => {
-  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open]").forEach((panel) => {
+  document.querySelectorAll(".thread-utility[open], .project-mobile-actions[open], .rail-mobile-actions[open], .focus-menu[open]").forEach((panel) => {
     positionOverflowMenu(panel);
   });
 });

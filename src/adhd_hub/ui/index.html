@@ -88,37 +88,57 @@
       <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
       <p id="msg" class="msg visually-hidden" role="status" aria-live="polite" hidden></p>
       <section id="now-view" class="view now-view" aria-label="Now">
-        <div class="view-heading"><p class="eyebrow">Your workspace at a glance</p><h1>A little clarity for today.</h1><p>See where things stand, then choose one small step.</p></div>
+        <header class="view-heading now-heading">
+          <p class="now-date" id="now-date"></p>
+          <h1 id="now-greeting">Hello.</h1>
+          <p>Pick one small step. Everything else can wait.</p>
+        </header>
         <section class="focus" id="focus-panel" aria-labelledby="focus-title">
-          <div class="focus-toolbar">
-            <p class="eyebrow" id="focus-eyebrow">Your choice</p>
-            <div class="focus-toolbar-actions">
-              <label class="focus-timer-label" for="focus-minutes" hidden id="focus-timer-wrap">
-                <span class="visually-hidden">Focus minutes</span>
-                <select id="focus-minutes" aria-label="Focus session length">
-                  <option value="15">15 min</option>
-                  <option value="25" selected>25 min</option>
-                  <option value="45">45 min</option>
-                </select>
-              </label>
-              <button type="button" class="ghost compact" id="btn-focus-mode" aria-pressed="false">Focus mode</button>
+          <div class="focus-head">
+            <div class="focus-heading">
+              <p class="focus-stage" id="focus-eyebrow">Nothing chosen yet</p>
+              <h2 id="focus-title">What would you like to work on?</h2>
+              <p class="focus-meta" id="focus-meta" hidden></p>
             </div>
+            <details class="focus-menu" id="focus-menu" hidden>
+              <summary aria-label="More actions" title="More actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
+              <div class="thread-utility-panel focus-menu-panel">
+                <div class="thread-utility-actions">
+                  <button type="button" id="btn-choose-another">Choose another step</button>
+                  <button type="button" id="btn-open-in-work">Open in My work</button>
+                  <button type="button" id="btn-copy-agent-prompt" title="Copy as prompt for Coding Agent to begin work">Copy agent prompt</button>
+                  <button type="button" id="btn-menu-done">Mark step done</button>
+                </div>
+              </div>
+            </details>
           </div>
-          <h2 id="focus-title">What would you like to work on?</h2>
-          <p id="focus-session" class="focus-session" role="status" hidden></p>
           <div id="next-card" class="next-card empty"></div>
-        </section>
-        <section class="now-overview" aria-labelledby="overview-title">
-          <div class="overview-heading"><div><p class="eyebrow">A quick look</p><h2 id="overview-title">Your workspace</h2></div><button type="button" class="ghost compact" data-screen="work">Open My work</button></div>
-          <div class="overview-links">
-            <button type="button" class="overview-link" data-screen="work"><strong id="now-open-count">0</strong><span>Open steps</span></button>
-            <button type="button" class="overview-link" data-screen="progress"><strong id="now-done-count">0</strong><span>Finished this week</span></button>
-            <button type="button" class="overview-link" data-screen="work"><strong id="now-project-count">0</strong><span>Projects</span></button>
+          <div class="focus-mode-row" id="focus-mode-row" hidden>
+            <button type="button" class="switch-button" id="btn-focus-mode" role="switch" aria-checked="false"><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>Focus mode</button>
+            <label class="focus-timer-label" for="focus-minutes" hidden id="focus-timer-wrap">Session
+              <select id="focus-minutes" aria-label="Focus session length">
+                <option value="0">No timer</option>
+                <option value="15">15 minutes</option>
+                <option value="25" selected>25 minutes</option>
+                <option value="45">45 minutes</option>
+              </select>
+            </label>
+            <p class="focus-mode-hint" id="focus-mode-hint">No timer, no rush.</p>
+            <p id="focus-session" class="focus-session" role="status" hidden></p>
           </div>
-          <p id="now-overview-caption" class="overview-caption"></p>
         </section>
-        <section id="now-reminders" class="reminder-strip" hidden></section>
-        <section id="now-triage" class="triage-strip" hidden></section>
+        <section class="now-overview" aria-label="Overview">
+          <p class="overview-line">
+            <button type="button" class="overview-link" data-screen="work"><strong id="now-open-count">0</strong> <span id="now-open-label">open steps</span></button><span class="overview-sep" aria-hidden="true">·</span><button type="button" class="overview-link" data-screen="progress"><strong id="now-done-count">0</strong> finished this week</button><span class="overview-sep" aria-hidden="true">·</span><button type="button" class="overview-link" data-screen="work"><strong id="now-project-count">0</strong> <span id="now-project-label">projects</span></button>
+          </p>
+          <button type="button" class="link-button" data-screen="work">See all work</button>
+          <p id="now-overview-caption" class="overview-caption" hidden></p>
+        </section>
+        <section class="now-checks" id="now-checks" aria-labelledby="now-checks-title" hidden>
+          <h2 id="now-checks-title" class="visually-hidden">Gentle checks</h2>
+          <div id="now-reminders" class="check-list" hidden></div>
+          <div id="now-triage" class="check-list" hidden></div>
+        </section>
       </section>
       <section id="work-view" class="view" aria-label="My work" hidden>
         <div class="view-heading work-heading-row">
@@ -703,16 +723,6 @@
       <input id="reminder-due" type="datetime-local" />
       <p id="reminder-error" class="msg error" role="alert"></p>
       <div class="actions"><button type="submit" class="primary">Save reminder</button><button type="button" class="ghost" id="btn-cancel-reminder">Cancel</button></div>
-    </form>
-  </dialog>
-  <dialog id="pause-dialog" aria-labelledby="pause-title">
-    <form id="pause-form" class="dialog-card">
-      <h2 id="pause-title">Leave yourself a next step.</h2>
-      <p id="pause-task" class="hint"></p>
-      <label for="pause-step">What’s the next tiny step?</label>
-      <textarea id="pause-step" placeholder="Open the draft and write the first sentence…" maxlength="2000" required></textarea>
-      <p id="pause-error" class="msg error" role="alert"></p>
-      <div class="actions"><button type="submit" class="primary">Save &amp; pause</button><button type="button" class="ghost" id="btn-cancel-pause">Keep working</button></div>
     </form>
   </dialog>
   <dialog id="cli-connect-dialog" aria-labelledby="cli-connect-title">

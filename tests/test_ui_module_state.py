@@ -182,7 +182,7 @@ def test_notes_reader_formats_time_elements_with_current_tz():
     assert "export function parseHubInstant" in dom
     assert "Hub UTC, not browser-local" in dom
     assert "formatNotesTimes" in now
-    assert "import { copyText, formatNotesTimes, formatWhen }" in now
+    assert re.search(r"import \{[^}]*\bformatNotesTimes\b[^}]*\} from './dom\.js'", now)
     # Runs as part of wireNotesActions so both reader inject and Now card paths cover it.
     wire = now.index("function wireNotesActions")
     assert "formatNotesTimes(root)" in now[wire : wire + 400]
@@ -353,16 +353,16 @@ def test_now_copy_coding_agent_prompt_control():
     assert "export function buildCodingAgentPrompt" in now
     assert "export function isBoilerplateProgressSnippet" in now
     assert "export async function copyCodingAgentPrompt" in now
-    assert 'id="btn-copy-agent-prompt"' in now
-    assert ">Copy agent prompt</button>" in now
+    html = (UI_JS.parent / "index.html").read_text()
+    assert 'id="btn-copy-agent-prompt"' in html
+    assert ">Copy agent prompt</button>" in html
     assert "Copied coding-agent prompt" in now
     assert "export async function copyText" in dom
-    assert "import { copyText, formatNotesTimes, formatWhen }" in now
-    # Button sits with Start / Choose / Done in renderFocus.
-    render = now.index("export function renderFocus")
-    btn = now.index('id="btn-copy-agent-prompt"', render)
-    done = now.index('data-done="', render)
-    assert done < btn
+    assert re.search(r"import \{[^}]*\bformatNotesTimes\b[^}]*\} from './dom\.js'", now)
+    # The focus card's More actions menu copies the chosen thread's prompt.
+    menu = html.index('id="focus-menu"')
+    assert menu < html.index('id="btn-copy-agent-prompt"') < html.index("</details>", menu)
+    assert '$("btn-copy-agent-prompt").addEventListener("click", run(() => copyCodingAgentPrompt(state.chosenThread)))' in now
     # Prompt includes the scannable continuity sections agents need.
     for needle in (
         "**Goal**",

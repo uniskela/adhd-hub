@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -78,6 +79,15 @@ def main():
                 ("home", "Little life admin", None),
             ]:
                 seed("/projects", {"slug": slug, "title": title, "repo_url": project_repo})
+            # A reminder that is already due shows as a Gentle check on Now.
+            seed(
+                "/reminders",
+                {
+                    "message": "Stretch, then open the draft",
+                    "kind": "once",
+                    "due_at": (datetime.now(UTC) - timedelta(minutes=10)).isoformat(),
+                },
+            )
             for summary, slug, status in [
                 ("Collect a few homepage ideas", "my-website", "done"),
                 ("Make a place for project notes", "learning", "done"),
@@ -165,6 +175,11 @@ def main():
                 assert "adhd_hub_session" not in page.evaluate("document.cookie")
                 page.reload()
                 expect(page.locator("#app-shell")).to_be_visible()
+                reminder = page.locator("#now-reminders .check-item")
+                expect(reminder).to_contain_text("Stretch, then open the draft")
+                expect(reminder).to_contain_text(re.compile(r"due \d+ minutes ago"))
+                reminder.get_by_role("button", name="Snooze 1 hour", exact=True).click()
+                expect(page.locator("#now-checks")).not_to_contain_text("Stretch, then open the draft")
                 page.get_by_role("button", name="Choose a task", exact=True).click()
                 expect(page.locator("#work-view")).to_be_visible()
                 page.locator('#project-list button.proj[data-slug="my-website"]').click()
@@ -204,14 +219,34 @@ def main():
                 notes.locator(":scope > summary").click()
                 expect(notes.locator(":scope > .markdown-body")).to_contain_text("Personal website")
                 expect(page.locator("#next-card script")).to_have_count(0)
-                page.get_by_role("button", name="Start", exact=True).click()
-                page.get_by_role("button", name="Pause here", exact=True).click()
+                expect(page.locator("#focus-meta")).to_contain_text("last touched")
+                page.get_by_role("button", name="Start this step", exact=True).click()
+                expect(page.locator("#focus-eyebrow")).to_have_text("You’re on it")
+                expect(page.locator("#focus-mode-row")).to_be_visible()
+                page.screenshot(path=str(screenshots / "now-working.png"), full_page=True)
+                page.locator("#focus-menu > summary").click()
+                expect(page.locator("#btn-menu-done")).to_be_hidden()
+                page.screenshot(path=str(screenshots / "now-menu.png"), full_page=True)
+                page.keyboard.press("Escape")
+                expect(page.locator("#focus-menu > summary")).to_be_focused()
+                page.get_by_role("button", name="Pause and leave a note", exact=True).click()
+                expect(page.locator("#pause-step")).to_be_focused()
+                page.screenshot(path=str(screenshots / "now-pausing.png"), full_page=True)
+                page.keyboard.press("Escape")
+                expect(page.locator("#pause-form")).to_have_count(0)
+                expect(page.get_by_role("button", name="Pause and leave a note", exact=True)).to_be_focused()
+                page.get_by_role("button", name="Pause and leave a note", exact=True).click()
                 page.locator("#pause-step").fill("Open the **photo folder**")
-                page.get_by_role("button", name="Save & pause", exact=True).click()
-                expect(page.locator("#pause-dialog")).to_be_hidden()
+                # A live refresh mid-note must not wipe what was typed.
+                page.evaluate("import('/ui/js/now.js').then((m) => m.renderFocus())")
+                expect(page.locator("#pause-step")).to_have_value("Open the **photo folder**")
+                expect(page.locator("#pause-step")).to_be_focused()
+                page.get_by_role("button", name="Save and pause", exact=True).click()
+                expect(page.locator("#pause-form")).to_have_count(0)
                 expect(page.locator("#next-card .resume-step strong")).to_have_text("photo folder")
                 page.reload()
                 expect(page.get_by_role("button", name="Resume", exact=True)).to_be_visible()
+                expect(page.locator("#focus-eyebrow")).to_have_text("Welcome back")
                 page.get_by_role("button", name="Save a thought", exact=True).click()
                 page.locator("#capture-summary").fill("Open the draft and add one sentence")
                 page.get_by_role("button", name="Save thought", exact=True).click()
@@ -230,7 +265,8 @@ def main():
                 page.get_by_role("button", name="Save", exact=True).click()
                 expect(page.locator("#toast-host")).to_contain_text("Settings saved")
                 page.get_by_role("button", name="Now", exact=True).click()
-                page.locator("#next-card").get_by_role("button", name="Done", exact=True).click()
+                page.locator("#focus-menu > summary").click()
+                page.locator("#focus-menu").get_by_role("button", name="Mark step done", exact=True).click()
                 expect(page.get_by_role("button", name="Choose a task", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Progress", exact=True).click()
                 expect(page.locator("#reward-level")).to_contain_text("30 XP")
