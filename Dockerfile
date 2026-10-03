@@ -5,6 +5,9 @@ WORKDIR /app
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
+    # Do not leave a uv package archive cache in the final image — Trivy would
+    # inventory those wheels as well as the installed .venv (duplicate CVEs).
+    UV_NO_CACHE=1 \
     ADHD_HUB_HOST=0.0.0.0 \
     ADHD_HUB_PORT=8787 \
     ADHD_HUB_DATA_DIR=/data
@@ -22,7 +25,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 RUN uv sync --frozen --no-dev \
- && uv build --wheel -o /app/dist
+ && uv build --wheel -o /app/dist \
+ && rm -rf /root/.cache/uv /root/.cache/pip
 
 ENV ADHD_HUB_WHEEL_DIR=/app/dist
 

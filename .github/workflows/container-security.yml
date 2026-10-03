@@ -36,8 +36,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Intentionally no GHA BuildKit cache (same policy as ts6-manager container
+      # security). Cached apt/uv layers can keep packages on an older security
+      # update so Trivy fails on a "stale" image; deleting caches only helps until
+      # the next run re-exports the same layer.
       - name: Build final image
-        run: docker build --tag adhd-hub-security:${{ github.sha }} .
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          push: false
+          tags: adhd-hub-security:${{ github.sha }}
+          pull: true
 
       - name: Record vulnerability inventory
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
