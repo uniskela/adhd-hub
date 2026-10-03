@@ -1105,18 +1105,41 @@ export async function openSourceRefresh(threadId) {
     const dialog = $("source-refresh-dialog");
     const body = $("source-refresh-body");
     const apply = $("btn-apply-source-refresh");
+    const ignore = $("btn-ignore-source-refresh");
     body.textContent = "Checking the linked issue…";
+    apply.hidden = false;
     apply.disabled = true;
+    ignore.hidden = true;
     dialog.showModal();
+    // A source that can't be reached can be set aside so it stops asking for a look.
+    const offerIgnore = (message) => {
+      body.innerHTML = `<p>${escapeHtml(message)} No Hub data was changed.</p>
+        <p class="hint">Ignore it to clear the warning. You can still refresh from the ⋯ menu later.</p>`;
+      apply.hidden = true;
+      ignore.hidden = false;
+      ignore.disabled = false;
+      ignore.onclick = async () => {
+        ignore.disabled = true;
+        try {
+          await api(`/threads/${encodeURIComponent(threadId)}/source-refresh/ignore`, { method: "POST" });
+          dialog.close();
+          setMsg("Source ignored. Your Hub notes are unchanged.");
+          await loadAll();
+        } catch (error) {
+          setMsg(`Could not ignore the source: ${error.message}`, { variant: "error" });
+          ignore.disabled = false;
+        }
+      };
+    };
     let preview;
     try {
       preview = await api(`/threads/${encodeURIComponent(threadId)}/source-refresh`);
     } catch (error) {
-      body.textContent = `Source issue could not be loaded: ${error.message}`;
+      offerIgnore(`Source issue could not be loaded: ${error.message}.`);
       return;
     }
     if (preview.error || preview.source_state === "unavailable") {
-      body.textContent = "The source issue is unavailable, deleted, or this connection cannot access it. No Hub data was changed.";
+      offerIgnore("The source issue is unavailable, deleted, or this connection cannot access it.");
       return;
     }
     const changes = Object.entries(preview.changes || {});
@@ -1228,6 +1251,7 @@ export const SOURCE_SYNC_LABELS = {
     conflicted: "Source conflict",
     unavailable: "Source unavailable",
     untracked: "Source linked",
+    ignored: "Source ignored",
   };
 export function sourceNeedsAttention(thread) {
     return ["refresh_available", "conflicted", "unavailable"].includes(thread?.source_sync_state);
@@ -1443,10 +1467,14 @@ export async function selectProject(slug) {
     const nextSlug = slug || null;
     const midFlightSame =
       rewriteAllInFlightFor(nextSlug) && state.projectFilter === nextSlug;
+    // Same project again (tab focus, live update, loadAll): refresh in place so the list never blanks.
+    const softRefresh =
+      midFlightSame ||
+      (nextSlug === state.projectFilter && $("threads").querySelector(".thread, .thread-empty") !== null);
     const request = ++state.projectRequest;
     ++state.threadsRequest;
     state.projectFilter = nextSlug;
-    if (!midFlightSame) {
+    if (!softRefresh) {
       state.detailCache = null;
       state.threadsCache = [];
       document.querySelectorAll("[data-tab-count]").forEach((count) => {
@@ -1460,16 +1488,16 @@ export async function selectProject(slug) {
       $("threads").textContent = "Loading your steps…";
       $("thread-count").textContent = "";
     } else {
-      // Visibility/SSE refresh mid-batch: keep the list and Rewriting… state.
+      // Visibility/SSE refresh: keep the list (and any Rewriting… state) on screen.
       renderProjects(state.overviewCache?.projects || []);
-      restoreRewriteAllInFlightUi();
+      if (midFlightSame) restoreRewriteAllInFlightUi();
     }
     if (!state.projectFilter) {
       setWorkTitle("All projects");
       await loadThreads();
       return;
     }
-    if (!midFlightSame) setWorkTitle("Loading project…");
+    if (!softRefresh) setWorkTitle("Loading project…");
     try {
       const detail = await api("/projects/" + encodeURIComponent(state.projectFilter));
       if (request !== state.projectRequest) return;

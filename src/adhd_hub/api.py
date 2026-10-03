@@ -72,6 +72,16 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
 
+    @router.post("/threads/{thread_id}/source-refresh/ignore", dependencies=[Depends(auth_dep)])
+    def ignore_thread_source_refresh(thread_id: str):
+        try:
+            thread = service.ignore_thread_source(thread_id)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return service.thread_public_dict(thread)
+
     @router.post("/threads/{thread_id}/source-refresh", dependencies=[Depends(auth_dep)])
     def apply_thread_source_refresh(thread_id: str, payload: dict | None = None):
         body = payload or {}
