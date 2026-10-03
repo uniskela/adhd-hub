@@ -149,6 +149,7 @@ The image sets a few implementation variables itself. They are not normal Hub co
 | `UV_OFFLINE` | `1` | Prevents the running container from re-resolving Python dependencies. |
 | `UV_COMPILE_BYTECODE` | `1` | Build-time/runtime uv optimisation. |
 | `UV_LINK_MODE` | `copy` | Keeps the image's uv environment independent of a uv cache link strategy. |
+| `UV_NO_CACHE` | `1` (image) | Disables uv's on-disk package archive cache in the container image so scanners do not inventory leftover build wheels alongside `.venv`. |
 
 The image also defaults `ADHD_HUB_HOST=0.0.0.0`, `ADHD_HUB_PORT=8787`, and `ADHD_HUB_DATA_DIR=/data`; those three are normal Hub settings described above.
 
