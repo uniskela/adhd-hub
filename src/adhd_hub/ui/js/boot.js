@@ -380,6 +380,11 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
     } catch (error) { setMsg(error.message); }
   });
 });
+// "Turn them on in Settings" lands on the rewards switch itself.
+$("rewards-off").querySelector("[data-screen]")?.addEventListener("click", () => {
+  selectSettingsTab("preferences");
+  $("rewards-enabled").focus();
+});
 updateFocusModeUi();
 $("btn-capture").addEventListener("click", () => {
   $("capture-error").textContent = "";

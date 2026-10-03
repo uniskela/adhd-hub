@@ -32,11 +32,44 @@ def test_aria_current_only_marks_navigation_items():
 
 
 def test_activity_chart_days_have_a_visible_baseline():
-    """Zero-activity days render no bars, so each column keeps a baseline mark."""
+    """Zero-activity days keep a 2px stub on a shared axis line, not an empty gap."""
     css = (UI / "app.css").read_text()
-    col = re.search(r"^\.chart \.col \{[^}]*\}", css, re.MULTILINE)
-    assert col is not None
-    assert "border-bottom: 2px solid var(--line)" in col.group(0)
+    chart = re.search(r"^\.chart \{[^}]*\}", css, re.MULTILINE)
+    assert chart is not None
+    assert "border-bottom: 1px solid var(--control-line)" in chart.group(0)
+    zero = re.search(r"^\.chart \.bar\.is-zero \{[^}]*\}", css, re.MULTILINE)
+    assert zero is not None
+    assert "height: 2px" in zero.group(0)
+    progress = (UI / "js" / "progress.js").read_text()
+    assert 'class="bar ${kind} is-zero"' in progress
+
+
+def test_activity_chart_has_a_table_view_and_validated_colours():
+    """The 14-day chart is never colour-only: legend, per-day labels and a table."""
+    html = (UI / "index.html").read_text()
+    css = (UI / "app.css").read_text()
+    progress = (UI / "js" / "progress.js").read_text()
+    assert "Show as a table" in html
+    assert 'id="chart-table-body"' in html
+    assert 'class="chart-legend"' in html
+    assert "chart-table-body" in progress
+    assert "A table version follows." in progress
+    # Amber and teal pair validated for CVD separation in both themes.
+    assert "--chart-added: #a9781c;" in css and "--chart-finished: #008a78;" in css
+    assert "--chart-added: #b8892c;" in css and "--chart-finished: #1e9c87;" in css
+
+
+def test_progress_share_lives_in_the_header_and_rewards_off_links_to_settings():
+    html = (UI / "index.html").read_text()
+    header = html[html.index('class="view-heading progress-header"') :]
+    header = header[: header.index("</header>")]
+    assert 'id="btn-share-progress"' in header
+    off = html[html.index('id="rewards-off"') :]
+    off = off[: off.index("</p>")]
+    assert 'data-screen="settings"' in off
+    boot = (UI / "js" / "boot.js").read_text()
+    assert '$("rewards-off").querySelector("[data-screen]")' in boot
+    assert 'selectSettingsTab("preferences")' in boot
 
 
 def test_project_grips_support_keyboard_reorder():

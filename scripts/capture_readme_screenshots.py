@@ -191,6 +191,7 @@ def main() -> None:
                       localStorage.setItem('adhd_hub_theme', 'light');
                       localStorage.setItem('adhd_hub_chosen_thread', id);
                       localStorage.setItem('adhd_hub_focus_state', 'paused');
+                      localStorage.setItem('adhd_hub_rewards', 'true');
                     }""",
                     first_thread_id,
                 )
@@ -232,6 +233,7 @@ def main() -> None:
                 # Progress
                 page.locator('[data-screen="progress"]:visible').first.click()
                 expect(page.locator("#progress-view")).to_be_visible()
+                expect(page.locator("#rewards-panel")).to_be_visible()
                 shot("progress-desktop.png")
 
                 # Settings → Preferences

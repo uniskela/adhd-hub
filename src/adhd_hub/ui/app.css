@@ -37,6 +37,8 @@
   --gold: #b18430;
   --gold-soft: #f7f0dd;
   --gold-ink: #765815;
+  --chart-added: #a9781c;
+  --chart-finished: #008a78;
   --shadow: 0 12px 32px rgb(31 35 40 / .12);
   --shadow-soft: 0 1px 2px rgb(31 35 40 / .04), 0 8px 24px rgb(31 35 40 / .04);
   --radius: 14px;
@@ -73,6 +75,8 @@
   --gold: #ddbb68;
   --gold-soft: #302d22;
   --gold-ink: #ddbb68;
+  --chart-added: #b8892c;
+  --chart-finished: #1e9c87;
   --shadow: 0 12px 32px rgb(0 0 0 / .4);
   --shadow-soft: 0 1px 2px rgb(0 0 0 / .2);
   --control-line: #474c53;
@@ -433,9 +437,6 @@ button.projects-drawer-open { display: none; }
 .welcome { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .8rem 0 .4rem; }
 .welcome h1 { font-size: clamp(1.9rem, 3vw, 2.6rem); margin: 0 0 .65rem; font-weight: 650; }
 .welcome p:last-child { margin-bottom: 0; color: var(--muted); font-size: .9rem; }
-.stats { display: flex; gap: 1.2rem; flex-shrink: 0; }
-.stat { color: var(--muted); font-size: .75rem; text-align: center; }
-.stat strong { display: block; color: var(--ink); font-size: 1.6rem; font-weight: 650; }
 .stage > section, .capture-panel {
   background: color-mix(in srgb, var(--card) 92%, transparent);
   border: 1px solid var(--line);
@@ -449,21 +450,6 @@ button.projects-drawer-open { display: none; }
 .snippet { white-space: pre-wrap; background: var(--surface); border-radius: 10px; padding: .8rem; margin: .6rem 0; font-size: .8rem; line-height: 1.6; max-height: 9rem; overflow: auto; }
 .next-card .snippet { background: color-mix(in srgb, var(--card) 70%, transparent); }
 .progress-details summary { font-size: .8rem; color: var(--muted); font-weight: 500; }
-.activity-details { margin-top: .85rem; }
-.activity-details > summary { font-size: .75rem; color: var(--muted); font-weight: 500; }
-.chart { display: flex; align-items: flex-end; gap: 7px; height: 66px; margin-top: .8rem; }
-.chart .col { height: 100%; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; border-bottom: 2px solid var(--line); }
-.chart .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 0; }
-.chart .add { background: var(--warn); }
-.chart .done { background: var(--ok); }
-.stage > .rewards-panel { display: flex; align-items: center; gap: 1rem; padding: 1.2rem 1.5rem; background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 20%, var(--line)); box-shadow: none; }
-.reward-icon { width: 46px; height: 46px; flex-shrink: 0; display: grid; place-items: center; font-size: 2rem; color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); border-radius: 50%; }
-.reward-summary { flex: 1; }
-.reward-summary h2 { font-size: 1rem; margin: 0 0 .25rem; }
-.reward-summary .eyebrow { color: var(--ok); font-size: .8125rem; margin-bottom: .25rem; }
-.reward-summary p:last-child { color: var(--muted); font-size: .75rem; margin: 0; }
-.reward-goal { min-width: 180px; }
-.goal-heading { display: flex; justify-content: space-between; gap: 1rem; font-size: .75rem; color: var(--ok); }
 progress { display: block; width: 100%; height: 7px; margin: .6rem 0; border: 0; border-radius: 10px; overflow: hidden; background: color-mix(in srgb, var(--ok) 15%, transparent); accent-color: var(--ok); }
 progress::-webkit-progress-bar { background: color-mix(in srgb, var(--ok) 15%, transparent); }
 progress::-webkit-progress-value { background: var(--ok); border-radius: 10px; }
@@ -706,7 +692,7 @@ dialog::backdrop { background: #10111b99; backdrop-filter: blur(4px); }
 @keyframes reward-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
 .skip-link { position: absolute; top: -5rem; left: 1rem; z-index: 20; padding: .8rem; background: var(--card); }
 .skip-link:focus { top: 1rem; }
-body.focus-mode .project-edit, body.focus-mode .capture-panel, body.focus-mode .rewards-panel, body.focus-mode .activity-details, body.focus-mode .stats { display: none; }
+body.focus-mode .project-edit, body.focus-mode .capture-panel { display: none; }
 body.focus-mode .view-nav [data-screen="progress"],
 body.focus-mode .top-actions #btn-capture { opacity: .55; }
 /* Still relevant on Now: title shrinks; actions stay end-aligned. */
@@ -738,7 +724,7 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
 }
 .check-row { display: flex; align-items: center; gap: .5rem; margin: .75rem 0; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-@media (max-width: 1050px) { .brand-label { display: none; } .layout { gap: 1.5rem; grid-template-columns: minmax(220px, var(--rail-width)) minmax(0, 1fr); } .welcome { align-items: flex-start; } .stats { gap: .75rem; } }
+@media (max-width: 1050px) { .brand-label { display: none; } .layout { gap: 1.5rem; grid-template-columns: minmax(220px, var(--rail-width)) minmax(0, 1fr); } .welcome { align-items: flex-start; } }
 @media (max-width: 800px) {
   .shell { padding: .8rem max(1rem, env(safe-area-inset-right)) 2rem max(1rem, env(safe-area-inset-left)); overflow-x: clip; }
   .appearance-bar { padding-right: 1rem; padding-left: 1rem; }
@@ -750,12 +736,7 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
   .markdown-body pre, .markdown-body table { max-width: 100%; overflow-x: auto; }
   .rail-note { display: none; }
   .welcome { flex-wrap: wrap; }
-  .stats { gap: 1.5rem; }
-  .stat { text-align: left; }
-  .stat strong { display: inline; font-size: 1rem; margin-right: .35rem; }
   .stage > section, .capture-panel, .project-edit { padding: 1.15rem; }
-  .rewards-panel { flex-wrap: wrap; }
-  .reward-goal { width: 100%; }
   .login-gate { grid-template-columns: minmax(0, 1fr); gap: 2rem; max-width: 460px; padding: 2rem 1rem; }
   .login-intro > .brand-mark { margin-bottom: 1rem; width: 42px; height: 42px; font-size: 1.7rem; border-radius: 13px; }
   .login-intro h1 { font-size: 2.25rem; margin-bottom: .75rem; }
@@ -801,12 +782,7 @@ body.focus-mode .top-actions #btn-capture { opacity: .55; }
 .progress-details { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .35rem; }
 .progress-details > summary { color: var(--muted); font-size: .78rem; font-weight: 550; }
 #project-dialog { width: min(680px, calc(100vw - 2rem)); }
-.progress-view { max-width: none; margin: 2rem 0; width: 100%; }
-.progress-numbers { margin-bottom: 1rem; }
-.progress-numbers .stats { padding: .8rem 0; }
-.progress-numbers .chart-wrap { display: block; }
 
-#rewards-off { margin-top: .7rem; }
 #suggestion { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 #suggestion:empty { display: none; }
 #suggestion h3 { margin: .2rem 0 .7rem; }
@@ -1015,33 +991,6 @@ button.field-tip:focus-visible,
   font-size: .8rem;
   color: var(--muted);
 }
-.chart-wrap { position: relative; }
-.chart-day-tip {
-  position: absolute;
-  z-index: 20;
-  min-width: 8rem;
-  padding: .45rem .6rem;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-  font-size: .75rem;
-  line-height: 1.35;
-  pointer-events: none;
-  transform: translate(-50%, calc(-100% - .4rem));
-}
-.chart-day-tip[hidden] { display: none; }
-.chart-day-tip .added { color: var(--warn); font-weight: 600; }
-.chart-day-tip .finished { color: var(--ok); font-weight: 600; }
-.chart .col {
-  cursor: pointer;
-  outline: none;
-}
-.chart .col:focus-visible {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
-  border-radius: 4px;
-}
 #settings-msg:not(:empty) { margin: 0 1.5rem .8rem; padding: .6rem .8rem; background: var(--accent-soft); color: var(--ink); border-radius: 10px; }
 .settings-content .setup-banner { background: var(--accent-soft); border-radius: 12px; padding: 1rem; margin: 1rem 0; }
 .settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1.5rem; border-top: 1px solid var(--line); flex-shrink: 0; }
@@ -1058,42 +1007,8 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
 @media (max-width: 600px) {
   .settings-header, .settings-content { padding-left: 1.15rem; padding-right: 1.15rem; }
 }
-/* Rewards live only in Progress. Milestones don't expire. */
-.rank-hero { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; padding: 2rem; border-radius: 20px; background: var(--accent-soft); border: 1px solid var(--line); }
-.rank-copy { flex: 1; }
-.rank-hero h2 { font-size: clamp(2rem, 6vw, 3rem); margin: .3rem 0 .5rem; }
-.rank-level { color: var(--accent); font-weight: 650; margin: 0; }
-.rank-emblem { border: 7px solid var(--card); border-radius: 26px; box-sizing: content-box; }
-#rank-progress { max-width: 360px; margin-top: .9rem; }
-.reward-daily { display: flex; align-items: center; gap: 1.5rem; justify-content: space-between; padding: 1.5rem 0; border-bottom: 1px solid var(--line); }
-.reward-daily h3 { margin-bottom: .3rem; }
-.reward-daily .reward-goal { min-width: 190px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .section-heading h2, .section-heading h3 { margin: 0; }
-.badges-section { margin: 1.5rem 0; }
-.badge-grid { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
-.badge { padding: 1rem; background: var(--surface); border-radius: 12px; display: flex; flex-direction: column; gap: .25rem; }
-.badge.earned { background: var(--gold-soft); }
-.badge-symbol { width: 32px; height: 32px; margin-bottom: .3rem; color: var(--muted); }
-.earned .badge-symbol { color: var(--gold-ink); }
-.badge strong { font-size: .85rem; }
-.badge .hint { margin: 0; }
-.badge-state { font-size: .75rem; color: var(--muted); }
-.earned .badge-state { color: var(--gold-ink); font-weight: 650; }
-.share-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.3rem 0; border-top: 1px solid var(--line); }
-.share-row h3 { margin: 0; }
-.reward-scope { max-width: 65ch; }
-#share-card { width: 100%; height: auto; display: block; margin: 1rem 0; border-radius: 16px; border: 1px solid var(--line); }
-#share-text { min-height: 95px; }
-@media (max-width: 600px) {
-  .rank-hero { padding: 1.25rem; gap: .8rem; }
-  .rank-emblem { width: 54px; height: 54px; border-width: 5px; border-radius: 20px; }
-  .reward-daily, .share-row { flex-wrap: wrap; }
-  .reward-daily .reward-goal { width: 100%; }
-  .badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .badge { padding: .85rem; }
-}
-
 
 /* App shell: a quiet sidebar for navigation, content gets the rest. */
 .shell {
@@ -1648,26 +1563,6 @@ body.settings-open .top-actions #btn-capture { opacity: .7; }
   .notes-wiki-details > summary { font-size: .9rem; }
 }
 
-/* Progress: reflection first, rewards second. */
-.progress-view { width: min(100%, 980px); max-width: 980px; margin: 2.5rem auto; }
-#activity-section { margin: 0 0 2rem; }
-#activity-section > summary, #activity-section > .activity-details > summary { display: none; }
-#activity-section .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 180px)); gap: 1rem; padding: 0 0 1.25rem; }
-#activity-section .stat { text-align: left; padding-right: 1rem; }
-#activity-section .stat strong { font-size: 1.8rem; }
-#activity-section .activity-details { margin-top: 0; padding-top: 1rem; border-top: 1px solid var(--line); }
-#activity-section .chart { height: 150px; gap: 5px; }
-.milestones { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
-.milestones .rank-hero { padding: 0 0 1rem; border: 0; border-radius: 0; background: transparent; }
-.milestones .rank-hero h2 { font-size: clamp(1.5rem, 4vw, 2rem); }
-.milestones .rank-emblem { width: 48px; height: 48px; border: 0; border-radius: 12px; }
-.milestones .reward-daily { padding: 1rem 0; }
-.milestones .badges-section { margin: 1rem 0; }
-.milestones .badge-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
-.milestones .badge { padding: .75rem; border: 1px solid var(--line); border-radius: 8px; background: transparent; }
-.milestones .badge.earned { background: var(--gold-soft); border-color: color-mix(in srgb, var(--gold) 30%, var(--line)); }
-.milestones .badge-symbol { width: 24px; height: 24px; }
-
 /* Settings: preferences layout, not a giant card. */
 .settings-view { width: min(100%, 1180px); margin: 0 auto; }
 .settings-page { grid-template-columns: 210px minmax(0, 840px); justify-content: center; gap: 2rem; min-height: 0; }
@@ -1878,9 +1773,6 @@ dialog::backdrop { background: rgb(5 8 7 / .66); backdrop-filter: none; }
   #project-list .proj-tree-item { flex: none; width: 100%; }
   #project-list .proj-row .proj,
   #project-list .proj { flex: 1 1 auto; width: auto; }
-  #activity-section .stats { grid-template-columns: 1fr 1fr; }
-  #activity-section .chart { height: 110px; }
-  .milestones .rank-hero { align-items: flex-start; }
   .settings-page { display: block; }
   .settings-nav { position: static; padding: 0; border: 0; }
   .settings-nav-title, .settings-nav-group { width: 100%; }
@@ -1891,8 +1783,6 @@ dialog::backdrop { background: rgb(5 8 7 / .66); backdrop-filter: none; }
   .settings-index-back { display: inline-flex; justify-self: start; }
   .settings-header { padding-top: .2rem; }
   .settings-content { padding-top: 1rem; }
-  .rank-hero, .reward-daily, .share-row { flex-wrap: wrap; }
-  .badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   input, select, textarea { font-size: 16px; }
 }
 
@@ -2245,6 +2135,82 @@ body.focus-mode .now-overview { display: none; }
   .search-field.small > input { min-height: 44px; }
   .thread-side { padding-top: .125rem; }
 }
+/* Progress: one activity card, then rank and milestones side by side. */
+.progress-view { width: min(100%, 960px); margin: clamp(1rem, 4vh, 2.5rem) auto 0; display: flex; flex-direction: column; gap: 2rem; }
+.progress-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 0; }
+.progress-header h1 { margin: 0 0 .375rem; font-size: clamp(1.75rem, 3vw, 1.875rem); font-weight: 700; }
+.progress-header p { margin: 0; color: var(--muted); }
+.progress-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; }
+/* Chart colours pass colour-blind separation and 3:1 against the card in both themes. */
+.activity-card { display: flex; flex-direction: column; gap: 1.25rem; }
+.activity-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.activity-head h2 { margin: 0 0 .125rem; font-size: 1.125rem; }
+.activity-totals, .activity-stats { margin: 0; font-size: .875rem; color: var(--muted); }
+.activity-totals:empty { display: none; }
+.chart-legend { display: flex; gap: 1rem; font-size: .875rem; color: var(--ink-soft); }
+.chart-legend span { display: inline-flex; align-items: center; gap: .375rem; }
+.chart-legend span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--chart-added); }
+.chart-legend .legend-finished::before { background: var(--chart-finished); }
+.chart-wrap { position: relative; display: flex; flex-direction: column; }
+.chart { display: flex; gap: 4px; height: 120px; padding: 0 4px; border-bottom: 1px solid var(--control-line); }
+.chart .col { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-radius: 6px 6px 0 0; outline: none; }
+.chart .col:hover { background: var(--line-soft); }
+.chart .col:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.chart .bar { width: 10px; max-width: 45%; border-radius: 4px 4px 0 0; }
+.chart .bar.add { background: var(--chart-added); }
+.chart .bar.done { background: var(--chart-finished); }
+.chart .bar.is-zero { height: 2px; background: var(--line); }
+.chart-days { display: flex; gap: 4px; padding: .375rem 4px 0; }
+.chart-days span { flex: 1 1 0; min-width: 0; text-align: center; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chart-day-tip { position: absolute; z-index: 20; padding: .375rem .625rem; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: .8125rem; line-height: 1.4; white-space: nowrap; pointer-events: none; transform: translate(-50%, calc(-100% - .5rem)); }
+.chart-table-details { margin-top: .75rem; }
+.chart-table-details > summary { display: flex; align-items: center; width: fit-content; min-height: 44px; font-size: .9375rem; font-weight: 600; cursor: pointer; }
+.chart-table-scroll { overflow-x: auto; }
+.chart-table { min-width: 100%; border-collapse: collapse; font-size: .875rem; }
+.chart-table th, .chart-table td { padding: .375rem .75rem; border-top: 1px solid var(--line-soft); text-align: right; font-variant-numeric: tabular-nums; }
+.chart-table thead th { border-top: 0; color: var(--muted); font-weight: 600; }
+.chart-table tbody th { font-weight: 400; }
+.chart-table th:first-child { padding-left: 0; text-align: left; }
+.chart-table th:last-child, .chart-table td:last-child { padding-right: 0; }
+.chart-empty { margin: 0; color: var(--muted); }
+.progress-rewards { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1.5rem; }
+.rank-card { flex: 1 1 320px; display: flex; flex-direction: column; gap: 1rem; }
+.rank-head { display: flex; align-items: center; gap: .875rem; }
+.rank-emblem { flex: none; }
+.rank-emblem circle { fill: var(--gold-soft); }
+.rank-emblem path { fill: none; stroke: var(--gold-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rank-head h2 { margin: 0; font-size: 1.375rem; }
+.rank-level, .rank-next { margin: 0; font-size: .875rem; color: var(--muted); }
+.rank-meter { display: flex; flex-direction: column; gap: .375rem; }
+#rank-progress { height: 8px; margin: 0; border-radius: 4px; background: var(--line-soft); accent-color: var(--accent); }
+#rank-progress::-webkit-progress-bar { background: var(--line-soft); }
+#rank-progress::-webkit-progress-value { background: var(--accent); border-radius: 4px; }
+#rank-progress::-moz-progress-bar { background: var(--accent); border-radius: 4px; }
+.goal-line { margin: 0; padding-top: .75rem; border-top: 1px solid var(--line-soft); font-size: .9375rem; }
+.badges-section { flex: 999 1 420px; display: flex; flex-direction: column; gap: .75rem; }
+.badges-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.badges-head h2 { margin: 0; font-size: 1.125rem; }
+.badge-count { font-size: .875rem; color: var(--muted); }
+.badge-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.badge { display: flex; flex-direction: column; gap: .25rem; padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.badge strong { font-size: .9375rem; font-weight: 600; }
+.badge-state { font-size: .8125rem; color: var(--muted); }
+.badge.earned { background: var(--gold-soft); border-color: color-mix(in srgb, var(--gold) 35%, var(--line)); }
+.badge.earned .badge-state { color: var(--gold-ink); font-weight: 600; }
+.reward-scope { margin: 0; font-size: .875rem; color: var(--muted); }
+.rewards-off { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; margin: 0; color: var(--muted); }
+.rewards-off .link-button { padding-inline: .5rem; }
+#share-card { display: block; width: 100%; height: auto; margin: 1rem 0; border: 1px solid var(--line); border-radius: 12px; }
+#share-text { min-height: 95px; }
+@media (max-width: 760px) {
+  .progress-view { gap: 1.5rem; }
+  .progress-card { padding: 1.125rem; }
+  .chart { gap: 2px; padding: 0; }
+  .chart-days { gap: 2px; padding-inline: 0; }
+  .chart .bar { width: 6px; }
+  .badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Touch screens: every control is at least 44 px tall. */
 @media (max-width: 760px), (pointer: coarse) {
   button, summary, select, [role="tab"], .theme-option { min-height: 44px; }

@@ -287,31 +287,61 @@
         </div>
       </section>
       <section id="progress-view" class="view progress-view" aria-label="Progress" hidden>
-        <div class="view-heading"><p class="eyebrow">Look how far you’ve come</p><h1>Progress, at your pace.</h1><p>Your finished work stays here when you take a break.</p></div>
-        <details class="progress-numbers" id="activity-section" open><summary>Show my activity</summary><div class="stats" id="stats"></div>
-          <details class="activity-details" open><summary>Your last 14 days</summary><div class="chart-wrap" id="chart-wrap" hidden>
-            <p id="chart-summary" class="chart-summary visually-hidden"></p>
-            <p class="eyebrow">Last 14 days · gold: added · teal: finished</p>
-            <div class="chart" id="chart" role="img" aria-label="Activity over the last 14 days"></div>
-            <div id="chart-day-tip" class="chart-day-tip" role="tooltip" hidden></div>
-          </div></details>        </details>
-        <section id="rewards-panel" class="milestones" aria-labelledby="rewards-title" hidden>
-          <div class="rank-hero">
-            <div class="rank-copy"><p class="eyebrow">Your journey</p><h2 id="rank-name">Seedling</h2>
-              <p id="reward-level" class="rank-level"></p><p id="rank-next" class="hint"></p>
-              <progress id="rank-progress" aria-label="Progress to next rank" max="5" value="0"></progress>
+        <header class="view-heading progress-header">
+          <div>
+            <h1>Progress</h1>
+            <p>Your finished work stays here, even after a break.</p>
+          </div>
+          <button type="button" class="ghost" id="btn-share-progress" hidden>Share progress</button>
+        </header>
+        <section id="activity-section" class="progress-card activity-card" aria-labelledby="activity-title">
+          <div class="activity-head">
+            <div>
+              <h2 id="activity-title">Last 14 days</h2>
+              <p id="activity-totals" class="activity-totals"></p>
+              <p id="stats" class="activity-stats"></p>
             </div>
-            <img class="rank-emblem" src="/ui/brand/icon.svg" alt="" width="80" height="80" />
+            <div class="chart-legend" aria-hidden="true"><span class="legend-added">Added</span><span class="legend-finished">Finished</span></div>
           </div>
-          <div class="reward-daily">
-            <div><h3 id="rewards-title">Small steps add up.</h3><p id="rewards-caption" class="hint"></p></div>
-            <div class="reward-goal"><div class="goal-heading"><span id="goal-label">Today’s gentle goal</span><strong id="goal-count">0 / 1</strong></div><progress id="daily-progress" max="1" value="0" aria-labelledby="goal-label"></progress></div>
+          <div class="chart-wrap" id="chart-wrap" hidden>
+            <p id="chart-summary" class="chart-summary visually-hidden"></p>
+            <div class="chart" id="chart"></div>
+            <div class="chart-days" id="chart-days" aria-hidden="true"></div>
+            <div id="chart-day-tip" class="chart-day-tip" role="tooltip" hidden></div>
+            <details class="chart-table-details">
+              <summary>Show as a table</summary>
+              <div class="chart-table-scroll">
+                <table class="chart-table">
+                  <thead><tr><th scope="col">Day</th><th scope="col">Added</th><th scope="col">Finished</th></tr></thead>
+                  <tbody id="chart-table-body"></tbody>
+                </table>
+              </div>
+            </details>
           </div>
-          <section class="badges-section" aria-labelledby="badges-title"><div class="section-heading"><h3 id="badges-title">Little milestones</h3><span id="badge-count" class="hint"></span></div><ul id="badges" class="badge-grid"></ul></section>
-          <div class="share-row"><div><h3>A little progress worth sharing.</h3><p class="hint">Make a card with your rank and milestones.</p></div><button type="button" class="primary" id="btn-share-progress">Share progress</button></div>
-          <p class="hint reward-scope">Ranks reflect finished work in this hub. Breaks never reset them. Reopening or removing work updates your totals.</p>
+          <p id="chart-empty" class="chart-empty" hidden>Nothing added or finished in the last 14 days. That’s okay.</p>
         </section>
-        <p id="rewards-off" class="hint">Rewards are optional. You can enable them in Settings.</p>
+        <section id="rewards-panel" class="progress-rewards" aria-labelledby="rank-name" hidden>
+          <div class="progress-card rank-card">
+            <div class="rank-head">
+              <svg class="rank-emblem" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22"></circle><path d="M22 32V20M22 24c-4 0-7-3-7-7 4 0 7 3 7 7zM22 22c0-4 3-7 7-7 0 4-3 7-7 7z"></path></svg>
+              <div>
+                <h2 id="rank-name">Seedling</h2>
+                <p id="reward-level" class="rank-level"></p>
+              </div>
+            </div>
+            <div class="rank-meter">
+              <progress id="rank-progress" aria-label="Progress to next rank" max="5" value="0"></progress>
+              <p id="rank-next" class="rank-next"></p>
+            </div>
+            <p class="goal-line"><strong id="goal-label">Today’s gentle goal:</strong> <span id="goal-count">0 of 1 small win.</span> <span id="rewards-caption">Missing it changes nothing.</span></p>
+          </div>
+          <section class="badges-section" aria-labelledby="badges-title">
+            <div class="badges-head"><h2 id="badges-title">Milestones</h2><span id="badge-count" class="badge-count"></span></div>
+            <ul id="badges" class="badge-grid"></ul>
+            <p class="reward-scope">Breaks never reset your rank. Reopening or removing work updates the totals.</p>
+          </section>
+        </section>
+        <p id="rewards-off" class="rewards-off">Ranks and milestones are off. <button type="button" class="link-button" data-screen="settings">Turn them on in Settings</button></p>
       </section>
       <section id="settings-view" class="view settings-view" aria-label="Settings" hidden>
         <div class="settings-page">
@@ -685,14 +715,14 @@
   </dialog>
 
   <dialog id="share-dialog" aria-labelledby="share-title">
-    <div class="dialog-card">
-      <div class="section-heading"><h2 id="share-title">Share a little progress.</h2><button type="button" class="icon-button" id="btn-close-share" aria-label="Close share preview">×</button></div>
-      <p class="hint">Preview exactly what you’ll share: hub totals, rank, earned badges, and the public project repository URL. No task names, project names, or account details.</p>
+    <div class="dialog-card share-dialog-card">
+      <div class="section-heading"><h2 id="share-title">Share your progress</h2><button type="button" class="icon-button" id="btn-close-share" aria-label="Close share preview">×</button></div>
+      <p class="hint">The card shows your rank, totals, earned milestones and the project link. It never includes task names, project names or account details.</p>
       <canvas id="share-card" width="1200" height="720" role="img" aria-label="Progress card preview"></canvas>
       <label for="share-text">Text version</label><textarea id="share-text" readonly></textarea>
       <p id="share-msg" class="msg" role="status"></p>
       <div class="actions"><button type="button" class="primary" id="btn-download-card">Download PNG</button><button type="button" class="ghost" id="btn-copy-progress">Copy text</button><button type="button" class="ghost" id="btn-native-share" hidden>Share…</button></div>
-      <p class="hint">Nothing is published automatically. Choose where to share your download or text.</p>
+      <p class="hint">Nothing is shared until you choose where it goes.</p>
     </div>
   </dialog>
 
