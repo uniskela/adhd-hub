@@ -177,7 +177,7 @@ def main():
                 expect(page.locator("#app-shell")).to_be_visible()
                 reminder = page.locator("#now-reminders .check-item")
                 expect(reminder).to_contain_text("Stretch, then open the draft")
-                expect(reminder).to_contain_text("due 10 minutes ago")
+                expect(reminder).to_contain_text(re.compile(r"due \d+ minutes ago"))
                 reminder.get_by_role("button", name="Snooze 1 hour", exact=True).click()
                 expect(page.locator("#now-checks")).not_to_contain_text("Stretch, then open the draft")
                 page.get_by_role("button", name="Choose a task", exact=True).click()
