@@ -71,7 +71,7 @@ def test_graphify_register_star_includes_all_platforms() -> None:
 
 def test_rtk_init_codex_claude_not_cursor_only() -> None:
     cmds = rtk_init_commands(["codex", "claude"], all_star=False)
-    assert cmds == ["rtk init -g --codex", "rtk init -g"]
+    assert cmds == ["rtk init -g --codex", "rtk init -g --auto-patch"]
     assert not any("cursor" in c for c in cmds)
 
 
@@ -533,6 +533,49 @@ def test_with_rtk_without_agents_still_installs_binary(monkeypatch) -> None:
         s.name == "install rtk init" and "pass --agents" in s.detail for s in steps
     )
     assert not any(s.status == "error" for s in steps)
+
+
+def test_rtk_off_user_path_warns_with_export_hint(monkeypatch) -> None:
+    """Regression: install.sh lands in ~/.local/bin; hooks call bare ``rtk``."""
+    from adhd_hub import companions
+
+    monkeypatch.setenv("ADHD_HUB_CONNECT_USER_PATH", "/usr/bin:/bin")
+    monkeypatch.setattr(companions.shutil, "which", lambda name, path=None: None)
+    monkeypatch.setattr(companions, "detect_rtk", lambda: True)
+    monkeypatch.setattr(companions, "resolve_rtk_bin", lambda: "/home/x/.local/bin/rtk")
+    monkeypatch.setattr(companions, "_run", lambda command, *, dry_run: ("ok", "ran"))
+    steps = companions.install_companions(["claude"], with_rtk=True, dry_run=False)
+    path_steps = [s for s in steps if s.name == "install rtk path"]
+    assert len(path_steps) == 1
+    assert path_steps[0].status == "warn"
+    assert 'export PATH="/home/x/.local/bin:$PATH"' in path_steps[0].detail
+
+
+def test_rtk_path_warning_on_windows_has_no_export_line(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.delenv("ADHD_HUB_CONNECT_USER_PATH", raising=False)
+    monkeypatch.setattr(companions.sys, "platform", "win32")
+    monkeypatch.setattr(companions.shutil, "which", lambda name, path=None: None)
+    step = companions._rtk_path_warning("/home/x/.local/bin/rtk.exe")
+    assert step is not None
+    assert step.status == "warn"
+    assert "export PATH" not in step.detail
+    assert "user PATH" in step.detail
+
+
+def test_rtk_on_user_path_has_no_path_warning(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.delenv("ADHD_HUB_CONNECT_USER_PATH", raising=False)
+    monkeypatch.setattr(
+        companions.shutil, "which", lambda name, path=None: "/home/x/.local/bin/rtk"
+    )
+    monkeypatch.setattr(companions, "detect_rtk", lambda: True)
+    monkeypatch.setattr(companions, "resolve_rtk_bin", lambda: "/home/x/.local/bin/rtk")
+    monkeypatch.setattr(companions, "_run", lambda command, *, dry_run: ("ok", "ran"))
+    steps = companions.install_companions(["claude"], with_rtk=True, dry_run=False)
+    assert not any(s.name == "install rtk path" for s in steps)
 
 
 def test_run_prints_arrow_running(monkeypatch, capsys) -> None:

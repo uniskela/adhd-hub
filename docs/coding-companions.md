@@ -174,8 +174,8 @@ Then in a project: `/graphify .` (PowerShell: `graphify .`). Upstream: [Graphify
 with agents selected) tries **Homebrew** when `brew` is on `PATH`, otherwise runs
 the upstream installer below (needs `curl`). The binary install still runs when
 `--with-rtk` is set without `--agents`; `rtk init` needs agents. The script
-installs into `~/.local/bin` — ensure that directory is on your `PATH` (or open a
-new shell) before relying on bare `rtk`.
+installs into `~/.local/bin`. RTK hooks call bare `rtk`, so that directory must be
+on your `PATH`; Hub warns with the exact `export PATH=…` line when it is not.
 
 ```bash
 # macOS (Homebrew) — preferred when brew is available
@@ -191,7 +191,7 @@ Windows: download a release zip from [rtk releases](https://github.com/rtk-ai/rt
 
 | Agent | Init |
 |-------|------|
-| Claude Code | `rtk init -g` |
+| Claude Code | `rtk init -g --auto-patch` (Hub passes `--auto-patch` so the hook is written to `settings.json` without a prompt; drop it to be asked first) |
 | Cursor | `rtk init -g --agent cursor` |
 | Codex | `rtk init -g --codex` |
 | Gemini CLI | `rtk init -g --gemini` |

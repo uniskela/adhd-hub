@@ -836,6 +836,8 @@ while [ "$#" -gt 0 ]; do
 done
 
 export ADHD_HUB_PUBLIC_URL="$HUB_URL"
+# PATH as the user's shell sees it, before this script prepends tool dirs.
+export ADHD_HUB_CONNECT_USER_PATH="$PATH"
 set -- connect "$PROJECT" --hub "$HUB_URL" --agents "$AGENTS" --scope "$SCOPE"
 case "$SKILLS_MODE" in
   global) set -- "$@" --skills ;;
