@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.1](https://github.com/uniskela/adhd-hub/compare/v0.20.0...v0.20.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **connect:** write the RTK Claude hook without a prompt and warn when rtk is off PATH ([#293](https://github.com/uniskela/adhd-hub/issues/293)) ([4939dbc](https://github.com/uniskela/adhd-hub/commit/4939dbcafe04da59658a31c3bb5f96b23e156f51))
+* **ui:** full-width My work, full-height reader, steady list on tab focus and ignorable sources ([#291](https://github.com/uniskela/adhd-hub/issues/291)) ([c918932](https://github.com/uniskela/adhd-hub/commit/c918932b6f641583f97f928ddf4714a6979b1c5e))
+
 ## [0.20.0](https://github.com/uniskela/adhd-hub/compare/v0.19.0...v0.20.0) (2026-10-03)
 
 
