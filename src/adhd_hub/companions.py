@@ -545,7 +545,9 @@ def rtk_init_commands(agents: list[str], *, all_star: bool) -> list[str]:
         if agent not in RTK_KNOWN_AGENTS:
             continue
         if agent == "claude":
-            line = "rtk init -g"
+            # Without --auto-patch, rtk prompts before editing settings.json and
+            # defaults to "no" when stdin is not a terminal (curl | sh installs).
+            line = "rtk init -g --auto-patch"
         elif agent == "codex":
             line = "rtk init -g --codex"
         elif agent == "gemini":
@@ -575,6 +577,25 @@ def unsupported_agent_note(agents: list[str]) -> str | None:
         + ", ".join(unknown)
         + f" — install manually · {COMPANIONS_DOC}"
     )
+
+def _rtk_path_warning(rtk_bin: str) -> CompanionStep | None:
+    """Warn when rtk is installed but the user's shell cannot find bare ``rtk``.
+
+    RTK hooks invoke ``rtk`` by name. The connect script prepends ``~/.local/bin``
+    for its own children, so check the PATH it saved before doing that.
+    """
+    user_path = os.environ.get("ADHD_HUB_CONNECT_USER_PATH") or None
+    if any(shutil.which(name, path=user_path) for name in ("rtk", "rtk.exe")):
+        return None
+    bin_dir = Path(rtk_bin).parent
+    return CompanionStep(
+        "install rtk path",
+        "warn",
+        f"rtk is installed at {rtk_bin} but {bin_dir} is not on PATH, so agent hooks "
+        f'cannot run it. Add `export PATH="{bin_dir}:$PATH"` to your shell profile, '
+        "then restart your shell and coding agent.",
+    )
+
 
 def rtk_binary_hint() -> str:
     if sys.platform == "win32":
@@ -1616,6 +1637,11 @@ def install_companions(
             )
 
         binary_ready = detect_rtk() or dry_run
+        rtk_bin = resolve_rtk_bin()
+        if rtk_bin and not dry_run:
+            path_warning = _rtk_path_warning(rtk_bin)
+            if path_warning:
+                steps.append(path_warning)
         if not binary_ready:
             # Install step already warned; skip init without a binary.
             pass
