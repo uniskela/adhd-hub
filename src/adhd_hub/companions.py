@@ -1263,7 +1263,11 @@ def _install_skills_sh_source(
 
 
 def _ensure_ponytail_clone(*, dry_run: bool) -> tuple[Status, str, Path | None]:
-    """Clone or reuse Hub's managed Ponytail checkout (does not vendor into the Hub repo)."""
+    """Clone or reuse Hub's managed Ponytail checkout (does not vendor into the Hub repo).
+
+    Clones into a temporary sibling first, then publishes to ``dest`` only after
+    ``scripts/cursor-hooks.js`` is present. Never deletes an existing ``dest``.
+    """
     dest = ponytail_clone_dir()
     marker = dest / "scripts" / "cursor-hooks.js"
     if marker.is_file():
@@ -1278,19 +1282,57 @@ def _ensure_ponytail_clone(*, dry_run: bool) -> tuple[Status, str, Path | None]:
         )
         return "warn", detail, None
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists() and not marker.is_file():
+    if dest.exists():
         # Do not delete an existing path — it may be a user checkout or modified tree.
         detail = (
             f"existing destination lacks {marker.name}; left unchanged: {dest} · "
             f"move/remove it or install Cursor hooks manually · {COMPANIONS_DOC}"
         )
         return "warn", detail, None
-    status, detail = _optional_result(
-        *_run([git, "clone", "--depth", "1", PONYTAIL_REPO, str(dest)], dry_run=False)
-    )
-    if status != "ok" or not marker.is_file():
-        return status, detail, None
-    return "ok", detail, dest
+
+    staging_root: Path | None = None
+    try:
+        staging_root = Path(
+            tempfile.mkdtemp(prefix=".ponytail-staging-", dir=str(dest.parent))
+        )
+        staging = staging_root / "ponytail"
+        status, detail = _optional_result(
+            *_run(
+                [git, "clone", "--depth", "1", PONYTAIL_REPO, str(staging)],
+                dry_run=False,
+            )
+        )
+        staged_marker = staging / "scripts" / "cursor-hooks.js"
+        if status != "ok" or not staged_marker.is_file():
+            if status == "ok":
+                detail = (
+                    f"clone missing {marker.name} · Hub connect still succeeded"
+                )
+                status = "warn"
+            return status, detail, None
+        if dest.exists():
+            # Appeared during clone — leave user path alone; discard staging.
+            if (dest / "scripts" / "cursor-hooks.js").is_file():
+                return "ok", f"found: {dest}", dest
+            detail = (
+                f"existing destination appeared during clone; left unchanged: {dest} · "
+                f"{COMPANIONS_DOC}"
+            )
+            return "warn", detail, None
+        staging.rename(dest)
+        if not marker.is_file():
+            miss = (
+                f"published clone missing {marker.name}: {dest} · "
+                "Hub connect still succeeded"
+            )
+            return "warn", miss, None
+        return "ok", detail, dest
+    except OSError as exc:
+        fail = f"ponytail clone failed: {exc} · Hub connect still succeeded"
+        return "warn", fail, None
+    finally:
+        if staging_root is not None and staging_root.exists():
+            shutil.rmtree(staging_root, ignore_errors=True)
 
 
 def _install_ponytail(

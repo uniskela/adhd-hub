@@ -710,6 +710,46 @@ def test_ponytail_clone_preserves_existing_destination(
     assert ran == []
 
 
+def test_ponytail_clone_stages_then_publishes(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    dest = tmp_path / "ponytail"
+    monkeypatch.setattr(companions, "ponytail_clone_dir", lambda: dest)
+    monkeypatch.setattr(companions, "_which", lambda *names: "/usr/bin/git")
+
+    def fake_run(cmd: list[str], *, dry_run: bool):
+        staging = Path(cmd[-1])
+        (staging / "scripts").mkdir(parents=True)
+        (staging / "scripts" / "cursor-hooks.js").write_text("// ok\n", encoding="utf-8")
+        return "ok", f"git clone {staging} (exit 0)"
+
+    monkeypatch.setattr(companions, "_run", fake_run)
+    status, _detail, path = companions._ensure_ponytail_clone(dry_run=False)
+    assert status == "ok"
+    assert path == dest
+    assert (dest / "scripts" / "cursor-hooks.js").is_file()
+    assert not list(tmp_path.glob(".ponytail-staging-*"))
+
+
+def test_ponytail_clone_failure_cleans_staging(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    dest = tmp_path / "ponytail"
+    monkeypatch.setattr(companions, "ponytail_clone_dir", lambda: dest)
+    monkeypatch.setattr(companions, "_which", lambda *names: "/usr/bin/git")
+    monkeypatch.setattr(
+        companions,
+        "_run",
+        lambda cmd, *, dry_run: ("error", "git clone failed (exit 1)"),
+    )
+    status, detail, path = companions._ensure_ponytail_clone(dry_run=False)
+    assert status == "warn"
+    assert path is None
+    assert not dest.exists()
+    assert not list(tmp_path.glob(".ponytail-staging-*"))
+    assert "Hub connect still succeeded" in detail
+
+
 def test_cursor_hooks_invalid_utf8_does_not_abort(tmp_path: Path, monkeypatch) -> None:
     from adhd_hub import companions
 
