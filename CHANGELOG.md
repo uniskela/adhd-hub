@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.20.0](https://github.com/uniskela/adhd-hub/compare/v0.19.0...v0.20.0) (2026-10-03)
+
+
+### Features
+
+* add Ponytail and Humanizer as opt-in third-party companions ([#282](https://github.com/uniskela/adhd-hub/issues/282)) ([e1c4279](https://github.com/uniskela/adhd-hub/commit/e1c4279f7f83d4d29b3fd4d74550c90962ae5233))
+* Settings skills scope and select-all companions ([#280](https://github.com/uniskela/adhd-hub/issues/280)) ([fe32135](https://github.com/uniskela/adhd-hub/commit/fe32135ae90f0356df209897b8d09e60603f1fd6))
+* **ui:** calm foundations and sidebar shell ([#283](https://github.com/uniskela/adhd-hub/issues/283)) ([dd6a059](https://github.com/uniskela/adhd-hub/commit/dd6a059fa4dc5b617c605d6d695c28df604f17a1))
+* **ui:** calm My work with Needs you, compact projects and a click-to-open reader ([#285](https://github.com/uniskela/adhd-hub/issues/285)) ([226abbc](https://github.com/uniskela/adhd-hub/commit/226abbc8d6a02f3f5366c14c4b89663d0b050cad))
+* **ui:** calm Now screen with inline pause and gentle checks ([#284](https://github.com/uniskela/adhd-hub/issues/284)) ([e8e41b6](https://github.com/uniskela/adhd-hub/commit/e8e41b637a6f3767c1e17af943b112473b100c4b))
+* **ui:** calm Progress with a validated 14-day chart, table view and rank card ([#286](https://github.com/uniskela/adhd-hub/issues/286)) ([24ac96b](https://github.com/uniskela/adhd-hub/commit/24ac96b3c53083648d744119b53fa2bf2913b496))
+* **ui:** calm Settings with plain section names, label-left rows and Advanced folds ([#287](https://github.com/uniskela/adhd-hub/issues/287)) ([f03c5e8](https://github.com/uniskela/adhd-hub/commit/f03c5e85fa05b068959d00e03b54f819e6ad2a1a))
+* **ui:** calm sign in, one dialog pattern, tidier toasts and an accessibility pass ([#288](https://github.com/uniskela/adhd-hub/issues/288)) ([e5fc4f2](https://github.com/uniskela/adhd-hub/commit/e5fc4f2d414fe1a158e202047dd4d3339f2df208))
+
+
+### Bug Fixes
+
+* clear uv build cache for Trivy and bump PyJWT ([#275](https://github.com/uniskela/adhd-hub/issues/275)) ([f48d51d](https://github.com/uniskela/adhd-hub/commit/f48d51d5e27acb9a0f8fc238dd1040e01677bd6c))
+* install RTK binary without brew or --agents ([#277](https://github.com/uniskela/adhd-hub/issues/277)) ([0aa1859](https://github.com/uniskela/adhd-hub/commit/0aa1859f0d837cb0abc5ecbfbd5becf93b9306d7))
+* soft-warn when connect lacks npx for skills installs ([#272](https://github.com/uniskela/adhd-hub/issues/272)) ([0434aa1](https://github.com/uniskela/adhd-hub/commit/0434aa11d1e48fd57d8a1c16ca183ec8fbb5989e))
+* **ui:** include Ponytail and Humanizer in Helpful extras Select all ([#290](https://github.com/uniskela/adhd-hub/issues/290)) ([c013b0f](https://github.com/uniskela/adhd-hub/commit/c013b0f63bdfb12077ef3d282306b079c4550e0e))
+
+
+### Documentation
+
+* add Continuity guard to nav and stamp v0.19.0 ([#269](https://github.com/uniskela/adhd-hub/issues/269)) ([a88f510](https://github.com/uniskela/adhd-hub/commit/a88f5108be85a98ea220bbb28367938fbd6886f1))
+
 ## [0.19.0](https://github.com/uniskela/adhd-hub/compare/v0.18.0...v0.19.0) (2026-09-29)
 
 
