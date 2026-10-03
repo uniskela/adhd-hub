@@ -1133,10 +1133,10 @@ export async function openSourceRefresh(threadId) {
           await api(`/threads/${encodeURIComponent(threadId)}/source-refresh/ignore`, { method: "POST" });
         } catch (error) {
           setMsg(`Could not ignore the source: ${error.message}`, { variant: "error" });
-          ignore.disabled = false;
+          if (!stale()) ignore.disabled = false;
           return;
         }
-        dialog.close();
+        if (!stale()) dialog.close();
         setMsg("Source ignored. Your Hub notes are unchanged.");
         loadAll().catch((error) => setMsg(`Could not refresh your work: ${error.message}`, { variant: "error" }));
       };
@@ -1207,13 +1207,13 @@ export async function openSourceRefresh(threadId) {
           setMsg("Refresh still has unresolved conflicts.", { variant: "warning" });
           return;
         }
-        dialog.close();
+        if (!stale()) dialog.close();
         setMsg(`Refreshed from source (${(result.updated_fields || []).length} fields updated).`);
         await loadAll();
       } catch (error) {
         setMsg(`Source refresh failed: ${error.message}`, { variant: "error" });
       } finally {
-        apply.disabled = false;
+        if (!stale()) apply.disabled = false;
       }
     };
   }
