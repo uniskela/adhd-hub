@@ -289,6 +289,125 @@ def test_missing_rtk_is_warn_not_error() -> None:
     assert not any(s.status == "error" for s in steps)
 
 
+def test_run_rtk_install_sh_downloads_before_exec(monkeypatch, tmp_path: Path) -> None:
+    """Curl must finish successfully before sh runs the saved script."""
+    from adhd_hub import companions
+
+    calls: list[list[str]] = []
+    script_body = "#!/bin/sh\necho ok\n"
+
+    class Result:
+        def __init__(self, returncode: int) -> None:
+            self.returncode = returncode
+
+    def fake_run(cmd, *, check=False, timeout=None):  # noqa: ARG001
+        calls.append(list(cmd))
+        if cmd[0].endswith("curl") or Path(cmd[0]).name == "curl":
+            out = Path(cmd[cmd.index("-o") + 1])
+            out.write_text(script_body, encoding="utf-8")
+            return Result(0)
+        assert Path(cmd[1]).is_file()
+        assert Path(cmd[1]).read_text(encoding="utf-8") == script_body
+        return Result(0)
+
+    class _Tmp:
+        def __enter__(self):
+            return str(tmp_path)
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(
+        companions,
+        "_which",
+        lambda *names: (
+            "/usr/bin/curl"
+            if "curl" in names
+            else ("/bin/sh" if "sh" in names else None)
+        ),
+    )
+    monkeypatch.setattr(companions.subprocess, "run", fake_run)
+    monkeypatch.setattr(companions.tempfile, "TemporaryDirectory", lambda *a, **k: _Tmp())
+
+    status, detail = companions._run_rtk_install_sh(dry_run=False)
+    assert status == "ok"
+    assert "exit 0" in detail
+    assert len(calls) == 2
+    assert any("--max-time" in c for c in calls)
+    assert calls[0][0] == "/usr/bin/curl"
+    assert calls[1][0] == "/bin/sh"
+    assert calls[1][1].endswith("install.sh")
+
+
+def test_run_rtk_install_sh_skips_sh_when_curl_fails(monkeypatch, tmp_path: Path) -> None:
+    from adhd_hub import companions
+
+    calls: list[list[str]] = []
+
+    class Result:
+        def __init__(self, returncode: int) -> None:
+            self.returncode = returncode
+
+    def fake_run(cmd, *, check=False, timeout=None):  # noqa: ARG001
+        calls.append(list(cmd))
+        return Result(22)
+
+    class _Tmp:
+        def __enter__(self):
+            return str(tmp_path)
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(
+        companions,
+        "_which",
+        lambda *names: (
+            "/usr/bin/curl"
+            if "curl" in names
+            else ("/bin/sh" if "sh" in names else None)
+        ),
+    )
+    monkeypatch.setattr(companions.subprocess, "run", fake_run)
+    monkeypatch.setattr(companions.tempfile, "TemporaryDirectory", lambda *a, **k: _Tmp())
+
+    status, detail = companions._run_rtk_install_sh(dry_run=False)
+    assert status == "error"
+    assert "curl exit 22" in detail
+    assert len(calls) == 1
+    assert calls[0][0] == "/usr/bin/curl"
+
+
+def test_run_rtk_install_sh_timeout_is_error(monkeypatch, tmp_path: Path) -> None:
+    from adhd_hub import companions
+
+    class _Tmp:
+        def __enter__(self):
+            return str(tmp_path)
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake_run(*_a, **_k):
+        raise companions.subprocess.TimeoutExpired(cmd="curl", timeout=150)
+
+    monkeypatch.setattr(
+        companions,
+        "_which",
+        lambda *names: (
+            "/usr/bin/curl"
+            if "curl" in names
+            else ("/bin/sh" if "sh" in names else None)
+        ),
+    )
+    monkeypatch.setattr(companions.subprocess, "run", fake_run)
+    monkeypatch.setattr(companions.tempfile, "TemporaryDirectory", lambda *a, **k: _Tmp())
+
+    status, detail = companions._run_rtk_install_sh(dry_run=False)
+    assert status == "error"
+    assert "timed out" in detail.lower() or "TimeoutExpired" in detail
+
+
 def test_rtk_install_uses_install_sh_without_brew(monkeypatch) -> None:
     from adhd_hub import companions
 

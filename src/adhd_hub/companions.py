@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -768,7 +769,12 @@ def _optional_result(status: Status, detail: str) -> tuple[Status, str]:
 
 
 def _run_rtk_install_sh(*, dry_run: bool) -> tuple[Status, str]:
-    """Run upstream RTK install.sh (curl | sh) without a shell interpolation risk."""
+    """Download upstream RTK install.sh, then run the complete script.
+
+    Download-then-exec avoids piping a live curl stream into ``sh`` (partial
+    script risk). Bounded timeouts and exception conversion keep optional
+    companion install from hanging or crashing Hub connect.
+    """
     line = f"curl -fsSL {RTK_INSTALL_SH_URL} | sh"
     if dry_run:
         return "ok", f"would run: {line}"
@@ -780,22 +786,33 @@ def _run_rtk_install_sh(*, dry_run: bool) -> tuple[Status, str]:
         return "error", f"not on PATH: sh ({line})"
     print_running([curl, "-fsSL", RTK_INSTALL_SH_URL, "|", "sh"], file=sys.stderr)
     # Fixed upstream URL; argv lists only (no shell interpolation).
-    curl_proc = subprocess.Popen(
-        [curl, "-fsSL", RTK_INSTALL_SH_URL],
-        stdout=subprocess.PIPE,
-    )
     try:
-        code = subprocess.run(
-            [sh],
-            stdin=curl_proc.stdout,
-            check=False,
-        ).returncode
-    finally:
-        if curl_proc.stdout is not None:
-            curl_proc.stdout.close()
-        curl_code = curl_proc.wait()
-    if curl_code != 0:
-        return "error", f"{line} (curl exit {curl_code})"
+        with tempfile.TemporaryDirectory(prefix="adhd-hub-rtk-") as tmp:
+            script = Path(tmp) / "install.sh"
+            curl_code = subprocess.run(
+                [
+                    curl,
+                    "-fsSL",
+                    "--max-time",
+                    "120",
+                    "-o",
+                    str(script),
+                    RTK_INSTALL_SH_URL,
+                ],
+                check=False,
+                timeout=150,
+            ).returncode
+            if curl_code != 0:
+                return "error", f"{line} (curl exit {curl_code})"
+            if not script.is_file() or script.stat().st_size == 0:
+                return "error", f"{line} (empty install script)"
+            code = subprocess.run(
+                [sh, str(script)],
+                check=False,
+                timeout=600,
+            ).returncode
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return "error", f"{line} ({exc})"
     if code == 0:
         return "ok", f"{line} (exit 0)"
     return "error", f"{line} (exit {code})"
