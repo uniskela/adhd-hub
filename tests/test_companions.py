@@ -551,6 +551,19 @@ def test_rtk_off_user_path_warns_with_export_hint(monkeypatch) -> None:
     assert 'export PATH="/home/x/.local/bin:$PATH"' in path_steps[0].detail
 
 
+def test_rtk_path_warning_on_windows_has_no_export_line(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.delenv("ADHD_HUB_CONNECT_USER_PATH", raising=False)
+    monkeypatch.setattr(companions.sys, "platform", "win32")
+    monkeypatch.setattr(companions.shutil, "which", lambda name, path=None: None)
+    step = companions._rtk_path_warning("/home/x/.local/bin/rtk.exe")
+    assert step is not None
+    assert step.status == "warn"
+    assert "export PATH" not in step.detail
+    assert "user PATH" in step.detail
+
+
 def test_rtk_on_user_path_has_no_path_warning(monkeypatch) -> None:
     from adhd_hub import companions
 

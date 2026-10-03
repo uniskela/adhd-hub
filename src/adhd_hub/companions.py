@@ -588,12 +588,15 @@ def _rtk_path_warning(rtk_bin: str) -> CompanionStep | None:
     if any(shutil.which(name, path=user_path) for name in ("rtk", "rtk.exe")):
         return None
     bin_dir = Path(rtk_bin).parent
+    if sys.platform == "win32":
+        fix = f"Add {bin_dir} to your user PATH (Settings → Environment Variables)"
+    else:
+        fix = f'Add `export PATH="{bin_dir}:$PATH"` to your shell profile'
     return CompanionStep(
         "install rtk path",
         "warn",
         f"rtk is installed at {rtk_bin} but {bin_dir} is not on PATH, so agent hooks "
-        f'cannot run it. Add `export PATH="{bin_dir}:$PATH"` to your shell profile, '
-        "then restart your shell and coding agent.",
+        f"cannot run it. {fix}, then restart your shell and coding agent.",
     )
 
 
