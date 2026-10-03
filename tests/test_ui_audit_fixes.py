@@ -246,7 +246,10 @@ def test_every_dialog_has_a_title_row_with_a_close_button():
         assert 'class="eyebrow"' not in block
     boot = (UI / "js" / "boot.js").read_text()
     assert '.closest?.("[data-dialog-close]")' in boot
-    assert 'button.closest("dialog")?.close("cancel")' in boot
+    assert 'closeModal(button.closest("dialog"), "cancel")' in boot
+    dom = (UI / "js" / "dom.js").read_text()
+    assert "export function closeModal" in dom
+    assert "_modalPointerLock" in dom
 
 
 def test_confirm_dialog_forgets_the_last_answer():
@@ -303,7 +306,7 @@ def test_capture_save_does_not_click_through_to_progress():
     boot = (UI / "js" / "boot.js").read_text()
     html = (UI / "index.html").read_text()
     assert "export function closeModal" in dom
-    assert "pointerEvents" in dom
+    assert "_modalPointerLock" in dom
     start = now.index("export async function captureStep")
     capture = now[start : start + 1800]
     assert "closeModal($(\"capture-dialog\"))" in capture

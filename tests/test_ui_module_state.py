@@ -414,8 +414,18 @@ def test_select_all_companions_includes_every_helpful_extra():
         companion_id = raw.strip('"')
         assert f'id="{companion_id}"' in html, companion_id
 
-    assert "CONNECT_COMPANION_IDS" in boot
-    assert "syncSelectAllCompanions" in boot
+    select_all = re.search(
+        r'\$\("cc_all"\)\?\.addEventListener\("change", \(\) => \{'
+        r"([\s\S]*?)\n\}\);",
+        boot,
+    )
+    assert select_all is not None
+    assert "CONNECT_COMPANION_IDS.forEach" in select_all.group(1)
+    assert re.search(
+        r"CONNECT_COMPANION_IDS\.forEach\(\(id\) => \{\s*"
+        r'\$\(id\)\?\.addEventListener\("change", syncSelectAllCompanions\);',
+        boot,
+    )
     # Must not keep a duplicate incomplete companion id array for Select all.
     assert re.search(
         r'\[\s*"cc_i_have_adhd"[\s\S]*?"cc_serena"\s*\]\.forEach',
