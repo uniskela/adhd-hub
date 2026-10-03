@@ -392,3 +392,32 @@ def test_now_copy_coding_agent_prompt_control():
     ] or "status\\s*→" in now[
         now.index("export function isBoilerplateProgressSnippet") :
     ]
+
+
+def test_select_all_companions_includes_every_helpful_extra():
+    """Select all must toggle every Helpful extras checkbox, including new opt-ins.
+
+    Regression: boot.js kept a stale hardcoded id list and skipped Ponytail /
+    Humanizer after those companions were added to settings + HTML.
+    """
+    settings = (UI_JS / "settings.js").read_text()
+    boot = (UI_JS / "boot.js").read_text()
+    html = (UI_JS.parent / "index.html").read_text()
+
+    assert "export const CONNECT_COMPANION_IDS" in settings
+    block = settings.split("export const CONNECT_COMPANION_IDS", 1)[1]
+    block = block.split("];", 1)[0]
+    ids = re.findall(r'"cc_[a-z0-9_]+"', block)
+    assert '"cc_ponytail"' in ids
+    assert '"cc_humanizer"' in ids
+    for raw in ids:
+        companion_id = raw.strip('"')
+        assert f'id="{companion_id}"' in html, companion_id
+
+    assert "CONNECT_COMPANION_IDS" in boot
+    assert "syncSelectAllCompanions" in boot
+    # Must not keep a duplicate incomplete companion id array for Select all.
+    assert re.search(
+        r'\[\s*"cc_i_have_adhd"[\s\S]*?"cc_serena"\s*\]\.forEach',
+        boot,
+    ) is None

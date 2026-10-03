@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -107,43 +107,12 @@ $("ca_all")?.addEventListener("change", () => {
 });
 $("cc_all")?.addEventListener("change", () => {
   const on = !!$("cc_all")?.checked;
-  [
-    "cc_i_have_adhd",
-    "cc_graphify",
-    "cc_rtk",
-    "cc_superpowers",
-    "cc_context7",
-    "cc_agent_browser",
-    "cc_serena",
-  ].forEach((id) => {
+  CONNECT_COMPANION_IDS.forEach((id) => {
     if ($(id)) $(id).checked = on;
   });
 });
-[
-  "cc_i_have_adhd",
-  "cc_graphify",
-  "cc_rtk",
-  "cc_superpowers",
-  "cc_context7",
-  "cc_agent_browser",
-  "cc_serena",
-].forEach((id) => {
-  $(id)?.addEventListener("change", () => {
-    const boxes = [
-      "cc_i_have_adhd",
-      "cc_graphify",
-      "cc_rtk",
-      "cc_superpowers",
-      "cc_context7",
-      "cc_agent_browser",
-      "cc_serena",
-    ]
-      .map((cid) => $(cid))
-      .filter(Boolean);
-    if ($("cc_all")) {
-      $("cc_all").checked = boxes.length > 0 && boxes.every((el) => el.checked);
-    }
-  });
+CONNECT_COMPANION_IDS.forEach((id) => {
+  $(id)?.addEventListener("change", syncSelectAllCompanions);
 });
 $("btn-settings-index-back")?.addEventListener("click", showSettingsIndex);
 document.querySelectorAll("[data-settings-tab]").forEach((tab) => {

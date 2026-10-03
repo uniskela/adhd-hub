@@ -43,7 +43,8 @@ export function selectSettingsTab(name, focus = false) {
   const content = document.querySelector("#settings-view .settings-content");
   if (content) content.scrollTop = 0;
 }
-const CONNECT_COMPANION_IDS = [
+/** Checkbox ids for Helpful extras — keep in sync with index.html; Select all uses this. */
+export const CONNECT_COMPANION_IDS = [
   "cc_i_have_adhd",
   "cc_superpowers",
   "cc_ponytail",
