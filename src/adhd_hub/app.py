@@ -239,6 +239,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         script = render_install_sh(
             _install_hub_base(request),
             default_agents=prefs.connect_agents_csv(),
+            skills_mode=prefs.connect_skills_mode,
             with_i_have_adhd=prefs.companion_enabled("i-have-adhd"),
             with_graphify=prefs.companion_enabled("graphify"),
             with_rtk=prefs.companion_enabled("rtk"),
@@ -256,6 +257,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         script = render_install_ps1(
             _install_hub_base(request),
             default_agents=prefs.connect_agents_csv(),
+            skills_mode=prefs.connect_skills_mode,
             with_i_have_adhd=prefs.companion_enabled("i-have-adhd"),
             with_graphify=prefs.companion_enabled("graphify"),
             with_rtk=prefs.companion_enabled("rtk"),

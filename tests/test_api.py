@@ -149,3 +149,36 @@ def test_brand_assets_are_available_without_login(tmp_path):
             assert "image/svg+xml" in response.headers["content-type"]
             assert "<svg" in response.text
         assert client.get("/ui/brand/unknown.svg").status_code == 404
+
+
+def test_prefs_connect_skills_mode_put_validation(tmp_path: Path) -> None:
+    from adhd_hub.prefs import CONNECT_COMPANION_CHOICES
+
+    settings = Settings(data_dir=tmp_path / "data", auth_token="secret")
+    app = create_app(settings)
+    headers = {"Authorization": "Bearer secret"}
+    with TestClient(app) as client:
+        bad = client.put(
+            "/api/prefs",
+            headers=headers,
+            json={"connect_skills_mode": "everywhere"},
+        )
+        assert bad.status_code == 400
+        assert "connect_skills_mode" in bad.json()["detail"]
+
+        ok = client.put(
+            "/api/prefs",
+            headers=headers,
+            json={
+                "connect_skills_mode": "project",
+                "connect_companions": list(CONNECT_COMPANION_CHOICES),
+            },
+        )
+        assert ok.status_code == 200
+        body = ok.json()
+        assert body["connect_skills_mode"] == "project"
+        assert body["connect_companions"] == list(CONNECT_COMPANION_CHOICES)
+
+        got = client.get("/api/prefs", headers=headers)
+        assert got.status_code == 200
+        assert got.json()["connect_skills_mode"] == "project"

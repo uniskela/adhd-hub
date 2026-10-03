@@ -59,6 +59,27 @@ def test_prefs_rejects_unknown_companion() -> None:
         HubPrefs(connect_companions=["not-a-real-tool"])
 
 
+def test_prefs_connect_skills_mode_roundtrip(tmp_path: Path) -> None:
+    prefs = HubPrefs(timezone="UTC", connect_skills_mode="project")
+    save_prefs(tmp_path, prefs)
+    loaded = load_prefs(tmp_path)
+    assert loaded.connect_skills_mode == "project"
+
+
+def test_prefs_connect_skills_mode_defaults_global(tmp_path: Path) -> None:
+    # Legacy prefs.json without the key should load as global.
+    (tmp_path / "prefs.json").write_text('{"timezone": "UTC"}', encoding="utf-8")
+    loaded = load_prefs(tmp_path)
+    assert loaded.connect_skills_mode == "global"
+
+
+def test_prefs_rejects_unknown_skills_mode() -> None:
+    import pytest
+
+    with pytest.raises(ValidationError, match="Unknown connect_skills_mode"):
+        HubPrefs(connect_skills_mode="everywhere")
+
+
 def test_format_timestamp_sydney() -> None:
     stamp = format_timestamp(
         datetime(2026, 1, 15, 12, 0, tzinfo=UTC),

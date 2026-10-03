@@ -334,16 +334,25 @@
                   <label><input type="checkbox" id="ca_all" value="*" /> All skills.sh agents (*)</label>
                 </div>
                 <div class="settings-divider">
+                  <div class="preference-row"><div><strong>Hub skills install</strong><p class="hint">Where Hub’s own skills (session, projects, env-check) go. Global needs <code>npx</code> on the machine. Project writes under <code>.agents/skills/</code> in the repo you connect. Companions below are separate.</p></div></div>
+                  <div class="checks" id="connect-skills-mode-checks" role="radiogroup" aria-label="Hub skills install mode">
+                    <label><input type="radio" name="connect_skills_mode" id="csm_global" value="global" checked /> Global (all projects via npx skills add -g)</label>
+                    <label><input type="radio" name="connect_skills_mode" id="csm_project" value="project" /> This project only (<code>.agents/skills</code>)</label>
+                    <label><input type="radio" name="connect_skills_mode" id="csm_off" value="off" /> Don’t install Hub skills</label>
+                  </div>
+                </div>
+                <div class="settings-divider">
                   <div class="preference-row"><div><strong>Coding companions (optional)</strong><p class="hint">Pick what fits your workflow—do not install everything by default. Checked items are baked into the install script for the agents above. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md" target="_blank" rel="noopener">Full guide</a>.</p></div></div>
                   <p class="hint"><strong>Hub can install</strong> (opt-in via install script)</p>
                   <div class="checks" id="connect-companions-checks">
+                    <label><input type="checkbox" id="cc_all" /> Select all companions <span class="hint">(includes advanced Serena)</span></label>
                     <label><input type="checkbox" id="cc_i_have_adhd" value="i-have-adhd" /> i-have-adhd (reply shape) · <a href="https://github.com/ayghri/i-have-adhd" target="_blank" rel="noopener">source</a></label>
                     <label><input type="checkbox" id="cc_graphify" value="graphify" /> Graphify (code map) · <a href="https://github.com/Graphify-Labs/graphify" target="_blank" rel="noopener">source</a></label>
                     <label><input type="checkbox" id="cc_rtk" value="rtk" /> RTK (shell output) · <a href="https://github.com/rtk-ai/rtk" target="_blank" rel="noopener">source</a></label>
                     <label><input type="checkbox" id="cc_superpowers" value="superpowers" /> Superpowers (agent workflow) · <a href="https://github.com/obra/superpowers" target="_blank" rel="noopener">source</a></label>
                     <label><input type="checkbox" id="cc_context7" value="context7" /> Context7 (library docs) · <a href="https://github.com/upstash/context7" target="_blank" rel="noopener">source</a></label>
                     <label><input type="checkbox" id="cc_agent_browser" value="agent-browser" /> agent-browser (browser verification) · <a href="https://github.com/vercel-labs/agent-browser" target="_blank" rel="noopener">source</a></label>
-                    <label><input type="checkbox" id="cc_serena" value="serena" /> Serena (semantic navigation) · <a href="https://github.com/oraios/serena" target="_blank" rel="noopener">source</a></label>
+                    <label><input type="checkbox" id="cc_serena" value="serena" /> Serena (semantic navigation, advanced) · <a href="https://github.com/oraios/serena" target="_blank" rel="noopener">source</a></label>
                   </div>
                 </div>
                 <div class="actions"><button type="button" class="primary compact" id="btn-save-connect-agents">Save connect defaults</button></div>

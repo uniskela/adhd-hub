@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, field_validator
 
@@ -18,6 +18,9 @@ CONNECT_COMPANION_CHOICES = (
     "serena",
 )
 
+CONNECT_SKILLS_MODES = ("global", "project", "off")
+ConnectSkillsMode = Literal["global", "project", "off"]
+
 
 class HubPrefs(BaseModel):
     # IANA name, e.g. Australia/Sydney. Empty/"UTC" = Coordinated Universal Time.
@@ -28,6 +31,8 @@ class HubPrefs(BaseModel):
     # Optional companions included in install scripts when enabled.
     # Allowed: i-have-adhd, graphify, rtk, superpowers, context7, agent-browser, serena.
     connect_companions: list[str] = []
+    # Hub skills for install/connect: global (npx -g), project (.agents/skills), or off.
+    connect_skills_mode: ConnectSkillsMode = "global"
 
     def public_dict(self) -> dict[str, Any]:
         return self.model_dump()
@@ -60,6 +65,19 @@ class HubPrefs(BaseModel):
             if key not in out:
                 out.append(key)
         return out
+
+    @field_validator("connect_skills_mode", mode="before")
+    @classmethod
+    def _normalize_skills_mode(cls, value: Any) -> str:
+        if value is None or value == "":
+            return "global"
+        key = str(value).strip().lower()
+        if key not in CONNECT_SKILLS_MODES:
+            raise ValueError(
+                f"Unknown connect_skills_mode {key!r}; "
+                f"allowed: {', '.join(CONNECT_SKILLS_MODES)}"
+            )
+        return key
 
 
 def prefs_path(data_dir: Path) -> Path:

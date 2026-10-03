@@ -99,6 +99,46 @@ $("ca_all")?.addEventListener("change", () => {
     if ($("ca_claude")) $("ca_claude").checked = true;
   }
 });
+$("cc_all")?.addEventListener("change", () => {
+  const on = !!$("cc_all")?.checked;
+  [
+    "cc_i_have_adhd",
+    "cc_graphify",
+    "cc_rtk",
+    "cc_superpowers",
+    "cc_context7",
+    "cc_agent_browser",
+    "cc_serena",
+  ].forEach((id) => {
+    if ($(id)) $(id).checked = on;
+  });
+});
+[
+  "cc_i_have_adhd",
+  "cc_graphify",
+  "cc_rtk",
+  "cc_superpowers",
+  "cc_context7",
+  "cc_agent_browser",
+  "cc_serena",
+].forEach((id) => {
+  $(id)?.addEventListener("change", () => {
+    const boxes = [
+      "cc_i_have_adhd",
+      "cc_graphify",
+      "cc_rtk",
+      "cc_superpowers",
+      "cc_context7",
+      "cc_agent_browser",
+      "cc_serena",
+    ]
+      .map((cid) => $(cid))
+      .filter(Boolean);
+    if ($("cc_all")) {
+      $("cc_all").checked = boxes.length > 0 && boxes.every((el) => el.checked);
+    }
+  });
+});
 $("btn-settings-index-back")?.addEventListener("click", showSettingsIndex);
 document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
   tab.addEventListener("click", () => selectSettingsTab(tab.dataset.settingsTab));

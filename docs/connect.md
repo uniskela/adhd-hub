@@ -156,7 +156,17 @@ iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents '*'"
 
 `--skill *` in the skills CLI means “Hub skills (session, projects, env-check)” (projects + session), not “every coding agent.”
 
-Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
+**Hub skills mode** (Settings → Connections, or flags/env):
+
+| Mode | Flag | Effect |
+|------|------|--------|
+| Global (default) | `--skills` | `npx skills add … -g` for selected agents |
+| Project | `--project-skills` | Sync Hub-owned skills into `.agents/skills/` in the connected repo |
+| Off | omit both skills flags | Skip Hub skills (companions unchanged) |
+
+Do not pass `--skills` and `--project-skills` together. Install scripts also accept `--no-skills` (and `ADHD_HUB_CONNECT_NO_SKILLS=1`) for off; that flag is **installer-only** — `adhd-hub connect` itself has no `--no-skills`. Env: `ADHD_HUB_CONNECT_SKILLS_MODE=global|project|off`.
+
+Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--skills` / `--project-skills` / `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
 
 ```bash
 adhd-hub connect /path/to/project \
@@ -183,7 +193,7 @@ For Cursor-only Marketplace install (skills + rule + BYO MCP variables, no per-p
 - **Codex / Claude** — optional MCP blocks when listed in `--agents`
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
 - **AGENTS.md** — same reversible managed block as `adhd-hub setup`
-- **Skills** — opt-in global `npx skills add` (`--skills`). If `npx` is missing, connect **warns** and still succeeds (same soft-fail as optional companions); install Node.js and re-run with `--skills`
+- **Skills** — Hub skills via Settings mode or flags: `--skills` (global npx `-g`) or `--project-skills` (repo `.agents/skills`). Missing `npx` for global **warns** and still succeeds; project sync failures warn the same way. Companions (i-have-adhd, etc.) stay separate opt-ins / Select all in Settings.
 - **OpenClaw skills** — opt-in `npx skills add … -a openclaw`; hook URL/token still configured in **Settings → OpenClaw**. Missing `npx` warns only (does not fail Hub connect)
 - **Register** — `GET /api/projects/resolve?create=true` when a CLI session or bearer token is available
 - **Find** — scan `--find-roots` for `.git` / `AGENTS.md` / `.cursor` folders and list them

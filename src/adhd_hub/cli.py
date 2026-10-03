@@ -253,6 +253,12 @@ def cmd_connect(args: argparse.Namespace) -> int:
         except (RuntimeError, ConnectionError, ValueError) as exc:
             print(f"CLI login skipped: {exc}", file=sys.stderr)
             token = None
+    if args.skills and getattr(args, "project_skills", False):
+        print(
+            "error: use either --skills (global) or --project-skills (repo), not both",
+            file=sys.stderr,
+        )
+        return 2
     report = run_connect(
         project=Path(args.path),
         hub_url=hub_url,
@@ -266,6 +272,7 @@ def cmd_connect(args: argparse.Namespace) -> int:
         find_roots=find_roots or None,
         token=token,
         dry_run=args.dry_run,
+        project_skills_flag=bool(getattr(args, "project_skills", False)),
         with_i_have_adhd=args.with_i_have_adhd,
         with_graphify=args.with_graphify,
         with_rtk=args.with_rtk,
@@ -539,12 +546,21 @@ def build_parser() -> argparse.ArgumentParser:
     connect.add_argument(
         "--skills",
         action="store_true",
-        help="Install global agent skills via npx skills add",
+        help="Install Hub skills globally via npx skills add -g",
+    )
+    connect.add_argument(
+        "--project-skills",
+        action="store_true",
+        help="Install Hub-owned skills into this project's .agents/skills (not global)",
     )
     connect.add_argument(
         "--skills-source",
         default="uniskela/adhd-hub",
-        help="skills.sh source or local skills path",
+        help=(
+            "For --skills: skills.sh source (default: uniskela/adhd-hub). "
+            "For --project-skills: local Hub checkout or skills tree path "
+            "(remote owner/repo is not supported; omit to use packaged skills)"
+        ),
     )
     connect.add_argument(
         "--cursor-rule",
