@@ -241,17 +241,17 @@ Pass global `-v` / `--verbose` to also print **Summary of what ran** with every 
 
 Color is on when stdout is a TTY. It is off when output is piped (including typical CI) or when `NO_COLOR` or `ADHD_HUB_NO_COLOR` is set to a non-empty value. There is no separate `--no-color` flag.
 
-## Optional coding companions
+## Optional third-party companions
 
-In **Settings → Agents & install**, under **Coding companions**, toggle opt-in companions (i-have-adhd, Graphify, RTK, Superpowers, Context7, agent-browser, Serena) and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
+In **Settings → Agents & install**, under **Third-party companions**, toggle opt-in companions (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer) and **Save connect defaults**. Those choices are included in `/install.sh` and `/install.ps1`.
 
 `connect` / `doctor` also list them when missing. You can pass flags manually:
 
 ```bash
-adhd-hub connect /path/to/project --agents codex,claude --with-i-have-adhd --with-graphify --with-context7
+adhd-hub connect /path/to/project --agents codex,claude --with-i-have-adhd --with-graphify --with-context7 --with-ponytail --with-humanizer
 ```
 
-Full install tables, licenses, and privacy notes: [Recommended coding companions](coding-companions.md).
+Full install tables, licenses, and privacy notes: [Recommended third-party companions](coding-companions.md).
 
 ## Safety
 

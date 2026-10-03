@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
 from adhd_hub.companions import (
     graphify_register_commands,
+    humanizer_commands,
     i_have_adhd_commands,
     install_companions,
     recommend_companions,
@@ -78,6 +80,28 @@ def test_rtk_init_cursor_explicit() -> None:
     assert cmds == ["rtk init -g --agent cursor"]
 
 
+def _patch_all_detects(**overrides):
+    """Patch companion detectors; defaults avoid host-machine false positives."""
+    defaults = {
+        "detect_i_have_adhd": None,
+        "detect_graphify": False,
+        "detect_rtk": False,
+        "detect_superpowers": False,
+        "detect_context7_mcp": False,
+        "detect_agent_browser": False,
+        "detect_agent_browser_skill": False,
+        "detect_serena": False,
+        "detect_serena_mcp": False,
+        "detect_ponytail": None,
+        "detect_humanizer": None,
+    }
+    defaults.update(overrides)
+    return [
+        patch(f"adhd_hub.companions.{name}", return_value=value)
+        for name, value in defaults.items()
+    ]
+
+
 def test_recommend_includes_opt_in_companions() -> None:
     from adhd_hub.companions import recommend_companions
 
@@ -91,20 +115,14 @@ def test_recommend_includes_opt_in_companions() -> None:
     assert "companion context7" in names
     assert "companion agent-browser" in names
     assert "companion serena" in names
+    assert "companion ponytail" in names
+    assert "companion humanizer" in names
 
 
 def test_recommend_empty_agents_is_manual_not_cursor() -> None:
-    with (
-        patch("adhd_hub.companions.detect_i_have_adhd", return_value=None),
-        patch("adhd_hub.companions.detect_graphify", return_value=False),
-        patch("adhd_hub.companions.detect_rtk", return_value=False),
-        patch("adhd_hub.companions.detect_superpowers", return_value=False),
-        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
-        patch("adhd_hub.companions.detect_serena", return_value=False),
-        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
-    ):
+    with contextlib.ExitStack() as stack:
+        for p in _patch_all_detects():
+            stack.enter_context(p)
         steps = recommend_companions([])
     names = {s.name: s for s in steps}
     assert names["companion i-have-adhd"].status == "manual"
@@ -114,23 +132,27 @@ def test_recommend_empty_agents_is_manual_not_cursor() -> None:
     assert names["companion context7"].status == "manual"
     assert names["companion agent-browser"].status == "manual"
     assert names["companion serena"].status == "manual"
+    assert names["companion ponytail"].status == "manual"
+    assert names["companion humanizer"].status == "manual"
     for step in steps:
         if step.name.startswith("companion "):
             assert "graphify cursor install" not in step.detail or "per agent" in step.detail
 
 
 def test_recommend_codex_claude_recipes_exclude_cursor() -> None:
-    with (
-        patch("adhd_hub.companions.detect_i_have_adhd", return_value=False),
-        patch("adhd_hub.companions.detect_graphify", return_value=False),
-        patch("adhd_hub.companions.detect_rtk", return_value=False),
-        patch("adhd_hub.companions.detect_superpowers", return_value=False),
-        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
-        patch("adhd_hub.companions.detect_serena", return_value=False),
-        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
-    ):
+    with contextlib.ExitStack() as stack:
+        for p in _patch_all_detects(
+            detect_i_have_adhd=False,
+            detect_superpowers=False,
+            detect_context7_mcp=False,
+            detect_agent_browser=False,
+            detect_agent_browser_skill=False,
+            detect_serena=False,
+            detect_serena_mcp=False,
+            detect_ponytail=False,
+            detect_humanizer=False,
+        ):
+            stack.enter_context(p)
         steps = recommend_companions(["codex", "claude"])
     details = " | ".join(s.detail for s in steps)
     assert "graphify install --platform codex" in details
@@ -190,17 +212,19 @@ def test_unknown_agent_does_not_guess_hooks() -> None:
     cmds_r = rtk_init_commands(["windsurf"], all_star=False)
     assert cmds_g == []
     assert cmds_r == []
-    with (
-        patch("adhd_hub.companions.detect_i_have_adhd", return_value=False),
-        patch("adhd_hub.companions.detect_graphify", return_value=False),
-        patch("adhd_hub.companions.detect_rtk", return_value=False),
-        patch("adhd_hub.companions.detect_superpowers", return_value=False),
-        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
-        patch("adhd_hub.companions.detect_serena", return_value=False),
-        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
-    ):
+    with contextlib.ExitStack() as stack:
+        for p in _patch_all_detects(
+            detect_i_have_adhd=False,
+            detect_superpowers=False,
+            detect_context7_mcp=False,
+            detect_agent_browser=False,
+            detect_agent_browser_skill=False,
+            detect_serena=False,
+            detect_serena_mcp=False,
+            detect_ponytail=False,
+            detect_humanizer=False,
+        ):
+            stack.enter_context(p)
         steps = recommend_companions(["windsurf"])
     details = " | ".join(s.detail for s in steps)
     assert "No auto recipe for agent(s): windsurf" in details
@@ -216,17 +240,9 @@ def test_append_skips_missing_when_installing(monkeypatch) -> None:
     def add(name: str, status: str, detail: str) -> None:
         recorded.append((name, status, detail))
 
-    with (
-        patch("adhd_hub.companions.detect_i_have_adhd", return_value=False),
-        patch("adhd_hub.companions.detect_graphify", return_value=False),
-        patch("adhd_hub.companions.detect_rtk", return_value=False),
-        patch("adhd_hub.companions.detect_superpowers", return_value=False),
-        patch("adhd_hub.companions.detect_context7_mcp", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser", return_value=False),
-        patch("adhd_hub.companions.detect_agent_browser_skill", return_value=False),
-        patch("adhd_hub.companions.detect_serena", return_value=False),
-        patch("adhd_hub.companions.detect_serena_mcp", return_value=False),
-    ):
+    with contextlib.ExitStack() as stack:
+        for p in _patch_all_detects(detect_i_have_adhd=False):
+            stack.enter_context(p)
         append_companion_steps(
             add,
             ["codex"],
@@ -625,3 +641,235 @@ def test_context7_codex_only_skips_false_warn() -> None:
     details = " | ".join(s.detail for s in steps)
     assert "no Cursor/Claude" not in details
     assert any(s.name == "install context7" and "codex" in s.detail for s in steps)
+
+
+def test_humanizer_commands_respect_agents() -> None:
+    cmds = humanizer_commands(["codex", "claude"], all_star=False)
+    assert len(cmds) == 1
+    assert "blader/humanizer" in cmds[0]
+    assert "-a codex" in cmds[0]
+    assert "-a claude-code" in cmds[0]
+    assert "-a cursor" not in cmds[0]
+
+
+def test_neither_ponytail_nor_humanizer_installs_by_default() -> None:
+    steps = install_companions(["cursor", "codex"], dry_run=True)
+    assert steps == []
+
+
+def test_install_dry_run_humanizer_respects_agents() -> None:
+    steps = install_companions(
+        ["codex", "claude"],
+        with_humanizer=True,
+        dry_run=True,
+    )
+    details = " | ".join(s.detail for s in steps)
+    assert "blader/humanizer" in details
+    assert "-a codex" in details
+    assert "-a claude-code" in details
+    assert "-a cursor" not in details
+    assert "does not auto-rewrite" in details
+
+
+def test_install_dry_run_ponytail_cursor_and_codex() -> None:
+    steps = install_companions(
+        ["cursor", "codex"],
+        with_ponytail=True,
+        dry_run=True,
+    )
+    details = " | ".join(s.detail for s in steps)
+    assert "ponytail" in details.lower()
+    assert "cursor-hooks.js" in details or "would clone" in details
+    assert "codex plugin" in details
+    assert all(s.status != "error" for s in steps)
+
+
+def test_ponytail_clone_preserves_existing_destination(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from adhd_hub import companions
+
+    dest = tmp_path / "ponytail"
+    dest.mkdir()
+    keep = dest / "user-notes.txt"
+    keep.write_text("keep me", encoding="utf-8")
+    monkeypatch.setattr(companions, "ponytail_clone_dir", lambda: dest)
+    monkeypatch.setattr(companions, "_which", lambda *names: "/usr/bin/git")
+    ran: list[list[str]] = []
+
+    def fake_run(cmd: list[str], *, dry_run: bool):
+        ran.append(cmd)
+        return "ok", "would run"
+
+    monkeypatch.setattr(companions, "_run", fake_run)
+    status, detail, path = companions._ensure_ponytail_clone(dry_run=False)
+    assert status == "warn"
+    assert "left unchanged" in detail
+    assert path is None
+    assert keep.is_file()
+    assert ran == []
+
+
+def test_ponytail_clone_stages_then_publishes(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    dest = tmp_path / "ponytail"
+    monkeypatch.setattr(companions, "ponytail_clone_dir", lambda: dest)
+    monkeypatch.setattr(companions, "_which", lambda *names: "/usr/bin/git")
+
+    def fake_run(cmd: list[str], *, dry_run: bool):
+        staging = Path(cmd[-1])
+        (staging / "scripts").mkdir(parents=True)
+        (staging / "scripts" / "cursor-hooks.js").write_text("// ok\n", encoding="utf-8")
+        return "ok", f"git clone {staging} (exit 0)"
+
+    monkeypatch.setattr(companions, "_run", fake_run)
+    status, _detail, path = companions._ensure_ponytail_clone(dry_run=False)
+    assert status == "ok"
+    assert path == dest
+    assert (dest / "scripts" / "cursor-hooks.js").is_file()
+    assert not list(tmp_path.glob(".ponytail-staging-*"))
+
+
+def test_ponytail_clone_failure_cleans_staging(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    dest = tmp_path / "ponytail"
+    monkeypatch.setattr(companions, "ponytail_clone_dir", lambda: dest)
+    monkeypatch.setattr(companions, "_which", lambda *names: "/usr/bin/git")
+    monkeypatch.setattr(
+        companions,
+        "_run",
+        lambda cmd, *, dry_run: ("error", "git clone failed (exit 1)"),
+    )
+    status, detail, path = companions._ensure_ponytail_clone(dry_run=False)
+    assert status == "warn"
+    assert path is None
+    assert not dest.exists()
+    assert not list(tmp_path.glob(".ponytail-staging-*"))
+    assert "Hub connect still succeeded" in detail
+
+
+def test_cursor_hooks_invalid_utf8_does_not_abort(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    cursor = tmp_path / ".cursor"
+    cursor.mkdir()
+    (cursor / "hooks.json").write_bytes(b"\xff\xfe not utf-8")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    assert companions._cursor_hooks_mention_ponytail() is False
+
+
+def test_ponytail_star_keeps_explicit_extra_agents() -> None:
+    steps = install_companions(
+        ["*", "windsurf"],
+        with_ponytail=True,
+        dry_run=True,
+    )
+    details = " | ".join(s.detail for s in steps)
+    assert "windsurf" in details
+    assert "no auto recipe for windsurf" in details
+
+
+def test_ponytail_skips_cursor_hooks_when_already_wired(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    cursor = tmp_path / ".cursor"
+    cursor.mkdir()
+    (cursor / "hooks.json").write_text(
+        '{"version":1,"hooks":{"sessionStart":[{"command":"node /x/ponytail/scripts/cursor-hooks.js"}]}}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(companions, "_which", lambda *names: None)
+    steps = companions.install_companions(["cursor"], with_ponytail=True, dry_run=False)
+    details = " | ".join(s.detail for s in steps)
+    assert "already reference ponytail" in details
+    assert "left unchanged" in details
+    assert all(s.status != "error" for s in steps)
+
+
+def test_optional_humanizer_failure_is_warn_not_error(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.setattr(
+        companions,
+        "_run",
+        lambda *_a, **_k: ("error", "npx failed (exit 1)"),
+    )
+    steps = companions.install_companions(
+        ["cursor"],
+        with_humanizer=True,
+        dry_run=False,
+    )
+    assert steps
+    assert all(s.status != "error" for s in steps)
+    assert any(s.status == "warn" and "humanizer" in s.name for s in steps)
+
+
+def test_optional_ponytail_failure_is_warn_not_error(monkeypatch) -> None:
+    from adhd_hub import companions
+
+    monkeypatch.setattr(
+        companions,
+        "_ensure_ponytail_clone",
+        lambda *, dry_run: ("warn", "clone failed · Hub connect still succeeded", None),
+    )
+    monkeypatch.setattr(companions, "_which", lambda *names: None)
+    steps = companions.install_companions(
+        ["cursor"],
+        with_ponytail=True,
+        dry_run=False,
+    )
+    assert steps
+    assert all(s.status != "error" for s in steps)
+
+
+def test_repeated_humanizer_dry_run_idempotent() -> None:
+    a = install_companions(["cursor"], with_humanizer=True, dry_run=True)
+    b = install_companions(["cursor"], with_humanizer=True, dry_run=True)
+    assert [s.detail for s in a] == [s.detail for s in b]
+
+
+def test_cli_parses_with_ponytail_and_humanizer() -> None:
+    from adhd_hub.cli import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "connect",
+            ".",
+            "--with-ponytail",
+            "--with-humanizer",
+            "--agents",
+            "cursor",
+        ]
+    )
+    assert args.with_ponytail is True
+    assert args.with_humanizer is True
+    bare = build_parser().parse_args(["connect", ".", "--agents", "cursor"])
+    assert bare.with_ponytail is False
+    assert bare.with_humanizer is False
+    assert bare.with_graphify is False
+
+
+def test_companion_specs_are_single_source_of_truth() -> None:
+    from adhd_hub.companions import (
+        COMPANION_SPECS,
+        CONNECT_COMPANION_CHOICES,
+        resolve_enabled_companions,
+    )
+
+    assert "ponytail" in CONNECT_COMPANION_CHOICES
+    assert "humanizer" in CONNECT_COMPANION_CHOICES
+    by_id = {c.id: c for c in COMPANION_SPECS}
+    assert by_id["ponytail"].category == "Code quality"
+    assert by_id["humanizer"].category == "Writing"
+    assert by_id["ponytail"].cli_flag == "--with-ponytail"
+    assert by_id["humanizer"].cli_flag == "--with-humanizer"
+    assert by_id["humanizer"].skills_source == "blader/humanizer"
+    assert by_id["humanizer"].install_mechanism == "skills_sh"
+    assert by_id["ponytail"].install_mechanism == "upstream_per_agent"
+    enabled = resolve_enabled_companions(with_ponytail=True, with_humanizer=False)
+    assert enabled["ponytail"] is True
+    assert enabled["humanizer"] is False
+    assert enabled["graphify"] is False

@@ -8,15 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, field_validator
 
-CONNECT_COMPANION_CHOICES = (
-    "i-have-adhd",
-    "graphify",
-    "rtk",
-    "superpowers",
-    "context7",
-    "agent-browser",
-    "serena",
-)
+from adhd_hub.companions import CONNECT_COMPANION_CHOICES
 
 CONNECT_SKILLS_MODES = ("global", "project", "off")
 ConnectSkillsMode = Literal["global", "project", "off"]
@@ -29,7 +21,7 @@ class HubPrefs(BaseModel):
     # Empty = not configured in install scripts.
     connect_agents: list[str] = []
     # Optional companions included in install scripts when enabled.
-    # Allowed: i-have-adhd, graphify, rtk, superpowers, context7, agent-browser, serena.
+    # Allowed ids: CONNECT_COMPANION_CHOICES (see companions.COMPANION_SPECS).
     connect_companions: list[str] = []
     # Hub skills for install/connect: global (npx -g), project (.agents/skills), or off.
     connect_skills_mode: ConnectSkillsMode = "global"

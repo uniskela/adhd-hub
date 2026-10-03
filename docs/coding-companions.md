@@ -1,54 +1,61 @@
-# Recommended coding companions
+# Recommended third-party companions
 
 Optional tools that pair well with ADHD Progress Hub. **Hub does not require them.** They are independent projects: Hub does not ship, warranty, or auto-update them.
+
+> Formerly titled “coding companions.” The URL `docs/coding-companions.md` is kept stable; the set now includes writing and workflow tools as well as coding helpers.
 
 For the Cursor Marketplace client plugin (skills + rule + BYO MCP), see
 [`adhd-hub-cursorskill`](https://github.com/uniskela/adhd-hub-cursorskill). Hub remains the skill source of truth; sync opens a plugin PR — [Cursor plugin skill sync](cursor-plugin-skill-sync.md).
 
-| Role | Tool |
-|------|------|
-| Continuity & progress | ADHD Progress Hub |
-| Reply shape | [i-have-adhd](https://github.com/ayghri/i-have-adhd) |
-| Agent workflow | [Superpowers](https://github.com/obra/superpowers) |
-| Codebase map | [Graphify](https://github.com/Graphify-Labs/graphify) |
-| Current library docs | [Context7](https://github.com/upstash/context7) |
-| Browser verification | [agent-browser](https://github.com/vercel-labs/agent-browser) |
-| Quieter shell output | [RTK](https://github.com/rtk-ai/rtk) |
+| Category | Role | Tool |
+|----------|------|------|
+| Continuity | Continuity & progress | ADHD Progress Hub |
+| ADHD & interaction | Reply shape | [i-have-adhd](https://github.com/ayghri/i-have-adhd) |
+| Agent workflow | Workflow skills | [Superpowers](https://github.com/obra/superpowers) |
+| Code quality | Scope control | [Ponytail](https://github.com/DietrichGebert/ponytail) |
+| Code intelligence | Codebase map | [Graphify](https://github.com/Graphify-Labs/graphify) |
+| Code intelligence | Library docs | [Context7](https://github.com/upstash/context7) |
+| Execution & verification | Browser verification | [agent-browser](https://github.com/vercel-labs/agent-browser) |
+| Execution & verification | Quieter shell output | [RTK](https://github.com/rtk-ai/rtk) |
+| Writing | Natural prose | [Humanizer](https://github.com/blader/humanizer) |
 
 ### Advanced companions
 
-| Role | Tool |
-|------|------|
-| Semantic code navigation & editing | [Serena](https://github.com/oraios/serena) |
+| Category | Role | Tool |
+|----------|------|------|
+| Code intelligence | Semantic code navigation & editing | [Serena](https://github.com/oraios/serena) |
 
-These tools solve different parts of the coding-agent workflow. Installing all of them is **not** recommended by default—choose companions that address problems in your existing workflow.
+These tools solve different parts of the agent workflow. Installing all of them is **not** recommended by default—choose companions that address problems in your existing workflow.
 
-After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Agents & install → Coding companions**, or pass install flags:
+After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Agents & install → Third-party companions**, or pass install flags:
 
 ```bash
 adhd-hub connect /path/to/project \
   --agents cursor,codex,claude \
   --with-i-have-adhd \
+  --with-superpowers \
+  --with-ponytail \
   --with-graphify \
   --with-rtk \
-  --with-superpowers \
   --with-context7 \
   --with-agent-browser \
-  --with-serena
+  --with-serena \
+  --with-humanizer
 ```
 
 Use the same `--agents` list as Hub MCP/skills. With no agents selected, the CLI links this guide instead of guessing per-agent setup.
 
-You can also put flags in `ADHD_HUB_CONNECT_FLAGS` for the install one-liner.
+You can also put flags in `ADHD_HUB_CONNECT_FLAGS` for the install one-liner (including `--with-ponytail` and `--with-humanizer`).
 
-Hub can opt-in install **i-have-adhd**, **Graphify**, **RTK**, **Superpowers**, **Context7**, **agent-browser**, and **Serena** (Settings checkboxes + `--with-*`). Superpowers is best-effort (many harnesses need an in-app plugin install); Context7/Serena merge MCP configs; agent-browser installs the CLI + skill. Optional companion failures warn and never fail Hub connect.
+Hub can opt-in install **i-have-adhd**, **Superpowers**, **Ponytail**, **Graphify**, **RTK**, **Context7**, **agent-browser**, **Serena**, and **Humanizer** (Settings checkboxes + `--with-*`). Superpowers and Claude Code Ponytail are best-effort (many harnesses need an in-app plugin install); Context7/Serena merge MCP configs; agent-browser installs the CLI + skill; Humanizer installs the skills.sh skill only. Optional companion failures warn and never fail Hub connect.
 
 ---
 
 ## i-have-adhd
 
-**License:** [MIT](https://github.com/ayghri/i-have-adhd/blob/main/LICENSE)  
-**What it does:** Shapes assistant replies for action-first, numbered steps (opt-in skill; no ADHD diagnosis required). Credits *The Adult ADHD Tool Kit* (Ramsay & Rostain).  
+**Category:** ADHD & interaction
+**License:** [MIT](https://github.com/ayghri/i-have-adhd/blob/main/LICENSE)
+**What it does:** Shapes assistant replies for action-first, numbered steps (opt-in skill; no ADHD diagnosis required). Credits *The Adult ADHD Tool Kit* (Ramsay & Rostain).
 **Privacy:** Markdown skill / plugin rules — no product telemetry.
 
 ### Install (skills CLI)
@@ -67,17 +74,50 @@ Then invoke `/i-have-adhd` (or `$i-have-adhd` in Codex) in a new session. Full p
 
 ## Superpowers
 
-**License:** [MIT](https://github.com/obra/superpowers/blob/main/LICENSE)  
-**What it does:** Agent workflow skills (brainstorm → plan → TDD → review).  
-**Privacy:** Local skills/plugin; see upstream for any optional telemetry (visual companion).  
+**Category:** Agent workflow
+**License:** [MIT](https://github.com/obra/superpowers/blob/main/LICENSE)
+**What it does:** Agent workflow skills (brainstorm → plan → TDD → review).
+**Privacy:** Local skills/plugin; see upstream for any optional telemetry (visual companion).
 **Install (opt-in):** `--with-superpowers` / Settings checkbox. Hub prints harness-specific steps and best-effort CLI install where available (e.g. Gemini extensions). Most harnesses still need an in-app plugin install — see [obra/superpowers](https://github.com/obra/superpowers).
+
+---
+
+## Ponytail
+
+**Category:** Code quality
+**License:** [MIT](https://github.com/DietrichGebert/ponytail/blob/main/LICENSE)
+**Upstream:** [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)
+**What it does:** Encourages agents to prefer the smallest correct implementation, avoid premature abstractions and review changes for unnecessary complexity.
+**Privacy / execution:** Local plugin, hooks, or rules. Upstream may inject a ruleset via agent lifecycle hooks. Hub does not send Ponytail traffic anywhere. Review upstream before enabling.
+**Independence:** Completely optional and independently maintained. Hub does not vendor Ponytail source and never makes it mandatory.
+
+### Install vs activation
+
+- **Install** = place the plugin/hooks/extension for your agent (what `--with-ponytail` does).
+- **Activation / mode** = upstream-controlled (`lite` / `full` / `ultra` / `off`). Hub does **not** force a strictness level. Upstream’s default after install is typically `full` unless you set `PONYTAIL_DEFAULT_MODE` or `~/.config/ponytail/config.json`. Switch with `/ponytail lite|full|ultra|off` (or plain messages in Cursor hooks).
+
+### Hub opt-in install
+
+`--with-ponytail` / Settings checkbox. Hub follows **upstream** recipes per selected agent (not skills.sh as the primary path — Ponytail’s README documents plugins/hooks/extensions):
+
+| Agent | Hub behaviour |
+|-------|----------------|
+| Cursor | Clone to `~/.local/share/adhd-hub/companions/ponytail` (or `$XDG_DATA_HOME/...`) and run `node scripts/cursor-hooks.js install` (merges hooks; needs `git` + `node`) |
+| Codex | `codex plugin marketplace add DietrichGebert/ponytail` then `codex plugin add ponytail@ponytail` when `codex` is on `PATH`; then trust hooks in `/hooks` |
+| Claude Code | Manual hint only (`/plugin marketplace add` + `/plugin install`) — Hub cannot drive the interactive `/plugin` UI |
+| Gemini CLI | `gemini extensions install https://github.com/DietrichGebert/ponytail` when `gemini` is on `PATH` |
+
+### Manual upstream install
+
+See the upstream [README Install section](https://github.com/DietrichGebert/ponytail#install) for Claude, Codex, Cursor, Gemini, and other hosts. Failures warn and never fail Hub connect.
 
 ---
 
 ## Graphify
 
-**License:** [Apache-2.0](https://github.com/Graphify-Labs/graphify/blob/v8/LICENSE) (older portions also under MIT; see upstream `NOTICE`)  
-**What it does:** Builds a local knowledge graph of your repo so agents can `query` / `path` / `explain` instead of blind grepping.  
+**Category:** Code intelligence
+**License:** [Apache-2.0](https://github.com/Graphify-Labs/graphify/blob/v8/LICENSE) (older portions also under MIT; see upstream `NOTICE`)
+**What it does:** Builds a local knowledge graph of your repo so agents can `query` / `path` / `explain` instead of blind grepping.
 **Privacy:** Code AST extraction is local. No product telemetry. Docs/media semantic passes use your assistant or a configured API key. Commercial [graphify.com](https://graphify.com) is separate from the open-source CLI.
 
 ### Install
@@ -103,26 +143,29 @@ Then in a project: `/graphify .` (PowerShell: `graphify .`). Upstream: [Graphify
 
 ## Context7
 
-**License:** [MIT](https://github.com/upstash/context7/blob/master/LICENSE)  
-**What it does:** Up-to-date library docs via MCP/CLI.  
-**Privacy:** Queries go to Context7’s service; may need an API key — see upstream.  
+**Category:** Code intelligence
+**License:** [MIT](https://github.com/upstash/context7/blob/master/LICENSE)
+**What it does:** Up-to-date library docs via MCP/CLI.
+**Privacy:** Queries go to Context7’s service; may need an API key — see upstream.
 **Install (opt-in):** `--with-context7` / Settings checkbox. Hub merges an MCP stdio entry (`npx -y @upstash/context7-mcp`) into selected agent configs. Optional API key improves rate limits — see [upstash/context7](https://github.com/upstash/context7).
 
 ---
 
 ## agent-browser
 
-**License:** [Apache-2.0](https://github.com/vercel-labs/agent-browser/blob/main/LICENSE) (confirmed from upstream LICENSE)  
-**What it does:** Browser automation for agents to verify UI.  
-**Privacy:** Drives a local browser; review upstream before enabling.  
+**Category:** Execution & verification
+**License:** [Apache-2.0](https://github.com/vercel-labs/agent-browser/blob/main/LICENSE) (confirmed from upstream LICENSE)
+**What it does:** Browser automation for agents to verify UI.
+**Privacy:** Drives a local browser; review upstream before enabling.
 **Install (opt-in):** `--with-agent-browser` / Settings checkbox. Hub runs `npm i -g agent-browser`, `agent-browser install`, and `npx skills add vercel-labs/agent-browser` for selected agents. See [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser).
 
 ---
 
 ## RTK
 
-**License:** [Apache-2.0](https://github.com/rtk-ai/rtk/blob/develop/LICENSE)  
-**What it does:** Compresses shell/tool output before your agent reads it; optional hooks rewrite bash commands.  
+**Category:** Execution & verification
+**License:** [Apache-2.0](https://github.com/rtk-ai/rtk/blob/develop/LICENSE)
+**What it does:** Compresses shell/tool output before your agent reads it; optional hooks rewrite bash commands.
 **Privacy:** Telemetry is **opt-in** (see upstream [TELEMETRY.md](https://github.com/rtk-ai/rtk/blob/develop/docs/TELEMETRY.md) / README). Leave it disabled unless you consent at RTK’s prompt. Hooks change how agents run shell commands — review before enabling.
 
 ### Install binary
@@ -158,11 +201,45 @@ Restart the coding agent after init. Upstream: [RTK README](https://github.com/r
 
 ---
 
+## Humanizer
+
+**Category:** Writing
+**License:** [MIT](https://github.com/blader/humanizer/blob/main/LICENSE)
+**Upstream:** [blader/humanizer](https://github.com/blader/humanizer)
+**What it does:** Rewrites AI-generated prose to sound more natural while preserving the original meaning. Best suited to documentation and user-facing writing. Built on Wikipedia’s [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing).
+**Privacy:** Local skill; runs in your agent when you invoke it. No Hub post-processing layer.
+**Independence:** Completely optional and independently maintained. Hub does not vendor Humanizer source.
+
+### Behaviour (important)
+
+Hub **only installs** the skill. It does **not**:
+
+- auto-rewrite every agent response
+- run Humanizer against source code, YAML/JSON/config, generated structured data, shell commands, or internal agent state
+
+Invoke on demand (`/humanizer`, or ask the agent to humanize a prose draft). When pointed at a file, upstream edits prose and leaves code/data/frontmatter alone — still use it intentionally on writing, not as a blanket pass.
+
+### Install (skills CLI / Hub opt-in)
+
+```bash
+# Hub:
+adhd-hub connect . --agents cursor,codex,claude --with-humanizer
+
+# Manual (skills.sh):
+npx skills add blader/humanizer -g -y -a cursor -a codex -a claude-code
+# or: npx skills add blader/humanizer -g -y --agent '*'
+```
+
+Claude Code can also use the upstream plugin marketplace (`/plugin marketplace add blader/humanizer` then `/plugin install humanizer@humanizer`) — see [blader/humanizer](https://github.com/blader/humanizer).
+
+---
+
 ## Serena (advanced)
 
-**License:** [MIT](https://github.com/oraios/serena/blob/main/LICENSE)  
-**What it does:** Semantic code navigation / editing via MCP. Heavier setup than the companions above—use when you want LSP-style repo intelligence.  
-**Privacy:** Typically local LSP/MCP; confirm upstream if using remote options.  
+**Category:** Code intelligence
+**License:** [MIT](https://github.com/oraios/serena/blob/main/LICENSE)
+**What it does:** Semantic code navigation / editing via MCP. Heavier setup than the companions above—use when you want LSP-style repo intelligence.
+**Privacy:** Typically local LSP/MCP; confirm upstream if using remote options.
 **Install (opt-in):** `--with-serena` / Settings checkbox. Hub runs `uv tool install -p 3.13 serena-agent`, best-effort `serena init`, and merges MCP launch config for selected agents. See [oraios/serena](https://github.com/oraios/serena).
 
 ---
@@ -171,6 +248,6 @@ Restart the coding agent after init. Upstream: [RTK README](https://github.com/r
 
 - These are **recommendations**, not Hub dependencies.
 - Prefer linking and opt-in CLI flags over silent installs.
-- Hub install paths: `--with-i-have-adhd` / `--with-graphify` / `--with-rtk` / `--with-superpowers` / `--with-context7` / `--with-agent-browser` / `--with-serena` (and matching Settings checkboxes). All are opt-in; failures warn and never fail Hub connect.
+- Hub install paths: `--with-i-have-adhd` / `--with-superpowers` / `--with-ponytail` / `--with-graphify` / `--with-rtk` / `--with-context7` / `--with-agent-browser` / `--with-serena` / `--with-humanizer` (and matching Settings checkboxes). All are opt-in; failures warn and never fail Hub connect.
 - Respect each project’s license and attribution when redistributing (Hub does not vendor their code).
 - For RTK, prefer the README/TELEMETRY docs over any conflicting one-line disclaimer about defaults.
