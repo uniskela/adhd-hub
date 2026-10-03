@@ -684,6 +684,27 @@ def test_install_dry_run_ponytail_cursor_and_codex() -> None:
     assert all(s.status != "error" for s in steps)
 
 
+def test_cursor_hooks_invalid_utf8_does_not_abort(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub import companions
+
+    cursor = tmp_path / ".cursor"
+    cursor.mkdir()
+    (cursor / "hooks.json").write_bytes(b"\xff\xfe not utf-8")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    assert companions._cursor_hooks_mention_ponytail() is False
+
+
+def test_ponytail_star_keeps_explicit_extra_agents() -> None:
+    steps = install_companions(
+        ["*", "windsurf"],
+        with_ponytail=True,
+        dry_run=True,
+    )
+    details = " | ".join(s.detail for s in steps)
+    assert "windsurf" in details
+    assert "no auto recipe for windsurf" in details
+
+
 def test_ponytail_skips_cursor_hooks_when_already_wired(tmp_path: Path, monkeypatch) -> None:
     from adhd_hub import companions
 

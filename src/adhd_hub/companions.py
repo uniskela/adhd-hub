@@ -428,7 +428,7 @@ def _cursor_hooks_mention_ponytail() -> bool:
         return False
     try:
         text = hooks.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return False
     return "ponytail" in text.lower()
 
@@ -1309,7 +1309,8 @@ def _install_ponytail(
         )
         return steps
 
-    agents = list(STAR_COMPANION_AGENTS) if all_star else list(resolved)
+    # ``resolved`` already expands ``*`` and keeps any explicit extras (e.g. windsurf).
+    agents = list(resolved)
     cursor_already = _cursor_hooks_mention_ponytail()
     need_clone = any(a == "cursor" for a in agents) and not (
         cursor_already and not dry_run
