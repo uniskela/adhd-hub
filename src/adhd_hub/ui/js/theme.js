@@ -59,7 +59,7 @@ export function applyTheme(selection = getThemePreference()) {
     ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
     : selection;
   document.documentElement.dataset.theme = resolved;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#14141c" : "#f7f7fa");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#15171a" : "#f7f6f3");
   syncThemeToggles(selection);
   applyAccent();
 }
@@ -105,7 +105,7 @@ function applyAccent() {
     else root.style.removeProperty(token);
   }
   const picker = document.getElementById("accent-colour");
-  if (picker) picker.value = chosen || "#4f46c8";
+  if (picker) picker.value = chosen || "#176b60";
   const label = document.getElementById("accent-value");
   if (label) label.textContent = chosen ? chosen.toUpperCase() : "Default palette";
   document.querySelectorAll("[data-accent]").forEach((button) => {

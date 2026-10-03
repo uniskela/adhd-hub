@@ -24,7 +24,7 @@ def test_custom_accent_contrast_in_both_themes():
         for (let b = 0; b <= 255; b += 51) for (const dark of [false, true]) {
           const colour = "#" + [r,g,b].map(v => v.toString(16).padStart(2,"0")).join("");
           const p = accentPalette(colour, dark);
-          const surfaces = dark ? ["#14141c", "#1e1e29", "#292937"] : ["#f7f7fa", "#ffffff", "#eeeef4"];
+          const surfaces = dark ? ["#15171a", "#1d2024", "#272b30"] : ["#f7f6f3", "#ffffff", "#efede8"];
           const pairs = [[p.accent, p.ink], [p.hover, p.ink], [p.accent, p.soft],
             ...surfaces.map(surface => [p.accent, surface])];
           if (pairs.some(([a,b]) => contrast(a,b) < 4.5)) {

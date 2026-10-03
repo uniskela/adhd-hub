@@ -21,33 +21,34 @@ Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wo
 
 | Role | Light | Dark | Use |
 | --- | --- | --- | --- |
-| Canvas | `#F7F7FA` | `#14141C` | Page and header background |
-| Primary surface | White `#FFFFFF` | `#1E1E29` | Grouped work, settings, and readers |
-| Secondary surface | `#EEEEF4` | `#292937` | Quiet supporting controls |
-| Text | `#252536` | `#EDECF6` | Headings and body |
-| Secondary text | `#666579` | `#B0AFC4` | Supporting text |
-| Primary action | Indigo `#4F46C8` | Periwinkle `#B7BEFF` | Action, focus and selection |
-| Selected subtle background | `#EEEDFC` | `#2C2C47` | Selected rows/tabs |
-| Divider | `#DDDDE8` | `#3B3A4C` | Thin boundaries |
+| Canvas | Warm paper `#F7F6F3` | `#15171A` | Page and sidebar background |
+| Primary surface | White `#FFFFFF` | `#1D2024` | Grouped work, settings, and readers |
+| Secondary surface | `#EFEDE8` | `#272B30` | Quiet supporting controls |
+| Text | `#1F2328` | `#ECEEF0` | Headings and body |
+| Secondary text | `#5F6570` | `#A9AEB5` | Supporting text |
+| Primary action | Teal `#176B60` | Mint `#7FC8B8` | Action, focus and selection |
+| Selected subtle background | `#E3F0EC` | `#1F3632` | Selected rows/tabs |
+| Divider | `#E6E4DE` | `#33373D` | Thin boundaries |
+| Control border | `#D9D7D0` | `#474C53` | Inputs and secondary buttons |
 | Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
-| Destructive action | `#AB3546` | `#F3A3AE` | Delete and irreversible actions |
+| Destructive action | `#A3293B` | `#F3A3AE` | Delete and irreversible actions |
 
 Gold `#EFC978` is a small accent, not body text on white. Use colour with labels and state text: earned badges say **Earned**, tabs expose selection, and destructive buttons name the action. Primary labels and normal body/secondary text should meet WCAG AA contrast in both modes; focus outlines should remain visible. The interface follows the system theme unless the user chooses otherwise.
 
 ## Type, spacing, and buttons
 
-Use the local system sans-serif stack; no font download is required. Body: 15 px / 1.6. Headings: 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Keep long notes near 65 characters per line. All-caps eyebrows are short landmarks, never paragraphs or instructions.
+Use Figtree, bundled with the app as a variable woff2 under the SIL Open Font License (see `ATTRIBUTION.md`), so it works offline with no font download; the system sans-serif stack is the fallback. Body: 16 px / 1.55. Headings: weight 700, slight negative tracking, 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Nothing is smaller than 12 px. Keep long notes near 65 characters per line. Labels and eyebrows use sentence case; avoid all-caps text.
 
-Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 14 px corners; controls use 12 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
+Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 14 px corners; controls use 10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
 
-- **Primary:** indigo/periwinkle fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
-- **Secondary:** quiet outline with text. Use for alternatives such as Choose another, Copy text, or Settings.
+- **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
+- **Secondary:** white (dark: card) fill with a soft control border. Use for alternatives such as Choose another, Copy text, or Settings.
 - **Destructive:** berry/rose with an explicit action label and confirmation where data will be lost.
 - **Close:** a visible 44 × 44 px × button with an accessible label. Settings keeps it visible while content scrolls.
 - **Focus:** 3 px accent outline with space around it. Never remove keyboard focus styling.
 - **Motion:** brief colour transitions only; honour reduced-motion preferences. No animated XP counters, confetti, audio, or pulsing reminders.
 
-Controls target at least 44 px height. Settings tabs support Left/Right, Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Tablet headers wrap navigation onto its own row. Page changes do not animate; colour transitions honour reduced-motion preferences.
+Controls target at least 44 px height on phones and touch screens. The installed app uses `viewport-fit=cover` and safe-area padding, so the top bar and bottom tabs stay clear of the notch and home indicator. Settings tabs support Left/Right, Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Desktop and tablet use a left sidebar with the navigation, Save a thought and sync status; phones use a top bar with bottom tabs. Page changes do not animate; colour transitions honour reduced-motion preferences.
 
 ## Voice and attention
 

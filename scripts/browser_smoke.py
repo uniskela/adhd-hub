@@ -167,7 +167,7 @@ def main():
                 expect(page.locator("#app-shell")).to_be_visible()
                 page.get_by_role("button", name="Choose a task", exact=True).click()
                 expect(page.locator("#work-view")).to_be_visible()
-                page.locator('#project-list [data-slug="my-website"]').click()
+                page.locator('#project-list button.proj[data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Personal website")
                 notes_trigger = page.locator("#threads [data-notes]").first
                 notes_trigger.click()
@@ -322,7 +322,7 @@ def main():
                 )
                 page.get_by_role("button", name="My work", exact=True).click()
                 # Project editing lives beside the title and opens as a focused dialog.
-                page.locator('#project-list [data-slug="my-website"]').click()
+                page.locator('#project-list button.proj[data-slug="my-website"]').click()
                 expect(page.locator("#btn-edit-project")).to_be_visible()
                 expect(page.locator("#btn-open-project-repo")).to_have_attribute(
                     "href", "https://github.com/example/my-website"
@@ -347,10 +347,10 @@ def main():
                     held.append((route, route.fetch()))
 
                 page.route("**/api/projects/my-website", hold_project)
-                page.locator('#project-list [data-slug="my-website"]').click()
+                page.locator('#project-list button.proj[data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Loading project…")
                 expect(page.locator("#btn-edit-project")).to_be_hidden()
-                page.locator('#project-list [data-slug="learning"]').click()
+                page.locator('#project-list button.proj[data-slug="learning"]').click()
                 expect(page.locator("#work-title")).to_have_text("Learning corner")
                 assert held
                 with page.expect_response("**/api/projects/my-website") as delivered:
@@ -372,7 +372,7 @@ def main():
                         body='{"detail":"Temporary test failure"}',
                     ),
                 )
-                page.locator('#project-list [data-slug="my-website"]').click()
+                page.locator('#project-list button.proj[data-slug="my-website"]').click()
                 expect(page.locator("#work-title")).to_have_text("Project unavailable")
                 expect(page.locator("#btn-edit-project")).to_be_hidden()
                 page.unroute("**/api/projects/my-website")
@@ -386,8 +386,12 @@ def main():
                     animations="disabled",
                 )
                 page.get_by_role("button", name="My work", exact=True).click()
-                page.locator('#project-list [data-slug="my-website"]').click()
-                mobile_notes_trigger = page.locator("#threads [data-notes]").first
+                # Phones keep the project list in a drawer.
+                page.locator("#btn-open-projects-drawer").click()
+                page.locator('#project-list button.proj[data-slug="my-website"]').click()
+                # On phones, Read notes lives in each step's Actions menu.
+                page.locator("#threads .thread-utility > summary").first.click()
+                mobile_notes_trigger = page.locator("#threads .thread-notes-menu").first
                 mobile_notes_trigger.click()
                 expect(page.locator("#notes-reader")).to_be_visible()
                 expect(page.locator("#notes-reader-body")).to_contain_text("Personal website")
@@ -395,7 +399,8 @@ def main():
                 assert page.locator("#notes-reader-body").evaluate("el => el.scrollWidth <= el.clientWidth")
                 page.screenshot(path=str(screenshots / "notes-reader-mobile.png"), full_page=True)
                 page.locator("#btn-notes-close").click()
-                expect(mobile_notes_trigger).to_be_focused()
+                # On phones focus returns to the Actions menu the reader was opened from.
+                expect(page.locator("#threads .thread-utility > summary").first).to_be_focused()
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Settings", exact=True).click()
                 for name in [
