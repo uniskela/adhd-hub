@@ -127,15 +127,22 @@ Then in a project: `/graphify .` (PowerShell: `graphify .`). Upstream: [Graphify
 
 ### Install binary
 
+`adhd-hub connect . --with-rtk --agents cursor,codex` (or the Settings checkbox
+with agents selected) tries **Homebrew** when `brew` is on `PATH`, otherwise runs
+the upstream installer below (needs `curl`). The binary install still runs when
+`--with-rtk` is set without `--agents`; `rtk init` needs agents. The script
+installs into `~/.local/bin` — ensure that directory is on your `PATH` (or open a
+new shell) before relying on bare `rtk`.
+
 ```bash
-# macOS (Homebrew)
+# macOS (Homebrew) — preferred when brew is available
 brew install rtk
 
-# Linux / macOS script (review before piping)
+# Linux / macOS script (review before piping) — used by Hub when brew is absent
 curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
 ```
 
-Windows: download a release zip from [rtk releases](https://github.com/rtk-ai/rtk/releases), put `rtk.exe` on `PATH`.
+Windows: download a release zip from [rtk releases](https://github.com/rtk-ai/rtk/releases), put `rtk.exe` on `PATH` (Hub does not auto-download on Windows).
 
 ### Init for your agents
 

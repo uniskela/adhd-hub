@@ -600,7 +600,10 @@ def build_parser() -> argparse.ArgumentParser:
     connect.add_argument(
         "--with-rtk",
         action="store_true",
-        help="Opt-in: run rtk init for selected --agents (binary must already be on PATH)",
+        help=(
+            "Opt-in: install RTK binary when missing (brew, else upstream install.sh) "
+            "and run rtk init for selected --agents"
+        )
     )
     connect.add_argument(
         "--with-superpowers",

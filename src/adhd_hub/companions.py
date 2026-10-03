@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -27,6 +28,9 @@ CONTEXT7_REPO = "https://github.com/upstash/context7"
 AGENT_BROWSER_REPO = "https://github.com/vercel-labs/agent-browser"
 SERENA_REPO = "https://github.com/oraios/serena"
 CONTEXT7_MCP_PACKAGE = "@upstash/context7-mcp"
+RTK_INSTALL_SH_URL = (
+    "https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh"
+)
 
 # Agents we emit concrete recipes for when the user passes ``*``.
 STAR_COMPANION_AGENTS = ("cursor", "codex", "claude", "gemini")
@@ -261,7 +265,10 @@ def rtk_binary_hint() -> str:
             "Install rtk.exe from https://github.com/rtk-ai/rtk/releases onto PATH "
             "(see coding-companions.md)"
         )
-    return "brew install rtk   # or upstream install.sh — see coding-companions.md"
+    return (
+        "brew install rtk  # or: curl -fsSL "
+        f"{RTK_INSTALL_SH_URL} | sh  — see coding-companions.md"
+    )
 
 
 
@@ -761,13 +768,84 @@ def _optional_result(status: Status, detail: str) -> tuple[Status, str]:
     return status, detail
 
 
-def _try_install_rtk_binary(*, dry_run: bool) -> CompanionStep | None:
-    """Best-effort RTK binary install when brew is available; otherwise None."""
+def _run_rtk_install_sh(*, dry_run: bool) -> tuple[Status, str]:
+    """Download upstream RTK install.sh, then run the complete script.
+
+    Download-then-exec avoids piping a live curl stream into ``sh`` (partial
+    script risk). Bounded timeouts and exception conversion keep optional
+    companion install from hanging or crashing Hub connect.
+    """
+    line = f"curl -fsSL {RTK_INSTALL_SH_URL} | sh"
+    if dry_run:
+        return "ok", f"would run: {line}"
+    curl = _which("curl")
+    sh = _which("sh") or _which("bash")
+    if not curl:
+        return "error", f"not on PATH: curl ({line})"
+    if not sh:
+        return "error", f"not on PATH: sh ({line})"
+    print_running([curl, "-fsSL", RTK_INSTALL_SH_URL, "|", "sh"], file=sys.stderr)
+    # Fixed upstream URL; argv lists only (no shell interpolation).
+    try:
+        with tempfile.TemporaryDirectory(prefix="adhd-hub-rtk-") as tmp:
+            script = Path(tmp) / "install.sh"
+            curl_code = subprocess.run(
+                [
+                    curl,
+                    "-fsSL",
+                    "--max-time",
+                    "120",
+                    "-o",
+                    str(script),
+                    RTK_INSTALL_SH_URL,
+                ],
+                check=False,
+                timeout=150,
+            ).returncode
+            if curl_code != 0:
+                return "error", f"{line} (curl exit {curl_code})"
+            if not script.is_file() or script.stat().st_size == 0:
+                return "error", f"{line} (empty install script)"
+            code = subprocess.run(
+                [sh, str(script)],
+                check=False,
+                timeout=600,
+            ).returncode
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return "error", f"{line} ({exc})"
+    if code == 0:
+        return "ok", f"{line} (exit 0)"
+    return "error", f"{line} (exit {code})"
+
+
+def _try_install_rtk_binary(*, dry_run: bool) -> CompanionStep:
+    """Best-effort RTK binary install: Homebrew when present, else upstream install.sh."""
+    if sys.platform == "win32":
+        return CompanionStep(
+            "install rtk binary",
+            "warn",
+            f"{rtk_binary_hint()}. Hub connect still succeeded; install rtk, then "
+            "re-run `adhd-hub connect . --with-rtk --agents cursor,codex`.",
+        )
+
     brew = _which("brew")
     if brew:
         status, detail = _optional_result(*_run([brew, "install", "rtk"], dry_run=dry_run))
-        return CompanionStep("install rtk binary", status, detail)
-    return None
+        if status == "ok" or dry_run:
+            return CompanionStep("install rtk binary", status, detail)
+        # Brew failed — fall through to install.sh (common on Linux without kegs).
+
+    if not _which("curl"):
+        return CompanionStep(
+            "install rtk binary",
+            "warn",
+            "rtk not on PATH and curl not available for upstream install.sh — "
+            f"{rtk_binary_hint()}. Hub connect still succeeded; install rtk, then "
+            "re-run `adhd-hub connect . --with-rtk --agents cursor,codex`.",
+        )
+
+    status, detail = _optional_result(*_run_rtk_install_sh(dry_run=dry_run))
+    return CompanionStep("install rtk binary", status, detail)
 
 
 def install_companions(
@@ -796,20 +874,32 @@ def install_companions(
 
     all_star, resolved = resolve_companion_agents(agents)
     steps: list[CompanionStep] = []
+    has_agents = bool(resolved or all_star)
 
-    if not resolved and not all_star:
+    if not has_agents:
+        # Binary installs (RTK / Graphify) do not need agents; agent-specific
+        # steps (init/register/skills/MCP) are skipped below with their own warns.
         steps.append(
             CompanionStep(
                 "companions install",
                 "warn",
-                "No --agents selected — refusing agent-specific companion install. "
-                f"Pass --agents or see {COMPANIONS_DOC}",
+                "No --agents selected — skipping agent-specific companion steps "
+                "(binary installs that do not need agents still run). "
+                f"Pass --agents cursor,codex,claude or see {COMPANIONS_DOC}",
             )
         )
-        return steps
 
     if with_i_have_adhd:
-        if all_star:
+        if not has_agents:
+            steps.append(
+                CompanionStep(
+                    "install i-have-adhd",
+                    "warn",
+                    "skipped — pass --agents (or *) for skills.sh targets · "
+                    + COMPANIONS_DOC,
+                )
+            )
+        elif all_star:
             cmd = ["npx", "skills", "add", I_HAVE_ADHD_SOURCE, "-g", "-y", "--agent", "*"]
             status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
             steps.append(CompanionStep("install i-have-adhd", status, detail))
@@ -856,169 +946,189 @@ def install_companions(
                 )
             )
 
-        gbin = resolve_graphify_bin()
-        register_cmds = graphify_register_commands(resolved, all_star=all_star)
-        if not register_cmds:
+        if not has_agents:
             steps.append(
                 CompanionStep(
                     "install graphify register",
                     "warn",
-                    f"no known Graphify recipe for selected agents — {COMPANIONS_DOC}",
-                )
-            )
-        elif not gbin and not dry_run:
-            steps.append(
-                CompanionStep(
-                    "install graphify register",
-                    "warn",
-                    "graphify installed but not found under PATH or ~/.local/bin — "
-                    "run `uv tool update-shell`, open a new terminal, then: "
-                    + "; ".join(register_cmds),
+                    "skipped — pass --agents to register Graphify · " + COMPANIONS_DOC,
                 )
             )
         else:
-            exe = gbin or "graphify"
-            for line in register_cmds:
-                parts = line.split()
-                # Prefer absolute shim so register works before PATH refresh.
-                cmd = [exe, *parts[1:]] if parts else [exe]
-                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
-                steps.append(CompanionStep("install graphify register", status, detail))
+            gbin = resolve_graphify_bin()
+            register_cmds = graphify_register_commands(resolved, all_star=all_star)
+            if not register_cmds:
+                steps.append(
+                    CompanionStep(
+                        "install graphify register",
+                        "warn",
+                        f"no known Graphify recipe for selected agents — {COMPANIONS_DOC}",
+                    )
+                )
+            elif not gbin and not dry_run:
+                steps.append(
+                    CompanionStep(
+                        "install graphify register",
+                        "warn",
+                        "graphify installed but not found under PATH or ~/.local/bin — "
+                        "run `uv tool update-shell`, open a new terminal, then: "
+                        + "; ".join(register_cmds),
+                    )
+                )
+            else:
+                exe = gbin or "graphify"
+                for line in register_cmds:
+                    parts = line.split()
+                    # Prefer absolute shim so register works before PATH refresh.
+                    cmd = [exe, *parts[1:]] if parts else [exe]
+                    status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+                    steps.append(CompanionStep("install graphify register", status, detail))
 
     if with_rtk:
         if not detect_rtk():
-            attempted = _try_install_rtk_binary(dry_run=dry_run)
-            if attempted:
-                steps.append(attempted)
-            if not detect_rtk() and not dry_run:
-                # Optional companion — do not fail the whole Hub connect.
-                steps.append(
-                    CompanionStep(
-                        "install rtk binary",
-                        "warn",
-                        f"rtk not on PATH — {rtk_binary_hint()}. "
-                        "Hub connect still succeeded; install rtk, then re-run "
-                        "`adhd-hub connect … --with-rtk`.",
-                    )
-                )
-                return steps
-            if dry_run and not detect_rtk():
-                steps.append(
-                    CompanionStep(
-                        "install rtk binary",
-                        "warn",
-                        f"would need binary first: {rtk_binary_hint()}",
-                    )
-                )
+            steps.append(_try_install_rtk_binary(dry_run=dry_run))
         else:
             steps.append(
                 CompanionStep("install rtk binary", "ok", f"found: {resolve_rtk_bin()}")
             )
 
-        rtk = resolve_rtk_bin() or "rtk"
-        init_cmds = rtk_init_commands(resolved, all_star=all_star)
-        if not init_cmds:
+        binary_ready = detect_rtk() or dry_run
+        if not binary_ready:
+            # Install step already warned; skip init without a binary.
+            pass
+        elif not has_agents:
             steps.append(
                 CompanionStep(
                     "install rtk init",
                     "warn",
-                    f"no known RTK recipe for selected agents — {COMPANIONS_DOC}",
+                    "rtk binary ready; pass --agents to run rtk init · " + COMPANIONS_DOC,
                 )
             )
-        for line in init_cmds:
-            parts = line.split()
-            cmd = [rtk, *parts[1:]] if parts else [rtk]
-            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
-            detail = (
-                f"{detail} · telemetry opt-in only — leave disabled unless you consent"
-            )
-            steps.append(CompanionStep("install rtk init", status, detail))
-
+        else:
+            rtk = resolve_rtk_bin() or "rtk"
+            init_cmds = rtk_init_commands(resolved, all_star=all_star)
+            if not init_cmds:
+                steps.append(
+                    CompanionStep(
+                        "install rtk init",
+                        "warn",
+                        f"no known RTK recipe for selected agents — {COMPANIONS_DOC}",
+                    )
+                )
+            for line in init_cmds:
+                parts = line.split()
+                cmd = [rtk, *parts[1:]] if parts else [rtk]
+                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+                detail = (
+                    f"{detail} · telemetry opt-in only — leave disabled unless you consent"
+                )
+                steps.append(CompanionStep("install rtk init", status, detail))
 
     if with_superpowers:
-        gemini_agents = [a for a in resolved if a == "gemini"]
-        other_agents = [a for a in resolved if a != "gemini"]
-        if gemini_agents and _which("gemini", "gemini.exe"):
-            cmd = [
-                _which("gemini", "gemini.exe") or "gemini",
-                "extensions",
-                "install",
-                SUPERPOWERS_REPO,
-            ]
-            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
-            steps.append(CompanionStep("install superpowers", status, detail))
-        hint_agents = other_agents if gemini_agents and _which("gemini", "gemini.exe") else resolved
-        if hint_agents or not gemini_agents:
+        if not has_agents:
             steps.append(
                 CompanionStep(
                     "install superpowers",
                     "warn",
-                    "Hub cannot fully auto-install Superpowers for most harnesses — "
-                    + superpowers_manual_hint(hint_agents or resolved),
+                    "skipped — pass --agents for harness-specific Superpowers hints · "
+                    + COMPANIONS_DOC,
                 )
             )
+        else:
+            gemini_agents = [a for a in resolved if a == "gemini"]
+            other_agents = [a for a in resolved if a != "gemini"]
+            if gemini_agents and _which("gemini", "gemini.exe"):
+                cmd = [
+                    _which("gemini", "gemini.exe") or "gemini",
+                    "extensions",
+                    "install",
+                    SUPERPOWERS_REPO,
+                ]
+                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
+                steps.append(CompanionStep("install superpowers", status, detail))
+            hint_agents = (
+                other_agents if gemini_agents and _which("gemini", "gemini.exe") else resolved
+            )
+            if hint_agents or not gemini_agents:
+                steps.append(
+                    CompanionStep(
+                        "install superpowers",
+                        "warn",
+                        "Hub cannot fully auto-install Superpowers for most harnesses — "
+                        + superpowers_manual_hint(hint_agents or resolved),
+                    )
+                )
 
     if with_context7:
-        snippet = context7_mcp_snippet()
-        targets: list[tuple[str, Path]] = []
-        if "cursor" in resolved or all_star:
-            targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
-        if "claude" in resolved or all_star:
-            targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
-        if not targets and resolved and "codex" not in resolved and not all_star:
+        if not has_agents:
             steps.append(
                 CompanionStep(
                     "install context7",
                     "warn",
-                    "no Cursor/Claude/Codex MCP path for selected agents — "
-                    f"configure Context7 manually · {CONTEXT7_REPO}",
+                    "skipped — pass --agents to merge Context7 MCP · " + COMPANIONS_DOC,
                 )
             )
-        for label, mcp_path in targets:
-            try:
-                action = merge_stdio_mcp_json(
-                    mcp_path, "context7", snippet, dry_run=dry_run
-                )
-                steps.append(
-                    CompanionStep(
-                        "install context7",
-                        "ok",
-                        f"{label} MCP {action}: {mcp_path} · optional API key for higher limits",
-                    )
-                )
-            except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        else:
+            snippet = context7_mcp_snippet()
+            targets: list[tuple[str, Path]] = []
+            if "cursor" in resolved or all_star:
+                targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
+            if "claude" in resolved or all_star:
+                targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
+            if not targets and resolved and "codex" not in resolved and not all_star:
                 steps.append(
                     CompanionStep(
                         "install context7",
                         "warn",
-                        f"{label} MCP merge failed: {exc} · {CONTEXT7_REPO}",
+                        "no Cursor/Claude/Codex MCP path for selected agents — "
+                        f"configure Context7 manually · {CONTEXT7_REPO}",
                     )
                 )
-        if "codex" in resolved or all_star:
-            codex_path = Path.home() / ".codex" / "config.toml"
-            try:
-                action = merge_codex_stdio_mcp(
-                    codex_path,
-                    "context7",
-                    "npx",
-                    ["-y", CONTEXT7_MCP_PACKAGE],
-                    dry_run=dry_run,
-                )
-                steps.append(
-                    CompanionStep(
-                        "install context7",
-                        "ok",
-                        f"codex MCP {action}: {codex_path}",
+            for label, mcp_path in targets:
+                try:
+                    action = merge_stdio_mcp_json(
+                        mcp_path, "context7", snippet, dry_run=dry_run
                     )
-                )
-            except (OSError, ValueError) as exc:
-                steps.append(
-                    CompanionStep(
-                        "install context7",
-                        "warn",
-                        f"codex MCP merge failed: {exc} · {CONTEXT7_REPO}",
+                    steps.append(
+                        CompanionStep(
+                            "install context7",
+                            "ok",
+                            f"{label} MCP {action}: {mcp_path} · optional API key for higher limits",
+                        )
                     )
-                )
+                except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                    steps.append(
+                        CompanionStep(
+                            "install context7",
+                            "warn",
+                            f"{label} MCP merge failed: {exc} · {CONTEXT7_REPO}",
+                        )
+                    )
+            if "codex" in resolved or all_star:
+                codex_path = Path.home() / ".codex" / "config.toml"
+                try:
+                    action = merge_codex_stdio_mcp(
+                        codex_path,
+                        "context7",
+                        "npx",
+                        ["-y", CONTEXT7_MCP_PACKAGE],
+                        dry_run=dry_run,
+                    )
+                    steps.append(
+                        CompanionStep(
+                            "install context7",
+                            "ok",
+                            f"codex MCP {action}: {codex_path}",
+                        )
+                    )
+                except (OSError, ValueError) as exc:
+                    steps.append(
+                        CompanionStep(
+                            "install context7",
+                            "warn",
+                            f"codex MCP merge failed: {exc} · {CONTEXT7_REPO}",
+                        )
+                    )
 
     if with_agent_browser:
         if not detect_agent_browser():
