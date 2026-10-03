@@ -242,6 +242,21 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
                     if key not in cleaned_c:
                         cleaned_c.append(key)
                 current["connect_companions"] = cleaned_c
+        if "connect_skills_mode" in payload:
+            from adhd_hub.prefs import CONNECT_SKILLS_MODES
+
+            raw_mode = payload.get("connect_skills_mode")
+            if raw_mode is None or raw_mode == "":
+                current["connect_skills_mode"] = "global"
+            else:
+                mode = str(raw_mode).strip().lower()
+                if mode not in CONNECT_SKILLS_MODES:
+                    raise HTTPException(
+                        400,
+                        f"Unknown connect_skills_mode {mode!r}; "
+                        f"allowed: {', '.join(CONNECT_SKILLS_MODES)}",
+                    )
+                current["connect_skills_mode"] = mode
         return service.save_prefs(HubPrefs.model_validate(current)).public_dict()
 
     @router.get("/projects", dependencies=[Depends(auth_dep)])

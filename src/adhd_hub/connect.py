@@ -660,6 +660,7 @@ def render_install_sh(
     hub_url: str,
     *,
     default_agents: str = "",
+    skills_mode: str = "global",
     with_i_have_adhd: bool = False,
     with_graphify: bool = False,
     with_rtk: bool = False,
@@ -671,6 +672,9 @@ def render_install_sh(
     """POSIX bootstrap for macOS, Linux, and WSL/Git Bash — never embeds auth tokens."""
     base = normalize_hub_url(hub_url)
     baked = (default_agents or "").strip()
+    mode = (skills_mode or "global").strip().lower()
+    if mode not in {"global", "project", "off"}:
+        mode = "global"
     baked_iha = "1" if with_i_have_adhd else "0"
     baked_gf = "1" if with_graphify else "0"
     baked_rtk = "1" if with_rtk else "0"
@@ -689,6 +693,7 @@ def render_install_sh(
 #   curl -fsSL {base}/install.sh | sh -s -- /path/to/project
 #   curl -fsSL {base}/install.sh | sh -s -- /path/to/project --register --dry-run
 # Env overrides: ADHD_HUB_CONNECT_AGENTS, ADHD_HUB_CONNECT_SCOPE,
+#   ADHD_HUB_CONNECT_SKILLS_MODE=global|project|off,
 #   ADHD_HUB_CONNECT_REGISTER=1, ADHD_HUB_CONNECT_OPENCLAW_SKILLS=1,
 #   ADHD_HUB_CONNECT_NO_SKILLS=1, ADHD_HUB_CONNECT_DRY_RUN=1,
 #   ADHD_HUB_CONNECT_WITH_I_HAVE_ADHD=1, ADHD_HUB_CONNECT_WITH_GRAPHIFY=1,
@@ -696,13 +701,13 @@ def render_install_sh(
 #   ADHD_HUB_CONNECT_WITH_CONTEXT7=1, ADHD_HUB_CONNECT_WITH_AGENT_BROWSER=1,
 #   ADHD_HUB_CONNECT_WITH_SERENA=1,
 #   ADHD_HUB_CONNECT_FLAGS="--agents cursor,codex"
-# Default agents/companions come from Hub Settings → Connections (prefs), then env.
+# Default agents/companions/skills mode come from Hub Settings → Connections (prefs), then env.
 set -eu
 HUB_URL="${{ADHD_HUB_PUBLIC_URL:-{base}}}"
 PROJECT="."
 AGENTS="${{ADHD_HUB_CONNECT_AGENTS:-{baked}}}"
 SCOPE="${{ADHD_HUB_CONNECT_SCOPE:-project}}"
-SKILLS=1
+SKILLS_MODE="{mode}"
 CURSOR_RULE=1
 REGISTER=0
 OPENCLAW=0
@@ -716,7 +721,8 @@ WITH_AGENT_BROWSER={baked_ab}
 WITH_SERENA={baked_se}
 case "${{ADHD_HUB_CONNECT_REGISTER:-}}" in 1|true|TRUE|yes|YES) REGISTER=1 ;; esac
 case "${{ADHD_HUB_CONNECT_OPENCLAW_SKILLS:-}}" in 1|true|TRUE|yes|YES) OPENCLAW=1 ;; esac
-case "${{ADHD_HUB_CONNECT_NO_SKILLS:-}}" in 1|true|TRUE|yes|YES) SKILLS=0 ;; esac
+case "${{ADHD_HUB_CONNECT_SKILLS_MODE:-}}" in global|project|off) SKILLS_MODE="${{ADHD_HUB_CONNECT_SKILLS_MODE}}" ;; esac
+case "${{ADHD_HUB_CONNECT_NO_SKILLS:-}}" in 1|true|TRUE|yes|YES) SKILLS_MODE=off ;; esac
 case "${{ADHD_HUB_CONNECT_DRY_RUN:-}}" in 1|true|TRUE|yes|YES) DRY_RUN=1 ;; esac
 case "${{ADHD_HUB_CONNECT_WITH_I_HAVE_ADHD:-}}" in 1|true|TRUE|yes|YES) WITH_I_HAVE_ADHD=1 ;; esac
 case "${{ADHD_HUB_CONNECT_WITH_GRAPHIFY:-}}" in 1|true|TRUE|yes|YES) WITH_GRAPHIFY=1 ;; esac
@@ -750,7 +756,15 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --no-skills)
-      SKILLS=0
+      SKILLS_MODE=off
+      shift
+      ;;
+    --skills)
+      SKILLS_MODE=global
+      shift
+      ;;
+    --project-skills)
+      SKILLS_MODE=project
       shift
       ;;
     --no-cursor-rule)
@@ -806,7 +820,10 @@ done
 
 export ADHD_HUB_PUBLIC_URL="$HUB_URL"
 set -- connect "$PROJECT" --hub "$HUB_URL" --agents "$AGENTS" --scope "$SCOPE"
-[ "$SKILLS" -eq 1 ] && set -- "$@" --skills
+case "$SKILLS_MODE" in
+  global) set -- "$@" --skills ;;
+  project) set -- "$@" --project-skills ;;
+esac
 [ "$CURSOR_RULE" -eq 1 ] && set -- "$@" --cursor-rule
 [ "$REGISTER" -eq 1 ] && set -- "$@" --register
 [ "$OPENCLAW" -eq 1 ] && set -- "$@" --openclaw-skills
@@ -1041,6 +1058,7 @@ def render_install_ps1(
     hub_url: str,
     *,
     default_agents: str = "",
+    skills_mode: str = "global",
     with_i_have_adhd: bool = False,
     with_graphify: bool = False,
     with_rtk: bool = False,
@@ -1052,6 +1070,9 @@ def render_install_ps1(
     """Windows PowerShell bootstrap — never embeds auth tokens."""
     base = normalize_hub_url(hub_url)
     baked = (default_agents or "").strip().replace('"', '`"')
+    mode = (skills_mode or "global").strip().lower()
+    if mode not in {"global", "project", "off"}:
+        mode = "global"
     # PowerShell switch defaults: $true / $false
     sw_iha = "$true" if with_i_have_adhd else "$false"
     sw_gf = "$true" if with_graphify else "$false"
@@ -1069,18 +1090,21 @@ def render_install_ps1(
 # Usage:
 #   irm {base}/install.ps1 | iex
 #   iex "& {{ $(irm {base}/install.ps1) }} -Project 'C:\\repo' -Register -DryRun"
-# Env: ADHD_HUB_CONNECT_AGENTS, ADHD_HUB_CONNECT_SCOPE, ADHD_HUB_CONNECT_REGISTER=1,
-#      ADHD_HUB_CONNECT_OPENCLAW_SKILLS=1, ADHD_HUB_CONNECT_NO_SKILLS=1, ADHD_HUB_CONNECT_DRY_RUN=1,
+# Env: ADHD_HUB_CONNECT_AGENTS, ADHD_HUB_CONNECT_SCOPE,
+#      ADHD_HUB_CONNECT_SKILLS_MODE=global|project|off,
+#      ADHD_HUB_CONNECT_REGISTER=1, ADHD_HUB_CONNECT_OPENCLAW_SKILLS=1,
+#      ADHD_HUB_CONNECT_NO_SKILLS=1, ADHD_HUB_CONNECT_DRY_RUN=1,
 #      ADHD_HUB_CONNECT_WITH_I_HAVE_ADHD=1, ADHD_HUB_CONNECT_WITH_GRAPHIFY=1, ADHD_HUB_CONNECT_WITH_RTK=1,
 #      ADHD_HUB_CONNECT_WITH_SUPERPOWERS=1, ADHD_HUB_CONNECT_WITH_CONTEXT7=1,
 #      ADHD_HUB_CONNECT_WITH_AGENT_BROWSER=1, ADHD_HUB_CONNECT_WITH_SERENA=1
-# Default agents/companions come from Hub Settings → Connections (prefs), then env.
+# Default agents/companions/skills mode come from Hub Settings → Connections (prefs), then env.
 param(
   [string]$Project = ".",
   [string]$HubUrl = "",
   [string]$Agents = "",
   # Default must be a ValidateSet member — empty "" breaks `irm | iex`.
   [ValidateSet("project", "user")][string]$Scope = "project",
+  [ValidateSet("global", "project", "off")][string]$SkillsMode = "{mode}",
   [switch]$Register,
   [switch]$OpenClawSkills,
   [switch]$NoSkills,
@@ -1110,13 +1134,16 @@ if (-not $Agents) {{
 if ($env:ADHD_HUB_CONNECT_SCOPE -and $env:ADHD_HUB_CONNECT_SCOPE -in @("project", "user")) {{
   $Scope = $env:ADHD_HUB_CONNECT_SCOPE
 }}
+if ($env:ADHD_HUB_CONNECT_SKILLS_MODE -and $env:ADHD_HUB_CONNECT_SKILLS_MODE -in @("global", "project", "off")) {{
+  $SkillsMode = $env:ADHD_HUB_CONNECT_SKILLS_MODE
+}}
 function Test-EnvFlag([string]$Name) {{
   $v = [Environment]::GetEnvironmentVariable($Name)
   return @("1", "true", "TRUE", "yes", "YES") -contains $v
 }}
 if (-not $Register -and (Test-EnvFlag "ADHD_HUB_CONNECT_REGISTER")) {{ $Register = $true }}
 if (-not $OpenClawSkills -and (Test-EnvFlag "ADHD_HUB_CONNECT_OPENCLAW_SKILLS")) {{ $OpenClawSkills = $true }}
-if (-not $NoSkills -and (Test-EnvFlag "ADHD_HUB_CONNECT_NO_SKILLS")) {{ $NoSkills = $true }}
+if ($NoSkills -or (Test-EnvFlag "ADHD_HUB_CONNECT_NO_SKILLS")) {{ $SkillsMode = "off" }}
 if (-not $DryRun -and (Test-EnvFlag "ADHD_HUB_CONNECT_DRY_RUN")) {{ $DryRun = $true }}
 # Hub Settings → Connections may bake companion defaults into this script.
 if (-not $WithIHaveAdhd -and {sw_iha}) {{ $WithIHaveAdhd = $true }}
@@ -1140,7 +1167,8 @@ $connectArgs = @(
   "--agents", $Agents,
   "--scope", $Scope
 )
-if (-not $NoSkills) {{ $connectArgs += "--skills" }}
+if ($SkillsMode -eq "global") {{ $connectArgs += "--skills" }}
+elseif ($SkillsMode -eq "project") {{ $connectArgs += "--project-skills" }}
 if (-not $NoCursorRule) {{ $connectArgs += "--cursor-rule" }}
 if ($Register) {{ $connectArgs += "--register" }}
 if ($OpenClawSkills) {{ $connectArgs += "--openclaw-skills" }}
@@ -1381,6 +1409,7 @@ def run_connect(
     find_roots: list[Path] | None,
     token: str | None,
     dry_run: bool = False,
+    project_skills_flag: bool = False,
     with_i_have_adhd: bool = False,
     with_graphify: bool = False,
     with_rtk: bool = False,
@@ -1391,6 +1420,13 @@ def run_connect(
 ) -> ConnectReport:
     hub_url = normalize_hub_url(hub_url)
     report = ConnectReport(hub_url=hub_url, dry_run=dry_run)
+    if install_skills_flag and project_skills_flag:
+        report.add(
+            "skills",
+            "error",
+            "use either --skills (global) or --project-skills (repo), not both",
+        )
+        return report
     project = project.expanduser().resolve()
     if dry_run:
         report.add("mode", "ok", "dry-run (no files or remote writes)")
@@ -1460,7 +1496,44 @@ def run_connect(
     except (OSError, ValueError) as exc:
         report.add("AGENTS.md", "error", str(exc))
 
-    if install_skills_flag:
+    if project_skills_flag:
+        if dry_run:
+            report.add(
+                "skills",
+                "ok",
+                f"would sync project Hub skills under {project / '.agents' / 'skills'}",
+            )
+        else:
+            try:
+                from adhd_hub.project_sync import SyncMode, sync_project
+
+                sync_source = Path(skills_source) if Path(skills_source).exists() else None
+                sync_result = sync_project(
+                    project,
+                    source=sync_source,
+                    mode=SyncMode.apply,
+                    continuity_guard=False,
+                )
+                if sync_result.ok:
+                    report.add(
+                        "skills",
+                        "ok",
+                        f"project skills synced under {project / '.agents' / 'skills'}",
+                    )
+                else:
+                    detail = "; ".join(sync_result.errors[:3]) if sync_result.errors else "sync incomplete"
+                    report.add(
+                        "skills",
+                        "warn",
+                        f"project skills sync issue: {detail} · Hub connect still succeeded",
+                    )
+            except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
+                report.add(
+                    "skills",
+                    "warn",
+                    f"project skills sync failed: {exc} · Hub connect still succeeded",
+                )
+    elif install_skills_flag:
         if _npx_bin() is None:
             # Opt-in skills install needs npx; missing toolchain must not fail Hub wire-up.
             report.add("skills", "warn", _npx_missing_detail(opt_in="--skills"))
@@ -1481,7 +1554,6 @@ def run_connect(
             )
         else:
             if skills_all_agents:
-                targets: list[str] | None = None
                 code = install_skills(
                     skills_source,
                     agents=None,
@@ -1513,7 +1585,11 @@ def run_connect(
                     f"npx skills add {skills_source} -g -y ({agent_note}) (exit {code})",
                 )
     else:
-        report.add("skills", "skipped", "pass --skills to install globally")
+        report.add(
+            "skills",
+            "skipped",
+            "pass --skills (global) or --project-skills (repo) to install Hub skills",
+        )
 
     if openclaw_skills:
         if _npx_bin() is None:

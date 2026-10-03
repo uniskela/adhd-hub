@@ -43,6 +43,16 @@ export function selectSettingsTab(name, focus = false) {
   const content = document.querySelector("#settings-view .settings-content");
   if (content) content.scrollTop = 0;
 }
+const CONNECT_COMPANION_IDS = [
+  "cc_i_have_adhd",
+  "cc_graphify",
+  "cc_rtk",
+  "cc_superpowers",
+  "cc_context7",
+  "cc_agent_browser",
+  "cc_serena",
+];
+
 export async function loadPrefs() {
     let serverTz = null;
     try {
@@ -52,6 +62,7 @@ export async function loadPrefs() {
       applyConnectCompanions(
         Array.isArray(p.connect_companions) ? p.connect_companions : []
       );
+      applyConnectSkillsMode(p.connect_skills_mode || "global");
     } catch (_e) {
       /* keep local */
     }
@@ -314,18 +325,16 @@ export function applyConnectAgents(agents) {
     }
   }
 export function selectedConnectCompanions() {
-    return [
-      "cc_i_have_adhd",
-      "cc_graphify",
-      "cc_rtk",
-      "cc_superpowers",
-      "cc_context7",
-      "cc_agent_browser",
-      "cc_serena",
-    ]
+    return CONNECT_COMPANION_IDS
       .map((id) => $(id))
       .filter((el) => el && el.checked)
       .map((el) => el.value);
+  }
+export function syncSelectAllCompanions() {
+    const all = $("cc_all");
+    if (!all) return;
+    const boxes = CONNECT_COMPANION_IDS.map((id) => $(id)).filter(Boolean);
+    all.checked = boxes.length > 0 && boxes.every((el) => el.checked);
   }
 export function applyConnectCompanions(companions) {
     const set = new Set((companions || []).map((c) => String(c).trim().toLowerCase()));
@@ -336,10 +345,25 @@ export function applyConnectCompanions(companions) {
     if ($("cc_context7")) $("cc_context7").checked = set.has("context7");
     if ($("cc_agent_browser")) $("cc_agent_browser").checked = set.has("agent-browser");
     if ($("cc_serena")) $("cc_serena").checked = set.has("serena");
+    syncSelectAllCompanions();
+  }
+export function selectedConnectSkillsMode() {
+    const checked = document.querySelector(
+      '#connect-skills-mode-checks input[name="connect_skills_mode"]:checked'
+    );
+    return checked ? checked.value : "global";
+  }
+export function applyConnectSkillsMode(mode) {
+    const key = String(mode || "global").trim().toLowerCase();
+    const allowed = new Set(["global", "project", "off"]);
+    const value = allowed.has(key) ? key : "global";
+    const radio = $(`csm_${value}`);
+    if (radio) radio.checked = true;
   }
 export async function saveConnectAgents() {
     const agents = selectedConnectAgents();
     const companions = selectedConnectCompanions();
+    const skillsMode = selectedConnectSkillsMode();
     const msg = $("connect-agents-msg");
     try {
       const saved = await api("/prefs", {
@@ -347,13 +371,16 @@ export async function saveConnectAgents() {
         body: JSON.stringify({
           connect_agents: agents,
           connect_companions: companions,
+          connect_skills_mode: skillsMode,
         }),
       });
       applyConnectAgents(saved.connect_agents || agents);
       applyConnectCompanions(saved.connect_companions || companions);
+      applyConnectSkillsMode(saved.connect_skills_mode || skillsMode);
       const parts = [];
       if (agents.length) parts.push(`agents: ${agents.join(", ")}`);
       else parts.push("no agents");
+      parts.push(`skills: ${saved.connect_skills_mode || skillsMode}`);
       if (companions.length) parts.push(`companions: ${companions.join(", ")}`);
       else parts.push("no companions");
       if (msg) {
