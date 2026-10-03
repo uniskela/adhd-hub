@@ -162,9 +162,9 @@ iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents '*'"
 |------|------|--------|
 | Global (default) | `--skills` | `npx skills add … -g` for selected agents |
 | Project | `--project-skills` | Sync Hub-owned skills into `.agents/skills/` in the connected repo |
-| Off | `--no-skills` / mode `off` | Skip Hub skills (companions unchanged) |
+| Off | omit both skills flags | Skip Hub skills (companions unchanged) |
 
-Do not pass `--skills` and `--project-skills` together. Env: `ADHD_HUB_CONNECT_SKILLS_MODE=global|project|off` (and `ADHD_HUB_CONNECT_NO_SKILLS=1` forces off).
+Do not pass `--skills` and `--project-skills` together. Install scripts also accept `--no-skills` (and `ADHD_HUB_CONNECT_NO_SKILLS=1`) for off; that flag is **installer-only** — `adhd-hub connect` itself has no `--no-skills`. Env: `ADHD_HUB_CONNECT_SKILLS_MODE=global|project|off`.
 
 Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--openclaw-skills`, `--skills` / `--project-skills` / `--no-skills`, `--no-cursor-rule`, `--dry-run`, plus `ADHD_HUB_CONNECT_FLAGS` for extras.
 

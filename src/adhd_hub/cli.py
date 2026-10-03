@@ -556,7 +556,11 @@ def build_parser() -> argparse.ArgumentParser:
     connect.add_argument(
         "--skills-source",
         default="uniskela/adhd-hub",
-        help="skills.sh source or local skills path (also used for --project-skills sync)",
+        help=(
+            "For --skills: skills.sh source (default: uniskela/adhd-hub). "
+            "For --project-skills: local Hub checkout or skills tree path "
+            "(remote owner/repo is not supported; omit to use packaged skills)"
+        ),
     )
     connect.add_argument(
         "--cursor-rule",

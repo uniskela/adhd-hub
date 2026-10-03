@@ -1134,8 +1134,11 @@ if (-not $Agents) {{
 if ($env:ADHD_HUB_CONNECT_SCOPE -and $env:ADHD_HUB_CONNECT_SCOPE -in @("project", "user")) {{
   $Scope = $env:ADHD_HUB_CONNECT_SCOPE
 }}
-if ($env:ADHD_HUB_CONNECT_SKILLS_MODE -and $env:ADHD_HUB_CONNECT_SKILLS_MODE -in @("global", "project", "off")) {{
-  $SkillsMode = $env:ADHD_HUB_CONNECT_SKILLS_MODE
+# Explicit -SkillsMode wins over env (match POSIX flag precedence over defaults).
+if (-not $PSBoundParameters.ContainsKey("SkillsMode")) {{
+  if ($env:ADHD_HUB_CONNECT_SKILLS_MODE -and $env:ADHD_HUB_CONNECT_SKILLS_MODE -in @("global", "project", "off")) {{
+    $SkillsMode = $env:ADHD_HUB_CONNECT_SKILLS_MODE
+  }}
 }}
 function Test-EnvFlag([string]$Name) {{
   $v = [Environment]::GetEnvironmentVariable($Name)
@@ -1497,42 +1500,66 @@ def run_connect(
         report.add("AGENTS.md", "error", str(exc))
 
     if project_skills_flag:
-        if dry_run:
-            report.add(
-                "skills",
-                "ok",
-                f"would sync project Hub skills under {project / '.agents' / 'skills'}",
-            )
-        else:
-            try:
-                from adhd_hub.project_sync import SyncMode, sync_project
+        try:
+            from adhd_hub.project_sync import HUB_REPO, SyncMode, sync_project
 
-                sync_source = Path(skills_source) if Path(skills_source).exists() else None
+            source_raw = (skills_source or "").strip()
+            source_path = Path(source_raw).expanduser() if source_raw else None
+            skip_sync = False
+            sync_source: Path | None
+            if source_path is not None and source_path.exists():
+                sync_source = source_path
+            elif not source_raw or source_raw == HUB_REPO:
+                # Default / empty → packaged Hub skills tree (same as sync-project).
+                sync_source = None
+            else:
+                report.add(
+                    "skills",
+                    "warn",
+                    f"--skills-source {source_raw!r} is not a local path; "
+                    "project skills sync needs a local Hub checkout or skills tree "
+                    f"(or omit for packaged {HUB_REPO}). Hub connect still succeeded",
+                )
+                skip_sync = True
+                sync_source = None
+            if not skip_sync:
+                sync_agents = (
+                    ["*"]
+                    if skills_all_agents
+                    else (sorted(agents_set) or ["_none_"])
+                )
                 sync_result = sync_project(
                     project,
                     source=sync_source,
-                    mode=SyncMode.apply,
+                    mode=SyncMode.dry_run if dry_run else SyncMode.apply,
+                    agents=sync_agents,
                     continuity_guard=False,
                 )
+                dest = project / ".agents" / "skills"
                 if sync_result.ok:
+                    prefix = "would sync" if dry_run else "synced"
                     report.add(
                         "skills",
                         "ok",
-                        f"project skills synced under {project / '.agents' / 'skills'}",
+                        f"project skills {prefix} under {dest}",
                     )
                 else:
-                    detail = "; ".join(sync_result.errors[:3]) if sync_result.errors else "sync incomplete"
+                    detail = (
+                        "; ".join(sync_result.errors[:3])
+                        if sync_result.errors
+                        else "sync incomplete"
+                    )
                     report.add(
                         "skills",
                         "warn",
                         f"project skills sync issue: {detail} · Hub connect still succeeded",
                     )
-            except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
-                report.add(
-                    "skills",
-                    "warn",
-                    f"project skills sync failed: {exc} · Hub connect still succeeded",
-                )
+        except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
+            report.add(
+                "skills",
+                "warn",
+                f"project skills sync failed: {exc} · Hub connect still succeeded",
+            )
     elif install_skills_flag:
         if _npx_bin() is None:
             # Opt-in skills install needs npx; missing toolchain must not fail Hub wire-up.

@@ -238,12 +238,19 @@ def test_run_connect_rejects_skills_and_project_skills(tmp_path: Path) -> None:
 
 
 def test_run_connect_project_skills_dry_run(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub.project_sync import SyncMode, SyncResult
+
     project = tmp_path / "proj"
     project.mkdir()
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     (tmp_path / "home").mkdir()
 
-    with patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok (0.0)")):
+    planned = SyncResult(mode=SyncMode.dry_run, project=project, source=project)
+
+    with (
+        patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok (0.0)")),
+        patch("adhd_hub.project_sync.sync_project", return_value=planned) as sync_mock,
+    ):
         report = run_connect(
             project=project,
             hub_url="http://127.0.0.1:8787",
@@ -263,8 +270,11 @@ def test_run_connect_project_skills_dry_run(tmp_path: Path, monkeypatch) -> None
     assert report.ok
     skills = next(s for s in report.steps if s.name == "skills")
     assert skills.status == "ok"
-    assert "would sync project Hub skills" in skills.detail
+    assert "would sync" in skills.detail
     assert ".agents" in skills.detail
+    sync_mock.assert_called_once()
+    assert sync_mock.call_args.kwargs["mode"] == SyncMode.dry_run
+    assert sync_mock.call_args.kwargs["agents"] == ["cursor"]
     assert not (project / ".agents").exists()
 
 
@@ -305,6 +315,75 @@ def test_run_connect_project_skills_soft_warns_on_sync_failure(
     skills = next(s for s in report.steps if s.name == "skills")
     assert skills.status == "warn"
     assert "still succeeded" in skills.detail
+
+
+def test_run_connect_project_skills_rejects_remote_source(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+
+    with (
+        patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok (0.0)")),
+        patch("adhd_hub.project_sync.sync_project") as sync_mock,
+    ):
+        report = run_connect(
+            project=project,
+            hub_url="http://127.0.0.1:8787",
+            agents=["codex"],
+            scope="project",
+            install_skills_flag=False,
+            project_skills_flag=True,
+            skills_source="someone/other-skills",
+            cursor_rule=False,
+            openclaw_skills=False,
+            register=False,
+            find_roots=None,
+            token=None,
+            dry_run=False,
+        )
+
+    assert report.ok
+    sync_mock.assert_not_called()
+    skills = next(s for s in report.steps if s.name == "skills")
+    assert skills.status == "warn"
+    assert "not a local path" in skills.detail
+
+
+def test_run_connect_project_skills_passes_agents(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub.project_sync import SyncMode, SyncResult
+
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+    ok = SyncResult(mode=SyncMode.apply, project=project, source=project)
+
+    with (
+        patch("adhd_hub.connect.probe_hub", return_value=(True, "health ok (0.0)")),
+        patch("adhd_hub.project_sync.sync_project", return_value=ok) as sync_mock,
+    ):
+        report = run_connect(
+            project=project,
+            hub_url="http://127.0.0.1:8787",
+            agents=["codex"],
+            scope="project",
+            install_skills_flag=False,
+            project_skills_flag=True,
+            skills_source="uniskela/adhd-hub",
+            cursor_rule=False,
+            openclaw_skills=False,
+            register=False,
+            find_roots=None,
+            token=None,
+            dry_run=False,
+        )
+
+    assert report.ok
+    assert sync_mock.call_args.kwargs["agents"] == ["codex"]
+    assert sync_mock.call_args.kwargs["mode"] == SyncMode.apply
 
 
 def test_run_doctor_reports_missing_pieces(tmp_path: Path, monkeypatch) -> None:
@@ -937,6 +1016,7 @@ def test_render_install_bakes_skills_mode() -> None:
     assert '[ValidateSet("global", "project", "off")][string]$SkillsMode = "project"' in ps1_project
     assert 'if ($SkillsMode -eq "global") { $connectArgs += "--skills" }' in ps1_project
     assert 'elseif ($SkillsMode -eq "project") { $connectArgs += "--project-skills" }' in ps1_project
+    assert '$PSBoundParameters.ContainsKey("SkillsMode")' in ps1_project
 
     ps1_off = render_install_ps1("http://example:8787", skills_mode="off")
     assert '[ValidateSet("global", "project", "off")][string]$SkillsMode = "off"' in ps1_off
