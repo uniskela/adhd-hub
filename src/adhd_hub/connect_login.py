@@ -281,7 +281,7 @@ def run_login(
 
     report.add("connect code", "ok", user_code)
     print(f"Allow this CLI in the Hub UI:\n  {verify_url}")
-    print(f"Or Settings → Connections, enter: {user_code}")
+    print(f"Or Settings → Coding agents, enter: {user_code}")
     if open_browser:
         try:
             opened = webbrowser.open(verify_url)

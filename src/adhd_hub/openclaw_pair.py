@@ -312,7 +312,7 @@ def openclaw_pair_prompt(*, hub_origin: str, user_code: str) -> str:
             "   }",
             "6. Recommended Hub alert defaults unless I say otherwise:",
             '   cron "0 9 * * *", stale after 3 days, cooldown 3 days, digest limit 2.',
-            "7. Tell me when submit succeeds so I can Approve in Hub Settings → Connections,",
+            "7. Tell me when submit succeeds so I can Approve in Hub Settings → Phone alerts,",
             "   then help interpret Save & send test if needed.",
             "",
             f"Hub UI: {hub}/ui",

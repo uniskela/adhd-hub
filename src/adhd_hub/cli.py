@@ -535,7 +535,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Comma list of coding agents for MCP wire-up and skills install "
             "(cursor,codex,claude). Use * for skills on every agent. "
-            "Empty = no agent MCP/skills targets (set in Hub Settings → Connections "
+            "Empty = no agent MCP/skills targets (set in Hub Settings → Coding agents "
             "or pass explicitly). Claude maps to skills.sh id claude-code."
         ),
     )

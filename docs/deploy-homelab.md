@@ -53,7 +53,7 @@ Installable PWA: open `/ui/` over HTTPS (or localhost), then use “Install app�
 
 ## 3. OpenClaw
 
-On the OpenClaw gateway, enable hooks with a bearer token, or use Hub pairing from **Settings → OpenClaw**. Point manual Hub configuration at `/hooks/wake` (and optionally `/hooks/agent`). Stale digests use `ADHD_HUB_STALE_NUDGE_CRON` (default `0 9 * * *`).
+On the OpenClaw gateway, enable hooks with a bearer token, or use Hub pairing from **Settings → Phone alerts**. Point manual Hub configuration at `/hooks/wake` (and optionally `/hooks/agent`). Stale digests use `ADHD_HUB_STALE_NUDGE_CRON` (default `0 9 * * *`).
 
 You can also have OpenClaw poll:
 
@@ -93,7 +93,7 @@ Schedule it with Task Scheduler if you want nightly capture. See [Indexer schedu
 
 ## 6. Back up the lab instance
 
-Before upgrades or migrations, use `/ui` → Settings → **Download backup** or the CLI export. Keep the Compose `/data` volume persistent; removing that volume removes the local Hub state (including project tags and `ai.json` AI settings). Never use `docker compose down -v` for a normal upgrade. Confirm `ADHD_HUB_DATA_DIR=/data` matches the volume mount — see [Installation → What lives under `/data`](installation.md#what-lives-under-data).
+Before upgrades or migrations, use `/ui` → Settings → Your data → **Download backup** or the CLI export. Keep the Compose `/data` volume persistent; removing that volume removes the local Hub state (including project tags and `ai.json` AI settings). Never use `docker compose down -v` for a normal upgrade. Confirm `ADHD_HUB_DATA_DIR=/data` matches the volume mount — see [Installation → What lives under `/data`](installation.md#what-lives-under-data).
 
 For regular container upgrades using a published image:
 
@@ -111,7 +111,7 @@ Two complementary paths are available.
 
 On the old machine (UI or CLI):
 
-1. `/ui` → Settings → **Download backup**, or `uv run adhd-hub export -o adhd-hub-backup.zip`.
+1. `/ui` → Settings → Your data → **Download backup**, or `uv run adhd-hub export -o adhd-hub-backup.zip`.
    - Optional encryption: `uv run adhd-hub export -o adhd-hub-backup.zip.enc --passphrase '…'`
 2. Copy the backup to the LXC (scp / Tailscale).
 3. Stop the target Hub while restoring so SQLite is not open.
@@ -139,7 +139,7 @@ If the memory repo already has `projects/*/PROGRESS.md`:
 
 1. Deploy a fresh Hub on the LXC.
 2. Configure the same forge in `/ui` Settings (or `ADHD_HUB_FORGE_*`).
-3. Save forge / **Scan for import** — the UI lists remote projects missing from this Hub.
+3. Save issue sync / **Scan for projects** — the UI lists remote projects missing from this Hub.
 4. **Import** registers projects and pulls progress files.
 
 Forge import does **not** recreate SQLite threads/reminders; use Export/Import (A) when you need full local history.

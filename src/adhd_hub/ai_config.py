@@ -1,6 +1,6 @@
 """Persisted Wave 6 AI scan-line settings with an encrypted API key.
 
-Mirrors OpenClaw: env vars bootstrap a fresh instance; Settings → AI scan-lines
+Mirrors OpenClaw: env vars bootstrap a fresh instance; Settings → AI helpers
 owns ongoing admin. The API key is encrypted with the Hub auth token and never
 returned to the browser.
 """

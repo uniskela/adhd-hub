@@ -20,7 +20,7 @@ Inbox import is **fail closed**:
 
 Random collaborators (or anyone who can open issues on a public repo) cannot inject Hub threads unless you add their username.
 
-Set authors in Settings → Forge → **Inbox authors**, or via env:
+Set authors in Settings → Issue sync → Advanced → **Inbox authors**, or via env:
 
 ```bash
 export ADHD_HUB_FORGE_BOARD_INBOX_AUTHORS="your-login,automation-bot"
@@ -30,7 +30,7 @@ Match GitHub `user.login` / Gitea username (case-insensitive).
 
 ## Enable
 
-1. Settings → Forge: turn on **Board / issues** and **Import cloud-agent issues (inbox)**.
+1. Settings → Issue sync: turn on **Board and issues** and **Import agent issues**.
 2. Add your forge username(s) under **Inbox authors**.
 3. Save. Optionally click **Import issue inbox** once to test.
 4. The Hub also polls on `ADHD_HUB_FORGE_INBOX_CRON` (default every 15 minutes).

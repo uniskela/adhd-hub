@@ -27,7 +27,7 @@ For the Cursor Marketplace client plugin (skills + rule + BYO MCP), see
 
 These tools solve different parts of the agent workflow. Installing all of them is **not** recommended by default—choose companions that address problems in your existing workflow.
 
-After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Agents & install → Third-party companions**, or pass install flags:
+After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Coding agents → Helpful extras**, or pass install flags:
 
 ```bash
 adhd-hub connect /path/to/project \

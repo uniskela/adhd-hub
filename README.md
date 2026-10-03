@@ -109,7 +109,7 @@ npx skills add ./skills -g
 
 Or use `adhd-hub connect … --agents cursor --cursor-rule --skills` — see [docs/connect.md](docs/connect.md).
 
-**Optional third-party companions** (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Agents & install** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
+**Optional third-party companions** (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Coding agents** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
 
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 
@@ -145,9 +145,9 @@ Install the Hub skills for OpenClaw:
 npx skills add uniskela/adhd-hub -g -a openclaw
 ```
 
-**Pairing (recommended):** In **Settings → OpenClaw**, click **Start OpenClaw pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. Full steps: [OpenClaw connection and alerts](docs/openclaw.md).
+**Pairing (recommended):** In **Settings → Phone alerts**, click **Start pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. Full steps: [OpenClaw connection and alerts](docs/openclaw.md).
 
-**Manual path:** Enable private hooks on the OpenClaw gateway. Then in **Settings → OpenClaw**, save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save & send test** to verify the route.
+**Manual path:** Enable private hooks on the OpenClaw gateway. Then in **Settings → Phone alerts**, save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save and send a test** to verify the route.
 
 The bearer token is encrypted before it is written to the Hub data directory and is never returned to the browser. Environment variables remain available for initial provisioning:
 
@@ -186,7 +186,7 @@ Open **http://127.0.0.1:8787/ui/** after `serve` / compose. Project-first dashbo
 - **Wiki sync** — pushes `INDEX.md` + `projects/<slug>/PROGRESS.md` (primary memory: **repo root**; otherwise under Wiki path)
 - **Board sync** — mirrors threads as Issues with labels `adhd-hub` + `project:<slug>`; optionally attaches to a Gitea/GitHub project board id
 - **Primary memory repo** — seeds `README.md` / `AGENTS.md`; leave **Wiki path blank** so files land at `projects/<slug>/` (e.g. `…/alex/projects/projects/adhd-hub`)
-- **Import from forge** — if the repo already has `projects/*/PROGRESS.md`, Settings → Scan for import (or after Sync) offers to register missing projects and pull progress files
+- **Import from forge** — if the repo already has `projects/*/PROGRESS.md`, Settings → Issue sync → Scan for projects (or after Sync) offers to register missing projects and pull progress files
 
 Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/delete projects from the project panel (delete is safe by default — progress/forge files only removed if you opt in).
 
@@ -227,7 +227,7 @@ Add `--install-skills` to install Hub skills (session, projects, env-check) glob
 
 ## Connect (one-liner)
 
-With the Hub running and `ADHD_HUB_PUBLIC_URL` set for remote clients, copy the command from **Settings → Agents & install** (no server token in the command):
+With the Hub running and `ADHD_HUB_PUBLIC_URL` set for remote clients, copy the command from **Settings → Coding agents** (no server token in the command):
 
 ```bash
 # macOS / Linux / WSL / Git Bash
@@ -239,9 +239,9 @@ curl -fsSL http://<hub-host>:8787/install.sh | sh -s -- /path/to/project
 irm http://<hub-host>:8787/install.ps1 | iex
 ```
 
-The CLI opens your browser (or prints a one-time code). Press **Allow this CLI**. A session is saved on disk; do not `export ADHD_HUB_AUTH_TOKEN` into your profile for this step.
+The CLI opens your browser (or prints a one-time code). Press **Allow** in the browser prompt, or type the code under **Settings → Coding agents** and choose **Allow this computer**. A session is saved on disk; do not `export ADHD_HUB_AUTH_TOKEN` into your profile for this step.
 
-Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matching the server), falling back to `git+https`. Choose agents in **Settings → Agents & install** (baked into `/install.sh` and `/install.ps1`), or pass `--agents` / `ADHD_HUB_CONNECT_AGENTS`. Hub alias `claude` maps to skills.sh `claude-code`; there is no Cursor-only default. Details: [docs/connect.md](docs/connect.md).
+Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matching the server), falling back to `git+https`. Choose agents in **Settings → Coding agents** (baked into `/install.sh` and `/install.ps1`), or pass `--agents` / `ADHD_HUB_CONNECT_AGENTS`. Hub alias `claude` maps to skills.sh `claude-code`; there is no Cursor-only default. Details: [docs/connect.md](docs/connect.md).
 
 ```bash
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project

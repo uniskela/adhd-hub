@@ -129,7 +129,7 @@ def main() -> None:
                     if screen == "settings":
                         page.locator("#btn-settings:visible, #btn-mobile-settings:visible").first.click()
                         if not page.locator("#settings-preferences").is_visible():
-                            page.get_by_role("tab", name="Preferences", exact=True).click()
+                            page.get_by_role("tab", name="Appearance", exact=True).click()
                         expect(page.locator("#settings-preferences")).to_be_visible()
                     else:
                         page.locator(f'[data-screen="{screen}"]:visible').first.click()

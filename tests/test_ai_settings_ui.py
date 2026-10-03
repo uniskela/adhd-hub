@@ -225,8 +225,8 @@ def test_ui_exposes_ai_settings_and_rewrite_control() -> None:
     assert 'id="ai_enabled"' in index
     assert 'id="ai_auto_review_scan"' in index
     assert 'id="ai_auto_summarise_notes"' in index
-    assert "Auto review scan lines" in index
-    assert "Auto summarise notes" in index
+    assert "Rewrite scan lines on their own" in index
+    assert "Summarise notes on their own" in index
     assert 'id="btn-save-ai"' in index
     assert 'id="btn-load-ai-models"' in index
     assert 'id="ai_base_url_preset"' in index

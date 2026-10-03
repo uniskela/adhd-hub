@@ -422,7 +422,7 @@ export async function summariseNotes({ mode = "force", quiet = false } = {}) {
       }
       if (out.settings_hint && !quiet && isCurrent()) {
         showScreen("settings");
-        // Soft cue into Settings → AI scan-lines (avoid importing settings.js — circular via load.js).
+        // Soft cue into Settings → AI helpers (avoid importing settings.js — circular via load.js).
         const aiTab = document.querySelector('[data-settings-tab="ai"]');
         aiTab?.click();
         const aiBlock = $("ai_enabled");

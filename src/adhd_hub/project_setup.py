@@ -223,7 +223,7 @@ def install_skills(
         if not targets:
             print(
                 "No skills agents selected (map Hub aliases like claude → claude-code). "
-                "Set --agents or Settings → Connections.",
+                "Set --agents or Settings → Coding agents.",
                 file=__import__("sys").stderr,
             )
             return 2

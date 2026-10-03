@@ -10,7 +10,7 @@ The reader shows what is already stored. It does not edit Goal, Focus, Next, Blo
 
 ## Summarise (AI)
 
-When a thread’s notes are open and AI is on, the reader’s **⋯** menu offers **Summarise notes with AI**. With AI enabled in **Settings → AI scan-lines** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
+When a thread’s notes are open and AI is on, the reader’s **⋯** menu offers **Summarise notes with AI**. With AI enabled in **Settings → AI helpers** (same optional OpenAI-compatible endpoint as scan-lines), Hub asks the model for a short continuity-style card and places it near the top of the reader:
 
 1. **Done**
 2. **Plan · Focus**
@@ -18,7 +18,7 @@ When a thread’s notes are open and AI is on, the reader’s **⋯** menu offer
 4. **Blocked** — only when something is waiting
 5. **Resume** — optional one concrete action
 
-The card is **persisted on the thread** with an **input hash** of continuity fields plus scrubbed note snippets, so reopen keeps the last card until regenerate. **Auto summarise notes** (Settings, default off) runs Summarise when you open Notes & Context if there is no card or the hash drifted; a matching hash shows the cached card with no AI call (`POST …/notes-summary` with `{"mode":"ensure"}`). **Regenerate** (press Summarise) always forces a new card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
+The card is **persisted on the thread** with an **input hash** of continuity fields plus scrubbed note snippets, so reopen keeps the last card until regenerate. **Summarise notes on their own** (Settings, default off) runs Summarise when you open Notes & Context if there is no card or the hash drifted; a matching hash shows the cached card with no AI call (`POST …/notes-summary` with `{"mode":"ensure"}`). **Regenerate** (press Summarise) always forces a new card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
 
 ## Where you left off
 

@@ -108,25 +108,101 @@ def _panel(html: str, panel_id: str) -> str:
     return html[start : html.index('<section id="settings-', start + 1)]
 
 
-def test_ai_scan_lines_has_its_own_settings_tab():
-    """AI config sits beside OpenClaw/Forge instead of inside Preferences."""
+def test_ai_helpers_has_its_own_settings_tab():
+    """AI config sits under Connections as "AI helpers", not inside Appearance."""
     html = (UI / "index.html").read_text()
     now = (UI / "js" / "now.js").read_text()
     work = (UI / "js" / "work.js").read_text()
-    tab = re.search(r'<button[^>]*id="tab-ai"[^>]*>AI scan-lines</button>', html)
+    tab = re.search(r'<button[^>]*id="tab-ai"[^>]*>AI helpers</button>', html)
     assert tab is not None
     assert 'aria-controls="settings-ai"' in tab.group(0)
     assert 'data-settings-tab="ai"' in tab.group(0)
-    assert html.index('id="tab-openclaw"') < html.index('id="tab-ai"') < html.index('id="tab-forge"')
+    assert html.index('id="tab-openclaw"') < html.index('id="tab-forge"') < html.index('id="tab-ai"')
     ai = _panel(html, "settings-ai")
     prefs = _panel(html, "settings-preferences")
     assert 'aria-labelledby="tab-ai"' in ai
-    assert "<h2>AI scan-lines</h2>" in ai
+    assert "<h2>AI helpers</h2>" in ai
     for control in ("ai_enabled", "ai_base_url", "ai_model", "btn-save-ai", "btn-load-ai-models"):
         assert f'id="{control}"' in ai
         assert f'id="{control}"' not in prefs
+    # Every AI switch is off until turned on, and lists still lead with where you left off.
+    for switch in ("ai_enabled", "ai_auto_review_scan", "ai_auto_summarise_notes"):
+        assert re.search(rf'<input type="checkbox" role="switch" id="{switch}"', ai)
+        assert f'id="{switch}" checked' not in ai
+    assert "where you left off" in ai
     assert '[data-settings-tab="ai"]' in now
     assert "Settings → Preferences" not in work
+    assert "Settings → AI scan-lines" not in work
+
+
+SETTINGS_SECTIONS = [
+    ("You", "preferences", "Appearance"),
+    ("You", "account", "Account"),
+    ("Connections", "connections", "Coding agents"),
+    ("Connections", "mcp", "Remote access"),
+    ("Connections", "openclaw", "Phone alerts"),
+    ("Connections", "forge", "Issue sync"),
+    ("Connections", "ai", "AI helpers"),
+    ("Data", "data", "Your data"),
+]
+
+
+def test_settings_sections_use_plain_names_grouped_you_connections_data():
+    html = (UI / "index.html").read_text()
+    nav = html[html.index('<nav class="settings-nav"') : html.index("</nav>", html.index('<nav class="settings-nav"'))]
+    positions = []
+    for group, key, name in SETTINGS_SECTIONS:
+        tab = re.search(rf'<button[^>]*data-settings-tab="{key}"[^>]*>([^<]+)</button>', nav)
+        assert tab is not None and tab.group(1) == name, key
+        group_at = nav.index(f'<p class="settings-nav-group" aria-hidden="true">{group}</p>')
+        assert group_at < tab.start()
+        positions.append(tab.start())
+        panel = _panel(html, f"settings-{key}") if key != "data" else html[html.index('<section id="settings-data"') :]
+        assert f"<h2>{name}</h2>" in panel
+    assert positions == sorted(positions)
+
+
+def test_settings_rows_switches_and_advanced():
+    """Label-left rows, real checkbox switches, rare fields folded under Advanced."""
+    html = (UI / "index.html").read_text()
+    css = (UI / "app.css").read_text()
+    for switch in ("rewards-enabled", "oc_enabled", "wiki_enabled", "board_enabled", "board_inbox_enabled", "primary_memory_repo"):
+        assert re.search(rf'<span class="switch"><input type="checkbox" role="switch" id="{switch}"', html), switch
+        assert f'<label class="setting-label" for="{switch}">' in html
+    assert ".switch > input:focus-visible + .switch-track { outline: 3px solid var(--accent);" in css
+    advanced = {
+        "settings-openclaw": ("oc_webhook_url", "oc_agent_url", "oc_token", "oc_cron", "oc_cooldown_days", "oc_digest_limit", "oc_clear_token"),
+        "settings-forge": ("default_connection_profile_id", "board_inbox_authors", "wiki_path", "wiki_branch", "hub_public_url", "project_id"),
+        "settings-ai": ("ai_base_url", "ai_timeout", "ai_clear_key"),
+    }
+    for panel_id, ids in advanced.items():
+        panel = _panel(html, panel_id)
+        details = panel[panel.index("<summary>Advanced</summary>") :]
+        details = details[: details.index("</details>")]
+        for control in ids:
+            assert f'id="{control}"' in details, (panel_id, control)
+    # Swatches and the custom picker meet the 44 px target.
+    assert ".swatch { width: 44px; height: 44px;" in css
+    assert "#accent-colour { width: 44px; height: 44px;" in css
+
+
+def test_appearance_saves_on_its_own_and_secret_sections_keep_save():
+    html = (UI / "index.html").read_text()
+    boot = (UI / "js" / "boot.js").read_text()
+    settings = (UI / "js" / "settings.js").read_text()
+    assert 'id="btn-save-settings"' not in html
+    assert '$("timezone").addEventListener("change", () => saveSettings());' in boot
+    assert 'setMsg("Time zone saved.")' in settings
+    for button in ("btn-save-openclaw", "btn-save-forge", "btn-save-ai", "btn-save-connect-agents"):
+        assert f'id="{button}"' in html
+
+
+def test_issue_sync_connections_fold_and_keep_open_cards():
+    settings = (UI / "js" / "settings.js").read_text()
+    assert '<details class="forge-profile-card"' in settings
+    assert '${p._unsaved ? " open" : ""}' in settings
+    assert 'querySelectorAll(".forge-profile-card[open]")' in settings
+    assert "Save forge" not in settings
 
 
 def test_needs_you_is_one_summary_line_over_its_rows():

@@ -488,7 +488,7 @@ class HubService:
     ) -> dict:
         """Probe a profile endpoint; never echo the token.
 
-        Optional ``draft`` lets the UI test unsaved card fields before Save forge.
+        Optional ``draft`` lets the UI test unsaved card fields before Save issue sync.
         Draft values overlay a saved profile when both exist (so token edits work).
         """
         import httpx
@@ -526,7 +526,7 @@ class HubService:
             return {
                 "ok": False,
                 "error": "profile_not_found",
-                "hint": "Fill provider and token on the card, or Save forge first.",
+                "hint": "Fill provider and token on the card, or Save issue sync first.",
             }
         if profile.provider.value == "none" or not (profile.token or "").strip():
             return {
@@ -1960,7 +1960,7 @@ class HubService:
                     "fallback": 0,
                     "failed": 0,
                     "message": (
-                        "AI scan-lines are off — enable them in Settings → AI scan-lines "
+                        "AI scan-lines are off — enable them in Settings → AI helpers "
                         "to rewrite with AI. Open threads still show heuristic lines."
                     ),
                     "threads": [self.thread_public_dict(t) for t in threads],
@@ -2146,7 +2146,7 @@ class HubService:
                 skipped=False,
                 settings_hint=True,
                 message=(
-                    "AI is off — enable it in Settings → AI scan-lines "
+                    "AI is off — enable it in Settings → AI helpers "
                     "to summarise notes."
                 ),
                 summary_card=existing,

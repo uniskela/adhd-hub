@@ -914,7 +914,7 @@ function syncProjectMenu() {
     else wireMenu(menu);
   }
 
-/** True when Settings → Enable AI is on and a base URL is configured (matches server ai_configured). */
+/** True when Settings → Use AI helpers is on and a base URL is configured (matches server ai_configured). */
 function aiScanLinesEnabled() {
     const cfg = state.aiConfigCache;
     if (!cfg) return false;
@@ -1304,7 +1304,7 @@ export function renderThreads(threads) {
 export async function rewriteScanLine(threadId) {
     if (!threadId) return;
     if (!aiScanLinesEnabled()) {
-      setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
+      setMsg("Turn on Use AI helpers in Settings → AI helpers to rewrite scan lines.");
       return;
     }
     // The single rewrite lives in the notes reader's ⋯ menu.
@@ -1344,7 +1344,7 @@ export async function rewriteAllProjectScanLines() {
       return;
     }
     if (!aiScanLinesEnabled()) {
-      setMsg("Enable AI in Settings → AI scan-lines to rewrite scan lines.");
+      setMsg("Turn on Use AI helpers in Settings → AI helpers to rewrite scan lines.");
       setRewriteAllButtons({ hidden: true });
       return;
     }

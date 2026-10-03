@@ -444,8 +444,12 @@ function profileCardHtml(p, idx) {
         return `<option value="${v}"${policy === v ? " selected" : ""}>${escapeHtml(label)}</option>`;
       })
       .join("");
-    return `<article class="forge-profile-card" data-profile-idx="${idx}" data-profile-id="${id}"${unsaved}>
-      <div class="forge-profile-head"><strong>${escapeHtml(p.name || "Connection")}</strong>${badge}</div>
+    const where = [p.provider && p.provider !== "none" ? p.provider : "", p.owner && p.repo ? `${p.owner}/${p.repo}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    // Saved connections stay folded to one line; a new draft opens so it can be filled in.
+    return `<details class="forge-profile-card" data-profile-idx="${idx}" data-profile-id="${id}"${unsaved}${p._unsaved ? " open" : ""}>
+      <summary class="forge-profile-head"><strong>${escapeHtml(p.name || "Connection")}</strong>${where ? `<span class="hint">${escapeHtml(where)}</span>` : ""}${badge}</summary>
       <div class="form-grid">
         <label>Name ${tipHtml("Friendly label for this connection (shown in project pickers).")}
           <input data-f="name" value="${escapeHtml(p.name || "")}" placeholder="Github personal" /></label>
@@ -483,8 +487,8 @@ function profileCardHtml(p, idx) {
         <button type="button" class="danger" data-delete-profile>Delete</button>
       </div>
       <p class="hint forge-profile-test" data-test-msg hidden></p>
-      <p class="hint">Test uses this card’s current fields (including unsaved drafts). Save forge to keep the profile.</p>
-    </article>`;
+      <p class="hint">Test uses this card’s current fields (including unsaved drafts). Save issue sync to keep the profile.</p>
+    </details>`;
   }
 
 export function renderForgeProfiles(cfg) {
@@ -492,9 +496,16 @@ export function renderForgeProfiles(cfg) {
     const defSel = $("default_connection_profile_id");
     if (!root || !defSel) return;
     const profiles = Array.isArray(cfg?.connection_profiles) ? cfg.connection_profiles : [];
+    // Re-rendering (e.g. Add connection) keeps any card the person had open.
+    const openIds = new Set(
+      [...root.querySelectorAll(".forge-profile-card[open]")].map((card) => card.dataset.profileId)
+    );
     root.innerHTML = profiles.length
       ? profiles.map((p, i) => profileCardHtml(p, i)).join("")
-      : `<p class="hint">No profiles yet. Add one for GitHub, Gitea, or both.</p>`;
+      : `<p class="hint">No connections yet. Add one for GitHub, Gitea, or both.</p>`;
+    root.querySelectorAll(".forge-profile-card").forEach((card) => {
+      if (openIds.has(card.dataset.profileId)) card.open = true;
+    });
     defSel.innerHTML = profiles
       .map(
         (p) =>
@@ -687,7 +698,7 @@ export function openClawSetupPrompt(hubOrigin = location.origin, userCode = "") 
     const code = String(userCode || "").trim();
     const codeLine = code
       ? `Pairing code from the Hub UI: ${code}`
-      : "Pairing code: (missing — operator must click Start OpenClaw pairing in Hub Settings → OpenClaw, then copy this prompt again)";
+      : "Pairing code: (missing — operator must click Start pairing in Hub Settings → Phone alerts, then copy this prompt again)";
     const codeJson = code || "<PAIRING_CODE_FROM_HUB>";
     return [
       "Set up ADHD Progress Hub ↔ OpenClaw on my private LAN or Tailscale.",
@@ -712,7 +723,7 @@ export function openClawSetupPrompt(hubOrigin = location.origin, userCode = "") 
       "   }",
       "5. Recommended Hub alert defaults unless I say otherwise:",
       '   cron "0 9 * * *", stale after 3 days, cooldown 3 days, digest limit 2.',
-      "6. Tell me when submit succeeds so I can Approve in Hub Settings → OpenClaw,",
+      "6. Tell me when submit succeeds so I can Approve in Hub Settings → Phone alerts,",
       "   then help interpret Save & send test if needed.",
       "",
       `Hub UI: ${hub}/ui`,
@@ -982,13 +993,13 @@ export async function saveSettings() {
     try {
       await api("/prefs", { method: "PUT", body: JSON.stringify({ timezone: tz }) });
       await loadOverview();
-      setMsg("Settings saved.");
+      setMsg("Time zone saved.");
     } catch (e) {
       if (e.status === 401) {
         showLogin("Token rejected. Update ADHD_HUB_AUTH_TOKEN or try again.");
         return;
       }
-      setMsg("Could not save settings: " + e.message);
+      setMsg("Could not save the time zone: " + e.message);
     }
   }
 function attachHubForgeTips() {
@@ -1090,7 +1101,7 @@ export async function importForgeInbox() {
         );
         return;
       }
-      setMsg("Issue inbox import skipped — enable Board sync + Import cloud-agent issues.");
+      setMsg("Issue inbox import skipped — turn on Board and issues and Import agent issues in Issue sync.");
       return;
     }
     if (out.error) {
@@ -1138,7 +1149,7 @@ export async function loadCliSessions() {
       $("cli-sessions-list").innerHTML = sessions
         .map(
           (s) =>
-            `<li>CLI session <code>${escapeHtml(String(s.id).slice(0, 8))}</code> <button type="button" class="text-button" data-revoke="${escapeHtml(s.id)}">Revoke</button></li>`
+            `<li><span>Computer <code>${escapeHtml(String(s.id).slice(0, 8))}</code></span> <button type="button" class="ghost" data-revoke="${escapeHtml(s.id)}" aria-label="Revoke computer ${escapeHtml(String(s.id).slice(0, 8))}">Revoke</button></li>`
         )
         .join("");
       $("cli-sessions-list")
@@ -1155,12 +1166,12 @@ export async function loadCliSessions() {
 export async function revokeCliSession(sessionId) {
     const shortId = String(sessionId || "").slice(0, 8);
     const { ok } = await confirmDialog({
-      title: "Revoke CLI session?",
-      body: `Revoke session ${shortId}? That computer will need to connect again.`,
+      title: "Revoke this computer?",
+      body: `Computer ${shortId} will need to connect again.`,
     });
     if (!ok) return;
     await api("/connect/sessions/" + encodeURIComponent(sessionId), { method: "DELETE" });
-    setMsg("CLI session revoked.");
+    setMsg("Computer revoked.");
     await loadCliSessions();
   }
 export async function approveCliConnect(userCode, messageId) {

@@ -284,8 +284,11 @@ def main():
                 page.get_by_role("button", name="Settings", exact=True).click()
                 page.locator("#rewards-enabled").check()
                 page.locator("#daily-goal").select_option("3")
-                page.get_by_role("button", name="Save", exact=True).click()
-                expect(page.locator("#toast-host")).to_contain_text("Settings saved")
+                # Appearance has no Save button; the time zone saves on change.
+                expect(page.locator("#btn-save-settings")).to_have_count(0)
+                # Re-pick the current zone so the daily counts below stay the same.
+                page.locator("#timezone").select_option(page.locator("#timezone").input_value())
+                expect(page.locator("#toast-host")).to_contain_text("Time zone saved")
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.locator("#focus-menu > summary").click()
                 page.locator("#focus-menu").get_by_role("button", name="Mark step done", exact=True).click()
@@ -319,10 +322,10 @@ def main():
                 ).to_be_focused()
                 page.screenshot(path=str(screenshots / "progress-dark.png"), full_page=True)
                 page.get_by_role("button", name="Settings", exact=True).click()
-                expect(page.get_by_role("tab", name="Preferences", exact=True)).to_have_attribute(
+                expect(page.get_by_role("tab", name="Appearance", exact=True)).to_have_attribute(
                     "aria-selected", "true"
                 )
-                page.get_by_role("tab", name="Preferences", exact=True).focus()
+                page.get_by_role("tab", name="Appearance", exact=True).focus()
                 page.keyboard.press("ArrowRight")
                 expect(page.get_by_role("tab", name="Account", exact=True)).to_be_focused()
                 page.keyboard.press("End")
@@ -337,19 +340,22 @@ def main():
                 expect(page.locator("html")).to_have_attribute("data-theme", "light")
                 page.screenshot(path=str(screenshots / "settings-light.png"), full_page=True)
                 page.locator("#settings-preferences [data-theme-value=\"dark\"]").click()
-                page.get_by_role("tab", name="Agents & install", exact=True).click()
+                page.get_by_role("tab", name="Coding agents", exact=True).click()
                 expect(page.locator("#install-cmd")).to_be_visible()
-                expect(page.get_by_role("button", name="Allow this CLI", exact=True)).to_be_visible()
-                page.get_by_role("tab", name="Windows / MCP", exact=True).click()
+                expect(page.get_by_role("button", name="Allow this computer", exact=True)).to_be_visible()
+                page.get_by_role("tab", name="Remote access", exact=True).click()
                 expect(page.locator("#mcp-url")).to_be_visible()
-                page.get_by_role("tab", name="OpenClaw", exact=True).click()
+                page.get_by_role("tab", name="Phone alerts", exact=True).click()
+                # Webhook and token live under Advanced.
+                expect(page.locator("#oc_webhook_url")).to_be_hidden()
+                page.locator("#settings-openclaw .setting-advanced > summary").click()
                 page.locator("#oc_webhook_url").fill("http://openclaw:18789/hooks/wake")
                 page.locator("#oc_token").fill("browser-smoke-secret")
-                page.get_by_role("button", name="Save OpenClaw", exact=True).click()
+                page.get_by_role("button", name="Save phone alerts", exact=True).click()
                 expect(page.locator("#openclaw-msg")).to_contain_text("saved")
                 expect(page.locator("#oc_token")).to_have_value("")
                 expect(page.locator("#oc_token_status")).to_contain_text("saved")
-                page.get_by_role("tab", name="AI scan-lines", exact=True).click()
+                page.get_by_role("tab", name="AI helpers", exact=True).click()
                 expect(page.locator("#ai_enabled")).to_be_attached()
                 expect(page.locator("#btn-save-ai")).to_be_visible()
                 expect(page.locator("#settings-preferences #ai_enabled")).to_have_count(0)
@@ -469,14 +475,14 @@ def main():
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Settings", exact=True).click()
                 for name in [
-                    "Preferences",
+                    "Appearance",
                     "Account",
-                    "Agents & install",
-                    "Windows / MCP",
-                    "OpenClaw",
-                    "AI scan-lines",
-                    "Forge",
-                    "Data",
+                    "Coding agents",
+                    "Remote access",
+                    "Phone alerts",
+                    "Issue sync",
+                    "AI helpers",
+                    "Your data",
                 ]:
                     page.get_by_role("tab", name=name, exact=True).click()
                     assert page.locator("#settings-view").evaluate(
@@ -484,7 +490,7 @@ def main():
                     )
                     expect(page.locator("#btn-settings-index-back")).to_be_in_viewport()
                     page.locator("#btn-settings-index-back").click()
-                page.get_by_role("tab", name="Preferences", exact=True).click()
+                page.get_by_role("tab", name="Appearance", exact=True).click()
                 page.locator("#rewards-enabled").check()
                 page.screenshot(path=str(screenshots / "settings-mobile.png"), full_page=True)
                 page.get_by_role("button", name="Now", exact=True).click()
