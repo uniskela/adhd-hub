@@ -32,8 +32,10 @@ Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wo
 | Control border | `#D9D7D0` | `#474C53` | Inputs and secondary buttons |
 | Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
 | Destructive action | `#A3293B` | `#F3A3AE` | Delete and irreversible actions |
+| Chart: added | Amber `#A9781C` | `#B8892C` | Progress chart bars only |
+| Chart: finished | Teal `#008A78` | `#1E9C87` | Progress chart bars only |
 
-Gold `#EFC978` is a small accent, not body text on white. Use colour with labels and state text: earned badges say **Earned**, tabs expose selection, and destructive buttons name the action. Primary labels and normal body/secondary text should meet WCAG AA contrast in both modes; focus outlines should remain visible. The interface follows the system theme unless the user chooses otherwise.
+Gold `#EFC978` is a small accent, not body text on white. The two chart colours were checked for colour-blind separation and 3:1 contrast against the card in each theme; the chart also has a legend, per-day labels and a **Show as a table** view, so colour is never the only cue. Use colour with labels and state text: earned badges say **Earned**, tabs expose selection, and destructive buttons name the action. Primary labels and normal body/secondary text should meet WCAG AA contrast in both modes; focus outlines should remain visible. The interface follows the system theme unless the user chooses otherwise.
 
 ## Type, spacing, and buttons
 
