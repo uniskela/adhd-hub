@@ -643,6 +643,7 @@ def test_render_install_sh_isolates_streamed_script_from_child_stdin(
     env = {
         **os.environ,
         "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "HOME": str(tmp_path / "isolated-home"),
         "ADHD_HUB_CONNECT_NO_SKILLS": "1",
     }
     result = subprocess.run(
@@ -684,6 +685,7 @@ def test_render_install_sh_preserves_child_exit_and_quoted_project(
         env={
             **os.environ,
             "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "HOME": str(tmp_path / "isolated-home"),
         },
         check=False,
         start_new_session=True,
@@ -731,6 +733,7 @@ def test_render_install_sh_isolates_uvx_and_wheel_lookup_stdin(
         env={
             **os.environ,
             "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "HOME": str(tmp_path / "isolated-home"),
             "STUB_LOG": str(log),
             "ADHD_HUB_CLI_INSTALL_PROMPTED": "1",
         },
@@ -772,6 +775,10 @@ case "$*" in
 mkdir -p "$HOME/.local/bin"
 cat >"$HOME/.local/bin/uv" <<'UV'
 #!/bin/sh
+case "$*" in
+  'tool dir --bin') printf '%s\n' "$HOME/.local/bin"; exit 0 ;;
+  'tool update-shell') exit 0 ;;
+esac
 value=EOF
 IFS= read -r value || true
 printf 'uv-install-stdin=<%s>\n' "$value" >>"$STUB_LOG"
@@ -851,6 +858,10 @@ def test_render_install_sh_uses_controlling_terminal_for_prompt_and_children(
     uv = bin_dir / "uv"
     uv.write_text(
         """#!/bin/sh
+case "$*" in
+  'tool dir --bin') printf '%s\n' "$HOME/.local/bin"; exit 0 ;;
+  'tool update-shell') exit 0 ;;
+esac
 IFS= read -r value
 printf 'UV_TTY=<%s>\n' "$value"
 mkdir -p "$HOME/.local/bin"

@@ -49,6 +49,15 @@ You can also put flags in `ADHD_HUB_CONNECT_FLAGS` for the install one-liner (in
 
 Hub can opt-in install **i-have-adhd**, **Superpowers**, **Ponytail**, **Graphify**, **RTK**, **Context7**, **agent-browser**, **Serena**, and **Humanizer** (Settings checkboxes + `--with-*`). Superpowers and Claude Code Ponytail are best-effort (many harnesses need an in-app plugin install); Context7/Serena merge MCP configs; agent-browser installs the CLI + skill; Humanizer installs the skills.sh skill only. Optional companion failures warn and never fail Hub connect.
 
+Hub passes `--yes` to npx as well as `-y` to the skills CLI, so npm's first-use
+package prompt does not interrupt these installs. With `--agents '*'`, some
+agents do not support global skills; partial installations are reported as
+warnings even if the upstream CLI exits zero. Install those agents' skills at
+project scope or select only the agents you use. Manual plugin and hook-trust
+steps remain under **Needs attention** until completed in the relevant agent.
+Each skills installation has a five-minute timeout; stalled optional installs
+warn so Hub connect can continue. Retry the command after resolving the stall.
+
 ---
 
 ## i-have-adhd
@@ -157,7 +166,17 @@ Then in a project: `/graphify .` (PowerShell: `graphify .`). Upstream: [Graphify
 **License:** [Apache-2.0](https://github.com/vercel-labs/agent-browser/blob/main/LICENSE) (confirmed from upstream LICENSE)
 **What it does:** Browser automation for agents to verify UI.
 **Privacy:** Drives a local browser; review upstream before enabling.
-**Install (opt-in):** `--with-agent-browser` / Settings checkbox. Hub runs `npm i -g agent-browser`, `agent-browser install`, and `npx skills add vercel-labs/agent-browser` for selected agents. See [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser).
+**Install (opt-in):** `--with-agent-browser` / Settings checkbox. Hub runs
+`npm install -g --allow-scripts=agent-browser agent-browser`,
+`agent-browser install`, and the skills installer for selected agents. The npm
+option permits this package's postinstall script without changing your global
+npm configuration. Hub then opens a local `about:blank` page in a temporary
+session with an empty browser configuration and no `AGENT_BROWSER_*` overrides,
+and attempts to close that session. A download alone does not count as a verified launch.
+Launch and cleanup failures warn; cleanup warnings include the session's close
+command for recovery. Hub does not install system packages, change the browser
+sandbox, or attach this check to an existing browser.
+See [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser).
 
 ---
 

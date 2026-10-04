@@ -17,9 +17,11 @@ from urllib.request import Request, urlopen
 from adhd_hub.cli_style import paint_status, print_running, style
 from adhd_hub.companions import append_companion_steps
 from adhd_hub.project_setup import (
+    SKILLS_PARTIAL_INSTALL,
     install_agent_guidance,
     install_skills,
     normalize_skills_agents,
+    run_skills_command,
 )
 
 CURSOR_MCP_KEY = "adhd-hub"
@@ -642,6 +644,7 @@ def install_openclaw_skills(source: str) -> int:
         return 127
     command = [
         npx,
+        "--yes",
         "skills",
         "add",
         source,
@@ -653,7 +656,7 @@ def install_openclaw_skills(source: str) -> int:
         "openclaw",
     ]
     print_running(command)
-    return subprocess.run(command, check=False).returncode
+    return run_skills_command(command)
 
 
 def render_install_sh(
@@ -838,6 +841,11 @@ done
 export ADHD_HUB_PUBLIC_URL="$HUB_URL"
 # PATH as the user's shell sees it, before this script prepends tool dirs.
 export ADHD_HUB_CONNECT_USER_PATH="$PATH"
+# EXTRA_FLAGS is also consumed by the wrapper's install/profile decisions.
+# shellcheck disable=SC2086
+for _ADHD_EXTRA_FLAG in $EXTRA_FLAGS; do
+  [ "$_ADHD_EXTRA_FLAG" != "--dry-run" ] || DRY_RUN=1
+done
 set -- connect "$PROJECT" --hub "$HUB_URL" --agents "$AGENTS" --scope "$SCOPE"
 case "$SKILLS_MODE" in
   global) set -- "$@" --skills ;;
@@ -859,8 +867,48 @@ esac
 # shellcheck disable=SC2086
 [ -n "$EXTRA_FLAGS" ] && set -- "$@" $EXTRA_FLAGS
 
+_ADHD_SHELL_PREPARED=0
+_ADHD_PATH_NOTICE=0
 _adhd_ensure_uv_path() {{
   export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+  if ! command -v uv >/dev/null 2>&1; then
+    return 0
+  fi
+  _ADHD_UV_BIN=$(command -v uv)
+  _ADHD_TOOL_BIN=$(uv tool dir --bin </dev/null 2>/dev/null || printf '%s' "$HOME/.local/bin")
+  if [ -z "$_ADHD_TOOL_BIN" ]; then
+    _ADHD_TOOL_BIN="$HOME/.local/bin"
+  fi
+  export PATH="$_ADHD_TOOL_BIN:$PATH"
+  if [ "$DRY_RUN" -eq 1 ] || [ "$_ADHD_SHELL_PREPARED" -eq 1 ]; then
+    return 0
+  fi
+  _ADHD_SHELL_PREPARED=1
+  _ADHD_LAST_PATH_DIR=""
+  for _ADHD_PATH_DIR in "$HOME/.local/bin" "$_ADHD_TOOL_BIN"; do
+    [ "$_ADHD_PATH_DIR" != "$_ADHD_LAST_PATH_DIR" ] || continue
+    _ADHD_LAST_PATH_DIR="$_ADHD_PATH_DIR"
+    case ":$ADHD_HUB_CONNECT_USER_PATH:" in
+      *":$_ADHD_PATH_DIR:"*) continue ;;
+    esac
+    _ADHD_PATH_NOTICE=1
+    # RTK and uv can use ~/.local/bin even when uv tools use a custom directory.
+    # uv checks PATH before updating profiles, so pass the original PATH.
+    if ! PATH="$ADHD_HUB_CONNECT_USER_PATH" UV_TOOL_BIN_DIR="$_ADHD_PATH_DIR" \
+        "$_ADHD_UV_BIN" tool update-shell </dev/null; then
+      echo "Warning: could not update your shell profile; add the tool directory to PATH manually." >&2
+    fi
+  done
+}}
+
+_adhd_shell_notice() {{
+  if [ "$_ADHD_PATH_NOTICE" -eq 1 ]; then
+    echo ""
+    echo "The installer cannot change the PATH of your current shell. Run now:"
+    printf '%s\\n' '  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"'
+    printf '%s\\n' '  export PATH="$(uv tool dir --bin):$PATH"'
+    echo "Then restart your coding agents so their tools and hooks inherit PATH."
+  fi
 }}
 
 _adhd_run_child() {{
@@ -962,6 +1010,9 @@ _adhd_offer_permanent_cli() {{
   esac
 }}
 
+trap _adhd_shell_notice 0
+# Discover an existing installation even before the parent shell reloads PATH.
+_adhd_ensure_uv_path
 _adhd_refresh_existing_cli
 
 # Prefer a refreshed durable CLI; fall back to ephemeral uvx from this Hub's wheel.
@@ -1613,7 +1664,7 @@ def run_connect(
             report.add(
                 "skills",
                 "ok",
-                f"would run: npx skills add {skills_source} -g -y --skill * {agent_flags}",
+                f"would run: npx --yes skills add {skills_source} -g -y --skill * {agent_flags}",
             )
         else:
             if skills_all_agents:
@@ -1644,8 +1695,14 @@ def run_connect(
             if code is not None:
                 report.add(
                     "skills",
-                    "ok" if code == 0 else "error",
-                    f"npx skills add {skills_source} -g -y ({agent_note}) (exit {code})",
+                    "ok" if code == 0 else "warn" if code == SKILLS_PARTIAL_INSTALL else "error",
+                    (
+                        "Partial skill installation — review the failed targets above. "
+                        "Agents without global skill support need project-local installation; "
+                        "use --agents to limit targets to the agents you use."
+                        if code == SKILLS_PARTIAL_INSTALL else
+                        f"npx --yes skills add {skills_source} -g -y ({agent_note}) (exit {code})"
+                    ),
                 )
     else:
         report.add(
@@ -1665,7 +1722,7 @@ def run_connect(
             report.add(
                 "openclaw skills",
                 "ok",
-                f"would run: npx skills add {skills_source} -g -y -a openclaw",
+                f"would run: npx --yes skills add {skills_source} -g -y -a openclaw",
             )
             report.add(
                 "openclaw hooks",
@@ -1676,8 +1733,8 @@ def run_connect(
             code = install_openclaw_skills(skills_source)
             report.add(
                 "openclaw skills",
-                "ok" if code == 0 else "error",
-                f"npx skills add {skills_source} -g -y -a openclaw (exit {code})",
+                "ok" if code == 0 else "warn" if code == SKILLS_PARTIAL_INSTALL else "error",
+                f"npx --yes skills add {skills_source} -g -y -a openclaw (exit {code})",
             )
             report.add(
                 "openclaw hooks",
@@ -2331,7 +2388,8 @@ def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
 
     attention = [s for s in report.steps if s.status in _ATTENTION]
     fix_these = [s for s in report.steps if s.status in _FIX_THESE]
-    done_ok_skipped = [s for s in report.steps if s.status in {"ok", "skipped"}]
+    done_ok = [s for s in report.steps if s.status == "ok"]
+    skipped = [s for s in report.steps if s.status == "skipped"]
 
     if not report.ok:
         print()
@@ -2369,15 +2427,17 @@ def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
             mark = paint_status(step.status)
             print(f"  [{mark}] {step.name}: {step.detail}")
 
-    if done_ok_skipped:
+    if done_ok or skipped:
         print()
         print("Done:")
         for group in _GROUP_ORDER:
             count = sum(
-                1 for s in done_ok_skipped if classify_step_group(s.name) == group
+                1 for s in done_ok if classify_step_group(s.name) == group
             )
             if count:
                 print(f"  {group} · {count} ok")
+        if skipped:
+            print(f"  {len(skipped)} skipped (not installed or checked)")
 
     if verbose:
         print()

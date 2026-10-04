@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -42,6 +43,34 @@ SKILLS_AGENT_ALIASES = {
 }
 
 CONNECT_AGENT_CHOICES = ("cursor", "codex", "claude", "*")
+
+# skills.sh can exit zero after reporting failed per-agent installations.
+SKILLS_PARTIAL_INSTALL = 3
+SKILLS_INSTALL_TIMEOUT = 300
+
+
+def run_skills_command(command: list[str]) -> int:
+    """Bound skills installation and preserve output, including partial failures."""
+    try:
+        result = subprocess.run(
+            command, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=SKILLS_INSTALL_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        if output:
+            print(output, end="" if output.endswith("\n") else "\n")
+        print(f"Skills installation timed out after {SKILLS_INSTALL_TIMEOUT} seconds; retry the command.")
+        return 124  # Conventional timeout exit status; optional installs report a warning.
+    output = result.stdout or ""
+    if output:
+        print(output, end="")
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    if result.returncode == 0 and re.search(r"Failed to install\s+[1-9][0-9]*", plain):
+        return SKILLS_PARTIAL_INSTALL
+    return result.returncode
 
 
 def normalize_skills_agents(agents: list[str] | None) -> list[str]:
@@ -215,7 +244,7 @@ def install_skills(
     if not npx:
         print("npx not found on PATH", file=__import__("sys").stderr)
         return 127
-    command = [npx, "skills", "add", source, "-g", "-y", "--skill", "*"]
+    command = [npx, "--yes", "skills", "add", source, "-g", "-y", "--skill", "*"]
     if all_agents or agents is None:
         command.extend(["--agent", "*"])
     else:
@@ -230,4 +259,4 @@ def install_skills(
         for agent in targets:
             command.extend(["-a", agent])
     print_running(command)
-    return subprocess.run(command, check=False).returncode
+    return run_skills_command(command)
