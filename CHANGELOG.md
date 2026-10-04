@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.2](https://github.com/uniskela/adhd-hub/compare/v0.20.1...v0.20.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **connect:** repair shell PATH and verify companion installs ([#294](https://github.com/uniskela/adhd-hub/issues/294)) ([c89e268](https://github.com/uniskela/adhd-hub/commit/c89e268f4402a3e16899a333811e230b29318c33))
+
 ## [0.20.1](https://github.com/uniskela/adhd-hub/compare/v0.20.0...v0.20.1) (2026-10-03)
 
 
