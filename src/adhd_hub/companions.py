@@ -14,12 +14,17 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 from adhd_hub.cli_style import print_running
-from adhd_hub.project_setup import normalize_skills_agents
+from adhd_hub.project_setup import (
+    SKILLS_PARTIAL_INSTALL,
+    normalize_skills_agents,
+    run_skills_command,
+)
 
 COMPANIONS_DOC = "https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md"
 I_HAVE_ADHD_SOURCE = "ayghri/i-have-adhd"
@@ -460,12 +465,12 @@ def detect_ponytail() -> bool | None:
 def humanizer_commands(agents: list[str], *, all_star: bool) -> list[str]:
     """Shell command lines to install the Humanizer skill via skills.sh."""
     if all_star:
-        return [f"npx skills add {HUMANIZER_SOURCE} -g -y --agent '*'"]
+        return [f"npx --yes skills add {HUMANIZER_SOURCE} -g -y --agent '*'"]
     targets = normalize_skills_agents(agents)
     if not targets:
         return []
     flags = " ".join(f"-a {a}" for a in targets)
-    return [f"npx skills add {HUMANIZER_SOURCE} -g -y {flags}"]
+    return [f"npx --yes skills add {HUMANIZER_SOURCE} -g -y {flags}"]
 
 
 def ponytail_manual_hint(agents: list[str]) -> str:
@@ -496,12 +501,12 @@ def ponytail_manual_hint(agents: list[str]) -> str:
 def i_have_adhd_commands(agents: list[str], *, all_star: bool) -> list[str]:
     """Shell command lines to install the i-have-adhd skill."""
     if all_star:
-        return [f"npx skills add {I_HAVE_ADHD_SOURCE} -g -y --agent '*'"]
+        return [f"npx --yes skills add {I_HAVE_ADHD_SOURCE} -g -y --agent '*'"]
     targets = normalize_skills_agents(agents)
     if not targets:
         return []
     flags = " ".join(f"-a {a}" for a in targets)
-    return [f"npx skills add {I_HAVE_ADHD_SOURCE} -g -y {flags}"]
+    return [f"npx --yes skills add {I_HAVE_ADHD_SOURCE} -g -y {flags}"]
 
 
 def graphify_register_commands(agents: list[str], *, all_star: bool) -> list[str]:
@@ -892,7 +897,7 @@ def recommend_companions(agents: list[str] | None) -> list[CompanionStep]:
                 "companion i-have-adhd",
                 "manual",
                 f"missing or unknown — pick --agents, then: "
-                f"npx skills add {I_HAVE_ADHD_SOURCE} -g -y … · {COMPANIONS_DOC}",
+                f"npx --yes skills add {I_HAVE_ADHD_SOURCE} -g -y … · {COMPANIONS_DOC}",
             )
         )
     else:
@@ -1044,7 +1049,7 @@ def recommend_companions(agents: list[str] | None) -> list[CompanionStep]:
                 "companion agent-browser",
                 status_ab,
                 f"npm i -g agent-browser; agent-browser install; "
-                f"npx skills add {AGENT_BROWSER_SKILLS_SOURCE} -g -y … · {COMPANIONS_DOC}",
+                f"npx --yes skills add {AGENT_BROWSER_SKILLS_SOURCE} -g -y … · {COMPANIONS_DOC}",
             )
         )
 
@@ -1122,7 +1127,7 @@ def recommend_companions(agents: list[str] | None) -> list[CompanionStep]:
                 "companion humanizer",
                 "manual",
                 f"missing or unknown — pick --agents, then: "
-                f"npx skills add {HUMANIZER_SOURCE} -g -y … · {COMPANIONS_DOC}",
+                f"npx --yes skills add {HUMANIZER_SOURCE} -g -y … · {COMPANIONS_DOC}",
             )
         )
     else:
@@ -1155,7 +1160,15 @@ def _run(command: list[str], *, dry_run: bool) -> tuple[Status, str]:
         return "error", f"not on PATH: {first} ({line})"
     command = [resolved_bin, *command[1:]]
     print_running(command, file=sys.stderr)
-    code = subprocess.run(command, check=False).returncode
+    if command[1:4] == ["--yes", "skills", "add"]:
+        code = run_skills_command(command)
+        if code == SKILLS_PARTIAL_INSTALL:
+            return "warn", (
+                f"{line}: partial skill installation — review the failed targets above. "
+                "Agents without global support need project-local skills."
+            )
+    else:
+        code = subprocess.run(command, check=False).returncode
     if code == 0:
         return "ok", f"{line} (exit 0)"
     return "error", f"{line} (exit {code})"
@@ -1248,6 +1261,46 @@ def _try_install_rtk_binary(*, dry_run: bool) -> CompanionStep:
     return CompanionStep("install rtk binary", status, detail)
 
 
+def _verify_agent_browser(binary: str, *, dry_run: bool) -> CompanionStep:
+    """Check a local blank page in an isolated session, with bounded cleanup."""
+    name = "install agent-browser launch"
+    if dry_run:
+        return CompanionStep(name, "ok", "would verify a local about:blank browser launch")
+    session = "adhd-hub-install-" + uuid.uuid4().hex[:12]
+    # A unique session alone can still attach to a user's browser through CDP
+    # environment/config overrides. Check the installed local browser only.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("AGENT_BROWSER_")}
+    try:
+        with tempfile.TemporaryDirectory(prefix="adhd-hub-browser-check-") as temporary:
+            config = Path(temporary) / "config.json"
+            config.write_text("{}", encoding="utf-8")
+            command = [binary, "--session", session, "--config", str(config)]
+            try:
+                result = subprocess.run(
+                    [*command, "open", "about:blank"], check=False,
+                    capture_output=True, text=True, timeout=30, env=env,
+                )
+                if result.returncode:
+                    return CompanionStep(
+                        name, "warn", "Chrome downloaded, but browser launch failed. Run "
+                        "`agent-browser open about:blank` to diagnose runtime/library requirements; "
+                        "Hub did not install system packages or change browser sandbox settings.",
+                    )
+                return CompanionStep(name, "ok", "local about:blank browser launch verified")
+            finally:
+                try:
+                    subprocess.run(
+                        [*command, "close"], check=False, capture_output=True, timeout=10, env=env,
+                    )
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+    except (OSError, subprocess.TimeoutExpired):
+        return CompanionStep(
+            name, "warn", "Browser launch could not be verified. "
+            "Check temporary-directory access and run `agent-browser open about:blank` to diagnose.",
+        )
+
+
 def _install_skills_sh_source(
     source: str,
     step_name: str,
@@ -1257,7 +1310,7 @@ def _install_skills_sh_source(
     has_agents: bool,
     dry_run: bool,
 ) -> list[CompanionStep]:
-    """Shared opt-in ``npx skills add`` install for skills.sh companions."""
+    """Shared opt-in ``npx --yes skills add`` install for skills.sh companions."""
     if not has_agents:
         return [
             CompanionStep(
@@ -1267,7 +1320,7 @@ def _install_skills_sh_source(
             )
         ]
     if all_star:
-        cmd = ["npx", "skills", "add", source, "-g", "-y", "--agent", "*"]
+        cmd = ["npx", "--yes", "skills", "add", source, "-g", "-y", "--agent", "*"]
         status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
         return [CompanionStep(step_name, status, detail)]
     targets = normalize_skills_agents(resolved)
@@ -1279,7 +1332,7 @@ def _install_skills_sh_source(
                 "no skills.sh-mapped agents — install manually · " + COMPANIONS_DOC,
             )
         ]
-    cmd = ["npx", "skills", "add", source, "-g", "-y"]
+    cmd = ["npx", "--yes", "skills", "add", source, "-g", "-y"]
     for t in targets:
         cmd.extend(["-a", t])
     status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
@@ -1796,7 +1849,9 @@ def install_companions(
                     )
                 )
             else:
-                cmd = [npm or "npm", "install", "-g", "agent-browser"]
+                cmd = [
+                    npm or "npm", "install", "-g", "--allow-scripts=agent-browser", "agent-browser",
+                ]
                 status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
                 steps.append(CompanionStep("install agent-browser binary", status, detail))
         else:
@@ -1812,6 +1867,8 @@ def install_companions(
             cmd = [ab or "agent-browser", "install"]
             status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
             steps.append(CompanionStep("install agent-browser chromium", status, detail))
+            if status == "ok":
+                steps.append(_verify_agent_browser(ab or "agent-browser", dry_run=dry_run))
         elif not dry_run:
             steps.append(
                 CompanionStep(
@@ -1822,36 +1879,10 @@ def install_companions(
                     f"{AGENT_BROWSER_REPO}",
                 )
             )
-        if all_star:
-            cmd = [
-                "npx",
-                "skills",
-                "add",
-                AGENT_BROWSER_SKILLS_SOURCE,
-                "-g",
-                "-y",
-                "--agent",
-                "*",
-            ]
-            status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
-            steps.append(CompanionStep("install agent-browser skill", status, detail))
-        else:
-            targets = normalize_skills_agents(resolved)
-            if not targets:
-                steps.append(
-                    CompanionStep(
-                        "install agent-browser skill",
-                        "warn",
-                        "no skills.sh-mapped agents — install skill manually · "
-                        + COMPANIONS_DOC,
-                    )
-                )
-            else:
-                cmd = ["npx", "skills", "add", AGENT_BROWSER_SKILLS_SOURCE, "-g", "-y"]
-                for t in targets:
-                    cmd.extend(["-a", t])
-                status, detail = _optional_result(*_run(cmd, dry_run=dry_run))
-                steps.append(CompanionStep("install agent-browser skill", status, detail))
+        steps.extend(_install_skills_sh_source(
+            AGENT_BROWSER_SKILLS_SOURCE, "install agent-browser skill", resolved,
+            all_star=all_star, has_agents=has_agents, dry_run=dry_run,
+        ))
 
     if with_serena:
         if not detect_serena():

@@ -49,7 +49,7 @@ def test_i_have_adhd_commands_multi_agent_maps_claude() -> None:
 
 def test_i_have_adhd_star_uses_agent_star() -> None:
     cmds = i_have_adhd_commands(["cursor", "codex", "claude", "gemini"], all_star=True)
-    assert cmds == ["npx skills add ayghri/i-have-adhd -g -y --agent '*'"]
+    assert cmds == ["npx --yes skills add ayghri/i-have-adhd -g -y --agent '*'"]
 
 
 def test_graphify_register_codex_claude_not_cursor_only() -> None:

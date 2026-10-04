@@ -37,6 +37,32 @@ Install uv now using the official Astral installer, then install the ADHD Hub CL
 
 Answer `y` to install uv via Astral’s official installer, `uv tool install --force` the CLI (overwrites a leftover `~/.local/bin/adhd-hub` shim — common after removing uv and re-testing), and continue connect. Answer `N` (default) to print manual steps and exit. Non-interactive runs (no `/dev/tty`, CI) never auto-install; set `ADHD_HUB_INSTALL_UV=1` to opt in for automation. After a successful `uvx` connect when `adhd-hub` is still missing, scripts may also offer a permanent CLI install (`ADHD_HUB_INSTALL_CLI=1` for non-interactive opt-in). Dry-run connect does not install or refresh the CLI.
 
+The shell installer also discovers tools already installed under `~/.local/bin`,
+and uses `uv tool update-shell` to add missing tool directories to your shell
+profiles. This includes custom `UV_TOOL_BIN_DIR` locations. Reruns preserve
+existing profile settings; dry-run skips profile changes. If a profile update
+fails, the installer prints a warning and recovery commands.
+
+A script piped into `sh` cannot change the calling shell's PATH. When needed,
+the installer ends with commands to run in **your current terminal**:
+
+```bash
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+export PATH="$(uv tool dir --bin):$PATH"
+```
+
+Restart your coding agents after this, then verify with
+`adhd-hub doctor --hub "$ADHD_HUB_PUBLIC_URL" --project /path/to/project`.
+Choose a repository directory: `.` means your current directory, so running
+the installer from your home directory targets that home directory.
+
+The completion summary counts successful setup checks separately from skipped
+checks. It does not certify that every agent has reloaded its MCP connection.
+Global skill installations can partly succeed while the upstream skills CLI
+exits zero; these appear under **Needs attention**. Eve and PromptScript, for
+example, require project-local skills. Use `--agents cursor,codex,claude,openclaw`
+to limit installation to the agents you use rather than targeting `*`.
+
 What happens next:
 
 1. The CLI opens your browser to this Hub (or prints a short code like `ABCD-WXYZ`).

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from argparse import Namespace
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -140,7 +141,7 @@ def test_install_rejects_incomplete_managed_block(tmp_path: Path) -> None:
 
 
 def test_install_skills_uses_argument_list_without_shell() -> None:
-    completed = Mock(returncode=0)
+    completed = Mock(returncode=0, stdout="")
     with (
         patch(
             "adhd_hub.project_setup.shutil.which",
@@ -153,6 +154,7 @@ def test_install_skills_uses_argument_list_without_shell() -> None:
     run.assert_called_once_with(
         [
             "npx",
+            "--yes",
             "skills",
             "add",
             "./skills",
@@ -164,11 +166,14 @@ def test_install_skills_uses_argument_list_without_shell() -> None:
             "cursor",
         ],
         check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
 
 def test_install_skills_without_agents_installs_for_all_agents() -> None:
-    completed = Mock(returncode=0)
+    completed = Mock(returncode=0, stdout="")
     with (
         patch(
             "adhd_hub.project_setup.shutil.which",
@@ -181,6 +186,7 @@ def test_install_skills_without_agents_installs_for_all_agents() -> None:
     run.assert_called_once_with(
         [
             "npx",
+            "--yes",
             "skills",
             "add",
             "./skills",
@@ -192,13 +198,16 @@ def test_install_skills_without_agents_installs_for_all_agents() -> None:
             "*",
         ],
         check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
 
 def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
     from adhd_hub.cli import cmd_setup
 
-    completed = Mock(returncode=0)
+    completed = Mock(returncode=0, stdout="")
     args = Namespace(
         path=str(tmp_path),
         uninstall=False,
@@ -220,6 +229,7 @@ def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
     run.assert_called_once_with(
         [
             "npx",
+            "--yes",
             "skills",
             "add",
             "./skills",
@@ -231,11 +241,14 @@ def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
             "*",
         ],
         check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
 
 def test_install_skills_maps_claude_alias_to_claude_code() -> None:
-    completed = Mock(returncode=0)
+    completed = Mock(returncode=0, stdout="")
     with (
         patch(
             "adhd_hub.project_setup.shutil.which",
@@ -248,6 +261,7 @@ def test_install_skills_maps_claude_alias_to_claude_code() -> None:
     run.assert_called_once_with(
         [
             "npx",
+            "--yes",
             "skills",
             "add",
             "./skills",
@@ -261,6 +275,9 @@ def test_install_skills_maps_claude_alias_to_claude_code() -> None:
             "cursor",
         ],
         check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
 
