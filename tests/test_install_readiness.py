@@ -253,6 +253,30 @@ def test_browser_probe_timeout_still_closes_its_session(monkeypatch):
     assert calls[1] == [*calls[0][:-2], "close"]
 
 
+@pytest.mark.parametrize("close_failure", ["exit", "timeout", "oserror"])
+@pytest.mark.parametrize("launch_code", [0, 1])
+def test_browser_probe_reports_cleanup_failure(monkeypatch, close_failure, launch_code):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if command[-1] == "close":
+            if close_failure == "timeout":
+                raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+            if close_failure == "oserror":
+                raise OSError("close failed")
+            return subprocess.CompletedProcess(command, returncode=1)
+        return subprocess.CompletedProcess(command, returncode=launch_code)
+
+    monkeypatch.setattr(companions.subprocess, "run", run)
+    step = companions._verify_agent_browser("agent-browser", dry_run=False)
+    assert step.status == "warn"
+    assert "cleanup" in step.detail.lower()
+    assert f"agent-browser --session {calls[0][2]} close" in step.detail
+    if launch_code:
+        assert "launch failed" in step.detail
+
+
 def test_report_does_not_count_skipped_checks_as_success(capsys):
     report = ConnectReport(hub_url="https://hub.example")
     report.add("hub probe", "ok", "reachable")

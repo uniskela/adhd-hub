@@ -1270,6 +1270,10 @@ def _verify_agent_browser(binary: str, *, dry_run: bool) -> CompanionStep:
     # A unique session alone can still attach to a user's browser through CDP
     # environment/config overrides. Check the installed local browser only.
     env = {key: value for key, value in os.environ.items() if not key.startswith("AGENT_BROWSER_")}
+    step = CompanionStep(
+        name, "warn", "Browser launch could not be verified. "
+        "Check temporary-directory access and run `agent-browser open about:blank` to diagnose.",
+    )
     try:
         with tempfile.TemporaryDirectory(prefix="adhd-hub-browser-check-") as temporary:
             config = Path(temporary) / "config.json"
@@ -1281,24 +1285,31 @@ def _verify_agent_browser(binary: str, *, dry_run: bool) -> CompanionStep:
                     capture_output=True, text=True, timeout=30, env=env,
                 )
                 if result.returncode:
-                    return CompanionStep(
+                    step = CompanionStep(
                         name, "warn", "Chrome downloaded, but browser launch failed. Run "
                         "`agent-browser open about:blank` to diagnose runtime/library requirements; "
                         "Hub did not install system packages or change browser sandbox settings.",
                     )
-                return CompanionStep(name, "ok", "local about:blank browser launch verified")
+                else:
+                    step = CompanionStep(name, "ok", "local about:blank browser launch verified")
+            except (OSError, subprocess.TimeoutExpired):
+                pass  # Keep the launch warning, then attempt cleanup below.
             finally:
                 try:
-                    subprocess.run(
+                    closed = subprocess.run(
                         [*command, "close"], check=False, capture_output=True, timeout=10, env=env,
                     )
+                    cleanup_failed = closed.returncode != 0
                 except (OSError, subprocess.TimeoutExpired):
-                    pass
+                    cleanup_failed = True
+            if cleanup_failed:
+                return CompanionStep(
+                    name, "warn", step.detail + " Browser cleanup could not be confirmed. "
+                    f"Retry `agent-browser --session {session} close`.",
+                )
+            return step
     except (OSError, subprocess.TimeoutExpired):
-        return CompanionStep(
-            name, "warn", "Browser launch could not be verified. "
-            "Check temporary-directory access and run `agent-browser open about:blank` to diagnose.",
-        )
+        return step
 
 
 def _install_skills_sh_source(

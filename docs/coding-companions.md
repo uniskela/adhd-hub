@@ -172,8 +172,9 @@ Then in a project: `/graphify .` (PowerShell: `graphify .`). Upstream: [Graphify
 option permits this package's postinstall script without changing your global
 npm configuration. Hub then opens a local `about:blank` page in a temporary
 session with an empty browser configuration and no `AGENT_BROWSER_*` overrides,
-and closes that session. A download alone does not count as a verified launch.
-Launch failures warn; Hub does not install system packages, change the browser
+and attempts to close that session. A download alone does not count as a verified launch.
+Launch and cleanup failures warn; cleanup warnings include the session's close
+command for recovery. Hub does not install system packages, change the browser
 sandbox, or attach this check to an existing browser.
 See [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser).
 
