@@ -55,6 +55,8 @@ agents do not support global skills; partial installations are reported as
 warnings even if the upstream CLI exits zero. Install those agents' skills at
 project scope or select only the agents you use. Manual plugin and hook-trust
 steps remain under **Needs attention** until completed in the relevant agent.
+Each skills installation has a five-minute timeout; stalled optional installs
+warn so Hub connect can continue. Retry the command after resolving the stall.
 
 ---
 

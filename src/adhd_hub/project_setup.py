@@ -46,13 +46,24 @@ CONNECT_AGENT_CHOICES = ("cursor", "codex", "claude", "*")
 
 # skills.sh can exit zero after reporting failed per-agent installations.
 SKILLS_PARTIAL_INSTALL = 3
+SKILLS_INSTALL_TIMEOUT = 300
 
 
 def run_skills_command(command: list[str]) -> int:
-    """Preserve skills output and distinguish a partial install from success."""
-    result = subprocess.run(
-        command, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-    )
+    """Bound skills installation and preserve output, including partial failures."""
+    try:
+        result = subprocess.run(
+            command, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=SKILLS_INSTALL_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        if output:
+            print(output, end="" if output.endswith("\n") else "\n")
+        print(f"Skills installation timed out after {SKILLS_INSTALL_TIMEOUT} seconds; retry the command.")
+        return 124  # Conventional timeout exit status; optional installs report a warning.
     output = result.stdout or ""
     if output:
         print(output, end="")

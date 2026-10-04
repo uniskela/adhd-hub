@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from adhd_hub import companions
+from adhd_hub import companions, project_setup
 from adhd_hub.connect import ConnectReport, print_report, render_install_sh
 from adhd_hub.project_setup import install_skills
 
@@ -20,10 +20,13 @@ def executable(path: Path, body: str) -> Path:
 
 
 @pytest.fixture
-def shell_install(tmp_path: Path):
+def shell_install(tmp_path: Path, monkeypatch):
     uv = shutil.which("uv")
     if not uv:
         pytest.skip("real uv is required for shell profile integration")
+    # GitHub runners can export PowerShell indicators. uv prioritizes these
+    # over SHELL, so a Bash-profile test must not inherit the host environment.
+    monkeypatch.setenv("PSModulePath", str(tmp_path / "powershell modules"))
     home = tmp_path / "home with ' quote"
     tools = home / ".local" / "bin"
     bin_dir = tmp_path / "bin"
@@ -38,7 +41,6 @@ def shell_install(tmp_path: Path):
     )
     (home / ".bashrc").write_text("# Existing user settings\n", encoding="utf-8")
     env = {
-        **os.environ,
         "HOME": str(home),
         "SHELL": "/bin/bash",
         "PATH": f"{bin_dir}:/usr/bin:/bin",
@@ -150,6 +152,40 @@ def test_partial_companion_skill_install_is_a_warning(tmp_path: Path, monkeypatc
     )
     assert steps[0].status == "warn"
     assert "partial" in steps[0].detail.lower()
+
+
+@pytest.mark.parametrize("output", [b"Download started\n\xff", "Download started\n", None])
+def test_skills_timeout_preserves_output_and_warns_for_optional_install(
+    monkeypatch, capsys, output,
+):
+    def stalled_install(command, **kwargs):
+        assert kwargs["timeout"] == 300
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"], output=output)
+
+    monkeypatch.setattr(project_setup.subprocess, "run", stalled_install)
+    monkeypatch.setattr(companions.shutil, "which", lambda name: "npx")
+    steps = companions._install_skills_sh_source(
+        "example/skills", "install skill", ["cursor"],
+        all_star=True, has_agents=True, dry_run=False,
+    )
+    assert steps[0].status == "warn"
+    assert "124" in steps[0].detail
+    printed = capsys.readouterr().out
+    assert "timed out" in printed.lower()
+    if output:
+        assert "Download started" in printed
+
+
+def test_skills_install_stops_a_real_stalled_process(monkeypatch, capsys):
+    monkeypatch.setattr(project_setup, "SKILLS_INSTALL_TIMEOUT", 1)
+    result = project_setup.run_skills_command([
+        sys.executable, "-c",
+        "import time; print('Download started', flush=True); time.sleep(10)",
+    ])
+    assert result == 124
+    printed = capsys.readouterr().out
+    assert "Download started" in printed
+    assert "timed out" in printed.lower()
 
 
 @pytest.mark.parametrize("launch_code", [0, 1])

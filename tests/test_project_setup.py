@@ -169,6 +169,7 @@ def test_install_skills_uses_argument_list_without_shell() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        timeout=300,
     )
 
 
@@ -201,6 +202,7 @@ def test_install_skills_without_agents_installs_for_all_agents() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        timeout=300,
     )
 
 
@@ -244,6 +246,7 @@ def test_setup_install_skills_uses_all_agents(tmp_path: Path) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        timeout=300,
     )
 
 
@@ -278,6 +281,7 @@ def test_install_skills_maps_claude_alias_to_claude_code() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        timeout=300,
     )
 
 
