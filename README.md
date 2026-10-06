@@ -92,7 +92,7 @@ docker pull ghcr.io/uniskela/adhd-hub:latest
 docker pull ghcr.io/uniskela/adhd-hub:0.20.2
 ```
 
-Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write).
+Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses `GITHUB_TOKEN` (packages: write). After a successful image publish, the same Hub secrets push this README (Hub truncates at 25k bytes) and the GitHub repository short description onto [`uniskela/adhd-hub`](https://hub.docker.com/r/uniskela/adhd-hub) (`DOCKERHUB_TOKEN` must be a Hub PAT with Read, Write, and Delete).
 
 ### Connect Cursor
 

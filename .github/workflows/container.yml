@@ -121,3 +121,43 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+
+      # Hub README/short description from the tagged tree. PAT needs Read/Write/Delete.
+      # Docker Hub truncates full descriptions at 25k bytes.
+      - name: Detect Docker Hub credentials
+        id: hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DOCKERHUB_USERNAME:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+            echo "push_hub=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "push_hub=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::DOCKERHUB_USERNAME/TOKEN unset; skipping Hub description update"
+          fi
+
+      # The Hub action completes URLs from GITHUB_REF_NAME (caller ref, usually
+      # main). GitHub forbids overriding GITHUB_* env vars, so rewrite first.
+      - name: Point relative README URLs at the release tag
+        if: steps.hub.outputs.push_hub == '1'
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/complete-relative-readme-urls.py \
+            README.md "$RUNNER_TEMP/dockerhub-readme.md" --ref "$TAG"
+
+      - name: Docker Hub Description
+        if: steps.hub.outputs.push_hub == '1'
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE_NAME }}
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ${{ runner.temp }}/dockerhub-readme.md
+          enable-url-completion: false
+
