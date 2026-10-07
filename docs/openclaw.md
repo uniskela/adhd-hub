@@ -91,7 +91,9 @@ The pairing agent must never print, echo, paste, or reveal the hook token in cha
 
 If secure provisioning is unsupported, pairing reports `hooks_token_secretref_unsupported` and stops. Follow the Hub's prerequisite message; do not work around it by exposing the token.
 
-### Manual path Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use **Settings → Phone alerts** to:
+### Manual path
+
+Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use **Settings → Phone alerts** to:
 
 1. Open **Advanced** and add the private webhook URL, or the optional agent URL for a richer message.
 2. Enter the OpenClaw hook bearer token (also under **Advanced**) directly into the Hub UI.
