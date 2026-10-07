@@ -4,7 +4,7 @@ ADHD Hub skills and AGENTS rules tell coding agents **how** to keep continuity.
 They remain advisory — agents can still finish substantial work without calling
 Hub MCP or writing an authorised `[ADHD]` forge fallback.
 
-The **Continuity Guard** adds deterministic, non-LLM enforcement using:
+The **Continuity Guard** is an opt-in layer for projects where advisory rules are not enough. It adds deterministic, non-LLM enforcement using:
 
 - ephemeral Git-local state
 - Cursor lifecycle hooks
@@ -47,7 +47,9 @@ Rules and skills are prompt guidance. They do not observe tool success, cannot
 block mutations, and cannot force a stop follow-up. Hooks + local evidence close
 that gap without introducing an AI classifier.
 
-## Setup (opt-in)
+## Quick setup
+
+Enable it only in projects where you want lifecycle enforcement:
 
 ```bash
 adhd-hub setup . --continuity-guard
