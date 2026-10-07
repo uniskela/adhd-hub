@@ -203,7 +203,7 @@ Settings is grouped into:
 
 - **You** — Appearance and Account;
 - **Connections** — Coding agents, Remote access, Phone alerts, Issue sync, AI helpers;
-- **Data** — Your data.
+- **Data** — Your data (backup/restore, refresh, optional **Load sample data** / **Remove sample data** for a generic walkthrough pack that never overwrites real work; or set `ADHD_HUB_SEED_DEMO=true` on boot).
 
 Rarely used fields sit under **Advanced**. Appearance settings save as you change them. Sections that contain keys/tokens, plus coding-agent defaults, keep an explicit **Save** button.
 

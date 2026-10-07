@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     # MCP OAuth discovery + challenge; disable to roll back Auth-button discovery.
     oauth_enabled: bool = True
 
+    # Opt-in generic sample pack (Settings → Your data, or first boot when unset).
+    # Never wipes existing work; Load is a no-op if sample projects already exist.
+    seed_demo: bool = False
+
     # Opt-in Wave 6 AI scan-lines (OpenAI-compatible; local/Ollama preferred).
     # Soft default off: needs ai_enabled + base URL (Settings UI and/or env).
     # Env URL bootstraps enabled=True via ai_config.ai_from_settings. Never send transcripts.

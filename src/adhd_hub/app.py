@@ -115,6 +115,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        try:
+            seeded = service.maybe_seed_demo_on_boot()
+            if seeded and not seeded.get("already_loaded"):
+                log.info("Sample data loaded (ADHD_HUB_SEED_DEMO)")
+        except Exception:  # noqa: BLE001 — boot must not die on sample seed
+            log.exception("ADHD_HUB_SEED_DEMO sample load failed")
         scheduler = start_scheduler(service)
         try:
             async with mcp.session_manager.run():

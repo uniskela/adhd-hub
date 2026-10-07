@@ -968,6 +968,96 @@ class HubService:
             "delete_remote": delete_remote,
         }
 
+    def sample_data_status(self) -> dict:
+        from adhd_hub.sample_data import DEMO_SOURCE_TOOL, SAMPLE_PROJECT_SLUGS
+
+        present = [
+            slug for slug in SAMPLE_PROJECT_SLUGS if self.store.get_project(slug)
+        ]
+        demo_threads = self.store.count_threads_by_source_tool(DEMO_SOURCE_TOOL)
+        loaded = len(present) == len(SAMPLE_PROJECT_SLUGS)
+        return {
+            "loaded": loaded,
+            "sample_projects_present": present,
+            "demo_thread_count": demo_threads,
+        }
+
+    def load_sample_data(self) -> dict:
+        """Insert generic sample pack alongside existing work. No-op if already loaded."""
+        from datetime import UTC, datetime, timedelta
+
+        from adhd_hub.models import ProgressUpsert, ProjectUpsert, ThreadUpsert
+        from adhd_hub.sample_data import DEMO_SOURCE_TOOL, sample_payload
+
+        status = self.sample_data_status()
+        if status["loaded"]:
+            return {
+                "ok": True,
+                "loaded": True,
+                "already_loaded": True,
+                "message": "Sample data already loaded",
+            }
+        data = sample_payload()
+        for project in data["projects"]:
+            self.upsert_project(ProjectUpsert(**project))
+        first_open_id: str | None = None
+        created_threads = 0
+        for thread in data["threads"]:
+            row = self.store.upsert_thread(ThreadUpsert(**thread))
+            created_threads += 1
+            if first_open_id is None and thread.get("status") == "open":
+                first_open_id = row.id
+        note = dict(data["progress_note"])
+        if first_open_id:
+            note["thread_id"] = first_open_id
+        self.upsert_progress(ProgressUpsert(**note))
+        stale_at = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+        self.store.backdate_open_thread_summary(data["stale_summary"], stale_at)
+        return {
+            "ok": True,
+            "loaded": True,
+            "already_loaded": False,
+            "message": "Sample data loaded",
+            "projects": len(data["projects"]),
+            "threads": created_threads,
+            "source_tool": DEMO_SOURCE_TOOL,
+        }
+
+    def remove_sample_data(self) -> dict:
+        """Remove only sample-pack projects/threads (source_tool=demo + sample slugs)."""
+        from adhd_hub.sample_data import DEMO_SOURCE_TOOL, SAMPLE_PROJECT_SLUGS
+
+        threads_deleted = self.store.delete_threads_by_source_tool(DEMO_SOURCE_TOOL)
+        notes_deleted = self.store.delete_progress_notes_for_slugs(
+            list(SAMPLE_PROJECT_SLUGS)
+        )
+        projects_deleted: list[str] = []
+        for slug in SAMPLE_PROJECT_SLUGS:
+            if not self.store.get_project(slug):
+                continue
+            try:
+                self.delete_project(slug, delete_progress=True, delete_remote=False)
+                projects_deleted.append(slug)
+            except KeyError:
+                continue
+        self.wiki.rebuild_index(
+            self.store.list_threads(status=ThreadStatus.open, limit=500)
+        )
+        return {
+            "ok": True,
+            "loaded": False,
+            "message": "Sample data removed",
+            "threads_deleted": threads_deleted,
+            "progress_notes_deleted": notes_deleted,
+            "projects_deleted": projects_deleted,
+        }
+
+    def maybe_seed_demo_on_boot(self) -> dict | None:
+        """If ADHD_HUB_SEED_DEMO is set, load sample pack once (no-op when present)."""
+        if not self.settings.seed_demo:
+            return None
+        return self.load_sample_data()
+
     def request_delete_project(
         self,
         slug: str,

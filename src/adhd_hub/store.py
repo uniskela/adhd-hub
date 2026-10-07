@@ -2402,6 +2402,45 @@ class Store:
             "open_threads_cleared": int(open_count["c"]) if open_count else 0,
         }
 
+    def count_threads_by_source_tool(self, source_tool: str) -> int:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS c FROM threads WHERE source_tool = ?",
+                (source_tool,),
+            ).fetchone()
+        return int(row["c"]) if row else 0
+
+    def delete_threads_by_source_tool(self, source_tool: str) -> int:
+        """Hard-delete threads with this source_tool (sample-pack revert only)."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM threads WHERE source_tool = ?",
+                (source_tool,),
+            )
+            return int(cur.rowcount)
+
+    def delete_progress_notes_for_slugs(self, slugs: list[str]) -> int:
+        cleaned = [slugify(s) for s in slugs if s and slugify(s)]
+        if not cleaned:
+            return 0
+        placeholders = ", ".join("?" for _ in cleaned)
+        with self._conn() as conn:
+            cur = conn.execute(
+                f"DELETE FROM progress_notes WHERE project_slug IN ({placeholders})",
+                cleaned,
+            )
+            return int(cur.rowcount)
+
+    def backdate_open_thread_summary(self, summary: str, updated_at_iso: str) -> int:
+        """Set updated_at on matching open threads (sample Quiet check-in)."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE threads SET updated_at = ?, last_reminded_at = NULL, "
+                "triage_snooze_until = NULL WHERE summary = ? AND status = 'open'",
+                (updated_at_iso, summary),
+            )
+            return int(cur.rowcount)
+
     def thread_counts_by_project(self) -> dict[str, dict[str, int]]:
         with self._conn() as conn:
             rows = conn.execute(

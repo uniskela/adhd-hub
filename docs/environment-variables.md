@@ -48,6 +48,7 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 | `ADHD_HUB_OVERLAP_LIMIT` | `5` | integer | Maximum overlap candidates returned by default. |
 | `ADHD_HUB_REMIND_COOLDOWN_DAYS` | `3` | integer | Cooldown between stale-work reminder nudges. |
 | `ADHD_HUB_DIGEST_MAX_NUDGE` | `2` | integer | Maximum stale/nudge items included in a digest. |
+| `ADHD_HUB_SEED_DEMO` | `false` | boolean | When true, load the generic sample pack on boot if it is not already present (same as **Settings → Your data → Load sample data**). Never wipes existing projects; a second boot is a no-op. Remove only via **Remove sample data**. |
 | `ADHD_HUB_MAX_SESSIONS` | `50` | integer | Maximum local transcript sessions considered by an indexer run. |
 
 ## Scheduled jobs
