@@ -172,7 +172,7 @@ def test_assert_only_managed_paths() -> None:
 
 def test_canonical_skills_portable_and_hardened() -> None:
     session = (REPO_ROOT / "skills/adhd-hub-session/SKILL.md").read_text(encoding="utf-8")
-    assert "hub_skill_version: 6" in session
+    assert "hub_skill_version: 7" in session
     assert "create_if_missing=false" in session
     assert "private LAN or Docker network alone does not protect" in session
     assert "../../docs/" not in session
@@ -224,7 +224,9 @@ def test_dockerfile_includes_packaged_sync_sources() -> None:
     assert "COPY skills ./skills" in dockerfile
     assert "COPY adapters ./adapters" in dockerfile
     dockerignore = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
-    ignored = {line.strip() for line in dockerignore if line.strip() and not line.strip().startswith("#")}
+    ignored = {
+        line.strip() for line in dockerignore if line.strip() and not line.strip().startswith("#")
+    }
     assert "skills" not in ignored
     assert "adapters" not in ignored
 
@@ -242,13 +244,7 @@ def test_docs_pin_sha_not_missing_v1() -> None:
 def test_stale_managed_file_deleted_unrelated_preserved(tmp_path: Path) -> None:
     project = _seed_downstream(tmp_path)
     sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
-    stale = (
-        project
-        / ".agents"
-        / "skills"
-        / "adhd-hub-session"
-        / "obsolete-extra.md"
-    )
+    stale = project / ".agents" / "skills" / "adhd-hub-session" / "obsolete-extra.md"
     stale.write_text("stale\n", encoding="utf-8")
     unrelated = project / ".agents" / "skills" / "unrelated-skill" / "extra.md"
     unrelated.write_text("keep\n", encoding="utf-8")
@@ -367,9 +363,9 @@ def test_packaged_wheel_sync_project_functional(tmp_path: Path) -> None:
     wheel = wheels[0]
     with zipfile.ZipFile(wheel) as zf:
         names = zf.namelist()
-    assert any(
-        n.endswith("adhd_hub/share/skills/adhd-hub-session/SKILL.md") for n in names
-    ), names[:40]
+    assert any(n.endswith("adhd_hub/share/skills/adhd-hub-session/SKILL.md") for n in names), names[
+        :40
+    ]
     assert any(n.endswith("adhd_hub/share/adapters/cursor-rule.mdc") for n in names)
 
     # Isolated venv: no editable/source checkout on PYTHONPATH.
@@ -415,7 +411,9 @@ def test_packaged_wheel_sync_project_functional(tmp_path: Path) -> None:
     )
     assert sync.returncode == 0, sync.stderr + sync.stdout
     assert (consumer / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md").is_file()
-    assert (consumer / ".agents" / "skills" / "env-check" / "scripts" / "check_runtime.sh").is_file()
+    assert (
+        consumer / ".agents" / "skills" / "env-check" / "scripts" / "check_runtime.sh"
+    ).is_file()
     assert (consumer / ".cursor" / "rules" / "adhd-hub.mdc").is_file()
     session = (consumer / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md").read_text(
         encoding="utf-8"
