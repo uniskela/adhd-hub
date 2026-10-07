@@ -114,21 +114,60 @@ def _read_pack_meta(service: HubService) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _project_ident(project: Any) -> str:
+    created = getattr(project, "created_at", None)
+    if created is None:
+        return ""
+    if hasattr(created, "isoformat"):
+        return created.isoformat()
+    return str(created)
+
+
+def _idents_match(expected: str, project: Any) -> bool:
+    """Compare stored pack identity to the live project (fail closed on empty)."""
+    if not expected or not isinstance(expected, str):
+        return False
+    actual = _project_ident(project)
+    if not actual:
+        return False
+    if actual == expected:
+        return True
+    # Normalize ISO string forms without accepting empty/garbage.
+    try:
+        return datetime.fromisoformat(actual) == datetime.fromisoformat(expected)
+    except ValueError:
+        return False
+
+
+def _verified_pack_slugs(service: HubService, meta: dict[str, Any]) -> list[str]:
+    """Slugs whose live project still matches pack-stored created_at identity."""
+    idents = meta.get("project_idents")
+    if not isinstance(idents, dict) or not idents:
+        return []
+    verified: list[str] = []
+    for slug, expected in idents.items():
+        if not isinstance(slug, str) or slug not in SAMPLE_PROJECT_SLUGS:
+            continue
+        if not isinstance(expected, str) or not expected:
+            continue
+        project = service.store.get_project(slug)
+        if project is not None and _idents_match(expected, project):
+            verified.append(slug)
+    return verified
+
+
 def sample_data_status(service: HubService) -> dict[str, Any]:
     meta = _read_pack_meta(service)
-    owned_slugs = [
-        s for s in (meta or {}).get("project_slugs", []) if isinstance(s, str)
-    ]
-    present = [slug for slug in owned_slugs if service.store.get_project(slug)]
     thread_ids = [
         tid for tid in (meta or {}).get("thread_ids", []) if isinstance(tid, str)
     ]
-    loaded = bool(meta) and set(present) == set(SAMPLE_PROJECT_SLUGS)
+    verified = _verified_pack_slugs(service, meta) if meta else []
+    loaded = bool(meta) and set(verified) == set(SAMPLE_PROJECT_SLUGS)
     return {
         "loaded": loaded,
-        "sample_projects_present": present,
+        "sample_projects_present": verified,
         "demo_thread_count": len(thread_ids) if meta else 0,
-        "owned": bool(meta),
+        "owned": bool(meta) and bool(meta.get("project_idents")),
     }
 
 
@@ -159,8 +198,18 @@ def load_sample_data(service: HubService) -> dict[str, Any]:
             "occupied_slugs": occupied,
         }
     data = sample_payload()
+    project_idents: dict[str, str] = {}
     for project in data["projects"]:
-        service.upsert_project(ProjectUpsert(**project))
+        created = service.upsert_project(ProjectUpsert(**project))
+        ident = _project_ident(created)
+        if not ident:
+            return {
+                "ok": False,
+                "loaded": False,
+                "already_loaded": False,
+                "message": "Could not record sample project identity; load aborted.",
+            }
+        project_idents[created.slug] = ident
     thread_ids: list[str] = []
     stale_thread_id: str | None = None
     first_open_id: str | None = None
@@ -182,6 +231,7 @@ def load_sample_data(service: HubService) -> dict[str, Any]:
         PACK_META_KEY,
         {
             "project_slugs": list(SAMPLE_PROJECT_SLUGS),
+            "project_idents": project_idents,
             "thread_ids": thread_ids,
         },
     )
@@ -197,7 +247,7 @@ def load_sample_data(service: HubService) -> dict[str, Any]:
 
 
 def remove_sample_data(service: HubService) -> dict[str, Any]:
-    """Remove only pack-owned sample projects/threads (meta-tracked)."""
+    """Remove only pack-owned sample projects/threads (identity-checked)."""
     from adhd_hub.models import ThreadStatus
 
     meta = _read_pack_meta(service)
@@ -211,30 +261,40 @@ def remove_sample_data(service: HubService) -> dict[str, Any]:
             "projects_deleted": [],
         }
     thread_ids = [t for t in meta.get("thread_ids", []) if isinstance(t, str)]
-    slugs = [
-        s
-        for s in meta.get("project_slugs", [])
-        if isinstance(s, str) and s in SAMPLE_PROJECT_SLUGS
-    ]
+    # Fail closed: never delete slug-matched notes/projects without identities.
+    verified_slugs = _verified_pack_slugs(service, meta)
     threads_deleted = service.store.delete_threads_by_ids(thread_ids)
-    notes_deleted = service.store.delete_progress_notes_for_slugs(slugs)
+    notes_deleted = 0
     projects_deleted: list[str] = []
-    for slug in slugs:
-        if not service.store.get_project(slug):
-            continue
-        try:
-            service.delete_project(slug, delete_progress=True, delete_remote=False)
-            projects_deleted.append(slug)
-        except KeyError:
-            continue
+    if verified_slugs:
+        notes_deleted = service.store.delete_progress_notes_for_slugs(verified_slugs)
+        for slug in verified_slugs:
+            if not service.store.get_project(slug):
+                continue
+            try:
+                service.delete_project(slug, delete_progress=True, delete_remote=False)
+                projects_deleted.append(slug)
+            except KeyError:
+                continue
     service.store.delete_meta(PACK_META_KEY)
     service.wiki.rebuild_index(
         service.store.list_threads(status=ThreadStatus.open, limit=500)
     )
+    message = "Sample data removed"
+    if not verified_slugs and meta.get("project_idents") is None:
+        message = (
+            "Cleared sample pack marker and known sample threads; "
+            "skipped project delete (missing ownership identities)."
+        )
+    elif not verified_slugs:
+        message = (
+            "Cleared sample pack marker and known sample threads; "
+            "no verified sample projects left to delete."
+        )
     return {
         "ok": True,
         "loaded": False,
-        "message": "Sample data removed",
+        "message": message,
         "threads_deleted": threads_deleted,
         "progress_notes_deleted": notes_deleted,
         "projects_deleted": projects_deleted,

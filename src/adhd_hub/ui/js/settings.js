@@ -954,7 +954,8 @@ export async function refreshSampleDataStatus() {
         ? "Sample pack is loaded."
         : "No sample pack loaded.";
     }
-    if (removeBtn) removeBtn.hidden = !status.loaded;
+    // Show Remove when pack meta exists (even if a slug was replaced / unloaded).
+    if (removeBtn) removeBtn.hidden = !(status.loaded || status.owned);
   } catch (_e) {
     if (statusEl) statusEl.textContent = "";
     if (removeBtn) removeBtn.hidden = true;

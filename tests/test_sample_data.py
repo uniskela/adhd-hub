@@ -106,3 +106,65 @@ def test_seed_demo_env_loads_on_boot(tmp_path: Path) -> None:
     with client:
         status = client.get("/api/sample-data", headers=headers).json()
         assert status["loaded"] is True
+
+
+def test_remove_skips_recreated_slug_without_matching_identity(tmp_path: Path) -> None:
+    client, settings = _client(tmp_path)
+    headers = {"Authorization": "Bearer test-token-sample-data"}
+    assert client.post("/api/sample-data/load", headers=headers).status_code == 200
+    service = HubService(settings)
+    # Operator deletes one pack project, then recreates the same slug as real work.
+    service.delete_project("sample-demo-site", delete_progress=True, delete_remote=False)
+    replacement = service.upsert_project(
+        ProjectUpsert(slug="sample-demo-site", title="Replacement real project")
+    )
+    service.store.upsert_thread(
+        ThreadUpsert(
+            summary="Replacement thread",
+            project_slug="sample-demo-site",
+            source_tool="web",
+            focus="Keep this",
+            resume_step="Keep this",
+        )
+    )
+    # Status must not claim the pack is fully loaded (identity mismatch).
+    status = client.get("/api/sample-data", headers=headers).json()
+    assert status["loaded"] is False
+    assert "sample-demo-site" not in status["sample_projects_present"]
+
+    removed = client.post("/api/sample-data/remove", headers=headers)
+    assert removed.status_code == 200
+    still = service.store.get_project("sample-demo-site")
+    assert still is not None
+    assert still.title == "Replacement real project"
+    assert still.created_at == replacement.created_at
+    kept = [
+        t
+        for t in service.store.list_threads(status=None, limit=50)
+        if t.summary == "Replacement thread"
+    ]
+    assert len(kept) == 1
+
+
+def test_remove_fail_closed_without_project_idents(tmp_path: Path) -> None:
+    client, settings = _client(tmp_path)
+    headers = {"Authorization": "Bearer test-token-sample-data"}
+    assert client.post("/api/sample-data/load", headers=headers).status_code == 200
+    service = HubService(settings)
+    # Legacy / tampered meta: slugs + threads but no identities.
+    from adhd_hub.sample_data import PACK_META_KEY
+
+    raw = service.store.get_meta(PACK_META_KEY)
+    assert raw
+    import json
+
+    meta = json.loads(raw)
+    meta.pop("project_idents", None)
+    service.store.set_meta(PACK_META_KEY, meta)
+    out = client.post("/api/sample-data/remove", headers=headers).json()
+    assert "skipped project delete" in out["message"].lower() or "missing ownership" in out[
+        "message"
+    ].lower()
+    # Sample slugs must still exist (not deleted without identity).
+    for slug in SAMPLE_PROJECT_SLUGS:
+        assert service.store.get_project(slug) is not None
