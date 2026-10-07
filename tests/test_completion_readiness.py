@@ -129,6 +129,22 @@ def test_session_digest_items_include_completion(service: HubService) -> None:
     assert "next steps remain" in item["completion"]["reasons"]
 
 
+def test_summary_only_upsert_preserves_paused_at(service: HubService) -> None:
+    tid = service.upsert_thread(
+        ThreadUpsert(summary="Paused work", project_slug="adhd-hub", goal="Ship it")
+    ).id
+    paused = service.pause_thread(tid, "Resume later")
+    assert paused.paused_at is not None
+
+    service.upsert_thread(
+        ThreadUpsert(id=tid, summary="Paused work (renamed)", project_slug="adhd-hub")
+    )
+    still = service.store.get_thread(tid)
+    assert still is not None
+    assert still.paused_at is not None
+    assert still.summary == "Paused work (renamed)"
+
+
 def test_mark_done_and_pause_unchanged(service: HubService) -> None:
     tid = service.upsert_thread(
         ThreadUpsert(summary="Finishable", project_slug="adhd-hub", goal="Done")
