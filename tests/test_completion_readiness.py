@@ -70,9 +70,21 @@ def test_completion_not_ready_when_blocked() -> None:
 
 def test_resume_step_alone_does_not_block_ready() -> None:
     """resume_step can be historical context; do not treat it as unfinished work alone."""
-    result = completion_readiness(_thread(resume_step="Previously: open oauth.py", next_steps=[]))
+    result = completion_readiness(
+        _thread(
+            goal="Ship OAuth",
+            resume_step="Previously: open oauth.py",
+            next_steps=[],
+        )
+    )
     assert result["ready"] is True
     assert result["reasons"] == []
+
+
+def test_empty_open_thread_not_ready_without_goal() -> None:
+    result = completion_readiness(_thread(goal=None, next_steps=[]))
+    assert result["ready"] is False
+    assert "no goal recorded" in result["reasons"]
 
 
 def test_done_thread_is_ready() -> None:
@@ -126,15 +138,20 @@ def test_mark_done_and_pause_unchanged(service: HubService) -> None:
     assert paused.paused_at is not None
     assert completion_readiness(paused)["ready"] is False
 
-    # Clear unfinished signals then mark done (pause leaves resume; mark_done still works).
-    service.upsert_progress(
+    # Progress resumption clears paused_at so completion can become ready.
+    resumed = service.upsert_progress(
         ProgressUpsert(
             thread_id=tid,
             project_slug="adhd-hub",
+            goal="Done",
             next_steps=[],
             content="cleared",
         )
     )
+    thread = service.store.get_thread(tid)
+    assert thread is not None
+    assert thread.paused_at is None
+    assert resumed["thread"]["completion"]["ready"] is True
     done = service.mark_done(tid, note="Shipped")
     assert done is not None
     assert done.status == ThreadStatus.done

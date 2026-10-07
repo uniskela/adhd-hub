@@ -256,7 +256,8 @@ def build_mcp(service: HubService) -> MCPServer:
             readOnlyHint=False,
             destructiveHint=False,
             idempotentHint=False,
-            openWorldHint=False,
+            # May push wiki / forge sync when configured.
+            openWorldHint=True,
         )
     )
     def upsert_progress(
@@ -338,7 +339,7 @@ def build_mcp(service: HubService) -> MCPServer:
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
-            idempotentHint=True,
+            # Each call refreshes paused_at/updated_at and emits a lifecycle event.
             openWorldHint=False,
         )
     )

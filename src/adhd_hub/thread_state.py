@@ -36,6 +36,10 @@ def completion_readiness(thread: Thread) -> dict[str, Any]:
         reasons.append("next steps remain")
     if thread.blocked_reason and str(thread.blocked_reason).strip():
         reasons.append("blocked reason set")
+    # Absence of blockers is not enough — empty register_workspace threads must
+    # not look completion-ready. Require a recorded Goal as positive evidence.
+    if not (thread.goal and str(thread.goal).strip()):
+        reasons.append("no goal recorded")
     return {"ready": not reasons, "reasons": reasons}
 
 

@@ -488,6 +488,8 @@ class Store:
                     work_source = dict(existing).get("work_source") or dict(existing).get(
                         "external_provider"
                     )
+                # Any structured upsert is progress resumption — clear pause so
+                # completion.ready is not stuck; pause_thread can set it again.
                 conn.execute(
                     """
                     UPDATE threads SET
@@ -504,6 +506,7 @@ class Store:
                         blocked_reason = ?,
                         resume_step = ?,
                         work_source = ?,
+                        paused_at = NULL,
                         updated_at = ?
                     WHERE id = ?
                     """,
