@@ -7,7 +7,16 @@ ADHD Hub talks to your forge with a **Personal Access Token (PAT)** for two opti
 | **Wiki sync** | Create/update/delete files in the **Hub memory repo** (Contents API) — primary memory: `projects/<slug>/PROGRESS.md` at repo root; otherwise under Wiki path. Project `forge_owner`/`forge_repo` bind the **issue/code** repo and must not receive the wiki tree. |
 | **Board sync** | Create/update Issues (labels `adhd-hub` + `project:<slug>`), close when done; optionally attach to a **Project** board |
 
-Use a **dedicated bot/machine user** token when you can. Prefer **least privilege**: only enable the scopes below that match what you turned on in `/ui`.
+Use a **dedicated bot/machine user** token when you can. Prefer **least privilege**: only enable scopes for features you actually turned on.
+
+## Quickest safe setup
+
+1. Decide whether you need **Wiki sync**, **Board sync**, or both.
+2. Create a fine-grained GitHub PAT or the smallest matching Gitea token.
+3. Grant access only to the target repository/repositories.
+4. Start with import policy **Manual**.
+5. Save the connection, configure each project's issue repository, then run **Sync now**.
+6. Add Projects permissions only if you actually attach issues to a Projects board.
 
 ---
 
