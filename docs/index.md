@@ -16,6 +16,8 @@ The Hub keeps the parts that matter when you return: what you were trying to do,
 
 ## Start here
 
+If this is your first time using the Hub, follow this order:
+
 1. [Install the Hub](installation.md).
 2. [Connect your coding agent](connect.md).
 3. [Set up project continuity](project-agent-setup.md) for substantial work.
@@ -27,9 +29,12 @@ For a practical day-to-day routine, see [Personal setup](setup.md). For concise 
 
 ## What belongs here?
 
-Repository work can be linked to GitHub/Gitea while the Hub keeps local continuity around it. Non-repository work — homelab changes, migrations, research, admin, or a PC setup — can stay entirely local to the Hub.
+Use the Hub for work that is useful to resume later:
 
-The project is designed to be useful without streaks, competitive pressure, or a requirement to keep every task in one system.
+- **Repository work** — link it to GitHub/Gitea while the Hub keeps private continuity around it.
+- **Local-only work** — homelab changes, migrations, research, admin, PC setup, and similar work can stay entirely inside the Hub.
+
+You do **not** need to move every task into one system. The Hub is designed to stay useful without streaks, competitive pressure, or guilt when work sits untouched.
 
 ## Deploy and configure
 

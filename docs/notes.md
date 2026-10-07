@@ -2,11 +2,25 @@
 
 ![Notes & context reader](images/my-work-notes-hero.png)
 
-**Notes & context** is the reader for one thread’s saved continuity. Open it from **My work** by clicking a step’s row; the row stays tinted while its notes are open. On a wide screen the reader sits beside the list. **Expand** gives it the whole work area and pressing it again docks it beside the list. On a narrow screen it opens as a full sheet. Close it with × or Escape, and focus returns to the row you opened it from.
+**Notes & context** is the read-only continuity view for one thread.
 
-The header shows the project, status, and where the step came from (for example *Demo website · Open · from Codex*), then the title. The foot of the reader holds **Focus on this** (**Return to focus** when it is already chosen; hidden for finished steps), **Mark done**, and a **⋯** menu with **Open issue #**, **Refresh from source issue**, **Copy link**, and, when AI is on, **Summarise notes with AI** and **Rewrite scan line**.
+## Open and close the reader
 
-The reader shows what is already stored. It does not edit Goal, Focus, Next, Blocked, or Resume. Use **Now** (**Pause and leave a note**) or your agent’s `upsert_progress` for that.
+- Open it from **My work** by clicking a step row.
+- On wide screens it sits beside the list; **Expand** makes it full width.
+- On narrow screens it opens as a full sheet.
+- Close it with × or Escape; keyboard focus returns to the row you opened.
+
+The header shows the project, status, source, and thread title.
+
+The footer contains:
+
+- **Focus on this** or **Return to focus**;
+- **Mark done**;
+- a **⋯** menu for source-issue actions, **Copy link**, and optional AI actions.
+
+!!! note "Editing continuity"
+    The reader shows saved state; it does not edit Goal, Focus, Next, Blocked, or Resume. Use **Now → Pause and leave a note** or your agent's `upsert_progress` instead.
 
 ## Summarise (AI)
 
@@ -18,7 +32,14 @@ When a thread’s notes are open and AI is on, the reader’s **⋯** menu offer
 4. **Blocked** — only when something is waiting
 5. **Resume** — optional one concrete action
 
-The card is **persisted on the thread** with an **input hash** of continuity fields plus scrubbed note snippets, so reopen keeps the last card until regenerate. **Summarise notes on their own** (Settings, default off) runs Summarise when you open Notes & Context if there is no card or the hash drifted; a matching hash shows the cached card with no AI call (`POST …/notes-summary` with `{"mode":"ensure"}`). **Regenerate** (press Summarise) always forces a new card. Source progress notes and structured Goal / Focus / Next fields are never rewritten. When AI is off or unconfigured, Summarise does not invent content — it points you to AI settings instead. Progress toasts stay sticky for the duration of the AI call (same pattern as **Rewrite all scan lines**).
+How summarising behaves:
+
+- the summary is saved on the thread with an input hash;
+- reopening reuses the cached card while the source input is unchanged;
+- **Summarise notes on their own** is off by default and only calls AI when the card is missing or stale;
+- **Regenerate** always forces a new summary;
+- source notes and structured Goal / Focus / Next fields are never rewritten;
+- if AI is disabled or unconfigured, Hub points to AI settings instead of inventing a result.
 
 ## Where you left off
 

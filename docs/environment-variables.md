@@ -1,8 +1,16 @@
 # Environment variables
 
-ADHD Progress Hub server configuration uses the `ADHD_HUB_` prefix. This page documents every environment-backed field in the server `Settings` model, plus the additional runtime/client variables read directly outside that model. Developer-only smoke/probe variables are separated at the end so they are not mistaken for normal container configuration.
+ADHD Progress Hub server configuration uses the `ADHD_HUB_` prefix. Use this page as a reference rather than a setup checklist.
 
-For a container install, put normal server settings in the `.env` file referenced by Compose. Do **not** put secrets in `compose.yml`, source control, `AGENTS.md`, issues, or progress notes.
+For a normal container install:
+
+1. put server settings in the `.env` file used by Compose;
+2. keep `ADHD_HUB_DATA_DIR=/data` and mount persistent storage there;
+3. set a strong `ADHD_HUB_AUTH_TOKEN` before non-loopback access;
+4. set `ADHD_HUB_PUBLIC_URL` when browsers or agents use another hostname;
+5. keep secrets out of `compose.yml`, source control, `AGENTS.md`, issues, and progress notes.
+
+Developer-only smoke/probe variables are listed separately near the end.
 
 ## Configuration precedence
 
@@ -61,9 +69,17 @@ Boolean values accept the normal Pydantic forms such as `true` / `false`, `1` / 
 
 ## Wave 6 AI scan-lines (opt-in)
 
-Soft default: **off** until enabled. Heuristic scan-lines always work.
+Soft default: **off**. Heuristic scan-lines always work without AI.
 
-You can enable AI from **Settings → AI helpers** (base URL preset or custom URL, model, optional API key, timeout). Use **Test and load models** after choosing a base URL to call the provider’s OpenAI-compatible `/models` endpoint and replace the Model dropdown with that provider’s list (button stays off until a URL is present; it does not save settings). UI-saved values live in `data/ai.json`; the API key is encrypted with the Hub access token (same pattern as OpenClaw) and is never returned to the browser. Environment variables still bootstrap a fresh instance; a non-empty `ADHD_HUB_AI_BASE_URL` opts in until you save different Settings.
+For most users, configure this under **Settings → AI helpers**:
+
+1. choose a Base URL preset or enter a custom OpenAI-compatible base URL;
+2. choose a model and optional API key;
+3. set the timeout;
+4. use **Test and load models** to refresh the model list;
+5. save the settings.
+
+UI-saved values live in `data/ai.json`. The API key is encrypted with the Hub access token and is never returned to the browser. Environment variables are mainly useful for provisioning a fresh instance.
 
 Uses an OpenAI-compatible `/chat/completions` endpoint (local Ollama or similar preferred). Only bounded, scrubbed structured thread fields are sent — never progress bodies, transcript references, or forge `source_conflicts` blobs. Continuity fields are capped (~80–120 chars) and ritual/agent walls are dropped; when a forge conflict exists, Hub’s side is preferred over forge text. Common credential, URL, and machine-path patterns are redacted before the request and again on the response; keep sensitive material out of continuity fields. Stub or truncated AI replies fall back to the heuristic scan-line. On failure or when unset, heuristic scan-lines are used.
 

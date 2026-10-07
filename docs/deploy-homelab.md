@@ -1,8 +1,19 @@
 # Deploy ADHD Hub on a homelab (Proxmox + Tailscale)
 
-This guide focuses on the **Proxmox/LXC + Tailscale** parts of a hybrid deployment: a Docker Hub instance in the lab is the source of truth, while Cursor (Windows + Cloud), Codex, and a Dev LXC talk to it over MCP.
+This guide covers the **Proxmox/LXC + Tailscale** layout: one persistent Docker Hub instance in the lab, with coding clients connecting over MCP.
 
-For generic Docker Compose, published-image, `docker run`, source/`uv`, upgrade, and first-login instructions, start with [Install ADHD Progress Hub](installation.md). For every container/server setting, see [Environment variables](environment-variables.md).
+For generic container installation, upgrades, and first login, use [Install ADHD Progress Hub](installation.md). For configuration keys, use [Environment variables](environment-variables.md).
+
+## Before you start
+
+You need:
+
+- a Proxmox LXC or existing Docker host;
+- Docker + Compose;
+- Tailscale on the Hub host and any private clients;
+- a strong `ADHD_HUB_AUTH_TOKEN`;
+- persistent `/data` storage;
+- an HTTPS tunnel only if a cloud agent cannot reach the tailnet.
 
 ## 1. Create or pick an LXC
 

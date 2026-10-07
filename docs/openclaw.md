@@ -1,10 +1,20 @@
 # OpenClaw connection and alerts
 
-Use this optional connection only when OpenClaw is part of your private setup. It gives OpenClaw the ADHD Hub skills and lets the Hub send a short, gentle reminder when work has been left open.
+Use this optional connection only when OpenClaw is part of your private setup. It can do two separate jobs:
 
-For **OpenClaw → Hub MCP OAuth login**, including a browser on a different machine
-from the gateway, use the [MCP OAuth callback guide](openclaw-mcp-oauth.md). The
-reminder-hook pairing below is a separate connection in the opposite direction.
+- **OpenClaw → Hub:** OpenClaw uses Hub skills/MCP.
+- **Hub → OpenClaw:** the Hub sends a short stale-work reminder through OpenClaw hooks.
+
+For OpenClaw → Hub **MCP OAuth**, including remote-browser callbacks, use the [MCP OAuth callback guide](openclaw-mcp-oauth.md). This page focuses mainly on Hub → OpenClaw reminder hooks.
+
+## Recommended setup path
+
+1. [Install the Hub skills](#1-add-the-adhd-hub-skills-to-openclaw).
+2. Enable OpenClaw HTTP hooks with a **dedicated hook token**.
+3. Use **Settings → Phone alerts → Start pairing** when your OpenClaw deployment can provision the hook token securely.
+4. Use the [manual path](#manual-path) only when pairing is not suitable.
+5. Run **Save and send a test**.
+6. Set the alert schedule only after the connection works.
 
 ## 1. Add the ADHD Hub skills to OpenClaw
 
@@ -64,15 +74,26 @@ OpenClaw supports `${UPPERCASE_ENV_NAME}` substitution in config strings. Keep t
 
 After hooks are enabled, configure ADHD Hub with the matching URL and token, then use **Save and send a test**. The token remains in the Gateway `.env` and is entered into the Hub UI only through the protected settings form; it should not be pasted into an agent prompt.
 
-**Pairing (recommended):** In ADHD Hub, open **Settings → Phone alerts**, click **Start pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. This is device-code style pairing, not OAuth (OpenClaw hooks have no OAuth callback).
+### Pairing (recommended)
 
-Secure pairing has one prerequisite on the OpenClaw side: `hooks.token` must be provisioned without exposing the raw bearer token to the pairing agent. Use a protected runtime SecretRef when the installed OpenClaw version supports it, or inject the hook token through the gateway service environment when that is the supported secure path. The pairing agent must never print, echo, reveal, or paste the hook token into chat, command arguments, config files, or tool output.
+In ADHD Hub:
 
-The Hub still needs the **actual** hook token eventually because it authenticates outbound stale-work nudges to `/hooks/wake` and `/hooks/agent`. A SecretRef itself is meaningful only inside the OpenClaw gateway, so the successful pairing request must inject the resolved token directly into the request body without surfacing it to the agent or operator transcript.
+1. Open **Settings → Phone alerts**.
+2. Click **Start pairing**.
+3. Copy the generated prompt into OpenClaw.
+4. Approve the pairing request in the Hub.
 
-If OpenClaw cannot securely provision `hooks.token`, the generated pairing prompt reports the structured failure `hooks_token_secretref_unsupported` to the Hub and stops. The **Settings → Phone alerts** panel then explains the prerequisite instead of leaving the pairing attempt apparently stuck. Do not work around that status by asking an agent to expose the token.
+OpenClaw needs only the short pairing code; it never needs `ADHD_HUB_AUTH_TOKEN`.
 
-**Manual path:** Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use **Settings → Phone alerts** to:
+Pairing is safe only when the OpenClaw side can provision `hooks.token` **without exposing the raw token to the agent**. Use a protected runtime secret mechanism supported by your OpenClaw version, or inject the token through the gateway service environment.
+
+The pairing agent must never print, echo, paste, or reveal the hook token in chat, command arguments, config files, or tool output.
+
+If secure provisioning is unsupported, pairing reports `hooks_token_secretref_unsupported` and stops. Follow the Hub's prerequisite message; do not work around it by exposing the token.
+
+### Manual path
+
+Enable hooks on the OpenClaw gateway and create a bearer token there. Configure `hooks.token` securely on the gateway first. Then, as the operator, use **Settings → Phone alerts** to:
 
 1. Open **Advanced** and add the private webhook URL, or the optional agent URL for a richer message.
 2. Enter the OpenClaw hook bearer token (also under **Advanced**) directly into the Hub UI.

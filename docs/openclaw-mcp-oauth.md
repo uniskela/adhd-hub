@@ -4,8 +4,14 @@ MCP OAuth connects **OpenClaw → Hub** and issues an MCP-only token. This is se
 from **Hub → OpenClaw** reminder hooks and their pairing flow in the
 [OpenClaw guide](openclaw.md).
 
-Configure the Hub's HTTPS `ADHD_HUB_PUBLIC_URL` and leave OAuth enabled. On the
-gateway, configure OpenClaw once (replace the example URL with your Hub URL):
+## Choose the matching setup
+
+| Browser | OpenClaw gateway | Use |
+| --- | --- | --- |
+| Same machine | Same machine | [Local browser + local gateway](#local-browser--local-gateway) |
+| Different machine | Remote gateway | [SSH-forwarded loopback callback](#remote-browser--gateway) |
+
+Configure the Hub's HTTPS `ADHD_HUB_PUBLIC_URL` and leave OAuth enabled. On the gateway, configure OpenClaw once (replace the example URL with your Hub URL):
 
 ```bash
 openclaw mcp add adhd-hub \

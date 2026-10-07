@@ -1,6 +1,16 @@
 # ADHD Progress Hub — roadmap
 
-This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering; this page mirrors it in a reader-friendly form.
+This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker for current status and ordering.
+
+## At a glance
+
+| Position | Work | Status |
+| --- | --- | --- |
+| **Now** | Wave 7 — continuity intelligence | Triage + Next-up shipped; merge/dedupe + return-cue coaching remain |
+| **Next** | Wave 8 — find & capture | Planned |
+| **Then** | Activity insights | Planned after core clarity/findability work |
+| **Later** | Wave 9 — shared surfaces & discoverability | Deferred until Waves 7–8 are stable |
+| **Opt-in** | Wave 5 integrations | Only when a concrete need justifies them |
 
 Reviewed against `main` on **2026-10-05** (Sydney). Wave 6 / **v0.16.0** is published via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest published package and tag is **v0.20.2**. **v0.20.0**–**v0.20.2** shipped opt-in Ponytail and Humanizer companions, Settings skills scope with Select all, and the calm UI wave (My work, Now, Progress, Settings, and sign-in). Wave 7 triage [#236](https://github.com/uniskela/adhd-hub/pull/236) and Next-up [#240](https://github.com/uniskela/adhd-hub/pull/240) shipped in **v0.18.0**; merge/dedupe suggestions and return-cue coaching remain open on [#54](https://github.com/uniskela/adhd-hub/issues/54). Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
 

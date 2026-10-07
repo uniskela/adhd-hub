@@ -4,10 +4,18 @@ Hub skills under `skills/` and the Cursor rule (`adapters/cursor-rule.mdc`) are 
 **source of truth** for the Marketplace client plugin
 [`uniskela/adhd-hub-cursorskill`](https://github.com/uniskela/adhd-hub-cursorskill).
 
-When those paths change on Hub `main`, a GitHub Action copies them into the plugin
-repo, rewrites Hub-only links/setup language for Marketplace packaging, runs
-`node scripts/validate-template.mjs`, and **opens a pull request** on
-`adhd-hub-cursorskill`. Automation never direct-pushes the plugin `main` branch.
+When those paths change on Hub `main`, automation copies them into the plugin repository, rewrites Hub-only packaging details, validates the template, and **opens a pull request** on `adhd-hub-cursorskill`.
+
+Automation never pushes directly to the plugin `main` branch.
+
+## Which path applies to you?
+
+| You are… | Do this |
+| --- | --- |
+| Using the Cursor Marketplace plugin | Install/update the plugin normally; mirrored skills may trail Hub `main` by one reviewed PR. |
+| Using project-local `AGENTS.md` | Run `adhd-hub doctor --project .` and `adhd-hub setup . --refresh` after guidance changes. |
+| Using CLI-installed global skills | Refresh that installation path separately. |
+| Contributing guidance/rule content | Edit the canonical files in the Hub repository, not the mirrored plugin copy. |
 
 ## What operators need to know
 
@@ -16,7 +24,7 @@ repo, rewrites Hub-only links/setup language for Marketplace packaging, runs
 - Skill wording may lag Hub `main` by one reviewed plugin PR — that is intentional.
 - Per-project `AGENTS.md` injections are **not** updated by Marketplace. After Hub
   guidance changes, run `adhd-hub doctor --project .` and `adhd-hub setup . --refresh`
-  on each project (see [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current)).
+  on each project (see [project agent setup](project-agent-setup.md#keep-generated-guidance-current)).
 - CLI skill installs (`npx skills add` / `setup --install-skills`) are separate from
   Marketplace; refresh whichever path you installed from.
 

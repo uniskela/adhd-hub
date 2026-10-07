@@ -1,8 +1,8 @@
 # Project sync (deterministic)
 
-Canonical ADHD Hub skills and guidance live in this repository. Downstream
-projects receive them through a **deterministic, non-LLM** sync — not by
-hand-editing copied skill files.
+Use project sync when you want a repository to carry the same Hub-owned skills, guidance, and Cursor rule as ADHD Hub itself.
+
+The sync is **deterministic and non-LLM**. Do not hand-edit generated copies in downstream repositories; change the canonical Hub files, then sync them out.
 
 ```text
 Canonical Hub skills / guidance / Cursor rule
@@ -39,7 +39,7 @@ Generated skill copies should **not** normally be patched in downstream repos.
 Fix the canonical files here, bump `hub_skill_version` / guidance versions, then
 sync.
 
-## Local / manual sync
+## Quick commands
 
 From a machine with the ADHD Hub package installed (or this checkout):
 

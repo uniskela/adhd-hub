@@ -25,7 +25,20 @@ For the Cursor Marketplace client plugin (skills + rule + BYO MCP), see
 |----------|------|------|
 | Code intelligence | Semantic code navigation & editing | [Serena](https://github.com/oraios/serena) |
 
-These tools solve different parts of the agent workflow. Installing all of them is **not** recommended by default—choose companions that address problems in your existing workflow.
+## Choose only what solves a real problem
+
+Installing every companion is **not** recommended. Start with the Hub by itself, then add a tool only when it fixes a specific workflow problem.
+
+Examples:
+
+- need more action-first replies → **i-have-adhd**;
+- want structured agent workflows → **Superpowers**;
+- want less unnecessary abstraction → **Ponytail**;
+- need codebase/library context → **Graphify** or **Context7**;
+- need browser verification → **agent-browser**;
+- want quieter shell output → **RTK**;
+- want natural prose cleanup → **Humanizer**;
+- need heavier semantic code navigation → **Serena**.
 
 After `adhd-hub connect` or `adhd-hub doctor`, the CLI prints a short companions checklist. Enable Hub-installable ones in **Hub Settings → Coding agents → Helpful extras**, or pass install flags:
 
@@ -47,7 +60,17 @@ Use the same `--agents` list as Hub MCP/skills. With no agents selected, the CLI
 
 You can also put flags in `ADHD_HUB_CONNECT_FLAGS` for the install one-liner (including `--with-ponytail` and `--with-humanizer`).
 
-Hub can opt-in install **i-have-adhd**, **Superpowers**, **Ponytail**, **Graphify**, **RTK**, **Context7**, **agent-browser**, **Serena**, and **Humanizer** (Settings checkboxes + `--with-*`). Superpowers and Claude Code Ponytail are best-effort (many harnesses need an in-app plugin install); Context7/Serena merge MCP configs; agent-browser installs the CLI + skill; Humanizer installs the skills.sh skill only. Optional companion failures warn and never fail Hub connect.
+### What Hub automation can do
+
+Hub can opt-in install **i-have-adhd**, **Superpowers**, **Ponytail**, **Graphify**, **RTK**, **Context7**, **agent-browser**, **Serena**, and **Humanizer** through Settings or `--with-*` flags.
+
+Important differences:
+
+- Superpowers and Claude Code Ponytail are best-effort because some hosts require an in-app plugin install.
+- Context7 and Serena merge MCP configuration.
+- agent-browser installs its CLI and skill.
+- Humanizer installs the skills.sh skill only.
+- Optional companion failures are warnings; they never fail Hub connect.
 
 Hub passes `--yes` to npx as well as `-y` to the skills CLI, so npm's first-use
 package prompt does not interrupt these installs. With `--agents '*'`, some

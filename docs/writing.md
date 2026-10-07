@@ -1,6 +1,17 @@
 # ADHD-friendly writing and planning
 
-This is a lightweight, optional convention for project notes, plans, handoffs, issues, and pull requests. It makes the next useful action visible without asking a reader to reconstruct context. It is not medical advice and should be adapted to the person and project.
+This is a lightweight, optional convention for project notes, plans, handoffs, issues, and pull requests. The goal is simple: make the next useful action visible without reconstructing the whole session.
+
+It is not medical advice. Adapt the format to the person and project.
+
+## If you only have 30 seconds
+
+Write two things:
+
+- **Focus** — the one action you can start now.
+- **Resume** — the exact pickup instruction for later.
+
+The fuller format below adds Goal, Next, and Blocked when they are useful.
 
 ## The first-screen rule
 

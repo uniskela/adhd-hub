@@ -2,7 +2,19 @@
 
 **Small steps. Your pace.**
 
-Progress Hub gives unfinished work a place to wait. The identity should feel grounded, clear, and welcoming when someone returns after a break. The product’s full name is **ADHD Progress Hub**; use **Progress Hub** in the interface and wordmark.
+Progress Hub gives unfinished work a place to wait. The identity should feel grounded, clear, and welcoming when someone returns after a break.
+
+The product's full name is **ADHD Progress Hub**; use **Progress Hub** in the interface and wordmark.
+
+## Brand in one screen
+
+- **Tone:** calm, concrete, non-punitive.
+- **Primary action:** teal in light mode, mint in dark mode.
+- **Achievement accent:** gold, used sparingly.
+- **Surfaces:** warm paper/light cards or charcoal/dark cards.
+- **Motion:** brief and subtle; respect reduced-motion preferences.
+- **Attention:** one clear primary action per immediate group.
+- **Avoid:** gradients, glow, guilt, streak pressure, competitive language, and unnecessary animation.
 
 ## Logo and icon
 
@@ -39,9 +51,30 @@ Gold `#EFC978` is a small accent, not body text on white. The two chart colours 
 
 ## Type, spacing, and buttons
 
-Use Figtree, bundled with the app as a variable woff2 under the SIL Open Font License (see `ATTRIBUTION.md`), so it works offline with no font download; the system sans-serif stack is the fallback. Body: 16 px / 1.55. Headings: weight 700, slight negative tracking, 1.2 line height. Section headings: about 18–20 px. Main headings: 28–35 px, responsive. Labels: about 14 px. Nothing is smaller than 12 px. Keep long notes near 65 characters per line. Labels and eyebrows use sentence case; avoid all-caps text.
+### Type
 
-Use spacing steps of 4, 8, 12, 16, 24, and 32 px. Prefer whitespace, alignment, then dividers before introducing extra containers. Ordinary grouped surfaces use 14 px corners; controls use 10 px corners. The Now focus surface and dialogs may use slightly larger soft corners when that distinction helps. Normal page regions stay flat; reserve shadows for dialogs, popovers, and real elevation.
+Use Figtree, bundled with the app as a variable woff2 under the SIL Open Font License (see `ATTRIBUTION.md`). The system sans-serif stack is the fallback.
+
+- Body: 16 px / 1.55.
+- Main headings: 28–35 px, responsive.
+- Section headings: about 18–20 px.
+- Labels: about 14 px.
+- Minimum text size: 12 px.
+- Long notes: aim for about 65 characters per line.
+- Use sentence case; avoid all-caps labels and eyebrows.
+
+### Spacing and surfaces
+
+Use spacing steps of **4, 8, 12, 16, 24, and 32 px**.
+
+Prefer, in order:
+
+1. whitespace;
+2. alignment;
+3. dividers;
+4. extra containers only when they add useful grouping.
+
+Ordinary grouped surfaces use 14 px corners; controls use 10 px corners. The Now focus surface and dialogs may be slightly softer/larger. Keep normal page regions flat and reserve shadows for dialogs, popovers, and real elevation.
 
 - **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
 - **Secondary:** white (dark: card) fill with a soft control border. Use for alternatives such as Choose another, Copy text, or Settings.

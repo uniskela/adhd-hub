@@ -1,6 +1,16 @@
 # Install ADHD Progress Hub
 
-ADHD Progress Hub is a self-hosted server. For a persistent home server or VPS, **Docker Compose with a published image is the recommended install**. Running from source with `uv` is useful for development, and the standalone CLI can be installed separately on machines that only need to connect coding agents to an existing Hub.
+ADHD Progress Hub is a self-hosted server.
+
+**Recommended:** use Docker Compose with a published image for a persistent home server or VPS. Use source + `uv` for development, or install only the CLI on machines that connect to an existing Hub.
+
+## Pick an install path
+
+- **New persistent server:** use [Docker Compose with a published image](#docker-compose-with-a-published-image).
+- **Developing ADHD Hub itself:** use [the repository Compose file](#use-the-repository-compose-file) or [source + `uv`](#run-the-server-from-source-with-uv).
+- **Simple single container:** use [`docker run`](#plain-docker-run).
+- **Client machine only:** [install the CLI](#install-only-the-client-cli), then follow [Connect](connect.md).
+- **Local subprocess MCP only:** use [`adhd-hub mcp-stdio`](#optional-local-stdio-mcp-process).
 
 ## Choose an install method
 
@@ -13,9 +23,10 @@ ADHD Progress Hub is a self-hosted server. For a persistent home server or VPS, 
 | `adhd-hub mcp-stdio` | Local subprocess MCP clients / inspectors | Update the installed CLI or source checkout |
 | `uv tool install` | Client CLI only | Re-run with `--upgrade` |
 
-Client machines that only need `connect` can also run the Hub’s `/install.sh` or `/install.ps1`. If `uv` is missing, those scripts ask before using Astral’s official installer (or honor `ADHD_HUB_INSTALL_UV=1` for non-interactive opt-in). See [Connect](connect.md).
+Already have a Hub running? Client machines can use the Hub’s `/install.sh` or `/install.ps1` instead of installing the server. If `uv` is missing, the scripts ask before using Astral’s official installer; non-interactive installs require `ADHD_HUB_INSTALL_UV=1`. See [Connect](connect.md).
 
-ADHD Hub requires a persistent data directory. In the container image that directory is `/data`; do not run the server without a persistent volume if you care about its threads, wiki, preferences, sessions, and local configuration.
+!!! warning "Persist /data"
+    In the container image, Hub state lives under `/data`. Mount a named volume or bind mount there before you rely on the Hub. Without persistent storage, container recreation can remove threads, wiki files, preferences, sessions, and local configuration.
 
 ### What lives under `/data`
 
@@ -28,7 +39,15 @@ ADHD Hub requires a persistent data directory. In the container image that direc
 | `wiki/` | Local markdown wiki / progress files |
 | `browser_sessions.sqlite3` / `connect.sqlite3` | Browser sessions and CLI connect grants |
 
-All of these must sit on the same mounted volume. A relative `ADHD_HUB_DATA_DIR=./data` inside the container resolves to `/app/data`. On older images (or configs) **without** remapping, that path is **discarded when the container is recreated** (classic “upgrade wiped my tags / AI settings” symptom). Current images remap the known `/app/data` default to `/data` and can copy leftovers into a volume that still lacks Hub files — still pin absolute `/data` with a volume mount so persistence does not depend on remapping.
+Keep all of these paths on the **same mounted volume**.
+
+Container persistence rules:
+
+- Set `ADHD_HUB_DATA_DIR=/data`.
+- Mount a named volume or host directory at `/data`.
+- Do not rely on relative `./data` inside the container; it resolves to `/app/data`.
+- Current images can remap the known `/app/data` default and recover leftovers when `/data` is empty, but explicit `/data` is still the safe configuration.
+- Older images without that remapping can lose `/app/data` when the container is recreated.
 
 ## Docker Compose with a published image
 
