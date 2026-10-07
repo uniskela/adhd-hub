@@ -1,6 +1,14 @@
 # Dashboard sign-in
 
-The hub has two independent credentials: a dashboard password for everyday browser use, and the server access token for REST/MCP clients and password recovery. This is a single-owner, self-hosted sign-in flow.
+The Hub uses different credentials for different jobs.
+
+| Credential | Use it for | Do not use it for |
+| --- | --- | --- |
+| **Dashboard password** | Everyday browser sign-in | REST/MCP bearer auth |
+| **Server access token** (`ADHD_HUB_AUTH_TOKEN`) | REST/MCP, first setup, password recovery | Routine browser sign-in after you create a password |
+| **CLI session** (`ahcli_…`) | Client REST/MCP after `adhd-hub login` | Server configuration or password recovery |
+
+This is a single-owner, self-hosted sign-in flow.
 
 ## First-time setup
 
