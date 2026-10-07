@@ -18,7 +18,7 @@ The film uses Figtree from `src/adhd_hub/ui/brand/` and the official logo geomet
 
 ```bash
 # from the repository root
-python3 -m http.server 8000
+python3 -m http.server --bind 127.0.0.1 8000   # loopback only: this serves the whole repo
 ```
 
 Open <http://localhost:8000/promo/product-hunt/index.html>.
@@ -77,7 +77,7 @@ ffmpeg -framerate 60 -i promo/product-hunt/out/frames/%05d.png \
 ### Product Hunt notes
 
 - Product Hunt has taken gallery video as a YouTube link; check their current launch guide, then upload `out/progress-hub-launch.mp4` wherever it asks. The file loops cleanly if the host loops it.
-- For a GIF thumbnail: `ffmpeg -i out/progress-hub-launch.mp4 -vf "fps=30,scale=1270:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" out/launch.gif`
+- For a GIF thumbnail: `ffmpeg -i promo/product-hunt/out/progress-hub-launch.mp4 -vf "fps=30,scale=1270:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" promo/product-hunt/out/launch.gif`
 - `stills/04-product-hunt-card.png` works as a gallery image or social card.
 
 ## Sound

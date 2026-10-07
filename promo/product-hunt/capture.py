@@ -96,6 +96,7 @@ def cmd_still(args):
     with film_page() as page:
         for t in args.t:
             path = Path(args.out) if args.out and len(args.t) == 1 else OUT / f"still-{t:.3f}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(shot(page, t))
             print(path)
 
@@ -128,6 +129,7 @@ def cmd_video(args):
         sys.exit("ffmpeg not found on PATH")
     OUT.mkdir(exist_ok=True)
     target = Path(args.out) if args.out else OUT / "progress-hub-launch.mp4"
+    target.parent.mkdir(parents=True, exist_ok=True)
     with film_page() as page:
         meta = info(page)
         fps = args.fps or meta["fps"]
