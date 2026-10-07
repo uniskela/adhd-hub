@@ -24,7 +24,7 @@ Automation never pushes directly to the plugin `main` branch.
 - Skill wording may lag Hub `main` by one reviewed plugin PR — that is intentional.
 - Per-project `AGENTS.md` injections are **not** updated by Marketplace. After Hub
   guidance changes, run `adhd-hub doctor --project .` and `adhd-hub setup . --refresh`
-  on each project (see [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current)).
+  on each project (see [project agent setup](project-agent-setup.md#keep-generated-guidance-current)).
 - CLI skill installs (`npx skills add` / `setup --install-skills`) are separate from
   Marketplace; refresh whichever path you installed from.
 
