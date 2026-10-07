@@ -4,18 +4,85 @@
 
 *Desktop My work with the Notes & context reader.* See the [README screenshots](../README.md#screenshots) for Now, Progress, and Settings (gallery shots use dummy data).
 
-On desktop, use the compact **Appearance** button in the app header to cycle System → Light → Dark (the button shows the current mode). The same choices are available under **Settings → Appearance**; on mobile, use Settings. The preference is saved in this browser and follows operating-system changes when set to System. If browser storage is blocked, the dashboard still works and preferences last for the current page visit.
+## Getting around
 
-The home screen is **Now**: a short greeting, one chosen step, and one clear primary button. The card shows where the step stands (**Your next step**, **You’re on it**, or **Welcome back**), its project and when it was last touched, and a **Where you left off** panel when a resume step is saved. Your choice is remembered in this browser. Before you begin, the card offers **Start this step** (or **Resume**) and **Choose something else**. While working, it offers **Mark step done** and **Pause and leave a note**, plus a **Focus mode** switch with an optional session timer (No timer, 15, 25, or 45 minutes). The **⋯** menu holds **Choose another step**, **Open in My work** (opens the step’s project), **Copy agent prompt**, and **Mark step done** when you are not mid-step. After **Mark step done**, the success toast offers **Undo** to reopen the step quickly. If rewards are on, the quiet “One step finished…” cue shares the same toast stack (with a gap) and is dismissed when **Undo** succeeds so it never overlaps “Restored…”. If the undo request fails, the same toast returns with **Retry** (resends undo). If undo succeeds but a later reload fails, **Retry** only refreshes lists and focus — it does not resend undo. With no task selected, choose one from your work or use **Help me choose** for a calm Next-up suggestion (quiet/stale open work with a resume cue ranks first; when Focus mode is on, the pick stays near your chosen project). Below the card, one line links to your open steps, this week’s finished steps, and projects, with **See all work** beside it; a blocked-steps note appears only when something is blocked. **Gentle checks** underneath show due reminders (**Snooze 1 hour** or **Dismiss**) and older steps that may no longer matter (**Yes, keep it** or **Ask me next week**). **My work** is the browsing view for projects and threads; choosing **Focus on this** returns to Now. **Progress** contains activity and optional rewards, so the starting screen stays quiet. Finished threads remain available under **My work → Finished**.
+The dashboard has four main areas:
 
-**My work** is two calm columns: your projects on the left and one card of steps on the right. Each row shows the step’s title, a **Left off:** line (its saved resume step, or the scan line when there is none), the project name in **All projects**, and a relative time such as *yesterday*. Only **In focus**, or a source issue that needs a look, gets a badge. Click a row to open its notes beside the list; nothing else on the row competes for attention.
+| Area | Use it for |
+| --- | --- |
+| **Now** | One current step, resuming, pausing, and Focus mode |
+| **My work** | Browse projects and unfinished/finished threads |
+| **Progress** | Activity, counts, and optional rewards |
+| **Settings** | Appearance, connections, sync, AI helpers, and data |
 
-The header holds **Search your work** (it narrows the loaded steps by title, resume step, goal, scan line, project, or progress snippet) and a **New** menu with **New project** and **Leave a reminder**. When something needs a yes or no, one quiet **Needs you** line appears above the list (for example “2 things need a quick look”). **Review** opens it to show agent approvals (**Approve** / **Reject** pending project changes), a forge import offer (**Import** / **Dismiss**), and due reminders (**Snooze 1 hour** / **Dismiss**); **Hide** folds it away again. The line disappears when nothing is waiting. With **Focus mode** on, a slim bar at the top says what you’re working on and offers **Back to Now**; the list stays usable.
+On desktop, the compact **Appearance** button cycles System → Light → Dark. The same choices live under **Settings → Appearance**; on mobile, use Settings. The browser remembers the preference when storage is available.
 
-Scan lines are heuristic by default, with an optional LLM rewrite when AI is enabled in **Settings → AI helpers** or via `ADHD_HUB_AI_*` (see [environment variables](environment-variables.md)). Status-history audits such as ``[status→open] Undone from …`` after Undo Done never become the scan line or the copy-agent **Progress** snippet — empty is fine when no continuity cue exists; an older eligible human note is preferred when one exists. The scan line spans the full card width and wraps up to two lines (ellipsis when longer). In AI settings, pick a Base URL preset (or custom URL — unknown saved URLs reopen as Custom… with the field filled); Save / Test & Load use the URL field as source of truth. **Test and load models** replaces the Model dropdown with that provider’s chat-capable models (Gemini OpenAI-compat ids drop a leading `models/` / `google/` prefix; embeddings, image/TTS variants, and Gemini flash ids deprecated for new users are hidden — prefer `gemini-3.6-flash`). Default AI timeout is 15s (raise up to 30s for local/proxy models). Stub or truncated AI replies fall back to the heuristic line with a calm toast. On Rewrite failure, the toast shows the outbound model id and a scrubbed provider snippet rather than always blaming a `models/` prefix; timeouts suggest raising Timeout in AI settings. Opt-in **Rewrite scan lines on their own** (default off) rewrites new/changed threads once per content hash and skips the provider when the hash matches; **Summarise notes on their own** (default off) does the same for the Notes reader card on open. **Rewrite scan line** for one step lives in the reader’s **⋯** menu, and **Rewrite all scan lines** lives in the project title’s **⋯** menu; both appear only when **Use AI helpers** is on, so a no-op cannot look like a successful batch. Rewrite all confirms first, covers open steps only, and runs one batch at a time per project (client and server reject a second run with a calm busy state / HTTP 409). Its toast stays sticky for the batch and does not show a fake `0/N`; completion reports `(completed/total)` only when at least one line updated. Tab focus or a live refresh mid-batch keeps the item disabled as **Rewriting…**.
+## Now: one step at a time
+
+The **Now** screen keeps one chosen step in front of you.
+
+The main card can show:
+
+- **Your next step**, **You’re on it**, or **Welcome back**;
+- the project and last-touch time;
+- **Where you left off** when a resume step is saved.
+
+Before starting:
+
+- **Start this step** or **Resume** begins the work;
+- **Choose something else** picks another thread;
+- **Help me choose** ranks quiet/stale open work with a useful resume cue first.
+
+While working:
+
+- **Mark step done** completes it;
+- **Pause and leave a note** saves the next pickup action;
+- **Focus mode** can hide extra information and optionally run a 15, 25, or 45 minute timer.
+
+The **⋯** menu contains secondary actions such as **Choose another step**, **Open in My work**, **Copy agent prompt**, and **Mark step done** when you are not mid-step.
+
+After completion, the toast offers **Undo**. A failed undo can be retried; once undo has succeeded, a later **Retry** refreshes the UI only and does not send the undo twice.
+
+Below the card, the dashboard links to open steps, this week’s finished steps, and projects. **Gentle checks** show due reminders and older work that may need a keep/snooze decision. Finished threads remain under **My work → Finished**.
+
+## My work: browse and review
+
+Desktop **My work** uses two columns: projects on the left and steps on the right.
+
+Each step row keeps only the useful scan information visible:
+
+- title;
+- **Left off:** resume step, or scan line when no resume step exists;
+- project name while viewing **All projects**;
+- relative last-touch time;
+- a badge only for **In focus** or a source issue that needs review.
+
+Click a row to open its notes beside the list.
+
+### Search, create, and review
+
+**Search your work** matches titles, resume steps, goals, scan lines, projects, and progress snippets. The **New** menu contains **New project** and **Leave a reminder**.
+
+When an action needs a yes/no decision, a single **Needs you** line appears above the list. Open **Review** to handle:
+
+- agent project-change approvals;
+- forge import offers;
+- due reminders.
+
+When nothing needs attention, the line disappears. Focus mode keeps the list usable and adds **Back to Now**.
+
+## AI helpers and scan lines
+
+Scan lines are heuristic by default. Optional LLM rewriting is available under **Settings → AI helpers** or through `ADHD_HUB_AI_*` settings (see [environment variables](environment-variables.md)).
+
+ Status-history audits such as ``[status→open] Undone from …`` after Undo Done never become the scan line or the copy-agent **Progress** snippet — empty is fine when no continuity cue exists; an older eligible human note is preferred when one exists. The scan line spans the full card width and wraps up to two lines (ellipsis when longer). In AI settings, pick a Base URL preset (or custom URL — unknown saved URLs reopen as Custom… with the field filled); Save / Test & Load use the URL field as source of truth. **Test and load models** replaces the Model dropdown with that provider’s chat-capable models (Gemini OpenAI-compat ids drop a leading `models/` / `google/` prefix; embeddings, image/TTS variants, and Gemini flash ids deprecated for new users are hidden — prefer `gemini-3.6-flash`). Default AI timeout is 15s (raise up to 30s for local/proxy models). Stub or truncated AI replies fall back to the heuristic line with a calm toast. On Rewrite failure, the toast shows the outbound model id and a scrubbed provider snippet rather than always blaming a `models/` prefix; timeouts suggest raising Timeout in AI settings. Opt-in **Rewrite scan lines on their own** (default off) rewrites new/changed threads once per content hash and skips the provider when the hash matches; **Summarise notes on their own** (default off) does the same for the Notes reader card on open. **Rewrite scan line** for one step lives in the reader’s **⋯** menu, and **Rewrite all scan lines** lives in the project title’s **⋯** menu; both appear only when **Use AI helpers** is on, so a no-op cannot look like a successful batch. Rewrite all confirms first, covers open steps only, and runs one batch at a time per project (client and server reject a second run with a calm busy state / HTTP 409). Its toast stays sticky for the batch and does not show a fake `0/N`; completion reports `(completed/total)` only when at least one line updated. Tab focus or a live refresh mid-batch keeps the item disabled as **Rewriting…**.
 
 
-Open Hub pages listen for authenticated live updates (SSE) and refresh relevant data shortly after Hub-side changes; if the live connection drops, ordinary Refresh / API use still works. The installable PWA caches the UI shell only. When a newer shell service worker is waiting, a calm sticky toast offers **Refresh** (activates the update and reloads this tab); it does not interrupt mid-task on its own. Under **Settings → Issue sync**, **Last sync** shows last successful or failed forge reconciliation, concise errors, Needs review conflicts, recent change history from the activity ledger (under **Recent changes**), and **Sync now** / **Retry sync** beside any background jobs.
+## Live updates and PWA
+
+Open Hub pages listen for authenticated live updates (SSE) and refresh relevant data shortly after Hub-side changes. If the live connection drops, ordinary Refresh and API use still work.
+
+The installable PWA caches the **UI shell only**.  When a newer shell service worker is waiting, a calm sticky toast offers **Refresh** (activates the update and reloads this tab); it does not interrupt mid-task on its own. Under **Settings → Issue sync**, **Last sync** shows last successful or failed forge reconciliation, concise errors, Needs review conflicts, recent change history from the activity ledger (under **Recent changes**), and **Sync now** / **Retry sync** beside any background jobs.
 
 Use **Save a thought** for a quick capture without leaving the current task. When you need to stop, choose **Pause and leave a note**, write the smallest useful next step right on the card, and choose **Save and pause** (**Keep working** or Escape cancels). That step appears under **Where you left off** when you return.
 
