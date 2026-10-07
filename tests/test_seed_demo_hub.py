@@ -1,10 +1,10 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from seed_demo_hub import demo_payload  # noqa: E402
+from seed_demo_hub import demo_payload
 
 
 def test_demo_payload_is_generic_readme_set():

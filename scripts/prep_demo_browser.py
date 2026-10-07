@@ -1,14 +1,34 @@
 """Log into the demo Hub and set Now landing localStorage for Supademo.
 
+Set ADHD_HUB_BASE to the same origin you will record (loopback or Tailscale URL).
+Storage state is origin-bound — do not prep on localhost and record on a
+different host.
+
 Requires: Hub running + seeded; Playwright Chromium installed.
   uv run --with playwright python scripts/prep_demo_browser.py
   # first time: uv run --with playwright playwright install chromium
+
+Re-open with saved state (same ADHD_HUB_BASE):
+  uv run --with playwright python -c "
+  from playwright.sync_api import sync_playwright
+  import os
+  base=os.environ['ADHD_HUB_BASE'].rstrip('/')
+  path=os.environ.get('ADHD_HUB_DEMO_STORAGE','.demo-data/playwright-storage.json')
+  with sync_playwright() as p:
+      b=p.chromium.launch(headless=False)
+      c=b.new_context(storage_state=path)
+      c.new_page().goto(base+'/ui/')
+      input('Recording browser open; press Enter to close…')
+  "
 """
 from __future__ import annotations
 
 import json
 import os
+import stat
 import sys
+from pathlib import Path
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
@@ -20,14 +40,25 @@ def main() -> int:
         return 2
     thread_id = os.environ.get("ADHD_HUB_DEMO_THREAD_ID", "").strip()
     if not thread_id:
+        query = urlencode(
+            {
+                "project_slug": "sample-demo-site",
+                "status": "open",
+                "limit": 50,
+            }
+        )
         req = Request(
-            base + "/api/threads",
+            f"{base}/api/threads?{query}",
             headers={"Authorization": f"Bearer {token}"},
         )
         with urlopen(req, timeout=10) as resp:
             rows = json.load(resp)
         for row in rows if isinstance(rows, list) else rows.get("threads", []):
-            if row.get("status") == "open" and row.get("summary") == "Polish the landing page":
+            if (
+                row.get("status") == "open"
+                and row.get("summary") == "Polish the landing page"
+                and row.get("project_slug") == "sample-demo-site"
+            ):
                 thread_id = str(row["id"])
                 break
         if not thread_id:
@@ -61,15 +92,23 @@ def main() -> int:
         expect(page.locator("#next-card .resume-step")).to_contain_text(
             "Draft one clearer headline"
         )
-        # Persist storage for a headed re-open path if operator wants
         storage = context.storage_state()
-        out = os.environ.get("ADHD_HUB_DEMO_STORAGE", ".demo-data/playwright-storage.json")
-        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-        with open(out, "w", encoding="utf-8") as fh:
+        out = Path(
+            os.environ.get("ADHD_HUB_DEMO_STORAGE", ".demo-data/playwright-storage.json")
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(
+            out,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            stat.S_IRUSR | stat.S_IWUSR,
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(storage, fh)
+        os.chmod(out, stat.S_IRUSR | stat.S_IWUSR)
         browser.close()
     print(f"prep ok thread_id={thread_id} storage={out}")
-    print(f"open {base}/ui/ (or Tailscale Serve URL) for recording")
+    print(f"Recording origin must match ADHD_HUB_BASE={base}")
+    print(f"Reopen with storage_state={out} (see script docstring)")
     return 0
 
 

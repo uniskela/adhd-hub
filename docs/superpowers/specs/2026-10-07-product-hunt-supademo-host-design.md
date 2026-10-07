@@ -48,8 +48,8 @@ Landing state for recording: light theme, rewards on, chosen thread = landing-pa
 ## Components
 
 1. **`scripts/seed_demo_hub.py`**  
-   - Assumes Hub already listening; waits for `/api/health`, POSTs projects/threads/progress with Bearer token, backdates the home-admin open thread in SQLite under `ADHD_HUB_DATA_DIR`.  
-   - Re-seed = wipe `.demo-data/` and re-run (no merge/upsert logic).
+   - Assumes Hub already listening; waits for `/api/health`, then `POST /api/sample-data/load` (same pack as Settings).  
+   - Re-seed = `POST /api/sample-data/remove` then load again (pack-only; do not wipe `.demo-data/`). Repeat load is a no-op when the pack is already owned.
 
 2. **`.demo-data/`**  
    - `ADHD_HUB_DATA_DIR`; add to `.gitignore`.

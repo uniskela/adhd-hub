@@ -962,10 +962,18 @@ export async function refreshSampleDataStatus() {
 }
 
 export async function loadSampleData() {
-  const out = await api("/sample-data/load", { method: "POST" });
-  setMsg(out.message || (out.already_loaded ? "Sample data already loaded" : "Sample data loaded"));
-  await refreshSampleDataStatus();
-  if (!out.already_loaded) await loadAll();
+  try {
+    const out = await api("/sample-data/load", { method: "POST" });
+    setMsg(
+      out.message ||
+        (out.already_loaded ? "Sample data already loaded" : "Sample data loaded")
+    );
+    await refreshSampleDataStatus();
+    if (!out.already_loaded) await loadAll();
+  } catch (e) {
+    setMsg(String(e.message || e), { variant: "error" });
+    await refreshSampleDataStatus();
+  }
 }
 
 export async function removeSampleData() {

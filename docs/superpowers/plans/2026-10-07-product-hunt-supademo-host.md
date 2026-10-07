@@ -87,7 +87,7 @@ Runbook (on unidev):
   ADHD_HUB_BASE=http://127.0.0.1:8787 uv run python scripts/seed_demo_hub.py
   serve 8787
   # UI: https://dev-vps.pygora-gacrux.ts.net:8787/ui/
-  # Re-seed: rm -rf .demo-data && mkdir -p .demo-data && restart serve && re-run this script
+  # Re-seed: POST /api/sample-data/remove then re-run this script (pack-only; keep .demo-data/)
 """
 from __future__ import annotations
 
@@ -287,7 +287,9 @@ Run from repo root (one shell):
 
 ```bash
 TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
-rm -rf .demo-data && mkdir -p .demo-data
+mkdir -p .demo-data
+# Prefer pack-only reset if a Hub is already running:
+#   curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8787/api/sample-data/remove
 ADHD_HUB_AUTH_TOKEN="$TOKEN" ADHD_HUB_DATA_DIR="$PWD/.demo-data" \
   ADHD_HUB_HOST=127.0.0.1 ADHD_HUB_PORT=8787 ADHD_HUB_FORGE_PROVIDER=none \
   ADHD_HUB_OPENCLAW_WEBHOOK_URL= \
@@ -455,7 +457,9 @@ cd /home/orca/orca/workspaces/adhd-hub/dummy-demo
 TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
 # Persist token for this session only — do not echo into chat logs if avoidable; report SET
 mkdir -p .demo-data
+umask 077
 printf '%s\n' "ADHD_HUB_AUTH_TOKEN=$TOKEN" > .env.demo
+chmod 600 .env.demo
 # .env.demo is covered by .env.* gitignore
 nohup env $(grep -v '^#' .env.demo | xargs) \
   ADHD_HUB_DATA_DIR="$PWD/.demo-data" \

@@ -2402,20 +2402,16 @@ class Store:
             "open_threads_cleared": int(open_count["c"]) if open_count else 0,
         }
 
-    def count_threads_by_source_tool(self, source_tool: str) -> int:
-        with self._conn() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS c FROM threads WHERE source_tool = ?",
-                (source_tool,),
-            ).fetchone()
-        return int(row["c"]) if row else 0
-
-    def delete_threads_by_source_tool(self, source_tool: str) -> int:
-        """Hard-delete threads with this source_tool (sample-pack revert only)."""
+    def delete_threads_by_ids(self, thread_ids: list[str]) -> int:
+        """Hard-delete specific threads (sample-pack revert only)."""
+        ids = [tid for tid in thread_ids if tid]
+        if not ids:
+            return 0
+        placeholders = ", ".join("?" for _ in ids)
         with self._conn() as conn:
             cur = conn.execute(
-                "DELETE FROM threads WHERE source_tool = ?",
-                (source_tool,),
+                f"DELETE FROM threads WHERE id IN ({placeholders})",
+                ids,
             )
             return int(cur.rowcount)
 
@@ -2431,13 +2427,15 @@ class Store:
             )
             return int(cur.rowcount)
 
-    def backdate_open_thread_summary(self, summary: str, updated_at_iso: str) -> int:
-        """Set updated_at on matching open threads (sample Quiet check-in)."""
+    def backdate_thread(self, thread_id: str, updated_at_iso: str) -> int:
+        """Set updated_at on one thread (sample Quiet check-in)."""
+        if not thread_id:
+            return 0
         with self._conn() as conn:
             cur = conn.execute(
                 "UPDATE threads SET updated_at = ?, last_reminded_at = NULL, "
-                "triage_snooze_until = NULL WHERE summary = ? AND status = 'open'",
-                (updated_at_iso, summary),
+                "triage_snooze_until = NULL WHERE id = ?",
+                (updated_at_iso, thread_id),
             )
             return int(cur.rowcount)
 

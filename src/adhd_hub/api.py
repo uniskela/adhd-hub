@@ -196,7 +196,10 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/sample-data/load", dependencies=[Depends(auth_dep)])
     def load_sample_data():
-        return service.load_sample_data()
+        out = service.load_sample_data()
+        if out.get("ok") is False:
+            raise HTTPException(409, out.get("message") or "Sample data conflict")
+        return out
 
     @router.post("/sample-data/remove", dependencies=[Depends(auth_dep)])
     def remove_sample_data():

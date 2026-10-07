@@ -1,4 +1,4 @@
-"""Sample pack: load alongside real data, no-op when present, remove only demo."""
+"""Sample pack: load alongside real data, no-op when owned, remove only pack rows."""
 
 from __future__ import annotations
 
@@ -48,6 +48,7 @@ def test_load_is_noop_when_already_present(tmp_path: Path) -> None:
     assert body["message"] == "Sample data already loaded"
     status = client.get("/api/sample-data", headers=headers).json()
     assert status["loaded"] is True
+    assert status["owned"] is True
 
 
 def test_load_does_not_touch_real_projects(tmp_path: Path) -> None:
@@ -63,6 +64,16 @@ def test_load_does_not_touch_real_projects(tmp_path: Path) -> None:
             resume_step="Write the test",
         )
     )
+    # A real thread that reuses demo source_tool must survive Remove.
+    service.store.upsert_thread(
+        ThreadUpsert(
+            summary="Not sample",
+            project_slug="my-real-work",
+            source_tool=DEMO_SOURCE_TOOL,
+            focus="Keep me",
+            resume_step="Keep me",
+        )
+    )
     headers = {"Authorization": "Bearer test-token-sample-data"}
     assert client.post("/api/sample-data/load", headers=headers).status_code == 200
     assert client.post("/api/sample-data/remove", headers=headers).status_code == 200
@@ -70,13 +81,23 @@ def test_load_does_not_touch_real_projects(tmp_path: Path) -> None:
     real = [
         t
         for t in service.store.list_threads(status=None, limit=50)
-        if t.summary == "Ship the real feature"
+        if t.summary in {"Ship the real feature", "Not sample"}
     ]
-    assert len(real) == 1
-    assert real[0].source_tool == "web"
-    assert service.store.count_threads_by_source_tool(DEMO_SOURCE_TOOL) == 0
+    assert len(real) == 2
     for slug in SAMPLE_PROJECT_SLUGS:
         assert service.store.get_project(slug) is None
+
+
+def test_occupied_sample_slug_without_pack_meta_conflicts(tmp_path: Path) -> None:
+    client, settings = _client(tmp_path)
+    service = HubService(settings)
+    service.upsert_project(
+        ProjectUpsert(slug="sample-demo-site", title="My coincidental project")
+    )
+    headers = {"Authorization": "Bearer test-token-sample-data"}
+    res = client.post("/api/sample-data/load", headers=headers)
+    assert res.status_code == 409
+    assert service.store.get_project("sample-demo-site").title == "My coincidental project"
 
 
 def test_seed_demo_env_loads_on_boot(tmp_path: Path) -> None:
