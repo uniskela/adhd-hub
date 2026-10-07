@@ -43,7 +43,7 @@ The CLI will:
 
 1. open your browser to the Hub, or print a short code such as `ABCD-WXYZ`;
 2. ask you to choose **Allow** in the browser, or enter the code under **Settings → Coding agents**;
-3. save a local CLI session in `~/.config/adhd-hub/credentials.json` with mode `0600`.
+3. save a local CLI session in `~/.config/adhd-hub/credentials.json`; on Unix-like systems, the file has mode `0600`.
 
 That CLI session is local to the computer. It is **not** the server access token.
 
