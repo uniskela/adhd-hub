@@ -1,9 +1,13 @@
 # Personal wire-up checklist
 
+Use this page as the short operational checklist after you have installed the Hub. For detailed options, follow the linked guides instead of trying to configure everything here.
+
 ## Day in the life
 
 1. **Hub running** — use the [installation guide](installation.md) for Docker Compose (recommended), `docker run`, or source/`uv` setup.
-2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Coding agents**; do not export the server token into your shell. For MCP clients with an **Auth** / **Authenticate** button, set Hub `ADHD_HUB_PUBLIC_URL` and leave Hub OAuth enabled (default); Approve = Hub UI sign-in + **Allow**. Static `ADHD_HUB_AUTH_TOKEN` Bearer and CLI connect still work; set Hub `ADHD_HUB_OAUTH_ENABLED=false` to disable discovery/OAuth routes. Details: [Connect — MCP Auth / Authenticate](connect.md#mcp-auth-authenticate-oauth).
+2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Coding agents** and do not export the server token into your shell.
+
+   If your MCP client has **Auth** / **Authenticate**, configure `ADHD_HUB_PUBLIC_URL`, leave OAuth enabled, then approve the browser prompt. Static Bearer auth and CLI connect remain supported. See [MCP Auth / Authenticate](connect.md#mcp-auth-authenticate-oauth).
 
 ```bash
 # macOS / Linux / WSL
@@ -19,7 +23,13 @@ irm http://127.0.0.1:8787/install.ps1 | iex
 adhd-hub doctor --project /path/to/project
 ```
 
-After a Hub upgrade, re-run doctor on each active project. It detects outdated managed `AGENTS.md` / Cursor rule / Hub skills and, when credentials work, records verification so agents see a useful `session_digest.guidance` status. Repair with `adhd-hub setup . --refresh` (and `--install-skills` when you want global skill updates). Details: [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current).
+After a Hub upgrade:
+
+- run `adhd-hub doctor --project /path/to/project` on each active project;
+- use `adhd-hub setup . --refresh` for stale managed guidance;
+- add `--install-skills` only when you intentionally want global skill updates.
+
+See [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current).
 
 3. **Skills (global)** if you skipped `--skills` on connect:
 
