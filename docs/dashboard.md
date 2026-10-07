@@ -37,7 +37,7 @@ While working:
 
 - **Mark step done** completes it;
 - **Pause and leave a note** saves the next pickup action;
-- **Focus mode** can hide extra information and optionally run a 15, 25, or 45 minute timer.
+- **Focus mode** can hide extra information and optionally run a 15-, 25-, or 45-minute timer.
 
 The **⋯** menu contains secondary actions such as **Choose another step**, **Open in My work**, **Copy agent prompt**, and **Mark step done** when you are not mid-step.
 
@@ -91,7 +91,7 @@ In **Settings → AI helpers**:
 3. choose the model and timeout;
 4. save the settings.
 
-Gemini OpenAI-compatible ids drop a leading `models/` or `google/` prefix. Embedding, image/TTS, and deprecated-for-new-users Gemini flash entries are filtered; prefer a current chat model such as `gemini-3.6-flash`.
+Gemini OpenAI-compatible ids drop a leading `models/` or `google/` prefix. Embedding, image/TTS, and deprecated-for-new-users Gemini flash entries are filtered; prefer a current chat model from the loaded catalog, such as `gemini-3.8-flash`.
 
 The default timeout is 15 seconds. Local or proxied models can use up to 30 seconds.
 
