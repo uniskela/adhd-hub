@@ -1,12 +1,21 @@
 # Forge issue inbox (remote / cloud agents)
 
-Agents that cannot reach a private Tailscale Hub MCP can still leave unfinished work for ADHD Hub by opening forge issues. That includes **Cursor Cloud**, **Codex / ChatGPT cloud**, **Claude Code / Claude remote**, and similar sandboxed runners.
+Use the forge issue inbox when a remote/cloud agent can reach GitHub or Gitea but **cannot reach Hub MCP**. This covers Cursor Cloud, Codex/ChatGPT cloud, Claude remote environments, and similar sandboxes.
 
-If you want **live MCP** from those environments instead of issues, prefer a controlled HTTPS tunnel (Cloudflare Tunnel, or Tailscale when the agent can join the mesh) — see [Remote MCP access](https://uniskela.com/docs/adhd-hub/remote-mcp-access/). Use this forge mailbox when a durable private or tunnel path is unavailable; do not open anonymous `/mcp`.
+If live MCP is possible, prefer a private mesh or controlled HTTPS tunnel. See [Remote MCP access](https://uniskela.com/docs/adhd-hub/remote-mcp-access/). Do not expose anonymous `/mcp` just to make cloud agents work.
 
-**How agents should detect this:** the primary signal is Hub MCP tools missing, errored, unauthorized, or auth failure — check the tool surface, do not invent “I'm in cloud.” Optional corroborating hints include `CURSOR_AGENT`, Cursor Cloud / remote-sandbox markers, or any environment without Tailscale/LAN reachability to the operator Hub. Use the `env-check` skill for CLOUD_AGENT vs LOCAL_WORKSPACE as supporting context. On CLOUD_AGENT, do not assume machine-installed local skill CLIs (e.g. `graphify`) exist — one-line notice if missing, then repo tools / committed `graphify-out/`; never invent Hub or graph state. Never invent Hub continuity/progress/thread state or claim a Hub write succeeded when MCP was unreachable.
+## Agent fallback decision
 
-They *can* use GitHub/Gitea. The Hub polls those issues and turns them into threads.
+1. Check the actual Hub MCP tool surface.
+2. If tools are missing, erroring, or unauthorised, treat Hub persistence as unavailable.
+3. If forge issue-write access is available, write a short `[ADHD] ...` handoff issue.
+4. If neither Hub nor forge persistence is available, continue carefully and state that continuity was **not** saved.
+
+Environment hints such as `CURSOR_AGENT` or remote-sandbox markers can support the decision, but they do not replace checking MCP. Use `env-check` for CLOUD_AGENT vs LOCAL_WORKSPACE. Cloud agents must not assume local helper CLIs such as `graphify` are installed.
+
+Never invent Hub, thread, or graph state, and never claim a Hub write succeeded when MCP was unreachable.
+
+GitHub/Gitea issues are the durable mailbox. The Hub polls eligible issues and turns them into threads.
 
 ## Security (author allowlist)
 
