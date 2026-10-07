@@ -7,8 +7,8 @@ If live MCP is possible, prefer a private mesh or controlled HTTPS tunnel. See [
 ## Agent fallback decision
 
 1. Check the actual Hub MCP tool surface.
-2. If tools are missing, erroring, or unauthorised, treat Hub persistence as unavailable.
-3. If forge issue-write access is available, write a short `[ADHD] ...` handoff issue.
+2. If tools are missing, erroring, or unauthorised, treat Hub persistence as unavailable. On the first substantial Hub-worthy turn, make the reply's first line state that Hub MCP is unavailable and give a short recovery hint: check the Hub `/mcp` endpoint and `ADHD_HUB_AUTH_TOKEN`, restart the agent, and cancel a stalled Auth flow until Hub OAuth is enabled.
+3. If forge issue-write access is available, write a short `[ADHD] ...` handoff issue containing only repository-safe context. Exclude credentials, customer or personal data, transcripts, private Hub URLs, internal hosts or IPs, absolute local paths, and secret-bearing environment contents.
 4. If neither Hub nor forge persistence is available, continue carefully and state that continuity was **not** saved.
 
 Environment hints such as `CURSOR_AGENT` or remote-sandbox markers can support the decision, but they do not replace checking MCP. Use `env-check` for CLOUD_AGENT vs LOCAL_WORKSPACE. Cloud agents must not assume local helper CLIs such as `graphify` are installed.
