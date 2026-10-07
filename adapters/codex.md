@@ -46,8 +46,11 @@ Use the [forge issue inbox](../docs/forge-issue-inbox.md):
 ## Agent instructions (drop into AGENTS.md)
 
 On session start: `resolve_project` → `session_digest` → `check_overlap` **if MCP is available**.
-Before ending with unfinished work: `upsert_progress` (Done/Next/Blockers) with `workspace_path`, or the forge mailbox above.
-When complete: `mark_done`.
+During work: `upsert_progress` with `thread_id` and compact Goal/Focus/Next.
+End of task: prefer `completion.ready` on the thread.
+- Ready / Goal done → `mark_done` for that thread only.
+- Work remains (review, draft PR, CI, merge, …) → `upsert_progress` then `pause_thread` — do **not** `mark_done`.
+- If `mark_done` is rejected because work remains: **do not retry**; checkpoint + `pause_thread` and continue the response normally.
 
 ## Continuity guard (advisory)
 

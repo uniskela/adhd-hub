@@ -28,7 +28,7 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "later substantial Hub-worthy turns while still down" not in text
     assert "pause_thread" in text
     assert "absolute machine paths" in text
-    assert "adhd-hub:guidance-version:6" in text
+    assert "adhd-hub:guidance-version:7" in text
     assert "create_if_missing=false" in text or ".agents/skills/env-check" in text
     assert "sync-project" in text
     assert "Made with [ADHD Progress Hub]" in text
@@ -38,6 +38,9 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "graphify" in text
     assert "[ADHD]" in text
     assert ".agents/skills/env-check" in text
+    assert "completion.ready" in text
+    assert "do not retry" in text.lower() or "do **not** retry" in text.lower()
+    assert "pause_thread" in text
 
 
 def test_env_check_skill_documents_cloud_local_cli_caveat() -> None:

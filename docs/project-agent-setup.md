@@ -41,12 +41,19 @@ Do not add ritual freeform content for routine checkpoints.
 
 ### Leave or finish cleanly
 
-When stopping mid-task:
+Prefer the thread's `completion.ready` signal when present (checkpoint first if Hub state looks stale).
+
+When stopping with unfinished work (review, draft PR, CI, merge, deploy, verify, or any next action):
 
 1. checkpoint with `upsert_progress`;
-2. call `pause_thread(thread_id, next_step=...)` with one concrete pickup action.
+2. call `pause_thread(thread_id, next_step=...)` with one concrete pickup action;
+3. do **not** call `mark_done`.
 
-When the outcome is genuinely complete, call `mark_done` for that known thread only. Do not close unrelated overlap results.
+When the outcome is genuinely complete (`completion.ready` or the Goal is clearly satisfied), call `mark_done` for that known thread only. Do not close unrelated overlap results.
+
+If `mark_done` is denied or rejected because work remains: do not retry unchanged — checkpoint, `pause_thread`, and continue the normal response.
+
+Size each thread Goal to an outcome the agent can finish (for example, open a review-ready PR). A Goal that includes merge stays open or paused until merge is done.
 
 ## If Hub MCP is unavailable
 

@@ -296,8 +296,9 @@ MSG_CHECKPOINT_OR_PAUSE = (
 MSG_MARK_DONE = (
     "Meaningful work looks complete, but mark_done evidence is missing.\n\n"
     "1. Final progress/checkpoint if useful.\n"
-    "2. mark_done for the known completed thread only.\n"
-    "3. Do NOT close unrelated overlap candidates.\n"
+    "2. If completion.ready (or Goal clearly done): mark_done for that thread only.\n"
+    "3. If work remains: pause_thread instead — do not retry a rejected mark_done.\n"
+    "4. Do NOT close unrelated overlap candidates.\n"
     "If Hub MCP is unavailable, update the [ADHD] forge fallback with completion state.\n"
     "Then stop again."
 )

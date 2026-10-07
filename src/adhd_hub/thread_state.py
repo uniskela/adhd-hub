@@ -7,12 +7,36 @@ import json
 import re
 from typing import Any
 
-from adhd_hub.models import Thread
+from adhd_hub.models import Thread, ThreadStatus
 from adhd_hub.overlap import jaccard, tokenize
 
 # High bar: prefer a new thread over attaching to an unrelated open outcome.
 SAFE_MATCH_MIN = 0.45
 MAX_NEXT_STEPS = 3
+
+
+def completion_readiness(thread: Thread) -> dict[str, Any]:
+    """Deterministic local signal: may an agent call ``mark_done`` now?
+
+    Based only on Hub-stored structured state (no forge/PR lookups, no LLM).
+    ``resume_step`` alone is not a blocker — pause sets it, but it can also be
+    historical context after work is otherwise clear.
+    """
+    if thread.status == ThreadStatus.done:
+        return {"ready": True, "reasons": []}
+    if thread.status == ThreadStatus.dismissed:
+        return {"ready": False, "reasons": ["thread dismissed"]}
+
+    reasons: list[str] = []
+    if thread.status == ThreadStatus.blocked:
+        reasons.append("thread blocked")
+    if thread.paused_at is not None:
+        reasons.append("thread paused")
+    if thread.next_steps:
+        reasons.append("next steps remain")
+    if thread.blocked_reason and str(thread.blocked_reason).strip():
+        reasons.append("blocked reason set")
+    return {"ready": not reasons, "reasons": reasons}
 
 
 def normalize_next_steps(value: list[str] | None) -> list[str]:
@@ -105,7 +129,11 @@ def milestone_text(
 ) -> str | None:
     """Build a short history line only when something meaningful changed."""
     note_clean = (note or "").strip()
-    if previous is not None and state_fingerprint(previous) == state_fingerprint(thread) and not note_clean:
+    if (
+        previous is not None
+        and state_fingerprint(previous) == state_fingerprint(thread)
+        and not note_clean
+    ):
         return None
     bits: list[str] = []
     if previous is None:
@@ -154,4 +182,5 @@ def compact_thread_dict(thread: Thread) -> dict[str, Any]:
         "resume_step": thread.resume_step,
         "updated_at": to_iso_utc(thread.updated_at),
         "project_slug": thread.project_slug,
+        "completion": completion_readiness(thread),
     }

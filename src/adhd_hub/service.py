@@ -1726,6 +1726,9 @@ class HubService:
             )
         )
         data["scan_line_needs_ai"] = needs_ai
+        from adhd_hub.thread_state import completion_readiness
+
+        data["completion"] = completion_readiness(thread)
         return data
 
     @staticmethod

@@ -34,7 +34,10 @@ def build_mcp(service: HubService) -> MCPServer:
             "At checkpoints call upsert_progress with the known thread_id and compact "
             "goal/focus/next_steps/blocked_reason/resume_step only — omit ritual content. "
             "If upsert_progress returns needs_thread_selection, pass thread_id or force_new_thread. "
-            "When finished, mark_done only that thread. Never save secrets or full transcripts."
+            "End of task: if completion.ready (or Goal truly done) mark_done that thread only; "
+            "if work remains, upsert_progress then pause_thread — never mark_done. "
+            "If mark_done is rejected for unfinished work, do not retry; checkpoint + pause. "
+            "Never save secrets or full transcripts."
         ),
     )
 
@@ -248,7 +251,14 @@ def build_mcp(service: HubService) -> MCPServer:
         )
         return thread.model_dump(mode="json")
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=False,
+        )
+    )
     def upsert_progress(
         content: str | None = None,
         project_slug: str | None = None,
@@ -273,6 +283,7 @@ def build_mcp(service: HubService) -> MCPServer:
         ship note). If selection is ambiguous the tool can request a thread_id;
         force_new_thread explicitly starts another outcome. Depending on
         create_thread_if_missing, a missing thread may be created as a side effect.
+        When completion.ready is false, prefer this plus pause_thread over mark_done.
         """
         try:
             return service.upsert_progress(
@@ -297,14 +308,23 @@ def build_mcp(service: HubService) -> MCPServer:
         except ValueError as exc:
             return {"error": str(exc)}
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=True,
+            # May close a linked forge issue via the remote-first path.
+            openWorldHint=True,
+        )
+    )
     def mark_done(thread_id: str, note: str | None = None) -> dict[str, Any]:
         """Close a specific thread when its finishable outcome is complete.
 
-        Use only with a known thread_id after the work is actually finished.
+        Prefer completion.ready == true (or clear Goal completion) before calling.
         Use pause_thread for unfinished work that will resume later, or
         dismiss_thread when intentionally abandoning it. note is an optional
-        completion note.
+        completion note. If this call is denied/rejected because work remains,
+        do not retry unchanged — checkpoint with upsert_progress and pause_thread.
         """
         try:
             thread = service.mark_done(thread_id, note)
@@ -314,16 +334,24 @@ def build_mcp(service: HubService) -> MCPServer:
             return {"error": "not_found", "id": thread_id}
         return thread.model_dump(mode="json")
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        )
+    )
     def pause_thread(
         thread_id: str,
         next_step: Annotated[str, Field(min_length=1, max_length=2000)],
     ) -> dict[str, Any]:
         """Pause unfinished work and save the concrete next action to resume it.
 
-        Use when the thread will continue later. This updates its pause/resume
-        state; use mark_done for completed work or dismiss_thread for work being
-        intentionally abandoned. Requires the exact thread_id and next_step.
+        Use when the thread will continue later (including when completion.ready
+        is false). This updates its pause/resume state; use mark_done for
+        completed work or dismiss_thread for work being intentionally abandoned.
+        Requires the exact thread_id and next_step.
         """
         step = next_step.strip()
         if not step:

@@ -11,11 +11,11 @@ from pathlib import Path
 
 # Independent from package release version (pyproject). Bump only when Hub-owned
 # generated guidance or Hub-owned skill contracts change meaningfully.
-AGENT_GUIDANCE_VERSION = 6  # env-check install layouts + project-sync repair path
-SESSION_SKILL_VERSION = 6  # bearer transport harden + create_if_missing=false lookup
+AGENT_GUIDANCE_VERSION = 7  # end-of-task: completion.ready + no-retry mark_done → pause
+SESSION_SKILL_VERSION = 7  # end-of-task lifecycle + completion readiness
 PROJECTS_SKILL_VERSION = 5  # forge mailbox gate + create_if_missing=false default
 ENV_CHECK_SKILL_VERSION = 3  # portable install layouts for check_runtime.sh
-CURSOR_RULE_VERSION = 6  # env-check path portability + sync-project mention
+CURSOR_RULE_VERSION = 7  # end-of-task: completion.ready + no-retry mark_done → pause
 
 BEGIN_MARKER = "<!-- adhd-hub:project-agent:start -->"
 END_MARKER = "<!-- adhd-hub:project-agent:end -->"
@@ -380,9 +380,7 @@ def inspect_project_continuity(
     ]
     if check_skills:
         for name, version in HUB_OWNED_SKILLS.items():
-            items.append(
-                inspect_hub_skill(name, expected_version=version, project_dir=project_dir)
-            )
+            items.append(inspect_hub_skill(name, expected_version=version, project_dir=project_dir))
     return items
 
 

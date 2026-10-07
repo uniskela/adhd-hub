@@ -2,7 +2,7 @@
 
 | Tool | Purpose |
 |------|---------|
-| `session_digest` | Compact open threads (id, title, goal, focus, next, blocked, resume) + reminders + `guidance` (expected versions / last local verification status) |
+| `session_digest` | Compact open threads (id, title, goal, focus, next, blocked, resume, `completion`) + reminders + `guidance` (expected versions / last local verification status) |
 | `report_guidance_health` | Record versions **you** verified locally (doctor / setup `--check` / reading markers). Hub cannot inspect the client FS |
 | `check_overlap` | Rank open threads vs a query (uses goal/title/focus, not full PROGRESS.md) |
 | `resolve_project` | Map cwd → project slug (prefer `create_if_missing=false` for initial lookup) |
@@ -10,8 +10,8 @@
 | `list_open_threads` | Browse unfinished work |
 | `upsert_thread` | Create/update a thread (one finishable outcome; optional goal/focus/next) |
 | `upsert_progress` | Update structured active state + PROGRESS.md; pass `thread_id` when known; `force_new_thread` for a new outcome; may return `needs_thread_selection` |
-| `pause_thread` | Set resume_step on a known thread |
-| `mark_done` | Close a known thread |
+| `pause_thread` | Pause unfinished work; set concrete next resume step |
+| `mark_done` | Close a known thread when `completion.ready` / Goal done; do not retry if rejected for unfinished work |
 | `set_reminder` | once / session / daily / random |
 
 ## Keeping skills / AGENTS current

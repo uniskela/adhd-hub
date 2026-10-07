@@ -44,7 +44,7 @@ Stdio uses the configured `ADHD_HUB_DATA_DIR` and needs no bearer header. It doe
 
 Optional: run `adhd-hub index` on a machine that has `~/.claude/projects` transcripts so unfinished phrases / pending replies are posted as **summaries** to the hub (never auto-completes).
 
-Habits: `resolve_project` → `session_digest` → work → `upsert_progress` / `mark_done`.
+Habits: `resolve_project` → `session_digest` → work → `upsert_progress`; end with `mark_done` only when `completion.ready` / Goal done, otherwise `pause_thread`. If `mark_done` is rejected for unfinished work, do not retry — checkpoint + pause.
 
 ## Continuity guard (opt-in, medium strength)
 
