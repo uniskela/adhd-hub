@@ -2,72 +2,94 @@
 
 Point coding agents at a running ADHD Progress Hub without hand-editing every config file, and without putting the **server** access token in your shell.
 
-## Safer CLI connect (recommended)
+## Recommended connect flow
 
-Stay signed in to the Hub UI. In **Settings → Coding agents** copy the command (no token in it):
+Use this path when the Hub is already running and you want to connect a project or coding machine.
 
-### macOS / Linux / WSL / Git Bash
+### 1. Copy the command from the Hub
+
+Stay signed in to the Hub UI and open **Settings → Coding agents**. Copy the generated command.
+
+The generated command does **not** contain the server access token.
+
+### 2. Run it from the project you want to connect
+
+#### macOS / Linux / WSL / Git Bash
 
 ```bash
 curl -fsSL "$ADHD_HUB_PUBLIC_URL/install.sh" | sh -s -- /path/to/project
 ```
 
-### Windows PowerShell
+#### Windows PowerShell
 
-Prefer download-then-run (more reliable when `iex` is blocked by policy):
+Download-then-run is the most reliable option when `iex` is blocked:
 
 ```powershell
 iwr "$env:ADHD_HUB_PUBLIC_URL/install.ps1" -OutFile $env:TEMP\adhd-hub-install.ps1
 powershell -ExecutionPolicy Bypass -File $env:TEMP\adhd-hub-install.ps1 -Project 'C:\path\to\project'
 ```
 
-One-liner (when `iex` is allowed):
+If `iex` is allowed:
 
 ```powershell
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Project 'C:\path\to\project'"
 ```
 
-If `adhd-hub` is already on `PATH` and `uv` is available, re-running `install.sh` / `install.ps1` **refreshes** that CLI from this Hub’s wheel (`uv tool install --force`) before connect — so an old `0.7.x` tool install becomes this Hub’s version without a manual follow-up. Then the scripts prefer the refreshed `adhd-hub`, falling back to `uvx --from <this Hub’s wheel URL>` (GitHub git fallback). (`adhd-hub` is not on PyPI yet.)
+Choose a repository directory deliberately. `.` means the current directory, so running the installer from your home directory targets your home directory.
 
-If **none** of those tools are on `PATH`, the script explains that Hub connect needs the local **uv** toolchain + **adhd-hub** CLI (nothing remote is modified), then asks on a TTY:
+### 3. Approve this computer
 
-```text
-Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N]
+The CLI will:
+
+1. open your browser to the Hub, or print a short code such as `ABCD-WXYZ`;
+2. ask you to choose **Allow** in the browser, or enter the code under **Settings → Coding agents**;
+3. save a local CLI session in `~/.config/adhd-hub/credentials.json` with mode `0600`.
+
+That CLI session is local to the computer. It is **not** the server access token.
+
+### 4. Restart your coding agents and verify
+
+```bash
+adhd-hub doctor --hub "$ADHD_HUB_PUBLIC_URL" --project /path/to/project
 ```
 
-Answer `y` to install uv via Astral’s official installer, `uv tool install --force` the CLI (overwrites a leftover `~/.local/bin/adhd-hub` shim — common after removing uv and re-testing), and continue connect. Answer `N` (default) to print manual steps and exit. Non-interactive runs (no `/dev/tty`, CI) never auto-install; set `ADHD_HUB_INSTALL_UV=1` to opt in for automation. After a successful `uvx` connect when `adhd-hub` is still missing, scripts may also offer a permanent CLI install (`ADHD_HUB_INSTALL_CLI=1` for non-interactive opt-in). Dry-run connect does not install or refresh the CLI.
+The install/connect summary separates successful checks from skipped or warning checks. Optional companion installs can partly succeed, so review **Needs attention** before assuming every agent reloaded correctly.
 
-The shell installer also discovers tools already installed under `~/.local/bin`,
-and uses `uv tool update-shell` to add missing tool directories to your shell
-profiles. This includes custom `UV_TOOL_BIN_DIR` locations. Reruns preserve
-existing profile settings; dry-run skips profile changes. If a profile update
-fails, the installer prints a warning and recovery commands.
+## What the installer handles
 
-A script piped into `sh` cannot change the calling shell's PATH. When needed,
-the installer ends with commands to run in **your current terminal**:
+The bootstrap scripts try the least disruptive path first:
+
+- If `adhd-hub` is already on `PATH` and `uv` is available, they refresh the CLI from this Hub's wheel before connecting.
+- Otherwise they can fall back to `uvx --from <this Hub's wheel URL>`, then GitHub if the wheel URL is unavailable.
+- If `uv` is missing, interactive runs ask before using Astral's official installer.
+- Non-interactive runs never install `uv` automatically unless `ADHD_HUB_INSTALL_UV=1` is set.
+- After an ephemeral `uvx` connect, the script may offer to install the CLI permanently. Non-interactive opt-in is `ADHD_HUB_INSTALL_CLI=1`.
+- Dry-run connect does not install or refresh the CLI.
+
+If no supported toolchain is available, the script prints the manual recovery steps instead of modifying the machine silently.
+
+### PATH fixes
+
+The shell installer checks common tool locations such as `~/.local/bin` and custom `UV_TOOL_BIN_DIR` paths. It can run `uv tool update-shell` to update shell profiles without replacing unrelated profile settings.
+
+A script piped into `sh` cannot modify the **current** shell process. If needed, it prints commands such as:
 
 ```bash
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 export PATH="$(uv tool dir --bin):$PATH"
 ```
 
-Restart your coding agents after this, then verify with
-`adhd-hub doctor --hub "$ADHD_HUB_PUBLIC_URL" --project /path/to/project`.
-Choose a repository directory: `.` means your current directory, so running
-the installer from your home directory targets that home directory.
+Run those in the current terminal, restart your coding agents, then run `adhd-hub doctor` again.
 
-The completion summary counts successful setup checks separately from skipped
-checks. It does not certify that every agent has reloaded its MCP connection.
-Global skill installations can partly succeed while the upstream skills CLI
-exits zero; these appear under **Needs attention**. Eve and PromptScript, for
-example, require project-local skills. Use `--agents cursor,codex,claude,openclaw`
-to limit installation to the agents you use rather than targeting `*`.
+### Agent selection
 
-What happens next:
+Use the same explicit agent list you actually use, for example:
 
-1. The CLI opens your browser to this Hub (or prints a short code like `ABCD-WXYZ`).
-2. Press **Allow** in the browser prompt (or type the code under **Settings → Coding agents** and choose **Allow this computer**).
-3. The CLI saves a **CLI session** under `~/.config/adhd-hub/credentials.json` (mode `0600`). That file is local to this computer.
+```bash
+--agents cursor,codex,claude,openclaw
+```
+
+This avoids installing optional integrations for agents that are not part of your workflow. Eve and PromptScript, for example, require project-local skills and can otherwise show up as warnings.
 
 ### Windows TLS note
 
