@@ -53,7 +53,7 @@ When the outcome is genuinely complete, call `mark_done` for that known thread o
 Do not invent Hub state or claim a write succeeded.
 
 1. Detect the problem from the MCP tool surface: missing tools, errors, unauthorised responses, or auth failures.
-2. Warn once on the first substantial Hub-worthy turn after the outage is detected.
+2. On the first substantial Hub-worthy turn after the outage is detected, make the reply's first line state that Hub MCP is unavailable and include a short recovery hint: check this Hub's `/mcp` endpoint and `ADHD_HUB_AUTH_TOKEN`, restart the agent, and cancel a stalled Auth flow until Hub OAuth is enabled. Repeat the warning only if Hub status changes, another persistence attempt fails, or the reply could otherwise imply continuity was saved.
 3. Continue with repository tools when possible.
 4. If forge issue-write access is authorised for the Hub inbox, create or update a `[ADHD] ...` issue with a short **Goal / Focus / Next / Resume** handoff.
 5. If neither Hub nor forge persistence is available, continue the work but make the missing continuity explicit.
