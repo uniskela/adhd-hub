@@ -1,0 +1,134 @@
+/* ADHD Progress Hub · Product Hunt film.
+   Every value that changes over time is written by promo.js from seek(t).
+   Nothing here may animate on its own: no transitions, no keyframes. */
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: block;
+  src: url("../../src/adhd_hub/ui/brand/figtree-latin.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: block;
+  src: url("../../src/adhd_hub/ui/brand/figtree-latin-ext.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* Light — app.css :root */
+  --paper: #f7f6f3; --card: #ffffff; --surface: #efede8;
+  --ink: #1f2328; --ink-soft: #454a52; --muted: #5f6570;
+  --line: #e6e4de; --line-soft: #efede8; --control-line: #d9d7d0;
+  --accent: #176b60; --accent-soft: #e3f0ec; --accent-tint: #f2f8f6; --accent-strong: #115348;
+  --ok: #24704d; --gold: #efc978;
+  /* Dark — app.css [data-theme="dark"] */
+  --d-canvas: #15171a; --d-card: #1d2024; --d-ink: #eceef0; --d-ink-soft: #c9cdd2;
+  --d-muted: #a9aeb5; --d-line: #33373d; --d-control-line: #474c53; --d-mint: #7fc8b8;
+  --font: "Figtree", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; transition: none !important; animation: none !important; }
+html, body { margin: 0; height: 100%; background: #e9e7e2; font-family: var(--font); -webkit-font-smoothing: antialiased; }
+
+/* ---------- stage ---------- */
+#viewport { position: relative; width: 100%; height: calc(100% - 64px); overflow: hidden; }
+#frame { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--font); contain: strict; }
+#stage * { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 0 0; white-space: nowrap; }
+#stage .flow, #stage .flow * { position: static; }
+#stage .flow { position: absolute; }
+#stage svg, #stage svg * { position: static; }
+#stage svg.layer { position: absolute; }
+
+body.capture #viewport { width: 1920px; height: 1080px; display: block; }
+body.capture #frame { transform: none !important; }
+body.capture #controls { display: none; }
+
+/* ---------- motif ---------- */
+.dot { width: 20px; height: 20px; border-radius: 50%; background: var(--gold); }
+.mask { border-radius: 50%; }
+
+/* ---------- type ---------- */
+.caption { width: 1920px; text-align: center; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
+#stage .caption .w { position: relative; display: inline-block; }
+.env { font-size: 30px; line-height: 40px; font-weight: 600; color: var(--muted); letter-spacing: -0.01em; }
+.chip { height: 52px; border-radius: 12px; background: var(--card); border: 1.5px solid var(--line); }
+.mtext { font-size: 40px; line-height: 1.2; letter-spacing: -0.015em; }
+
+/* ---------- reconstructed UI (real px, scaled by the group) ---------- */
+.shell { background: var(--card); border: 1px solid var(--line); box-shadow: 0 1px 2px rgb(31 35 40 / .04), 0 8px 24px rgb(31 35 40 / .05); }
+.ui { width: 720px; height: 10px; color: var(--ink); }
+.eyebrow { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--accent); }
+.meta { font-size: 15px; line-height: 22px; color: var(--muted); }
+.menu { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--control-line); background: var(--card); }
+#stage .menu i { left: 13px; top: 20px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+.panel { background: var(--accent-tint); border-radius: 12px; }
+.plabel { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--accent-strong); }
+.ptext { font-size: 17px; line-height: 26px; color: var(--ink); }
+.btns { display: flex; gap: 12px; }
+#stage .btn { display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 10px; font-size: 15px; font-weight: 600; border: 1px solid transparent; }
+#stage .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 1px 2px rgb(31 35 40 / .08); }
+#stage .btn.ghost { background: var(--card); border-color: var(--control-line); color: var(--ink); }
+.divider { width: 656px; height: 1px; background: var(--line-soft); }
+.notes { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--ink); }
+#stage .notes b { position: relative; display: inline-block; width: 0; height: 0; margin: 0 9px 1px 1px; border-left: 7px solid var(--ink); border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; }
+.cue { font-size: 16px; line-height: 24px; color: var(--muted); }
+.flabel { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--ink); }
+.field { border: 1px solid var(--control-line); border-radius: 10px; background: var(--card); }
+.placeholder { font-size: 16px; line-height: 24px; color: var(--muted); }
+#stage .caret { position: relative; display: inline-block; width: 2px; height: 26px; margin-left: 1px; vertical-align: -6px; background: var(--ink); }
+.toast { width: 360px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); box-shadow: 0 8px 24px rgb(31 35 40 / .12); }
+.toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.toast-text { font-size: 15px; line-height: 22px; color: var(--ink); }
+.toast-x { font-size: 18px; line-height: 22px; color: var(--muted); }
+
+/* My work (real px, scaled) */
+.mw { width: 1200px; height: 10px; }
+.mw-h1 { font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
+.mw-sub { font-size: 17px; line-height: 24px; color: var(--ink-soft); }
+.search { width: 376px; height: 44px; border-radius: 10px; border: 1px solid var(--control-line); background: var(--card); }
+.search-text { font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-soft); }
+.newbtn { height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--control-line); background: var(--card); font-size: 16px; line-height: 42px; font-weight: 600; }
+.rail-h { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--muted); }
+.proj { width: 300px; height: 44px; border-radius: 10px; }
+.proj.active { background: var(--accent-soft); }
+.proj-name { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink); }
+.proj.active .proj-name { color: var(--accent-strong); }
+.proj-count { font-size: 13px; line-height: 20px; color: var(--ink-soft); }
+.list-h { font-size: 20px; line-height: 28px; font-weight: 700; letter-spacing: -0.01em; }
+.seg { height: 40px; border-radius: 10px; background: var(--surface); }
+.tab { height: 34px; border-radius: 8px; font-size: 15px; line-height: 34px; font-weight: 500; color: var(--ink-soft); }
+.tab.active { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(31 35 40 / .08); }
+#stage .tab span { position: static; margin-left: 9px; font-size: 13px; color: var(--muted); font-weight: 500; }
+.row-bg { width: 849px; height: 103px; }
+.row-title { font-size: 16px; line-height: 22.4px; font-weight: 600; letter-spacing: -0.015em; }
+.row-scan { font-size: 14px; line-height: 21px; color: var(--ink-soft); }
+.row-proj { font-size: 13px; line-height: 19.5px; color: var(--muted); }
+.row-when { font-size: 13px; line-height: 19.5px; color: var(--muted); }
+.row-badge { padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; line-height: 16px; font-weight: 600; }
+.row-line { width: 849px; height: 1px; background: var(--line-soft); }
+.row-edge { width: 3px; height: 103px; background: var(--accent); }
+
+/* Agent scene (dark) */
+.pill { height: 72px; padding: 0 30px; border-radius: 15px; background: var(--d-card); border: 1.5px solid var(--d-control-line); color: var(--d-ink); font-size: 28px; line-height: 69px; font-weight: 600; letter-spacing: -0.01em; }
+.tool { font-size: 22px; line-height: 28px; font-weight: 600; color: var(--d-mint); }
+.result { font-size: 20px; line-height: 26px; color: var(--d-muted); }
+.hub-name { font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -0.02em; }
+.hub-meta { font-size: 19px; line-height: 26px; color: var(--d-muted); }
+.hub-left { font-size: 20px; line-height: 28px; color: var(--d-ink-soft); }
+
+/* End card */
+.endline { width: 1920px; text-align: center; }
+.cta { height: 72px; padding: 0 34px; border-radius: 15px; background: var(--accent); color: #fff; font-size: 28px; line-height: 72px; font-weight: 600; letter-spacing: -0.005em; }
+
+/* ---------- preview controls (not part of the film) ---------- */
+#controls { height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 18px; background: #1d2024; color: #eceef0; font: 500 14px/1 var(--font); }
+#controls button { height: 36px; min-width: 44px; padding: 0 12px; border: 1px solid #474c53; border-radius: 10px; background: #272b30; color: inherit; font: inherit; cursor: pointer; }
+#controls button:focus-visible, #scrub:focus-visible { outline: 3px solid #7fc8b8; outline-offset: 2px; }
+#scrub { flex: 1; accent-color: #7fc8b8; }
+#time { font-variant-numeric: tabular-nums; min-width: 168px; text-align: right; color: #a9aeb5; }

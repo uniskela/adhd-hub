@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Progress Hub launch film</title>
+  <link rel="stylesheet" href="promo.css">
+</head>
+<body>
+  <!-- 1920×1080 composition. Preview scales it to fit; ?capture=1 renders it 1:1 for frame export. -->
+  <div id="viewport"><div id="frame"><div id="stage" aria-label="ADHD Progress Hub launch film"></div></div></div>
+
+  <div id="controls" role="group" aria-label="Playback">
+    <button type="button" id="play" aria-label="Play">Play</button>
+    <button type="button" id="prev" aria-label="Previous frame">‹</button>
+    <button type="button" id="next" aria-label="Next frame">›</button>
+    <button type="button" id="beat" aria-label="Jump to next beat">Next beat</button>
+    <input id="scrub" type="range" min="0" max="17.5" step="0.0166667" value="0" aria-label="Time">
+    <span id="time">0.000 s · f 0</span>
+  </div>
+
+  <script src="promo.js"></script>
+  <script>
+    /* Preview shell only. Playback maps wall-clock to t and calls promo.seek(t);
+       the film itself never depends on timing, so any frame can be reached directly. */
+    (() => {
+      const q = new URLSearchParams(location.search);
+      const capture = q.has("capture");
+      if (capture) document.body.classList.add("capture");
+      const frame = document.getElementById("frame");
+      const viewport = document.getElementById("viewport");
+      const scrub = document.getElementById("scrub");
+      const time = document.getElementById("time");
+      const play = document.getElementById("play");
+      let t = parseFloat(q.get("t") || "0") || 0;
+      let playing = false, t0 = 0, w0 = 0;
+
+      function fit() {
+        if (capture) return;
+        const s = Math.min(viewport.clientWidth / 1920, viewport.clientHeight / 1080);
+        const ox = (viewport.clientWidth - 1920 * s) / 2, oy = (viewport.clientHeight - 1080 * s) / 2;
+        frame.style.transform = `translate(${ox}px,${oy}px) scale(${s})`;
+      }
+      function show(next) {
+        const D = window.promo.duration;
+        t = Math.max(0, Math.min(D, next));
+        window.promo.seek(t);
+        scrub.value = t;
+        time.textContent = `${t.toFixed(3)} s · f ${Math.round(t * window.promo.fps)}`;
+      }
+      function tick(now) {
+        if (!playing) return;
+        const D = window.promo.duration;
+        show(((t0 + (now - w0) / 1000) % D + D) % D);
+        requestAnimationFrame(tick);
+      }
+      function toggle() {
+        playing = !playing;
+        play.textContent = playing ? "Pause" : "Play";
+        play.setAttribute("aria-label", playing ? "Pause" : "Play");
+        if (playing) { t0 = t; w0 = performance.now(); requestAnimationFrame(tick); }
+      }
+      function step(n) { if (playing) toggle(); show(Math.round(t * 60 + n) / 60); }
+      function nextBeat() {
+        if (playing) toggle();
+        const b = window.promo.beats.find((x) => x.t > t + 1e-3);
+        show(b ? b.t : 0);
+      }
+      document.addEventListener("promo:ready", () => {
+        fit();
+        show(t);
+        if (!capture && q.has("play")) toggle();
+      });
+      addEventListener("resize", fit);
+      play.addEventListener("click", toggle);
+      document.getElementById("prev").addEventListener("click", () => step(-1));
+      document.getElementById("next").addEventListener("click", () => step(1));
+      document.getElementById("beat").addEventListener("click", nextBeat);
+      scrub.addEventListener("input", () => { if (playing) toggle(); show(parseFloat(scrub.value)); });
+      addEventListener("keydown", (e) => {
+        if (e.target === scrub && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+        // A focused button keeps its native Space/Enter activation.
+        if (e.target instanceof HTMLButtonElement && (e.key === " " || e.key === "Enter")) return;
+        if (e.key === " ") { e.preventDefault(); toggle(); }
+        else if (e.key === "ArrowRight") step(e.shiftKey ? 30 : 1);
+        else if (e.key === "ArrowLeft") step(e.shiftKey ? -30 : -1);
+        else if (e.key === "b") nextBeat();
+      });
+    })();
+  </script>
+</body>
+</html>
