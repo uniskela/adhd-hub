@@ -968,6 +968,29 @@ class HubService:
             "delete_remote": delete_remote,
         }
 
+    def sample_data_status(self) -> dict:
+        from adhd_hub import sample_data as sample_pack
+
+        return sample_pack.sample_data_status(self)
+
+    def load_sample_data(self) -> dict:
+        """Insert generic sample pack alongside existing work. No-op if pack owned."""
+        from adhd_hub import sample_data as sample_pack
+
+        return sample_pack.load_sample_data(self)
+
+    def remove_sample_data(self) -> dict:
+        """Remove only meta-tracked sample-pack projects/threads."""
+        from adhd_hub import sample_data as sample_pack
+
+        return sample_pack.remove_sample_data(self)
+
+    def maybe_seed_demo_on_boot(self) -> dict | None:
+        """If ADHD_HUB_SEED_DEMO is set, load sample pack once (no-op when present)."""
+        if not self.settings.seed_demo:
+            return None
+        return self.load_sample_data()
+
     def request_delete_project(
         self,
         slug: str,

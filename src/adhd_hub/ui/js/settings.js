@@ -42,6 +42,9 @@ export function selectSettingsTab(name, focus = false) {
   });
   const content = document.querySelector("#settings-view .settings-content");
   if (content) content.scrollTop = 0;
+  if (next === "data") {
+    refreshSampleDataStatus().catch(() => {});
+  }
 }
 /** Checkbox ids for Helpful extras — keep in sync with index.html; Select all uses this. */
 export const CONNECT_COMPANION_IDS = [
@@ -941,6 +944,51 @@ export async function runForgeImport() {
     syncNeedsYou();
     await loadAll();
   }
+export async function refreshSampleDataStatus() {
+  const statusEl = $("sample-data-status");
+  const removeBtn = $("btn-sample-remove");
+  try {
+    const status = await api("/sample-data");
+    if (statusEl) {
+      statusEl.textContent = status.loaded
+        ? "Sample pack is loaded."
+        : "No sample pack loaded.";
+    }
+    // Show Remove when pack meta exists (even if a slug was replaced / unloaded).
+    if (removeBtn) removeBtn.hidden = !(status.loaded || status.owned);
+  } catch (_e) {
+    if (statusEl) statusEl.textContent = "";
+    if (removeBtn) removeBtn.hidden = true;
+  }
+}
+
+export async function loadSampleData() {
+  try {
+    const out = await api("/sample-data/load", { method: "POST" });
+    setMsg(
+      out.message ||
+        (out.already_loaded ? "Sample data already loaded" : "Sample data loaded")
+    );
+    await refreshSampleDataStatus();
+    if (!out.already_loaded) await loadAll();
+  } catch (e) {
+    setMsg(String(e.message || e), { variant: "error" });
+    await refreshSampleDataStatus();
+  }
+}
+
+export async function removeSampleData() {
+  const result = await confirmDialog({
+    title: "Remove sample data",
+    body: "This deletes only the sample pack (Demo website, Home admin, Learning notes). Your other projects and threads stay.",
+  });
+  if (!result.ok) return;
+  const out = await api("/sample-data/remove", { method: "POST" });
+  setMsg(out.message || "Sample data removed");
+  await refreshSampleDataStatus();
+  await loadAll();
+}
+
 export async function exportBackup() {
     const passphrase = ($("backup-passphrase")?.value || "").trim();
     const headers = { "X-Hub-Request": "1" };

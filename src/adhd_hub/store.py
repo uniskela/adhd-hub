@@ -2402,6 +2402,43 @@ class Store:
             "open_threads_cleared": int(open_count["c"]) if open_count else 0,
         }
 
+    def delete_threads_by_ids(self, thread_ids: list[str]) -> int:
+        """Hard-delete specific threads (sample-pack revert only)."""
+        ids = [tid for tid in thread_ids if tid]
+        if not ids:
+            return 0
+        placeholders = ", ".join("?" for _ in ids)
+        with self._conn() as conn:
+            cur = conn.execute(
+                f"DELETE FROM threads WHERE id IN ({placeholders})",
+                ids,
+            )
+            return int(cur.rowcount)
+
+    def delete_progress_notes_for_slugs(self, slugs: list[str]) -> int:
+        cleaned = [slugify(s) for s in slugs if s and slugify(s)]
+        if not cleaned:
+            return 0
+        placeholders = ", ".join("?" for _ in cleaned)
+        with self._conn() as conn:
+            cur = conn.execute(
+                f"DELETE FROM progress_notes WHERE project_slug IN ({placeholders})",
+                cleaned,
+            )
+            return int(cur.rowcount)
+
+    def backdate_thread(self, thread_id: str, updated_at_iso: str) -> int:
+        """Set updated_at on one thread (sample Quiet check-in)."""
+        if not thread_id:
+            return 0
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE threads SET updated_at = ?, last_reminded_at = NULL, "
+                "triage_snooze_until = NULL WHERE id = ?",
+                (updated_at_iso, thread_id),
+            )
+            return int(cur.rowcount)
+
     def thread_counts_by_project(self) -> dict[str, dict[str, int]]:
         with self._conn() as conn:
             rows = conn.execute(

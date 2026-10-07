@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, offerPendingConnect, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -251,6 +251,12 @@ $("btn-import-inbox").addEventListener("click", () =>
 );
 $("btn-export").addEventListener("click", () =>
   exportBackup().catch((e) => setMsg(String(e)))
+);
+$("btn-sample-load")?.addEventListener("click", () =>
+  loadSampleData().catch((e) => setMsg(String(e)))
+);
+$("btn-sample-remove")?.addEventListener("click", () =>
+  removeSampleData().catch((e) => setMsg(String(e)))
 );
 $("import-file").addEventListener("change", (e) => {
   const file = e.target.files && e.target.files[0];
