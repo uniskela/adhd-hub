@@ -1,0 +1,107 @@
+{
+  "checkpoints": [
+    {
+      "label": "0%",
+      "t": 0.0,
+      "file": "qa/00.000-0pct.png"
+    },
+    {
+      "label": "25%",
+      "t": 4.375,
+      "file": "qa/04.375-25pct.png"
+    },
+    {
+      "label": "50%",
+      "t": 8.75,
+      "file": "qa/08.750-50pct.png"
+    },
+    {
+      "label": "75%",
+      "t": 13.125,
+      "file": "qa/13.125-75pct.png"
+    },
+    {
+      "label": "100%",
+      "t": 17.5,
+      "file": "qa/17.500-100pct.png"
+    },
+    {
+      "label": "Fragments arrive",
+      "t": 0.45,
+      "file": "qa/00.450-fragments-arrive.png"
+    },
+    {
+      "label": "Where was I?",
+      "t": 2,
+      "file": "qa/02.000-where-was-i.png"
+    },
+    {
+      "label": "Hub catches the dot",
+      "t": 3,
+      "file": "qa/03.000-hub-catches-the-dot.png"
+    },
+    {
+      "label": "Resume cue",
+      "t": 4,
+      "file": "qa/04.000-resume-cue.png"
+    },
+    {
+      "label": "My work unfolds",
+      "t": 6,
+      "file": "qa/06.000-my-work-unfolds.png"
+    },
+    {
+      "label": "Agents connect",
+      "t": 8.5,
+      "file": "qa/08.500-agents-connect.png"
+    },
+    {
+      "label": "Save and pause",
+      "t": 12,
+      "file": "qa/12.000-save-and-pause.png"
+    },
+    {
+      "label": "Where you left off returns",
+      "t": 12.5,
+      "file": "qa/12.500-where-you-left-off-returns.png"
+    },
+    {
+      "label": "Logo lands",
+      "t": 14.5,
+      "file": "qa/14.500-logo-lands.png"
+    }
+  ],
+  "checks": {
+    "deterministic_seek": true,
+    "loop_first_equals_last": true,
+    "dot_max_step_px_at_240hz": 17.41,
+    "dot_max_step_time": 0.317,
+    "dot_max_step_px_per_frame_60fps": 69.6,
+    "dot_fastest_moments": [
+      {
+        "t": 0.317,
+        "px_per_frame_60fps": 69.6
+      },
+      {
+        "t": 2.033,
+        "px_per_frame_60fps": 66.8
+      },
+      {
+        "t": 9.171,
+        "px_per_frame_60fps": 64.9
+      },
+      {
+        "t": 11.046,
+        "px_per_frame_60fps": 64.6
+      },
+      {
+        "t": 1.008,
+        "px_per_frame_60fps": 64.6
+      }
+    ],
+    "dot_wrap_gap_px": 0.0,
+    "dot_always_in_frame": true,
+    "caption_overlaps": [],
+    "dot_over_caption": []
+  }
+}
