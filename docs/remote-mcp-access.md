@@ -2,7 +2,13 @@
 
 Use this when a cloud agent (Cursor Cloud, Codex cloud, Claude remote, and similar) cannot reach your Hub over Tailscale or LAN, but you still want **live MCP** instead of the [forge issue mailbox](forge-issue-inbox.md).
 
-Prefer a **private mesh** when the agent can join it. Use a **controlled HTTPS tunnel** when it cannot. Prefer the forge mailbox over any anonymous or unauthenticated public `/mcp`.
+Use the least-public path that works:
+
+1. **Private mesh** when the agent can join it.
+2. **Controlled HTTPS tunnel** when it cannot.
+3. **Forge mailbox** when durable live MCP is not practical.
+
+Never solve reachability by exposing anonymous or unauthenticated `/mcp`.
 
 ## Choose a path
 
@@ -15,6 +21,8 @@ Prefer a **private mesh** when the agent can join it. Use a **controlled HTTPS t
 Always-on reverse proxies (Caddy, nginx, Tailscale Serve) are covered in [Installation](installation.md#reverse-proxy-https-and-tailscale) and [Homelab deploy](deploy-homelab.md). This page is specifically about **exposing Hub MCP to remote/cloud agents**.
 
 ## Security checklist (required)
+
+Before exposing MCP beyond loopback, verify every item below:
 
 - **Strong `ADHD_HUB_AUTH_TOKEN`** — long random secret; never leave `change-me`, empty, or the `.env.example` placeholder when the Hub is reachable beyond loopback. The server **refuses to start** with a weak token if you also set a non-loopback bind, a non-loopback `ADHD_HUB_PUBLIC_URL`, or `ADHD_HUB_TRUST_PROXY_HEADERS`.
 - **No anonymous `/mcp`** — clients must send `Authorization: Bearer <token>` (or complete Hub OAuth). Dashboard cookies do **not** authorize MCP.
