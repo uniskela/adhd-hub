@@ -10,7 +10,10 @@ permissions:
 
 env:
   UV_PYTHON: "3.12"
-  UV_FROZEN: "true"
+  # Fail instead of silently re-resolving when uv.lock no longer matches
+  # pyproject.toml. Release Please bumps both files in the release PR
+  # (release-please-config.json extra-files), so this holds across releases.
+  UV_LOCKED: "true"
 
 concurrency:
   group: quality-${{ github.event.pull_request.number || github.ref }}
@@ -33,7 +36,7 @@ jobs:
           enable-cache: false
 
       - name: Sync development dependencies
-        run: uv sync --extra dev --frozen
+        run: uv sync --extra dev --locked
 
       - name: Run test suite
         run: uv run pytest -q
@@ -54,7 +57,7 @@ jobs:
           enable-cache: false
 
       - name: Sync development dependencies
-        run: uv sync --extra dev --frozen
+        run: uv sync --extra dev --locked
 
       - name: Run Ruff
         run: uv run ruff check src tests

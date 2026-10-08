@@ -12,7 +12,7 @@ use `docs:` and similar. Agents: see [AGENTS.md](AGENTS.md); release overview in
 ## Dev setup
 
 ```bash
-uv sync --extra dev --frozen
+uv sync --extra dev --locked
 uv run pytest -q
 uv run ruff check src tests
 git diff --check
@@ -21,8 +21,21 @@ uv run adhd-hub serve --host 127.0.0.1 --port 8787
 
 Preview the public docs site locally with `uv run zensical serve` (after `uv sync --extra dev`).
 
-CI runs the full pytest suite and Ruff with Python 3.12 and the frozen `uv.lock`.
+CI runs the full pytest suite and Ruff with Python 3.12 and the locked `uv.lock`.
 The quality workflow is read-only: fixes belong in reviewed source changes.
+
+### Lockfile policy
+
+`uv.lock` must always match `pyproject.toml`. CI and the image build install with
+`--locked`, which fails when the lock is stale rather than re-resolving it
+(`--frozen` would skip that check and let the two drift apart).
+
+- Changed dependencies or other package metadata? Run `uv lock` and commit
+  `uv.lock` in the same PR. `uv lock --check` tells you whether it is current.
+- Do not bump the package version by hand. Release Please updates it in the
+  release PR, including the `adhd-hub` entry in `uv.lock` (the `uv.lock`
+  `extra-files` entry in `release-please-config.json`). Removing that entry
+  makes every release leave the lock one version behind.
 
 ## UI modules
 

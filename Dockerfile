@@ -24,7 +24,7 @@ RUN apt-get update \
  && apt-get upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 
-RUN uv sync --frozen --no-dev \
+RUN uv sync --locked --no-dev \
  && uv build --wheel -o /app/dist \
  && rm -rf /root/.cache/uv /root/.cache/pip
 
