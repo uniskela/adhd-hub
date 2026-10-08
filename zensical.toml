@@ -23,6 +23,7 @@ nav = [
   ]},
   { "Using the Hub" = [
     { "Dashboard" = "dashboard.md" },
+    { "Clock-Off backend contract" = "clock-off-api.md" },
     { "Notes & context" = "notes.md" },
     { "Coding companions" = "coding-companions.md" },
     { "Cursor plugin skill sync" = "cursor-plugin-skill-sync.md" },

@@ -4,7 +4,7 @@ import logging
 import random
 import threading
 from collections.abc import Callable
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from adhd_hub.ai_config import (
@@ -15,6 +15,7 @@ from adhd_hub.ai_config import (
 from adhd_hub.ai_config import (
     save_ai_config as persist_ai_config,
 )
+from adhd_hub.clock_off import ClockOffState, clock_off_state
 from adhd_hub.config import Settings
 from adhd_hub.events import (
     FORGE_RECONCILE_FAILED,
@@ -623,10 +624,31 @@ class HubService:
         return self._prefs
 
     def save_prefs(self, prefs: HubPrefs) -> HubPrefs:
-        self._prefs = prefs
         save_prefs(self.settings.data_dir, prefs)
+        self._prefs = prefs
         self.wiki.set_timezone(prefs.timezone)
         return prefs
+
+    def clock_off_state(self, *, now: datetime | None = None) -> ClockOffState:
+        prefs = self.prefs()
+        return clock_off_state(
+            prefs.clock_off,
+            timezone=prefs.timezone,
+            override_until=prefs.clock_off_override_until,
+            now=now,
+        )
+
+    def set_clock_off_override(self, minutes: int | None) -> None:
+        if minutes is not None and (type(minutes) is not int or not 1 <= minutes <= 1440):
+            raise ValueError("Clock-Off override minutes must be an integer from 1 to 1440")
+        from adhd_hub.timeutil import to_iso_utc
+
+        current = self.prefs().model_dump()
+        current["clock_off_override_until"] = (
+            to_iso_utc(datetime.now(UTC) + timedelta(minutes=minutes))
+            if minutes is not None else None
+        )
+        self.save_prefs(HubPrefs.model_validate(current))
 
     def forge_config(self, project_slug: str | None = None) -> ForgeConfig:
         return self._forge.forge_config(project_slug)
@@ -2474,6 +2496,7 @@ class HubService:
             "added_vs_finished": self.store.analytics_added_done(14, timezone=timezone),
             "projects": self.list_projects(),
             "timezone": self.prefs().timezone,
+            "clock_off": self.clock_off_state().model_dump(mode="json"),
             "pending_actions": self.list_pending_actions(),
             "due_reminders": [
                 r.model_dump(mode="json") for r in self.store.due_reminders()[:20]
@@ -2500,6 +2523,7 @@ class HubService:
             "projects": len(full.get("projects") or []),
             "pending_actions": len(full.get("pending_actions") or []),
             "timezone": full.get("timezone"),
+            "clock_off": full["clock_off"],
             "next_up": (
                 {
                     "id": next_up.get("id"),
@@ -3669,6 +3693,7 @@ class HubService:
             due_reminders=filtered[:10],
             wiki_index_snippet=self.wiki.index_snippet(),
             guidance=guidance_digest_payload(last_verified=last_verified),
+            clock_off=self.clock_off_state(),
         )
 
     def record_guidance_verification(

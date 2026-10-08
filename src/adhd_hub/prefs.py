@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
+from adhd_hub.clock_off import ClockOffSchedule
 from adhd_hub.companions import CONNECT_COMPANION_CHOICES
 
 CONNECT_SKILLS_MODES = ("global", "project", "off")
@@ -17,6 +18,22 @@ ConnectSkillsMode = Literal["global", "project", "off"]
 class HubPrefs(BaseModel):
     # IANA name, e.g. Australia/Sydney. Empty/"UTC" = Coordinated Universal Time.
     timezone: str = "UTC"
+    clock_off: ClockOffSchedule = Field(default_factory=ClockOffSchedule)
+    clock_off_override_until: str | None = None
+
+    @field_validator("clock_off_override_until")
+    @classmethod
+    def normalize_override(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from datetime import datetime
+
+        from adhd_hub.timeutil import to_iso_utc
+
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError("Clock-Off override must include a timezone offset")
+        return to_iso_utc(parsed)
     # Agents for install/connect defaults: cursor, codex, claude, and/or "*".
     # Empty = not configured in install scripts.
     connect_agents: list[str] = []

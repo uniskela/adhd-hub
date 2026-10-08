@@ -40,6 +40,13 @@ Session items and compact progress threads expose `completion.ready` and
 state; it does not verify a PR, deployment or remote task. When work remains,
 checkpoint and pause. Mark done only after the actual outcome is complete.
 
+`session_digest` and `get_overview` expose a global `clock_off` object with
+`normal`, `winding_down`, `clocked_off` or `overridden` state. This opt-in advisory
+guidance encourages finishing a small safe step, checkpointing and pausing with
+a concrete resume step. Disabled Clock-Off adds no guidance or restrictions.
+See the [Clock-Off API and UI contract](clock-off-api.md) for local 06:00 reset,
+timezone/DST rules and explicit temporary overrides.
+
 ## Output compatibility
 
 The five tools `session_digest`, `upsert_progress`, `resolve_project`,

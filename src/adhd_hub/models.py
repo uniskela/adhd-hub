@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from adhd_hub.clock_off import ClockOffState
 from adhd_hub.work_identity import ExternalIssueState, WorkSource
 
 
@@ -395,6 +396,7 @@ class SessionDigest(BaseModel):
     due_reminders: list[Reminder]
     wiki_index_snippet: str | None = None
     guidance: dict[str, Any] | None = None
+    clock_off: ClockOffState = Field(default_factory=ClockOffState)
 
     @model_serializer(mode="wrap")
     def _serialize_with_completion(self, serializer):
