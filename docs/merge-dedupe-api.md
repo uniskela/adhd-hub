@@ -95,7 +95,10 @@ The current generic approval banner cannot approve a merge without this body.
 Agents must not send confirmation on behalf of the human.
 
 Approval rereads snapshots and resolved ownership inside a SQLite write
-transaction. Changed state or newly attached forge provenance refuses the action;
+transaction. Reminder delivery and triage timestamps (`last_reminded_at` and
+`triage_snooze_until`) do not invalidate approval; their latest values are kept,
+and the saved review snapshots remain intact. Changed continuity, identity,
+provenance or ownership refuses the action;
 the human must reject the old action and request/review a fresh one. Source
 archival, target timestamp, a merge milestone, two `thread.merged` activity events
 and action approval commit together. A failed write rolls all of them back. The

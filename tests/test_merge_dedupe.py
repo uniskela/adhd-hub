@@ -285,6 +285,33 @@ def test_reject_changes_nothing(service):
     assert service.store.get_thread(target.id) == target
 
 
+@pytest.mark.parametrize("side", ["source", "target"])
+@pytest.mark.parametrize("operation", ["remind", "confirm", "snooze"])
+def test_reminder_and_triage_changes_do_not_invalidate_merge(service, side, operation):
+    source, target = pair(service)
+    tid = source.id if side == "source" else target.id
+    service.store.snooze_thread_triage(tid, days=7)
+    queued = service.request_thread_merge(source.id, target.id)
+    snapshot = queued["action"]["payload"][side]
+    if operation == "remind":
+        service.store.touch_reminded([tid])
+    elif operation == "confirm":
+        service.store.confirm_thread_relevant(tid)
+    else:
+        service.store.snooze_thread_triage(tid, days=14)
+    current = service.store.get_thread(tid).model_dump(mode="json")
+    changed = {field for field in snapshot if snapshot[field] != current[field]}
+    assert changed
+    assert changed <= {"last_reminded_at", "triage_snooze_until"}
+    aid = queued["action"]["id"]
+    approved = service.approve_pending_action(aid, confirm_merge=True)
+    assert approved["approved"] is True
+    assert approved["action"]["payload"] == queued["action"]["payload"]
+    retained = service.store.get_thread(tid).model_dump(mode="json")
+    for field in ("last_reminded_at", "triage_snooze_until"):
+        assert retained[field] == current[field]
+
+
 def test_rejection_racing_approval_reports_the_winner(service, monkeypatch):
     source, target = pair(service)
     aid = service.request_thread_merge(source.id, target.id)["action"]["id"]

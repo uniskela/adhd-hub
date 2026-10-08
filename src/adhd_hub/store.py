@@ -1883,7 +1883,14 @@ class Store:
             current = self._thread_merge_preview(conn, source_id, target_id)
             if not current["merge_allowed"]:
                 raise ValueError(f"merge_refused:{current['merge_blocked_reason']}")
-            if current != preview:
+            current_review, saved_review = current.copy(), preview.copy()
+            for snapshot in (current_review, saved_review):
+                for side in ("source", "target"):
+                    snapshot[side] = {
+                        field: value for field, value in snapshot[side].items()
+                        if field not in {"last_reminded_at", "triage_snooze_until"}
+                    }
+            if current_review != saved_review:
                 raise ValueError("merge_preview_stale: review and request a new merge")
             now = utcnow().isoformat()
             conn.execute(
