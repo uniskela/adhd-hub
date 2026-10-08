@@ -278,6 +278,17 @@ def test_mcp_checkpoint_pause_and_digest_carry_coaching(tmp_path: Path) -> None:
         digest = call("session_digest", {"query": "auth"})
         assert digest["items"][0]["return_cue"]["quality"] == "concrete"
 
+        listed = call("list_open_threads", {"project_slug": "alpha"})["result"]
+        assert listed[0]["return_cue"]["quality"] == "concrete"
+        assert listed[0]["resume_step"] == paused["resume_step"]
+
+        created = call(
+            "upsert_thread",
+            {"summary": "Docs tidy", "project_slug": "alpha", "resume_step": "Fix the issue"},
+        )
+        assert created["resume_step"] == "Fix the issue"
+        assert created["return_cue"]["signals"] == ["no_specifics"]
+
         # REST pause mirrors MCP for the dashboard.
         response = client.post(
             f"/api/threads/{saved['thread_id']}/pause",

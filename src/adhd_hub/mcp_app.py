@@ -14,10 +14,19 @@ from adhd_hub.models import (
     ProjectUpsert,
     ReminderCreate,
     ReminderKind,
+    Thread,
     ThreadStatus,
     ThreadUpsert,
 )
+from adhd_hub.return_cue import thread_return_cue
 from adhd_hub.service import HubService
+
+
+def _thread_dump(thread: Thread) -> dict[str, Any]:
+    """Raw thread dump plus advisory ``return_cue`` (no extra store reads)."""
+    data = thread.model_dump(mode="json")
+    data["return_cue"] = thread_return_cue(thread)
+    return data
 
 
 def build_mcp(service: HubService) -> MCPServer:
@@ -112,11 +121,12 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Filter by project or energy when narrowing existing work. Use
         session_digest when you want a session-start summary with reminders and
-        resume context instead of the raw thread list.
+        resume context instead of the raw thread list. Each thread carries
+        advisory return_cue coaching for its resume_step.
         """
         e = EnergyLevel(energy) if energy else None
         threads = service.list_open_threads(energy=e, project_slug=project_slug, limit=limit)
-        return [t.model_dump(mode="json") for t in threads]
+        return [_thread_dump(t) for t in threads]
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_projects(limit: Annotated[int, Field(ge=1, le=500)] = 100) -> list[dict[str, Any]]:
@@ -296,7 +306,7 @@ def build_mcp(service: HubService) -> MCPServer:
                 resume_step=resume_step,
             )
         )
-        return thread.model_dump(mode="json")
+        return _thread_dump(thread)
 
     @mcp.tool(
         annotations=ToolAnnotations(

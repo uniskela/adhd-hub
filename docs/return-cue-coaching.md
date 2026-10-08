@@ -33,16 +33,16 @@ No new tools or routes. The thread payloads listed below gain one `return_cue` k
 | MCP `upsert_progress` / `POST /api/progress` | `thread.return_cue`, `candidates[].return_cue` |
 | MCP `pause_thread` / `POST /api/threads/{id}/pause` | `return_cue` |
 | MCP `session_digest` / `GET /api/digest` | `items[].return_cue` |
+| MCP `list_open_threads`, `upsert_thread` | `return_cue` on each thread |
 | MCP `get_overview` | `next_up.return_cue`, `triage_candidates[].return_cue` |
 | `GET /api/overview` (`next_up`, `triage_candidates[]`), `GET /api/threads`, `GET /api/threads/{id}` | `return_cue` |
 
 `return_cue` is `null` for done, dismissed and merged threads. Existing fields
 are unchanged, so older clients can ignore the key.
 
-Raw thread dumps do not carry the key, the same as `completion`: MCP
-`list_open_threads`, `upsert_thread`, `mark_done`, and the thread objects inside
-`check_overlap` / `suggest_duplicate_threads` hits. Use `session_digest` or
-`get_overview` when coaching is wanted on a read.
+Not included: MCP `mark_done` (the thread is finished, so there is nothing to
+coach) and the thread objects inside `check_overlap` /
+`suggest_duplicate_threads` hits, which stay focused on overlap evidence.
 
 ## Shape
 
