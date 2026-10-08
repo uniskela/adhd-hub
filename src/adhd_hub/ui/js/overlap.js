@@ -22,6 +22,7 @@ let openNotes = async () => {};
 let onChanged = async () => {};
 let view = null;
 let busy = false;
+let confirmEpoch = 0;
 
 export function setOverlapHooks({ openThreadNotes, onChanged: changed } = {}) {
   if (openThreadNotes) openNotes = openThreadNotes;
@@ -145,86 +146,158 @@ function shownPair() {
   return { source, target, direction };
 }
 
+function stillConfirming(epoch) {
+  return epoch === confirmEpoch;
+}
+
+function lockReview(locked) {
+  $("overlap-body")?.querySelectorAll("button, input").forEach((el) => {
+    el.disabled = locked;
+  });
+}
+
+async function rejectQuiet(actionId) {
+  await api(rejectMergeRequest(actionId).path, {
+    method: "POST",
+    body: JSON.stringify(rejectMergeRequest(actionId).body),
+  });
+}
+
+function successView(thread, keptId, projectionWarning) {
+  return {
+    phase: "success",
+    thread,
+    hits: view?.hits,
+    keptId,
+    targetId: keptId,
+    projectionWarning: projectionWarning || "",
+  };
+}
+
 async function runConfirm() {
-  if (busy || !view) return;
+  if (busy || !view || view.phase !== "confirm") return;
+  const epoch = confirmEpoch;
+  const review = view;
+  const pair = review.pendingActionId ? null : shownPair();
+  const keptId = pair ? pair.direction.targetId : review.target?.id;
   busy = true;
+  lockReview(true);
+  let actionId = review.pendingActionId || null;
+  let createdAction = false;
+  let saved = false;
   try {
-    let actionId = view.pendingActionId || null;
     if (!actionId) {
-      const { source, target, direction } = shownPair();
-      const queued = await api(queueMergeRequest(direction.sourceId, direction.targetId).path, {
+      const queued = await api(queueMergeRequest(pair.direction.sourceId, pair.direction.targetId).path, {
         method: "POST",
-        body: JSON.stringify(queueMergeRequest(direction.sourceId, direction.targetId).body),
+        body: JSON.stringify(queueMergeRequest(pair.direction.sourceId, pair.direction.targetId).body),
       });
+      if (!stillConfirming(epoch)) {
+        if (queued?.pending && queued.action?.id) await rejectQuiet(queued.action.id).catch(() => {});
+        if (dialog()?.open) paint({ phase: "list", thread: review.thread, hits: review.hits || [] });
+        return;
+      }
       if (!queued?.pending || !queued.merge_allowed) {
         paint({
           phase: "refused",
-          thread: view.thread,
-          hits: view.hits,
+          thread: review.thread,
+          hits: review.hits,
           message: queued?.message,
           reason: queued?.reason,
         });
         return;
       }
       actionId = queued.action?.id;
-      if (previewIsStale(source, target, queued.action?.payload)) {
-        paint({ phase: "stale", thread: view.thread, hits: view.hits, actionId });
+      createdAction = true;
+      if (previewIsStale(pair.source, pair.target, queued.action?.payload)) {
+        paint({ phase: "stale", thread: review.thread, hits: review.hits, actionId });
         return;
       }
+    }
+    if (!stillConfirming(epoch)) {
+      if (createdAction && actionId) await rejectQuiet(actionId).catch(() => {});
+      if (dialog()?.open) paint({ phase: "list", thread: review.thread, hits: review.hits || [] });
+      return;
     }
     if (!actionId) {
       paint({
         phase: "error",
-        thread: view.thread,
+        thread: review.thread,
+        hits: review.hits,
         message: "The merge preview did not start. Nothing was combined.",
       });
       return;
     }
-    view = { ...view, pendingActionId: actionId };
     const approved = await api(approveMergeRequest(actionId).path, {
       method: "POST",
       body: JSON.stringify(approveMergeRequest(actionId).body),
     });
+    const savedId = approved?.result?.target_thread_id || keptId;
     if (approved?.already_resolved && !approved?.approved && !approved?.result) {
+      if (!stillConfirming(epoch)) return;
       paint({
         phase: "error",
-        thread: view.thread,
+        thread: review.thread,
+        hits: review.hits,
+        actionId,
         message: "This merge was already settled. Nothing else was changed.",
       });
       return;
     }
-    cache.delete(view.thread?.id);
-    paint({
-      phase: "success",
-      thread: view.thread,
-      targetId: approved?.result?.target_thread_id || view.target?.id,
-      projectionWarning: approved?.projection_warning
-        ? "The merge was saved. The local project page did not refresh. Use Refresh when you can."
-        : "",
-    });
-    await onChanged();
+    saved = true;
+    busy = false;
+    cache.delete(review.thread?.id);
+    const warning = approved?.projection_warning
+      ? "The merge was saved. The local project page did not refresh. Use Refresh when you can."
+      : "";
+    if (stillConfirming(epoch)) paint(successView(review.thread, savedId, warning));
+    try {
+      await onChanged();
+    } catch (_) {
+      if (stillConfirming(epoch)) {
+        paint(successView(
+          review.thread,
+          savedId,
+          "The merge was saved. The list did not refresh. Use Refresh when you can.",
+        ));
+      }
+    }
   } catch (error) {
+    if (!stillConfirming(epoch)) return;
+    if (saved) {
+      paint(successView(
+        review.thread,
+        keptId,
+        "The merge was saved. The list did not refresh. Use Refresh when you can.",
+      ));
+      return;
+    }
     if (isStaleMergeError(error.message)) {
-      paint({
-        phase: "stale",
-        thread: view?.thread,
-        hits: view?.hits,
-        actionId: view?.pendingActionId,
-      });
+      paint({ phase: "stale", thread: review.thread, hits: review.hits, actionId });
+      return;
+    }
+    if (!error.status && actionId) {
+      paint({ phase: "unknown", thread: review.thread, hits: review.hits, actionId, keptId });
       return;
     }
     paint({
       phase: "error",
-      thread: view?.thread,
+      thread: review.thread,
+      hits: review.hits,
+      actionId: createdAction ? actionId : review.pendingActionId,
       message: "Could not finish the merge. Nothing was combined.",
     });
   } finally {
     busy = false;
+    lockReview(false);
   }
 }
 
 async function onAction(action, threadId) {
   if (!view) return;
+  if (busy) {
+    if (action === "back") confirmEpoch += 1;
+    return;
+  }
   if (action === "dismiss" && threadId && view.thread?.id) {
     const key = `${view.thread.id}:${threadId}`;
     const next = readDismissed();
@@ -367,8 +440,11 @@ export function bindOverlapReview() {
       });
     });
   });
+  dialog()?.addEventListener("close", () => {
+    if (busy) confirmEpoch += 1;
+  });
   root.addEventListener("change", (event) => {
-    if (event.target?.name !== "overlap-keep" || view?.phase !== "confirm" || view.directionLocked) return;
+    if (busy || event.target?.name !== "overlap-keep" || view?.phase !== "confirm" || view.directionLocked) return;
     const keep = event.target.value === "other" ? "other" : "current";
     const source = keep === "other" ? view.thread : view.candidate;
     const target = keep === "other" ? view.candidate : view.thread;

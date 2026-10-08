@@ -301,8 +301,16 @@ export function renderOverlap(model) {
     ])}`;
   }
   if (phase === "error") {
+    const aside = model.actionId ? button("reject", "Set this preview aside", "ghost") : "";
     return `<p class="overlap-status" role="status">${escapeHtml(model.message || "Could not load suggestions. Nothing was changed.")}</p>${actions([
+      aside,
       button("retry", "Try again", "ghost"),
+    ])}`;
+  }
+  if (phase === "unknown") {
+    return `<p class="overlap-status" role="status">The hub did not answer. This merge might already be saved. Look again before confirming another one.</p>${actions([
+      model.actionId ? button("reject", "Set this preview aside", "ghost") : "",
+      button("retry", "Look again", "ghost"),
     ])}`;
   }
   if (phase === "list") {

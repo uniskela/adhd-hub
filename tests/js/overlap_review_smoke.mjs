@@ -146,6 +146,12 @@ assert(
 );
 assert(!previewIsStale(other, current, { source: other, target: current }), "matching snapshots are current");
 
+const unknown = renderOverlap({ phase: "unknown", actionId: "act" });
+calm(unknown, "unknown");
+assert(unknown.includes("might already be saved"), "an unanswered merge stays uncertain");
+assert(unknown.includes("Set this preview aside"), "an uncertain preview can be set aside");
+assert(overlapJs.includes("keptId"), "retained notes use the step the merge kept");
+assert(overlapJs.includes("confirmEpoch"), "leaving during confirm does not approve afterwards");
 assert(overlapJs.includes("approveMergeRequest"), "controller uses the confirm request");
 assert(!overlapJs.includes("confirm_merge"), "controller does not hand-build the confirm flag");
 assert(workJs.includes('a.kind === "merge_threads"'), "pending merges are recognized");
