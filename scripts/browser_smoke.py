@@ -222,7 +222,10 @@ def main():
                 expect(page.locator("[data-clock-day='5']")).to_be_checked()
                 expect(page.locator("#clock-off-lead")).to_have_value("20")
                 hub_zone = ZoneInfo(api_call("GET", "/prefs")["timezone"])
-                later = datetime.now(hub_zone) + timedelta(minutes=10)
+                now_local = datetime.now(hub_zone)
+                later = now_local + timedelta(minutes=10)
+                if later.date() != now_local.date():
+                    later = now_local - timedelta(minutes=1)
                 api_call(
                     "PUT",
                     "/prefs",
@@ -268,7 +271,9 @@ def main():
                     page.locator("#clock-off-enabled").uncheck()
                 assert cleared.value.ok
                 page.reload()
+                expect(page.locator("#now-view")).to_be_visible()
                 expect(page.locator("#clock-off-status")).to_be_hidden()
+                expect(reminder).to_be_visible()
                 # My work folds the same reminder into one quiet "Needs you" line.
                 page.get_by_role("button", name="My work", exact=True).click()
                 expect(page.locator("#needs-you-summary")).to_have_text("1 thing needs a quick look")

@@ -167,3 +167,13 @@ export function nextRefreshAt(envelope, now = new Date()) {
   if (!times.length) return null;
   return new Date(Math.min(...times));
 }
+
+/** Run calls one after another. A call made during an active run waits, then runs once. */
+export function chainCalls(start) {
+  let chain = Promise.resolve();
+  return function queued() {
+    const run = chain.then(start, start);
+    chain = run.then(() => undefined, () => undefined);
+    return run;
+  };
+}

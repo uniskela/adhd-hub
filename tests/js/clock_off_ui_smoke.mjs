@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  chainCalls,
   clockOffStatus,
   formatLocalClock,
   nextRefreshAt,
@@ -109,5 +110,19 @@ assert(block.includes("flex-wrap: wrap"), "days and actions wrap");
 assert(block.includes("@media (max-width: 480px)"), "narrow layout");
 assert(block.includes(".clock-off-overrides > button { flex: 1 1 calc(50% - .5rem); }"), "narrow override buttons");
 assert(!/\.clock-off-status[^{]*\{[^}]*animation/.test(css), "no status animation");
+
+let active = 0;
+let maxActive = 0;
+let reads = 0;
+const queued = chainCalls(async () => {
+  active += 1;
+  maxActive = Math.max(maxActive, active);
+  await Promise.resolve();
+  active -= 1;
+  return ++reads;
+});
+const results = await Promise.all([queued(), queued(), queued()]);
+assert(maxActive === 1, "status reads do not overlap");
+assert(results.join(",") === "1,2,3", "a refresh during a refresh still runs");
 
 console.log("clock_off_ui_smoke: ok");

@@ -1,13 +1,13 @@
 import { $, setMsg } from './state.js';
 import { api } from './api.js';
-import { clockOffStatus, nextRefreshAt, normalizeSchedule } from './clock-off.mjs';
+import { chainCalls, clockOffStatus, nextRefreshAt, normalizeSchedule } from './clock-off.mjs';
 
 let schedule = normalizeSchedule({});
 let filling = false;
 let saveGen = 0;
 let timer = 0;
-let refreshing = false;
 let staleCount = 0;
+let overrideBusy = false;
 
 export function rememberSchedule(raw) {
   schedule = normalizeSchedule(raw);
@@ -124,19 +124,15 @@ export function renderClockOffFromState(clockOff, now = new Date()) {
   return view;
 }
 
-export async function refreshClockOff() {
-  if (refreshing) return;
-  refreshing = true;
+export const refreshClockOff = chainCalls(async () => {
   try {
     const data = await api("/clock-off");
     if (data?.schedule) schedule = normalizeSchedule(data.schedule);
     renderClockOffFromState(data?.clock_off);
   } catch {
     /* Keep the last quiet status. The next visit or boundary reads again. */
-  } finally {
-    refreshing = false;
   }
-}
+});
 
 async function saveFromForm() {
   if (filling) return;
@@ -187,11 +183,19 @@ export function bindClockOff() {
   });
   $("clock-off-overrides")?.addEventListener("click", (event) => {
     const button = event.target.closest("button");
-    if (!button) return;
+    if (!button || overrideBusy || button.disabled) return;
+    overrideBusy = true;
+    const buttons = [...event.currentTarget.querySelectorAll("button")];
+    buttons.forEach((item) => { item.disabled = true; });
     const action = button.dataset.endOverride
       ? endOverride()
       : postOverride(Number(button.dataset.minutes));
-    action.catch((error) => setMsg(error.message || "Could not update Clock-Off"));
+    action
+      .catch((error) => setMsg(error.message || "Could not update Clock-Off"))
+      .finally(() => {
+        overrideBusy = false;
+        buttons.forEach((item) => { if (item.isConnected) item.disabled = false; });
+      });
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) refreshClockOff();
