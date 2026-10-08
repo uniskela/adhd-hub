@@ -21,6 +21,7 @@ from adhd_hub.events import (
     FORGE_RECONCILE_SUCCEEDED,
     THREAD_COMPLETED,
     THREAD_CREATED,
+    THREAD_MERGED,
     THREAD_PAUSED,
     THREAD_PROGRESS_UPDATED,
     THREAD_TRIAGE_CONFIRMED,
@@ -87,6 +88,7 @@ def _history_summary(event) -> str:
         THREAD_PROGRESS_UPDATED: "Progress updated",
         THREAD_COMPLETED: "Thread completed",
         THREAD_PAUSED: "Thread paused",
+        THREAD_MERGED: "Duplicate thread merged",
         THREAD_TRIAGE_CONFIRMED: "Still relevant confirmed",
         THREAD_TRIAGE_SNOOZED: "Triage snoozed",
         FORGE_RECONCILE_SUCCEEDED: "Forge sync succeeded",
@@ -1057,7 +1059,7 @@ class HubService:
     def list_pending_actions(self) -> list[dict]:
         return [a.model_dump(mode="json") for a in self.store.list_pending_actions()]
 
-    def approve_pending_action(self, action_id: str) -> dict:
+    def approve_pending_action(self, action_id: str, *, confirm_merge: bool = False) -> dict:
         from adhd_hub.models import PendingActionKind, PendingActionStatus
 
         action = self.store.get_pending_action(action_id)
@@ -1068,6 +1070,28 @@ class HubService:
                 "already_resolved": True,
                 "action": action.model_dump(mode="json"),
             }
+        if action.kind == PendingActionKind.merge_threads:
+            if confirm_merge is not True:
+                raise ValueError("merge_confirmation_required: a human must review both threads")
+            result = self.store.approve_thread_merge(action_id)
+            event_ids = result.pop("_event_ids", [])
+            if result.get("approved"):
+                target = self.store.get_thread(result["result"]["target_thread_id"])
+                # SQLite is authoritative; a failed local projection must not undo the merge.
+                try:
+                    self._sync_project_progress(target.project_slug, thread=target)
+                    self.wiki.rebuild_index(
+                        self.store.list_threads(status=ThreadStatus.open, limit=500)
+                    )
+                except OSError:
+                    result["projection_warning"] = (
+                        "Local wiki refresh failed; retry project refresh."
+                    )
+                for event_id in event_ids:
+                    event = self.store.get_activity_event(event_id)
+                    if event:
+                        self.event_bus.publish(event)
+            return result
         result: dict
         if action.kind == PendingActionKind.delete_project:
             result = self.delete_project(
@@ -1102,6 +1126,8 @@ class HubService:
                 "action": action.model_dump(mode="json"),
             }
         resolved = self.store.resolve_pending_action(action_id, PendingActionStatus.rejected)
+        if resolved and resolved.status != PendingActionStatus.rejected:
+            return {"already_resolved": True, "action": resolved.model_dump(mode="json")}
         return {
             "rejected": True,
             "action": resolved.model_dump(mode="json") if resolved else None,
@@ -3019,6 +3045,96 @@ class HubService:
             threads,
             limit=limit or self.settings.overlap_limit,
         )
+
+    def suggest_duplicate_threads(self, thread_id: str, *, limit: int = 5) -> dict:
+        source = self.store.get_thread(thread_id)
+        if not source:
+            raise KeyError(thread_id)
+        # ponytail: scan at most 500 project rows; paginate if review needs a full inventory.
+        threads = self.store.list_threads(status=None, project_slug=source.project_slug, limit=500)
+        candidates = [
+            t
+            for t in threads
+            if t.id != thread_id
+            and not t.merged_into
+            and t.status in (ThreadStatus.open, ThreadStatus.blocked)
+        ]
+        overlap = check_overlap(source.goal or source.summary, candidates, limit=limit)
+        for hit in overlap.hits:
+            if not source.goal or not source.goal.strip():
+                hit.outcome = "uncertain"
+                hit.evidence = ["source_goal_required"]
+            preview = self.store.thread_merge_preview(thread_id, hit.thread.id)
+            hit.merge_allowed = preview["merge_allowed"]
+            hit.merge_blocked_reason = preview["merge_blocked_reason"]
+            hit.evidence.append(
+                "same_project"
+                if source.project_slug == hit.thread.project_slug
+                else "different_projects"
+            )
+        return {
+            "thread_id": thread_id,
+            **overlap.model_dump(mode="json"),
+            "alternatives": ["review_separately", "link_in_progress_note"],
+        }
+
+    def request_thread_merge(
+        self, source_thread_id: str, target_thread_id: str, *, source_tool: str = "mcp"
+    ) -> dict:
+        from adhd_hub.models import PendingActionKind
+
+        preview = self.store.thread_merge_preview(source_thread_id, target_thread_id)
+        if not preview["merge_allowed"]:
+            explanations = {
+                "same_thread": "Choose two different threads.",
+                "already_merged": "A selected thread is already retained under another target.",
+                "unfinished_required": "Only unfinished threads can be merged.",
+                "different_projects": "Merges require the same recorded project.",
+                "goal_required": "Record a finishable goal on both threads before review.",
+                "distinct_outcomes": "The recorded goals differ; similarity cannot establish one outcome.",
+                "forge_authoritative": "A selected thread has forge authority or source provenance. "
+                "Its source issue and history must remain separate.",
+            }
+            return {
+                "pending": False,
+                "merge_allowed": False,
+                "reason": preview["merge_blocked_reason"],
+                "message": explanations[preview["merge_blocked_reason"]]
+                + " Review separately or link using a progress note.",
+                "alternatives": ["review_separately", "link_in_progress_note"],
+            }
+        action = self.store.create_pending_action(
+            kind=PendingActionKind.merge_threads,
+            payload=preview,
+            source_tool=source_tool,
+            reason="Human confirmation required; target state kept and source history retained.",
+        )
+        return {
+            "pending": True,
+            "merge_allowed": True,
+            "action": action.model_dump(mode="json"),
+            "message": "Awaiting human approval via pending-actions. No thread changed.",
+        }
+
+    def thread_merge_history(self, thread_id: str, *, limit: int = 50) -> dict:
+        if not self.store.get_thread(thread_id):
+            raise KeyError(thread_id)
+        items = []
+        for tid in self.store.merged_thread_ids(thread_id):
+            thread = self.store.get_thread(tid)
+            items.append(
+                {
+                    "thread": thread.model_dump(mode="json"),
+                    "notes": self.store.list_progress_notes(
+                        thread.project_slug, limit=limit, thread_id=tid
+                    ),
+                    "events": [
+                        e.public_dict()
+                        for e in self.store.list_activity_events(thread_id=tid, limit=limit)
+                    ],
+                }
+            )
+        return {"thread_id": thread_id, "items": items, "limit_per_thread": limit}
 
     def upsert_progress(self, payload: ProgressUpsert) -> dict:
         if not payload.project_slug and not payload.workspace_path:

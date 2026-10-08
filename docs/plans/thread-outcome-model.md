@@ -17,7 +17,8 @@ One thread = one independently finishable outcome.
 - Compact agent guidance (AGENTS block + session skill)
 - Independent Hub guidance schema versions (`AGENT_GUIDANCE_VERSION`, skill `hub_skill_version`)
 - `adhd-hub doctor --project` / `setup --check` drift detection; repair only via explicit setup/connect
-- **Forge board sync mirrors thread state** into a Hub-managed `<!-- adhd-hub:status:* -->` block per issue — not the whole project `PROGRESS.md`
+- **Forge-backed work is repo-authoritative** (B1/B2). Continuity never mirrors remote state by default; explicitly enabled publication changes only the Hub status block.
+- Wave 7 backend: deterministic duplicate review and explicitly human-confirmed local merges retain source threads and history; forge-backed pairs remain review-only. See [API contract](../merge-dedupe-api.md).
 
 ## Forge issue ownership
 

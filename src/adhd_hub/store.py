@@ -35,6 +35,7 @@ from adhd_hub.work_identity import (
     WorkSource,
     host_from_forge_browse_root,
     normalize_external_identity,
+    resolve_work_source,
     thread_has_external_identity,
 )
 
@@ -261,6 +262,7 @@ class Store:
                 "source_sync_state",
                 "source_conflicts",
                 "triage_snooze_until",
+                "merged_into",
             ):
                 if column not in thread_cols:
                     conn.execute(f"ALTER TABLE threads ADD COLUMN {column} TEXT")
@@ -369,6 +371,7 @@ class Store:
                 next_steps = []
         return Thread(
             id=row["id"],
+            merged_into=row["merged_into"] if "merged_into" in keys else None,
             summary=row["summary"],
             resume_step=row["resume_step"] if "resume_step" in keys else None,
             paused_at=(
@@ -456,8 +459,11 @@ class Store:
             else None
         )
         with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             existing = conn.execute("SELECT * FROM threads WHERE id = ?", (tid,)).fetchone()
             if existing:
+                if existing["merged_into"]:
+                    raise ValueError("merged_thread_read_only: update the merge target instead")
                 # Preserve structured fields when caller omits them (None).
                 goal = payload.goal if payload.goal is not None else existing["goal"]
                 focus = payload.focus if payload.focus is not None else existing["focus"]
@@ -652,6 +658,12 @@ class Store:
         """Atomically change status; retries preserve the original completion time."""
         now = utcnow()
         with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            existing = conn.execute(
+                "SELECT merged_into FROM threads WHERE id = ?", (thread_id,)
+            ).fetchone()
+            if existing and existing["merged_into"]:
+                raise ValueError("merged_thread_read_only: update the merge target instead")
             changed = (
                 conn.execute(
                     "UPDATE threads SET status = ?, updated_at = ? WHERE id = ? AND status <> ?",
@@ -678,6 +690,7 @@ class Store:
 
     def pause_thread(self, thread_id: str, next_step: str) -> Thread:
         with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
             if not row:
                 raise KeyError(thread_id)
@@ -706,6 +719,7 @@ class Store:
         """Acknowledge a stale thread is still relevant — never auto-dismisses."""
         now = utcnow().isoformat()
         with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
             if not row:
                 raise KeyError(thread_id)
@@ -729,6 +743,7 @@ class Store:
         quiet_days = max(1, min(30, int(days)))
         until = (utcnow() + timedelta(days=quiet_days)).isoformat()
         with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
             if not row:
                 raise KeyError(thread_id)
@@ -1243,6 +1258,8 @@ class Store:
         current = self.get_thread(thread_id)
         if not current:
             raise KeyError("thread_not_found")
+        if current.merged_into:
+            raise DuplicateExternalIdentityError("merged_thread_read_only: use the merge target")
         if thread_has_external_identity(current):
             pinned = normalize_external_identity(
                 current.external_provider or WorkSource.github,
@@ -1258,7 +1275,7 @@ class Store:
         now = utcnow().isoformat()
         with self._conn() as conn:
             try:
-                conn.execute(
+                changed = conn.execute(
                     """
                     UPDATE threads SET
                         work_source = ?,
@@ -1269,7 +1286,7 @@ class Store:
                         external_issue_number = ?,
                         external_issue_state = COALESCE(?, external_issue_state),
                         updated_at = ?
-                    WHERE id = ?
+                    WHERE id = ? AND merged_into IS NULL
                     """,
                     (
                         identity.provider.value,
@@ -1282,7 +1299,11 @@ class Store:
                         now,
                         thread_id,
                     ),
-                )
+                ).rowcount
+                if not changed:
+                    raise DuplicateExternalIdentityError(
+                        "merged_thread_read_only: review the source issue separately"
+                    )
             except sqlite3.IntegrityError as exc:
                 raise DuplicateExternalIdentityError(
                     "external identity already linked to another thread"
@@ -1801,6 +1822,137 @@ class Store:
             ).fetchone()
         return self._row_pending(row) if row else None
 
+    def _thread_merge_preview(
+        self, conn: sqlite3.Connection, source_id: str, target_id: str
+    ) -> dict[str, Any]:
+        from adhd_hub.overlap import merge_blocked_reason
+
+        threads = []
+        projects = []
+        legacy_links = []
+        for tid in (source_id, target_id):
+            row = conn.execute("SELECT * FROM threads WHERE id = ?", (tid,)).fetchone()
+            if not row:
+                raise KeyError(tid)
+            thread = self._row_thread(row)
+            threads.append(thread)
+            project_row = conn.execute(
+                "SELECT * FROM projects WHERE slug = ?", (thread.project_slug,)
+            ).fetchone()
+            projects.append(self._row_project(project_row) if project_row else None)
+            legacy_links.append(
+                bool(
+                    conn.execute(
+                        "SELECT value FROM meta WHERE key = ?", (f"forge_issue:{tid}",)
+                    ).fetchone()
+                )
+            )
+        reason = merge_blocked_reason(*threads, *projects)
+        if any(legacy_links):
+            reason = "forge_authoritative"
+        return {
+            "source": threads[0].model_dump(mode="json"),
+            "target": threads[1].model_dump(mode="json"),
+            "work_sources": [resolve_work_source(p, t).value for p, t in zip(projects, threads)],
+            "merge_allowed": reason is None,
+            "merge_blocked_reason": reason,
+            "policy": "Keep target state; retain source state and history under original IDs.",
+        }
+
+    def thread_merge_preview(self, source_id: str, target_id: str) -> dict[str, Any]:
+        with self._conn() as conn:
+            conn.execute("BEGIN")
+            return self._thread_merge_preview(conn, source_id, target_id)
+
+    def approve_thread_merge(self, action_id: str) -> dict[str, Any]:
+        """Validate the reviewed state and archive the source in one transaction."""
+        with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM pending_actions WHERE id = ?", (action_id,)
+            ).fetchone()
+            if not row:
+                raise KeyError(action_id)
+            action = self._row_pending(row)
+            if action.kind != PendingActionKind.merge_threads:
+                raise ValueError("merge_action_required")
+            if action.status != PendingActionStatus.pending:
+                return {"already_resolved": True, "action": action.model_dump(mode="json")}
+            preview = action.payload
+            source_id, target_id = preview["source"]["id"], preview["target"]["id"]
+            current = self._thread_merge_preview(conn, source_id, target_id)
+            if not current["merge_allowed"]:
+                raise ValueError(f"merge_refused:{current['merge_blocked_reason']}")
+            if current != preview:
+                raise ValueError("merge_preview_stale: review and request a new merge")
+            now = utcnow().isoformat()
+            conn.execute(
+                "UPDATE threads SET merged_into = ?, status = 'dismissed', updated_at = ? "
+                "WHERE id = ?",
+                (target_id, now, source_id),
+            )
+            conn.execute("UPDATE threads SET updated_at = ? WHERE id = ?", (now, target_id))
+            conn.execute(
+                "INSERT INTO progress_notes (id, project_slug, content, created_at, thread_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    uuid4().hex,
+                    current["target"]["project_slug"],
+                    (
+                        f"Human-confirmed merge: retained thread {source_id} under {target_id}; "
+                        "target state kept, source history unchanged."
+                    ),
+                    now,
+                    target_id,
+                ),
+            )
+            event_ids = []
+            for tid in (source_id, target_id):
+                event_id = uuid4().hex
+                event_ids.append(event_id)
+                conn.execute(
+                    "INSERT INTO activity_events (id, schema_version, event_type, created_at, "
+                    "project_slug, work_id, thread_id, actor, source, idempotency_key, metadata) "
+                    "VALUES (?, 1, 'thread.merged', ?, ?, ?, ?, 'ui', 'api', ?, ?)",
+                    (
+                        event_id,
+                        now,
+                        current["target"]["project_slug"],
+                        target_id,
+                        tid,
+                        f"merge:{action_id}:{tid}",
+                        json.dumps({"reason": "human_confirmed_merge"}),
+                    ),
+                )
+            conn.execute(
+                "UPDATE pending_actions SET status = 'approved', resolved_at = ? WHERE id = ?",
+                (now, action_id),
+            )
+            resolved = conn.execute(
+                "SELECT * FROM pending_actions WHERE id = ?", (action_id,)
+            ).fetchone()
+        return {
+            "approved": True,
+            "_event_ids": event_ids,
+            "action": self._row_pending(resolved).model_dump(mode="json"),
+            "result": {
+                "source_thread_id": source_id,
+                "target_thread_id": target_id,
+                "history_preserved": True,
+                "remote_changed": False,
+            },
+        }
+
+    def merged_thread_ids(self, target_id: str) -> list[str]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "WITH RECURSIVE retained(id) AS (SELECT id FROM threads WHERE id = ? "
+                "UNION SELECT t.id FROM threads t JOIN retained r ON t.merged_into = r.id) "
+                "SELECT id FROM retained ORDER BY id",
+                (target_id,),
+            ).fetchall()
+        return [row["id"] for row in rows]
+
     def resolve_pending_action(
         self, action_id: str, status: PendingActionStatus
     ) -> PendingAction | None:
@@ -1808,6 +1960,7 @@ class Store:
             raise ValueError("invalid_status")
         now = utcnow().isoformat()
         with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 "SELECT * FROM pending_actions WHERE id = ?", (action_id,)
             ).fetchone()

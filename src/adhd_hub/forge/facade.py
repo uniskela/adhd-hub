@@ -1265,6 +1265,11 @@ class ForgeFacade:
         thread = self._hub.store.get_thread(thread_id)
         if not thread:
             raise KeyError(f"thread not found: {thread_id}")
+        if thread.merged_into:
+            return {
+                "ok": False, "error": "merged_thread_read_only",
+                "target_thread_id": thread.merged_into,
+            }
         if thread_has_external_identity(thread):
             return {"ok": False, "error": "already_linked"}
         cfg = self.operational_forge_config(thread.project_slug)

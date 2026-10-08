@@ -1,0 +1,67 @@
+[
+  {
+    "name": "identical_goal",
+    "source_goal": "Ship DNS cutover",
+    "target_goal": "Ship DNS cutover",
+    "outcome": "same_outcome",
+    "merge_allowed": true,
+    "reason": null
+  },
+  {
+    "name": "normalized_identical_goal",
+    "source_goal": "Ship DNS cutover",
+    "target_goal": "  SHIP  DNS\ncutover  ",
+    "outcome": "same_outcome",
+    "merge_allowed": true,
+    "reason": null
+  },
+  {
+    "name": "distinct_delivery",
+    "source_goal": "Ship DNS cutover",
+    "target_goal": "Document DNS cutover",
+    "outcome": "related",
+    "merge_allowed": false,
+    "reason": "distinct_outcomes"
+  },
+  {
+    "name": "negation",
+    "source_goal": "Ship DNS cutover",
+    "target_goal": "Do not ship DNS cutover",
+    "outcome": "related",
+    "merge_allowed": false,
+    "reason": "distinct_outcomes"
+  },
+  {
+    "name": "different_issue",
+    "source_goal": "Ship DNS cutover for issue #54",
+    "target_goal": "Ship DNS cutover for issue #55",
+    "outcome": "related",
+    "merge_allowed": false,
+    "reason": "distinct_outcomes"
+  },
+  {
+    "name": "title_without_goal",
+    "source_goal": "Ship DNS cutover",
+    "target_goal": null,
+    "outcome": "uncertain",
+    "merge_allowed": false,
+    "reason": "goal_required"
+  },
+  {
+    "name": "missing_source_goal",
+    "source_goal": null,
+    "target_goal": "Ship DNS cutover",
+    "outcome": "uncertain",
+    "merge_allowed": false,
+    "reason": "goal_required"
+  },
+  {
+    "name": "local_and_forge",
+    "source_goal": "Ship DNS cutover",
+    "target_goal": "Ship DNS cutover",
+    "target_source": "github",
+    "outcome": "same_outcome",
+    "merge_allowed": false,
+    "reason": "forge_authoritative"
+  }
+]
