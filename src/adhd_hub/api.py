@@ -4,7 +4,7 @@ import zipfile
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from adhd_hub.ai_config import AiConfig
 from adhd_hub.models import (
@@ -27,6 +27,12 @@ from adhd_hub.models import (
 )
 from adhd_hub.openclaw_config import OpenClawConfig
 from adhd_hub.service import HubService
+
+
+class ClockOffOverrideRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: int = Field(strict=True, ge=1, le=1440)
 
 
 def build_router(service: HubService, auth_dep) -> APIRouter:
@@ -234,14 +240,37 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     def get_prefs():
         return service.prefs().public_dict()
 
+    @router.get("/clock-off", dependencies=[Depends(auth_dep)])
+    def get_clock_off():
+        return {
+            "schedule": service.prefs().clock_off.model_dump(),
+            "clock_off": service.clock_off_state().model_dump(mode="json"),
+        }
+
+    @router.post("/clock-off/override", dependencies=[Depends(auth_dep)])
+    def set_clock_off_override(payload: ClockOffOverrideRequest):
+        service.set_clock_off_override(payload.minutes)
+        return get_clock_off()
+
+    @router.delete("/clock-off/override", dependencies=[Depends(auth_dep)])
+    def cancel_clock_off_override():
+        service.set_clock_off_override(None)
+        return get_clock_off()
+
     @router.put("/prefs", dependencies=[Depends(auth_dep)])
     def put_prefs(payload: dict):
         from adhd_hub.prefs import HubPrefs
         from adhd_hub.project_setup import CONNECT_AGENT_CHOICES
         from adhd_hub.timeutil import validate_timezone
 
+        if "clock_off_override_until" in payload:
+            raise HTTPException(400, "Use /api/clock-off/override for temporary overrides")
         current = service.prefs().model_dump()
-        current.update({k: v for k, v in payload.items() if v is not None})
+        if "clock_off" in payload:
+            if not isinstance(payload["clock_off"], dict):
+                raise HTTPException(400, "clock_off must be an object")
+            current["clock_off"].update(payload["clock_off"])
+        current.update({k: v for k, v in payload.items() if v is not None and k != "clock_off"})
         try:
             current["timezone"] = validate_timezone(str(current.get("timezone") or "UTC"))
         except ValueError as exc:
@@ -307,7 +336,11 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
                         f"allowed: {', '.join(CONNECT_SKILLS_MODES)}",
                     )
                 current["connect_skills_mode"] = mode
-        return service.save_prefs(HubPrefs.model_validate(current)).public_dict()
+        try:
+            prefs = HubPrefs.model_validate(current)
+        except ValidationError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return service.save_prefs(prefs).public_dict()
 
     @router.get("/projects", dependencies=[Depends(auth_dep)])
     def list_projects(

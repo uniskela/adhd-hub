@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal, Required
 from pydantic import ConfigDict, Field
 from typing_extensions import TypedDict
 
+from adhd_hub.clock_off import ClockOffState
 from adhd_hub.models import EnergyLevel, ReminderKind, ThreadStatus
 from adhd_hub.work_identity import ExternalIssueState, WorkAuthority, WorkSource
 
@@ -169,6 +170,9 @@ class SessionDigestResult(OutputDict):
     due_reminders: list[ReminderResult]
     wiki_index_snippet: str | None
     guidance: GuidanceDigestResult | None
+    clock_off: Annotated[
+        ClockOffState, Field(description="Global opt-in advisory boundary and wrap-up guidance.")
+    ]
 
 
 class ProgressResult(OutputDict, total=False):

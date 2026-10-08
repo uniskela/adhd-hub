@@ -1008,6 +1008,9 @@ def build_mcp(service: HubService) -> MCPServer:
         Includes counts, next-up work, and due reminders. Use session_digest when
         you also need project-specific resume context or the progress wiki snippet.
         next_up and triage_candidates carry advisory return_cue coaching.
+        clock_off reports the global opt-in schedule boundary and advisory guidance:
+        finish a small safe step, checkpoint with upsert_progress and pause_thread
+        instead of starting substantial new work. The user can override temporarily.
         """
         return service.agent_overview()
 
@@ -1263,6 +1266,12 @@ def build_mcp(service: HubService) -> MCPServer:
         session action: it refreshes nudged threads' reminder cooldowns, marks
         surfaced non-session reminders fired, and builds a missing wiki index.
         Random reminders are sampled, so repeat calls may produce different results.
+
+        clock_off is the global opt-in advisory boundary. During winding_down or
+        clocked_off, avoid substantial new work, finish only a small safe step,
+        checkpoint with upsert_progress and pause_thread with a concrete resume
+        step. Respect explicit temporary overrides; no forced shutdown or strict
+        Continuity Guard is required. Disabled Clock-Off adds no work restrictions.
 
         Includes a `guidance` object (expected versions + last local verification
         status). The Hub cannot inspect the client's checkout — run
