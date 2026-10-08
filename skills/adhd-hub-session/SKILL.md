@@ -1,6 +1,6 @@
 ---
 name: adhd-hub-session
-hub_skill_version: 7
+hub_skill_version: 8
 description: >-
   ADHD Progress Hub continuity protocol for substantial coding work. Use the
   operator's adhd-hub MCP when starting/resuming meaningful project work,
@@ -87,13 +87,15 @@ At meaningful checkpoints, call `upsert_progress` with the **explicit** `thread_
 - `focus` — exactly one startable action
 - `next_steps` — max 3
 - `blocked_reason` — only when actually blocked (omit otherwise)
-- `resume_step` — one concrete re-entry instruction
+- `resume_step` — one concrete re-entry instruction: name what to open, run or check first ("Open service.py, finish the failing sync test, then run pytest", not "Continue later")
 - omit `content` on routine checkpoints; never write “Thread upserted from …” as note text
 - optional short `content` only for a rare human-meaningful event (decision, blocker, ship)
 
 Do not checkpoint trivial events. Prefer updating structured active state over restating a full narrative. If the response has `needs_thread_selection`, pick a candidate `thread_id` or set `force_new_thread=true` — never guess.
 
 Then `pause_thread(thread_id, next_step=...)` when leaving mid-task so resume is concrete.
+
+Checkpoint, pause and digest responses carry an advisory `return_cue` (`quality`: `missing` / `vague` / `concrete`, plus a short `hint`). It never blocks a save, pause or `mark_done`. When it is not `concrete` and you know the real first action from this session, send one improved `resume_step`; `return_cue.suggestion` only echoes the thread's own Focus/Next. Do not invent files or commands to satisfy it, and do not loop on it.
 
 ## Context switch
 

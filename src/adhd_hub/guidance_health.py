@@ -12,7 +12,7 @@ from pathlib import Path
 # Independent from package release version (pyproject). Bump only when Hub-owned
 # generated guidance or Hub-owned skill contracts change meaningfully.
 AGENT_GUIDANCE_VERSION = 7  # end-of-task: completion.ready + no-retry mark_done → pause
-SESSION_SKILL_VERSION = 7  # end-of-task lifecycle + completion readiness
+SESSION_SKILL_VERSION = 8  # advisory return_cue coaching on resume_step
 PROJECTS_SKILL_VERSION = 5  # forge mailbox gate + create_if_missing=false default
 ENV_CHECK_SKILL_VERSION = 3  # portable install layouts for check_runtime.sh
 CURSOR_RULE_VERSION = 7  # end-of-task: completion.ready + no-retry mark_done → pause

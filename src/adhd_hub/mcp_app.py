@@ -37,6 +37,9 @@ def build_mcp(service: HubService) -> MCPServer:
             "End of task: if completion.ready (or Goal truly done) mark_done that thread only; "
             "if work remains, upsert_progress then pause_thread — never mark_done. "
             "If mark_done is rejected for unfinished work, do not retry; checkpoint + pause. "
+            "Thread payloads include advisory return_cue coaching for resume_step "
+            "(missing/vague/concrete); it never blocks. Improve a weak cue once when you know "
+            "the real first action — never invent files or commands. "
             "Never save secrets or full transcripts."
         ),
     )
@@ -329,6 +332,9 @@ def build_mcp(service: HubService) -> MCPServer:
         force_new_thread explicitly starts another outcome. Depending on
         create_thread_if_missing, a missing thread may be created as a side effect.
         When completion.ready is false, prefer this plus pause_thread over mark_done.
+        The returned thread.return_cue is advisory coaching on resume_step
+        (quality missing / vague / concrete with a short hint); the save always
+        succeeds. Name what to open, run or check first, using only facts you know.
         """
         try:
             return service.upsert_progress(
@@ -396,7 +402,9 @@ def build_mcp(service: HubService) -> MCPServer:
         Use when the thread will continue later (including when completion.ready
         is false). This updates its pause/resume state; use mark_done for
         completed work or dismiss_thread for work being intentionally abandoned.
-        Requires the exact thread_id and next_step.
+        Requires the exact thread_id and next_step. Weak wording never blocks the
+        pause; the response's advisory return_cue says whether next_step names
+        something specific to open, run or check first.
         """
         step = next_step.strip()
         if not step:
@@ -480,6 +488,7 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Includes counts, next-up work, and due reminders. Use session_digest when
         you also need project-specific resume context or the progress wiki snippet.
+        next_up and triage_candidates carry advisory return_cue coaching.
         """
         return service.agent_overview()
 
@@ -587,7 +596,9 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Use after resolve_project. It combines relevant stale/open threads, due
         reminders, and the progress wiki snippet; query narrows overlap relevance
-        and energy can filter work to the operator's current capacity.
+        and energy can filter work to the operator's current capacity. Each item
+        carries completion readiness and advisory return_cue coaching for its
+        resume_step (deterministic, local, never blocking).
 
         Includes a `guidance` object (expected versions + last local verification
         status). The Hub cannot inspect the client's checkout — run

@@ -172,6 +172,7 @@ def milestone_text(
 
 
 def compact_thread_dict(thread: Thread) -> dict[str, Any]:
+    from adhd_hub.return_cue import thread_return_cue
     from adhd_hub.timeutil import to_iso_utc
 
     return {
@@ -187,4 +188,5 @@ def compact_thread_dict(thread: Thread) -> dict[str, Any]:
         "updated_at": to_iso_utc(thread.updated_at),
         "project_slug": thread.project_slug,
         "completion": completion_readiness(thread),
+        "return_cue": thread_return_cue(thread),
     }

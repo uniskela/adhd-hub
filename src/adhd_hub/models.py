@@ -398,8 +398,9 @@ class SessionDigest(BaseModel):
 
     @model_serializer(mode="wrap")
     def _serialize_with_completion(self, serializer):
-        """Attach deterministic ``completion`` on each item without a second store."""
+        """Attach deterministic ``completion`` / ``return_cue`` without a second store."""
         data = serializer(self)
+        from adhd_hub.return_cue import thread_return_cue
         from adhd_hub.thread_state import completion_readiness
 
         items = data.get("items")
@@ -409,6 +410,7 @@ class SessionDigest(BaseModel):
                 if isinstance(raw, dict):
                     row = dict(raw)
                     row["completion"] = completion_readiness(thread)
+                    row["return_cue"] = thread_return_cue(thread)
                     enriched.append(row)
                 else:
                     enriched.append(raw)

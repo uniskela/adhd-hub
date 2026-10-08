@@ -1778,6 +1778,10 @@ class HubService:
         from adhd_hub.thread_state import completion_readiness
 
         data["completion"] = completion_readiness(thread)
+        from adhd_hub.return_cue import thread_return_cue
+
+        # Advisory coaching only — never gates pause / save / completion.
+        data["return_cue"] = thread_return_cue(thread)
         return data
 
     @staticmethod
@@ -2502,6 +2506,7 @@ class HubService:
                     "summary": next_up.get("summary"),
                     "project_slug": next_up.get("project_slug"),
                     "resume_step": next_up.get("resume_step"),
+                    "return_cue": next_up.get("return_cue"),
                     "paused_at": next_up.get("paused_at"),
                 }
                 if isinstance(next_up, dict)
@@ -2516,6 +2521,7 @@ class HubService:
                     "summary": t.get("summary"),
                     "project_slug": t.get("project_slug"),
                     "resume_step": t.get("resume_step"),
+                    "return_cue": t.get("return_cue"),
                     "needs_triage": t.get("needs_triage"),
                 }
                 for t in (full.get("triage_candidates") or [])[:5]
