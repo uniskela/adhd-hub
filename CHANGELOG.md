@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.21.0](https://github.com/uniskela/adhd-hub/compare/v0.20.2...v0.21.0) (2026-10-08)
+
+
+### Features
+
+* **clock-off:** add opt-in backend schedule and MCP wind-down guidance ([#322](https://github.com/uniskela/adhd-hub/issues/322)) ([e2656cc](https://github.com/uniskela/adhd-hub/commit/e2656cc5e99fc4cc8217e466efb4d3b649b533a2))
+* **continuity:** add advisory return-cue coaching ([#317](https://github.com/uniskela/adhd-hub/issues/317)) ([1be8380](https://github.com/uniskela/adhd-hub/commit/1be8380b1b5be34dd6536cd21378f0ae8655976a))
+* **continuity:** add duplicate review and safe local thread merges ([#312](https://github.com/uniskela/adhd-hub/issues/312)) ([57a228f](https://github.com/uniskela/adhd-hub/commit/57a228f610fffc0f0c69f799c56d21fb4ce1b3ec))
+* non-destructive sample data load and remove ([#305](https://github.com/uniskela/adhd-hub/issues/305)) ([61e5286](https://github.com/uniskela/adhd-hub/commit/61e5286a031b9a9ce875ee3646634acc3781e266))
+* **ui:** add Clock-Off settings and a quiet Now status ([#323](https://github.com/uniskela/adhd-hub/issues/323)) ([7c27259](https://github.com/uniskela/adhd-hub/commit/7c2725951f13724131e79897f59a2f2e48f10471))
+* **ui:** coach return cues without blocking pause ([#320](https://github.com/uniskela/adhd-hub/issues/320)) ([898b0a6](https://github.com/uniskela/adhd-hub/commit/898b0a66f8997c7ba3ae955186a77b85509565c6))
+* **ui:** review possible thread overlap before any merge ([#315](https://github.com/uniskela/adhd-hub/issues/315)) ([94882a6](https://github.com/uniskela/adhd-hub/commit/94882a6b309b7189eeaa275688d1fe45f1e14ab4))
+
+
+### Bug Fixes
+
+* **ci:** enforce locked installs and keep uv.lock in step with releases ([#311](https://github.com/uniskela/adhd-hub/issues/311)) ([1e5ea5a](https://github.com/uniskela/adhd-hub/commit/1e5ea5a04468ac5116da4c8d868f36c6fdfd2f11)), closes [#102](https://github.com/uniskela/adhd-hub/issues/102)
+* **mcp:** publish usable schemas and compatible typed outputs ([#318](https://github.com/uniskela/adhd-hub/issues/318)) ([78d3dec](https://github.com/uniskela/adhd-hub/commit/78d3decc1a91083b28ac38fdf67a1c69c190a09b))
+* **skills:** make completion.ready an exclusive end-of-task rule ([#321](https://github.com/uniskela/adhd-hub/issues/321)) ([7ca8939](https://github.com/uniskela/adhd-hub/commit/7ca8939c950e3bac765f3a6cae5bb769b5c6a1ee))
+* stop mark_done retry loops on unfinished Hub threads ([2e85414](https://github.com/uniskela/adhd-hub/commit/2e85414522d043e21d224b9e4205e27e8333b1cb))
+
+
+### Documentation
+
+* add Context7 guidance for AI coding agents ([#313](https://github.com/uniskela/adhd-hub/issues/313)) ([19440ae](https://github.com/uniskela/adhd-hub/commit/19440aebbf74c4bb2126efd25d467541babc6cbf))
+* make wiki guides easier to scan and follow ([#302](https://github.com/uniskela/adhd-hub/issues/302)) ([0221ae0](https://github.com/uniskela/adhd-hub/commit/0221ae09c854bbe8b72c81c4d34c085eac238f15))
+* stamp README and roadmap for v0.20.2 ([#298](https://github.com/uniskela/adhd-hub/issues/298)) ([51a7f1f](https://github.com/uniskela/adhd-hub/commit/51a7f1f01afd1f5c0c1c4749bc9cdb679f312267))
+
 ## [0.20.2](https://github.com/uniskela/adhd-hub/compare/v0.20.1...v0.20.2) (2026-10-04)
 
 
