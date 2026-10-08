@@ -100,6 +100,8 @@ Put the decision-relevant parts first. A plan is a guide to the next decision, n
 - When I resume, I will <action>.
 ```
 
+A useful return cue names what to open, run or check first. The Hub gives quiet, non-blocking feedback on a thread's resume step; see [Return-cue coaching](return-cue-coaching.md).
+
 Keep one source of truth for a decision. Link to a detailed design, issue, or pull request rather than copying its full narrative into the plan.
 
 ## Writing patterns for shared work

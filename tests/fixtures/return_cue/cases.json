@@ -1,0 +1,20 @@
+[
+  {"name": "empty", "resume_step": null, "quality": "missing", "signals": ["empty"]},
+  {"name": "whitespace_only", "resume_step": "  \n ", "quality": "missing", "signals": ["empty"]},
+  {"name": "placeholder_tbd", "resume_step": "TBD", "quality": "vague", "signals": ["placeholder"]},
+  {"name": "placeholder_na", "resume_step": "n/a", "quality": "vague", "signals": ["placeholder"]},
+  {"name": "continue_later", "resume_step": "Continue later", "quality": "vague", "signals": ["no_specifics"]},
+  {"name": "fix_the_issue", "resume_step": "Fix the issue", "quality": "vague", "signals": ["no_specifics"]},
+  {"name": "pick_up_where_left_off", "resume_step": "Pick up where I left off tomorrow.", "quality": "vague", "signals": ["no_specifics"]},
+  {"name": "finish_the_rest", "resume_step": "finish the rest and/or fix remaining bugs", "quality": "vague", "signals": ["no_specifics"]},
+  {"name": "run_the_tests", "resume_step": "Run the tests", "quality": "vague", "signals": ["no_specifics"]},
+  {"name": "repeats_goal", "resume_step": "ship the DNS cutover.", "goal": "Ship the DNS cutover", "quality": "vague", "signals": ["repeats_goal"]},
+  {"name": "file_test_and_command", "resume_step": "Open service.py, finish the failing sync test, then run pytest", "quality": "concrete", "signals": []},
+  {"name": "reproduce_and_inspect", "resume_step": "Reproduce the auth error and inspect the failing OAuth callback test", "quality": "concrete", "signals": []},
+  {"name": "issue_reference", "resume_step": "Review #54", "quality": "concrete", "signals": []},
+  {"name": "inline_code", "resume_step": "Run `make check`", "quality": "concrete", "signals": []},
+  {"name": "named_command", "resume_step": "Run pytest", "quality": "concrete", "signals": []},
+  {"name": "non_coding_errand", "resume_step": "Call the dentist to move Tuesday's appointment", "quality": "concrete", "signals": []},
+  {"name": "non_coding_writing", "resume_step": "Draft the second paragraph of the cover letter", "quality": "concrete", "signals": []},
+  {"name": "non_english", "resume_step": "Llamar al banco por la hipoteca", "quality": "concrete", "signals": []}
+]

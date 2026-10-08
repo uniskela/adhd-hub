@@ -14,10 +14,19 @@ from adhd_hub.models import (
     ProjectUpsert,
     ReminderCreate,
     ReminderKind,
+    Thread,
     ThreadStatus,
     ThreadUpsert,
 )
+from adhd_hub.return_cue import thread_return_cue
 from adhd_hub.service import HubService
+
+
+def _thread_dump(thread: Thread) -> dict[str, Any]:
+    """Raw thread dump plus advisory ``return_cue`` (no extra store reads)."""
+    data = thread.model_dump(mode="json")
+    data["return_cue"] = thread_return_cue(thread)
+    return data
 
 
 def build_mcp(service: HubService) -> MCPServer:
@@ -37,6 +46,9 @@ def build_mcp(service: HubService) -> MCPServer:
             "End of task: if completion.ready (or Goal truly done) mark_done that thread only; "
             "if work remains, upsert_progress then pause_thread — never mark_done. "
             "If mark_done is rejected for unfinished work, do not retry; checkpoint + pause. "
+            "Thread payloads include advisory return_cue coaching for resume_step "
+            "(missing/vague/concrete); it never blocks. Improve a weak cue once when you know "
+            "the real first action — never invent files or commands. "
             "Never save secrets or full transcripts."
         ),
     )
@@ -109,11 +121,12 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Filter by project or energy when narrowing existing work. Use
         session_digest when you want a session-start summary with reminders and
-        resume context instead of the raw thread list.
+        resume context instead of the raw thread list. Each thread carries
+        advisory return_cue coaching for its resume_step.
         """
         e = EnergyLevel(energy) if energy else None
         threads = service.list_open_threads(energy=e, project_slug=project_slug, limit=limit)
-        return [t.model_dump(mode="json") for t in threads]
+        return [_thread_dump(t) for t in threads]
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_projects(limit: Annotated[int, Field(ge=1, le=500)] = 100) -> list[dict[str, Any]]:
@@ -293,7 +306,7 @@ def build_mcp(service: HubService) -> MCPServer:
                 resume_step=resume_step,
             )
         )
-        return thread.model_dump(mode="json")
+        return _thread_dump(thread)
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -329,6 +342,9 @@ def build_mcp(service: HubService) -> MCPServer:
         force_new_thread explicitly starts another outcome. Depending on
         create_thread_if_missing, a missing thread may be created as a side effect.
         When completion.ready is false, prefer this plus pause_thread over mark_done.
+        The returned thread.return_cue is advisory coaching on resume_step
+        (quality missing / vague / concrete with a short hint); the save always
+        succeeds. Name what to open, run or check first, using only facts you know.
         """
         try:
             return service.upsert_progress(
@@ -396,7 +412,9 @@ def build_mcp(service: HubService) -> MCPServer:
         Use when the thread will continue later (including when completion.ready
         is false). This updates its pause/resume state; use mark_done for
         completed work or dismiss_thread for work being intentionally abandoned.
-        Requires the exact thread_id and next_step.
+        Requires the exact thread_id and next_step. Weak wording never blocks the
+        pause; the response's advisory return_cue says whether next_step names
+        something specific to open, run or check first.
         """
         step = next_step.strip()
         if not step:
@@ -480,6 +498,7 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Includes counts, next-up work, and due reminders. Use session_digest when
         you also need project-specific resume context or the progress wiki snippet.
+        next_up and triage_candidates carry advisory return_cue coaching.
         """
         return service.agent_overview()
 
@@ -587,7 +606,9 @@ def build_mcp(service: HubService) -> MCPServer:
 
         Use after resolve_project. It combines relevant stale/open threads, due
         reminders, and the progress wiki snippet; query narrows overlap relevance
-        and energy can filter work to the operator's current capacity.
+        and energy can filter work to the operator's current capacity. Each item
+        carries completion readiness and advisory return_cue coaching for its
+        resume_step (deterministic, local, never blocking).
 
         Includes a `guidance` object (expected versions + last local verification
         status). The Hub cannot inspect the client's checkout — run
