@@ -3,7 +3,7 @@ import { api } from './api.js';
 import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, setLoginMode, showLogin, tryAuth } from './auth.js';
 import { closeModal, fillTimezoneSelect, positionOverflowMenu, toggleNeedsYou, wireMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
-import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
+import { captureStep, chooseThread, loadChosenThread, openReminderDialog, renderDriftBanner, renderReminders, saveReminder, showThreadNotes, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi } from './now.js';
 import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
@@ -12,8 +12,17 @@ import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadT
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 import { registerPwaUpdates } from './pwa-update.js';
+import { bindOverlapReview, setOverlapHooks } from './overlap.js';
 
 initRepoLinks();
+setOverlapHooks({
+  openThreadNotes: async (id) => {
+    showScreen("work", { focusHeading: false });
+    await showThreadNotes(id);
+  },
+  onChanged: () => loadAll(),
+});
+bindOverlapReview();
 bindLiveInvalidation();
 $("btn-retry-forge-sync")?.addEventListener("click", () =>
   retryForgeSync().catch((e) => setMsg(e.message))

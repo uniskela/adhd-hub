@@ -20,6 +20,8 @@ UI_JS_MODULES = {
     "now.js",
     "thread-title.mjs",
     "work.js",
+    "overlap.js",
+    "overlap-review.mjs",
     "progress.js",
     "settings.js",
     "forge-jobs.js",

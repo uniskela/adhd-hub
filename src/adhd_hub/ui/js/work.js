@@ -1553,15 +1553,20 @@ export function renderPending(actions) {
           }
         } else if (a.kind === "rename_project") {
           summary = `Rename <strong>${escapeHtml(p.slug)}</strong> to <strong>${escapeHtml(p.new_slug)}</strong>?`;
+        } else if (a.kind === "merge_threads") {
+          summary = "A merge is waiting for a look. Nothing has been combined yet.";
         }
         const detail = `Asked by ${escapeHtml(a.source_tool || "your agent")}${a.reason ? ` · ${escapeHtml(a.reason)}` : ""}`;
+        const approve = a.kind === "merge_threads"
+          ? `<button type="button" class="ghost" data-review-merge="${escapeHtml(a.id)}">Review</button>`
+          : `<button type="button" class="ghost" data-approve="${escapeHtml(a.id)}">Approve</button>`;
         return `<div class="need pending-item" data-id="${escapeHtml(a.id)}">
           <div class="need-copy">
             <p class="need-title">${summary}</p>
             <p class="need-detail">${detail}</p>
           </div>
           <div class="need-actions">
-            <button type="button" class="ghost" data-approve="${escapeHtml(a.id)}">Approve</button>
+            ${approve}
             <button type="button" class="link-button" data-reject="${escapeHtml(a.id)}">Reject</button>
           </div>
         </div>`;
@@ -1570,6 +1575,13 @@ export function renderPending(actions) {
     banner.querySelectorAll("[data-approve]").forEach((btn) =>
       btn.addEventListener("click", () => approvePending(btn.dataset.approve))
     );
+    banner.querySelectorAll("[data-review-merge]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        import("./overlap.js")
+          .then((mod) => mod.reviewPendingMerge(btn.dataset.reviewMerge))
+          .catch((error) => setMsg(error.message));
+      })
+    );
     banner.querySelectorAll("[data-reject]").forEach((btn) =>
       btn.addEventListener("click", () => rejectPending(btn.dataset.reject))
     );
@@ -1577,6 +1589,13 @@ export function renderPending(actions) {
   }
 export async function approvePending(id) {
     try {
+      const waiting = await api("/pending-actions");
+      const action = (waiting || []).find((item) => item.id === id);
+      if (action?.kind === "merge_threads") {
+        const { reviewPendingMerge } = await import("./overlap.js");
+        await reviewPendingMerge(id);
+        return;
+      }
       await api(`/pending-actions/${encodeURIComponent(id)}/approve`, {
         method: "POST",
         body: "{}",

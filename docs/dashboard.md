@@ -59,6 +59,8 @@ Each step row keeps only the useful scan information visible:
 
 Click a row to open its notes beside the list.
 
+While a step is open, **Check for similar steps** looks for possible overlap in the same project. A quiet **Possible overlap** link appears only when a suggestion is waiting. Opening it does not merge or close anything. A safe merge is offered only when both steps are unfinished local work with the same finishable goal; you confirm that in a separate step. Other pairs stay separate, with a short reason. **Hide this suggestion** only hides it on this browser.
+
 ### Search, create, and review
 
 **Search your work** matches titles, resume steps, goals, scan lines, projects, and progress snippets. The **New** menu contains **New project** and **Leave a reminder**.

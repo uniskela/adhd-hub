@@ -263,6 +263,9 @@
               </div>
             </header>
             <div id="notes-reader-source" class="notes-reader-source" role="status" hidden></div>
+            <p id="notes-overlap-cue" class="notes-overlap-cue hint" hidden>
+              <button type="button" class="link-button" id="btn-overlap-cue">Possible overlap</button>
+            </p>
             <div id="notes-reader-body" class="notes-reader-body" tabindex="0" aria-live="polite"></div>
             <footer class="notes-reader-footer">
               <button type="button" class="primary" id="btn-notes-focus" hidden>Focus on this</button>
@@ -274,6 +277,7 @@
                   <div class="thread-utility-actions">
                     <a class="btn" id="notes-open-issue" target="_blank" rel="noopener noreferrer" hidden>Open issue</a>
                     <button type="button" id="btn-notes-refresh-source" hidden>Refresh from source issue</button>
+                    <button type="button" id="btn-notes-overlap">Check for similar steps</button>
                     <button type="button" id="btn-notes-copy">Copy link</button>
                     <button type="button" id="btn-notes-summarise" hidden>Summarise notes with AI</button>
                     <button type="button" id="btn-notes-rewrite-scan" hidden>Rewrite scan line</button>
@@ -830,6 +834,19 @@
         <button type="submit" class="ghost" value="no">Cancel</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="overlap-dialog" class="overlap-review" aria-labelledby="overlap-title" aria-describedby="overlap-sub">
+    <div class="dialog-card">
+      <header class="dialog-head">
+        <div>
+          <h2 id="overlap-title" tabindex="-1">Possible overlap</h2>
+          <p class="dialog-sub" id="overlap-sub">Looking does not change either step.</p>
+        </div>
+        <button type="button" class="icon-button dialog-close" data-dialog-close aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div id="overlap-body"></div>
+    </div>
   </dialog>
 
   <dialog id="source-refresh-dialog" aria-labelledby="source-refresh-title">
