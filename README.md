@@ -137,6 +137,13 @@ For calm, resumable project notes and plans, use the [ADHD-friendly writing guid
 | `mark_done` | Close a known thread |
 | `set_reminder` | once / session / daily / random |
 
+
+## Using this project with AI coding agents
+
+If you use Codex, Cursor, Claude Code, or another assistant with [Context7 MCP](https://context7.com/), you can ask it to consult the project's documentation before setting up or integrating the Hub. Context7 is optional and separate from ADHD Progress Hub's own MCP server.
+
+> Use Context7 MCP to resolve the official documentation library for `uniskela/adhd-hub` (expected ID: `/uniskela/adhd-hub`), then retrieve guidance for installation, agent connections, MCP transports and tools, authentication, and troubleshooting. Match the guidance to my installed ADHD Progress Hub version. If the library is still indexing or doesn't cover that version, check the [maintained documentation](https://uniskela.com/docs/adhd-hub/) and linked source files instead.
+
 ## Optional OpenClaw
 
 Install the Hub skills for OpenClaw:
