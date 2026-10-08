@@ -77,6 +77,8 @@ Generic MCP config:
 
 Stdio is an **optional local mode**: it uses the configured Hub data directory and the same MCP tools, but it does not start the REST API, dashboard, or background scheduler. It has no bearer header because the MCP connection is the local child process itself. For a persistent/shared Hub, remote agents, OAuth, dashboard access, and scheduled reminders, keep using `adhd-hub serve`/Docker and the Streamable HTTP `/mcp` endpoint.
 
+See the [MCP tool contract](docs/mcp-tool-contract.md) for parameter metadata, output compatibility, side effects and local regression checks.
+
 Published images (only after a manual release-PR merge by `uniskela`):
 
 - `:latest`, `X.Y.Z`, and `X.Y` on the Git tag created for that release (for example `0.20.2`, `0.20`)
