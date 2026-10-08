@@ -4,6 +4,7 @@ import { loadChosenThread, renderDriftBanner, renderReminders, renderTriage } fr
 import { renderStats } from './progress.js';
 import { loadPrefs } from './settings.js';
 import { renderPending, renderProjects, selectProject } from './work.js';
+import { renderClockOffFromState } from './clock-off.js';
 
 export async function loadOverview() {
     state.overviewCache = await api("/overview");
@@ -30,6 +31,7 @@ export async function loadOverview() {
     renderPending(state.overviewCache.pending_actions || []);
     renderReminders(state.overviewCache.due_reminders || [], state.overviewCache.reminders || []);
     renderTriage(state.overviewCache.triage_candidates || []);
+    renderClockOffFromState(overview.clock_off);
     renderDriftBanner();
   }
 export async function loadAll() {

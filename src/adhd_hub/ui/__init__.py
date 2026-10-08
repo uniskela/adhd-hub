@@ -20,6 +20,8 @@ UI_JS_MODULES = {
     "now.js",
     "thread-title.mjs",
     "return-cue.mjs",
+    "clock-off.mjs",
+    "clock-off.js",
     "work.js",
     "overlap.js",
     "overlap-review.mjs",

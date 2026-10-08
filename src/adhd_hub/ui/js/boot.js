@@ -13,6 +13,7 @@ import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 import { registerPwaUpdates } from './pwa-update.js';
 import { bindOverlapReview, setOverlapHooks } from './overlap.js';
+import { bindClockOff } from './clock-off.js';
 
 initRepoLinks();
 setOverlapHooks({
@@ -195,6 +196,7 @@ $("login-form").addEventListener("submit", (e) =>
 );
 // Appearance has no Save button: the time zone saves as soon as it changes.
 $("timezone").addEventListener("change", () => saveSettings());
+bindClockOff();
 $("btn-save-ai")?.addEventListener("click", () =>
   saveAiConfig().catch((e) => {
     const msg = $("ai-msg");
