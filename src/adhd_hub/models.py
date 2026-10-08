@@ -3,10 +3,17 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field, field_validator, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictBool,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from adhd_hub.work_identity import ExternalIssueState, WorkSource
 
@@ -109,6 +116,7 @@ class Thread(BaseModel):
     source_sync_state: str | None = None
     source_conflicts: dict[str, Any] = Field(default_factory=dict)
     source_title_derived: bool = False
+    merged_into: str | None = None
 
 
 class ThreadUpsert(BaseModel):
@@ -311,6 +319,7 @@ class PendingActionKind(StrEnum):
     delete_project = "delete_project"
     rename_project = "rename_project"
     sync_review = "sync_review"
+    merge_threads = "merge_threads"
 
 
 class PendingActionStatus(StrEnum):
@@ -356,10 +365,22 @@ class ThreadTriageSnooze(BaseModel):
     days: int = Field(default=7, ge=1, le=30)
 
 
+class ThreadMergeRequest(BaseModel):
+    target_thread_id: str = Field(min_length=1, max_length=128)
+
+
+class PendingActionApproval(BaseModel):
+    confirm_merge: StrictBool = False
+
+
 class OverlapHit(BaseModel):
     thread: Thread
     score: float
     reason: str
+    outcome: Literal["same_outcome", "related", "uncertain"] | None = None
+    evidence: list[str] = Field(default_factory=list)
+    merge_allowed: bool = False
+    merge_blocked_reason: str | None = None
 
 
 class OverlapResult(BaseModel):

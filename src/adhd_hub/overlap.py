@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
-from adhd_hub.models import OverlapHit, OverlapResult, Thread
+from adhd_hub.models import OverlapHit, OverlapResult, Project, Thread, ThreadStatus
+from adhd_hub.work_identity import WorkSource, resolve_work_source
 
 _STOP = {
     "the",
@@ -79,6 +81,58 @@ _STOP = {
 def tokenize(text: str) -> set[str]:
     words = re.findall(r"[a-z0-9][a-z0-9\-_/]{2,}", text.lower())
     return {w for w in words if w not in _STOP}
+
+
+def normalize_goal(text: str | None) -> str:
+    """Compare outcome identity without dropping punctuation, order or negation."""
+    return " ".join(unicodedata.normalize("NFC", text or "").casefold().split())
+
+
+def merge_blocked_reason(
+    source: Thread,
+    target: Thread,
+    source_project: Project | None,
+    target_project: Project | None,
+) -> str | None:
+    """Shared non-destructive policy; callers also check legacy forge mappings."""
+    if source.id == target.id:
+        return "same_thread"
+    if source.merged_into or target.merged_into:
+        return "already_merged"
+    unfinished = {ThreadStatus.open, ThreadStatus.blocked}
+    if source.status not in unfinished or target.status not in unfinished:
+        return "unfinished_required"
+    if not source.project_slug or source.project_slug != target.project_slug:
+        return "different_projects"
+    source_goal = normalize_goal(source.goal)
+    target_goal = normalize_goal(target.goal)
+    if not source_goal or not target_goal:
+        return "goal_required"
+    if source_goal != target_goal:
+        return "distinct_outcomes"
+    for thread, project in ((source, source_project), (target, target_project)):
+        if resolve_work_source(project, thread) != WorkSource.local or any(
+            (
+                thread.external_provider,
+                thread.external_host,
+                thread.external_owner,
+                thread.external_repo,
+                thread.external_issue_number is not None,
+                thread.external_updated_at,
+                thread.external_fingerprint,
+                thread.external_labels,
+                thread.source_issue_url,
+                thread.source_imported_at,
+                thread.source_content_hash,
+                thread.source_snapshot,
+                thread.source_sync_state,
+                thread.source_conflicts,
+                thread.source_title_derived,
+                thread.origin in {"forge-import", "forge-inbox"},
+            )
+        ):
+            return "forge_authoritative"
+    return None
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
@@ -165,6 +219,24 @@ def check_overlap(
     for thread in threads:
         score, reason = score_thread(query, thread)
         if score >= min_score:
-            scored.append(OverlapHit(thread=thread, score=round(score, 4), reason=reason))
-    scored.sort(key=lambda h: h.score, reverse=True)
+            goal = normalize_goal(thread.goal)
+            if goal and goal == normalize_goal(query):
+                outcome = "same_outcome"
+                evidence = ["goal_exact_match"]
+            elif goal:
+                outcome = "related"
+                evidence = ["distinct_known_goal"]
+            else:
+                outcome = "uncertain"
+                evidence = ["no_recorded_goal"]
+            scored.append(
+                OverlapHit(
+                    thread=thread,
+                    score=round(score, 4),
+                    reason=reason,
+                    outcome=outcome,
+                    evidence=evidence,
+                )
+            )
+    scored.sort(key=lambda h: (-h.score, h.thread.id))
     return OverlapResult(query=query, hits=scored[:limit])

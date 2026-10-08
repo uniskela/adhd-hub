@@ -126,6 +126,9 @@ For calm, resumable project notes and plans, use the [ADHD-friendly writing guid
 |------|---------|
 | `session_digest` | Compact open threads (goal/focus/next/resume) + reminders |
 | `check_overlap` | Rank open threads vs what you’re starting (goal/title/focus) |
+| `suggest_duplicate_threads` | Review same-outcome evidence and safe merge eligibility |
+| `request_thread_merge` | Queue a local duplicate merge for explicit human confirmation |
+| `thread_merge_history` | Read retained source threads, notes and events under their original IDs |
 | `resolve_project` | Map workspace path → project slug |
 | `list_projects` / `upsert_project` | Project registry (+ optional forge overrides) |
 | `rename_project` / `delete_project` | Queue rename/delete for **/ui confirmation** (not applied immediately) |

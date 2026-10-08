@@ -1,0 +1,450 @@
+{
+  "suggestions": {
+    "thread_id": "source",
+    "query": "Ship DNS cutover",
+    "hits": [
+      {
+        "thread": {
+          "id": "target",
+          "summary": "Ship DNS cutover",
+          "status": "open",
+          "energy": "unknown",
+          "source_tool": "codex",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-target",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open target cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review target checklist",
+          "next_steps": [
+            "target step 1",
+            "target step 2",
+            "target step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": null
+        },
+        "score": 1.15,
+        "reason": "token_overlap=0.30; goal_in_query; title_in_query; slug_in_query",
+        "outcome": "same_outcome",
+        "evidence": [
+          "goal_exact_match",
+          "same_project"
+        ],
+        "merge_allowed": true,
+        "merge_blocked_reason": null
+      }
+    ],
+    "alternatives": [
+      "review_separately",
+      "link_in_progress_note"
+    ]
+  },
+  "queued": {
+    "pending": true,
+    "merge_allowed": true,
+    "action": {
+      "id": "a5b38301925ceba7",
+      "kind": "merge_threads",
+      "status": "pending",
+      "payload": {
+        "source": {
+          "id": "source",
+          "summary": "Ship DNS cutover",
+          "status": "open",
+          "energy": "unknown",
+          "source_tool": "cursor",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-source",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open source cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review source checklist",
+          "next_steps": [
+            "source step 1",
+            "source step 2",
+            "source step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": null
+        },
+        "target": {
+          "id": "target",
+          "summary": "Ship DNS cutover",
+          "status": "open",
+          "energy": "unknown",
+          "source_tool": "codex",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-target",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open target cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review target checklist",
+          "next_steps": [
+            "target step 1",
+            "target step 2",
+            "target step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": null
+        },
+        "work_sources": [
+          "local",
+          "local"
+        ],
+        "merge_allowed": true,
+        "merge_blocked_reason": null,
+        "policy": "Keep target state; retain source state and history under original IDs."
+      },
+      "reason": "Human confirmation required; target state kept and source history retained.",
+      "source_tool": "mcp",
+      "created_at": "2026-10-08T00:00:00Z",
+      "resolved_at": null
+    },
+    "message": "Awaiting human approval via pending-actions. No thread changed."
+  },
+  "approved": {
+    "approved": true,
+    "action": {
+      "id": "a5b38301925ceba7",
+      "kind": "merge_threads",
+      "status": "approved",
+      "payload": {
+        "source": {
+          "id": "source",
+          "summary": "Ship DNS cutover",
+          "status": "open",
+          "energy": "unknown",
+          "source_tool": "cursor",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-source",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open source cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review source checklist",
+          "next_steps": [
+            "source step 1",
+            "source step 2",
+            "source step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": null
+        },
+        "target": {
+          "id": "target",
+          "summary": "Ship DNS cutover",
+          "status": "open",
+          "energy": "unknown",
+          "source_tool": "codex",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-target",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open target cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review target checklist",
+          "next_steps": [
+            "target step 1",
+            "target step 2",
+            "target step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": null
+        },
+        "work_sources": [
+          "local",
+          "local"
+        ],
+        "merge_allowed": true,
+        "merge_blocked_reason": null,
+        "policy": "Keep target state; retain source state and history under original IDs."
+      },
+      "reason": "Human confirmation required; target state kept and source history retained.",
+      "source_tool": "mcp",
+      "created_at": "2026-10-08T00:00:00Z",
+      "resolved_at": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "source_thread_id": "source",
+      "target_thread_id": "target",
+      "history_preserved": true,
+      "remote_changed": false
+    }
+  },
+  "history": {
+    "thread_id": "target",
+    "items": [
+      {
+        "thread": {
+          "id": "source",
+          "summary": "Ship DNS cutover",
+          "status": "dismissed",
+          "energy": "unknown",
+          "source_tool": "cursor",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-source",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open source cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review source checklist",
+          "next_steps": [
+            "source step 1",
+            "source step 2",
+            "source step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": "target"
+        },
+        "notes": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "project_slug": "dns",
+            "content": "source cutover decision",
+            "created_at": "2026-10-08T00:00:00+00:00",
+            "thread_id": "source"
+          }
+        ],
+        "events": [
+          {
+            "id": "00000000000000000000000000000004",
+            "schema_version": 1,
+            "event_type": "thread.merged",
+            "created_at": "2026-10-08T00:00:00+00:00",
+            "project_slug": "dns",
+            "work_id": "target",
+            "thread_id": "source",
+            "actor": "ui",
+            "source": "api",
+            "idempotency_key": "merge:a5b38301925ceba7:source",
+            "metadata": {
+              "reason": "human_confirmed_merge"
+            }
+          }
+        ]
+      },
+      {
+        "thread": {
+          "id": "target",
+          "summary": "Ship DNS cutover",
+          "status": "open",
+          "energy": "unknown",
+          "source_tool": "codex",
+          "workspace_path": null,
+          "project_slug": "dns",
+          "chat_ref": "chat-target",
+          "transcript_ref": null,
+          "origin": "manual",
+          "created_at": "2026-10-08T00:00:00Z",
+          "updated_at": "2026-10-08T00:00:00Z",
+          "resume_step": "Open target cutover log",
+          "paused_at": null,
+          "last_reminded_at": null,
+          "triage_snooze_until": null,
+          "goal": "Ship DNS cutover",
+          "focus": "Review target checklist",
+          "next_steps": [
+            "target step 1",
+            "target step 2",
+            "target step 3"
+          ],
+          "blocked_reason": null,
+          "work_source": null,
+          "external_provider": null,
+          "external_host": null,
+          "external_owner": null,
+          "external_repo": null,
+          "external_issue_number": null,
+          "external_issue_state": null,
+          "external_updated_at": null,
+          "external_fingerprint": null,
+          "external_labels": [],
+          "source_issue_url": null,
+          "source_imported_at": null,
+          "source_content_hash": null,
+          "source_snapshot": {},
+          "source_sync_state": null,
+          "source_conflicts": {},
+          "source_title_derived": false,
+          "merged_into": null
+        },
+        "notes": [
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "project_slug": "dns",
+            "content": "target cutover decision",
+            "created_at": "2026-10-08T00:00:00+00:00",
+            "thread_id": "target"
+          },
+          {
+            "id": "00000000000000000000000000000003",
+            "project_slug": "dns",
+            "content": "Human-confirmed merge: retained thread source under target; target state kept, source history unchanged.",
+            "created_at": "2026-10-08T00:00:00+00:00",
+            "thread_id": "target"
+          }
+        ],
+        "events": [
+          {
+            "id": "00000000000000000000000000000005",
+            "schema_version": 1,
+            "event_type": "thread.merged",
+            "created_at": "2026-10-08T00:00:00+00:00",
+            "project_slug": "dns",
+            "work_id": "target",
+            "thread_id": "target",
+            "actor": "ui",
+            "source": "api",
+            "idempotency_key": "merge:a5b38301925ceba7:target",
+            "metadata": {
+              "reason": "human_confirmed_merge"
+            }
+          }
+        ]
+      }
+    ],
+    "limit_per_thread": 50
+  }
+}

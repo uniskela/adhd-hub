@@ -13,12 +13,14 @@ from adhd_hub.models import (
     MarkDoneRequest,
     OrganiseApplyRequest,
     PauseRequest,
+    PendingActionApproval,
     ProgressUpsert,
     ProjectMove,
     ProjectRename,
     ProjectUpsert,
     ReminderCreate,
     ReminderSnooze,
+    ThreadMergeRequest,
     ThreadStatus,
     ThreadTriageSnooze,
     ThreadUpsert,
@@ -71,6 +73,29 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             raise HTTPException(404, "Thread not found") from None
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    @router.get("/threads/{thread_id}/duplicates", dependencies=[Depends(auth_dep)])
+    def duplicate_threads(thread_id: str, limit: int = Query(5, ge=1, le=50)):
+        try:
+            return service.suggest_duplicate_threads(thread_id, limit=limit)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+
+    @router.post("/threads/{thread_id}/merge", dependencies=[Depends(auth_dep)])
+    def request_thread_merge(thread_id: str, payload: ThreadMergeRequest):
+        try:
+            return service.request_thread_merge(
+                thread_id, payload.target_thread_id, source_tool="api"
+            )
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
+
+    @router.get("/threads/{thread_id}/merge-history", dependencies=[Depends(auth_dep)])
+    def thread_merge_history(thread_id: str, limit: int = Query(50, ge=1, le=500)):
+        try:
+            return service.thread_merge_history(thread_id, limit=limit)
+        except KeyError:
+            raise HTTPException(404, "Thread not found") from None
 
     @router.post("/threads/{thread_id}/source-refresh/ignore", dependencies=[Depends(auth_dep)])
     def ignore_thread_source_refresh(thread_id: str):
@@ -394,14 +419,19 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
         return service.list_pending_actions()
 
     @router.post("/pending-actions/{action_id}/approve", dependencies=[Depends(auth_dep)])
-    def approve_pending(action_id: str):
+    def approve_pending(action_id: str, payload: PendingActionApproval | None = None):
         try:
-            return service.approve_pending_action(action_id)
+            return service.approve_pending_action(
+                action_id,
+                confirm_merge=payload.confirm_merge if payload else False,
+            )
         except KeyError:
             raise HTTPException(404, "Pending action not found") from None
         except ValueError as exc:
             if str(exc) == "conflict":
                 raise HTTPException(409, "Target slug already exists") from exc
+            if str(exc).startswith(("merge_refused:", "merge_preview_stale:")):
+                raise HTTPException(409, str(exc)) from exc
             raise HTTPException(400, str(exc)) from exc
 
     @router.post("/pending-actions/{action_id}/reject", dependencies=[Depends(auth_dep)])
@@ -440,7 +470,10 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/threads/dismiss", dependencies=[Depends(auth_dep)])
     def dismiss(payload: MarkDoneRequest):
-        thread = service.mark_dismissed(payload.id, payload.note)
+        try:
+            thread = service.mark_dismissed(payload.id, payload.note)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
         if not thread:
             raise HTTPException(404, "Thread not found")
         return thread

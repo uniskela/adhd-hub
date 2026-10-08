@@ -56,6 +56,50 @@ def build_mcp(service: HubService) -> MCPServer:
         return result.model_dump(mode="json")
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def suggest_duplicate_threads(
+        thread_id: Annotated[str, Field(min_length=1, max_length=128)],
+        limit: Annotated[int, Field(ge=1, le=50)] = 5,
+    ) -> dict[str, Any]:
+        """Review overlap suggestions for an existing thread's finishable outcome.
+
+        Same-goal evidence is conservative; related work is not a merge candidate.
+        Forge-backed work stays separate and forge-authoritative. No writes.
+        """
+        return service.suggest_duplicate_threads(thread_id, limit=limit)
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def request_thread_merge(
+        source_thread_id: Annotated[str, Field(min_length=1, max_length=128)],
+        target_thread_id: Annotated[str, Field(min_length=1, max_length=128)],
+    ) -> dict[str, Any]:
+        """Queue a local duplicate-thread merge for explicit human approval.
+
+        This only creates a pending action, never executes a merge. A human must
+        review both states and approve through authenticated REST pending-actions.
+        The target state is kept, the source and all its history are retained.
+        Forge-backed threads cannot be merged. Never approve on the human's behalf.
+        """
+        return service.request_thread_merge(source_thread_id, target_thread_id)
+
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def thread_merge_history(
+        thread_id: Annotated[str, Field(min_length=1, max_length=128)],
+        limit: Annotated[int, Field(ge=1, le=500)] = 50,
+    ) -> dict[str, Any]:
+        """Read retained merged threads, progress notes and events with original IDs.
+
+        Limit applies per original thread. All source and resume information is
+        retained; this does not fetch or change remote issues.
+        """
+        return service.thread_merge_history(thread_id, limit=limit)
+
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def list_open_threads(
         energy: EnergyLevel | None = None,
         project_slug: str | None = None,

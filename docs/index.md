@@ -27,6 +27,8 @@ If this is your first time using the Hub, follow this order:
 
 For a practical day-to-day routine, see [Personal setup](setup.md). For concise Goal / Focus / Next / Blocked / Resume notes, see [Writing & continuity](writing.md). To read that continuity on My work, see [Notes & context](notes.md).
 
+For the Wave 7 backend review contract and Cursor fixtures, see [Duplicate-thread review and merge API](merge-dedupe-api.md).
+
 ## What belongs here?
 
 Use the Hub for work that is useful to resume later:
