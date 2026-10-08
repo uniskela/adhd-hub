@@ -172,7 +172,7 @@ def test_assert_only_managed_paths() -> None:
 
 def test_canonical_skills_portable_and_hardened() -> None:
     session = (REPO_ROOT / "skills/adhd-hub-session/SKILL.md").read_text(encoding="utf-8")
-    assert "hub_skill_version: 8" in session
+    assert "hub_skill_version: 9" in session
     assert "return_cue" in session
     assert "create_if_missing=false" in session
     assert "private LAN or Docker network alone does not protect" in session

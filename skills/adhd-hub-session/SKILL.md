@@ -1,6 +1,6 @@
 ---
 name: adhd-hub-session
-hub_skill_version: 8
+hub_skill_version: 9
 description: >-
   ADHD Progress Hub continuity protocol for substantial coding work. Use the
   operator's adhd-hub MCP when starting/resuming meaningful project work,
@@ -103,10 +103,10 @@ Checkpoint the current thread, then switch to or create the other thread. Do not
 
 ## Finished / leave unfinished
 
-Prefer `completion.ready` on the thread when present (checkpoint first if Hub state looks stale):
+Checkpoint first if Hub state looks stale. `completion.ready` only reflects stored state (status, pause, `next_steps`, blocker, Goal present) — it cannot see PR/CI/merge/deploy state — so it can block `mark_done` but never approve it alone:
 
-- `completion.ready == true` (or the Goal is clearly satisfied) → optional final checkpoint, then `mark_done(thread_id=...)` for that thread only.
-- `completion.ready == false` or any meaningful work remains (review, draft PR, CI, merge, deploy, verify, next action) → `upsert_progress` then `pause_thread(thread_id, next_step=...)`. Do **not** call `mark_done`.
+- Call `mark_done(thread_id=...)` for that thread only when **both** hold: `completion.ready` is `true` or absent, **and** the Goal is clearly satisfied with no meaningful work remaining. Optional final checkpoint first.
+- Otherwise — `completion.ready == false` (even if the Goal looks satisfied), or any meaningful work remains (review, draft PR, CI, merge, deploy, verify, next action) even when `completion.ready == true` — `upsert_progress` (record the remaining actions in `next_steps`) then `pause_thread(thread_id, next_step=...)`. Do **not** call `mark_done`.
 - If `mark_done` is denied/rejected because work remains: **do not retry** unchanged. Inspect the reason, checkpoint, `pause_thread`, and continue the normal response (continuity failure is not a fatal agent failure).
 
 Never close unrelated overlap hits. Soft-close with `dismiss_thread`. Final notes without opening work: `upsert_progress(create_thread_if_missing=false)`.

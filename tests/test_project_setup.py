@@ -28,7 +28,7 @@ def test_agent_block_requires_loud_mcp_down() -> None:
     assert "later substantial Hub-worthy turns while still down" not in text
     assert "pause_thread" in text
     assert "absolute machine paths" in text
-    assert "adhd-hub:guidance-version:7" in text
+    assert "adhd-hub:guidance-version:8" in text
     assert "create_if_missing=false" in text or ".agents/skills/env-check" in text
     assert "sync-project" in text
     assert "Made with [ADHD Progress Hub]" in text

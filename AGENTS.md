@@ -74,7 +74,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and the PR template.
 - On each new PR, audit and update wiki docs (`graphify-out/wiki/` when present) so they stay aligned with the change and do not drift.
 
 <!-- adhd-hub:project-agent:start -->
-<!-- adhd-hub:guidance-version:7 -->
+<!-- adhd-hub:guidance-version:8 -->
 ## ADHD Hub continuity
 
 For substantial work in this project:
@@ -126,13 +126,16 @@ For substantial work in this project:
   Do not silently attach to an unrelated open thread.
 - `check_overlap` only before potentially new work; reuse only when the Goal
   matches. Different goal → separate thread (`force_new_thread` if needed).
-- End-of-task: prefer `completion.ready` when present (stale Hub state may need
-  a checkpoint first). Ready / Goal done → optional final checkpoint, then
-  `mark_done` for that thread only. Any remaining work (review, draft PR, CI,
-  merge, deploy, verify, or a next action) → `upsert_progress` then
-  `pause_thread(thread_id, next_step=...)` — do **not** `mark_done`. If
-  `mark_done` is denied/rejected for unfinished work: do not retry; checkpoint
-  + `pause_thread` and continue the normal response.
+- End-of-task (checkpoint first if Hub state is stale): `completion.ready`
+  reflects stored state only (not PR/CI/merge), so it can block `mark_done`
+  but never approve it alone. `mark_done` on that thread only when `ready` is
+  `true` or absent **and** the Goal is done with nothing remaining (optional
+  final checkpoint first). `ready == false` (even if the Goal looks done) or
+  any remaining work (review, draft PR, CI, merge, deploy, verify, or a next
+  action — even if `ready == true`) → `upsert_progress` (record it in
+  `next_steps`) then `pause_thread(thread_id, next_step=...)` — do **not**
+  `mark_done`. If `mark_done` is denied/rejected for unfinished work:
+  do not retry; checkpoint + `pause_thread` and continue the normal response.
 - If Hub guidance looks stale (session_digest guidance status, or doctor),
   mention it once, keep using the current MCP contract, and recommend
   `adhd-hub setup . --refresh` and `adhd-hub sync-project .` (or
