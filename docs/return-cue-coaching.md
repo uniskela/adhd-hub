@@ -96,6 +96,7 @@ command exists, and does not try.
 - Key on `quality` and `signals`; treat `hint` as display copy that may be
   reworded without a version bump.
 - Shared cases for UI tests: `tests/fixtures/return_cue/cases.json`.
+- The dashboard uses this payload on Now (pause field and **Where you left off**) and My work (**Left off**). It does not score cues itself.
 
 ## Agents
 

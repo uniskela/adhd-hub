@@ -7,6 +7,7 @@ import { openWork, showScreen } from './screens.js';
 import { SOURCE_SYNC_LABELS, loadThreads, openSourceRefresh, rewriteScanLine, selectProject, sourceNeedsAttention, threadSourceName } from './work.js';
 import { hideOverlapCue, openOverlapReview, refreshOverlapCue } from './overlap.js';
 import { threadDisplayTitle } from './thread-title.mjs';
+import { applyCueFill, coachingView, undoCueFill, usefulResumeText } from './return-cue.mjs';
 
 export { threadDisplayTitle };
 
@@ -197,33 +198,91 @@ export async function suggestThread() {
         $("suggestion").textContent = "No open tasks yet. Save a thought to get started.";
         return;
       }
-      const hint =
-        candidate.resume_step
+      const pickup = usefulResumeText(candidate);
+      const hint = pickup
           ? "Where you left off"
           : candidate.energy === "low"
             ? "A low-energy option"
             : "One option to consider";
-      $("suggestion").innerHTML = `<p class="hint">${escapeHtml(hint)}</p><h3>${escapeHtml(threadDisplayTitle(candidate) || "Open step")}</h3><button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
+      const pickupHtml = pickup ? `<p class="suggestion-cue">${escapeHtml(pickup)}</p>` : "";
+      $("suggestion").innerHTML = `<p class="hint">${escapeHtml(hint)}</p><h3>${escapeHtml(threadDisplayTitle(candidate) || "Open step")}</h3>${pickupHtml}<button type="button" class="primary" id="btn-accept-suggestion">Choose this</button>`;
       $("btn-accept-suggestion").addEventListener("click", () => chooseThread(candidate.id));
     } catch (error) { setMsg("Could not suggest a task: " + error.message); }
     finally { button.disabled = false; }
   }
 /** True while the inline "leave a note" form is showing on the focus card. */
 let pausing = false;
+/** Unsaved suggestion copied into the pause field. */
+let cueFill = null;
+
+function mountReturnCue(thread) {
+    const field = $("pause-step");
+    const slot = $("pause-cue");
+    if (!field || !slot) return;
+    if (cueFill && normalizeCue(field.value) === normalizeCue(cueFill.previous)) cueFill = null;
+    const view = coachingView(thread?.return_cue, field.value, thread?.resume_step, cueFill);
+    const hintEl = $("pause-cue-hint");
+    const pending = slot.querySelector(".return-cue-pending");
+    const useBtn = $("btn-use-cue");
+    const undoBtn = $("btn-undo-cue");
+    const show = view.showHint || view.action || view.showUndo;
+    slot.hidden = !show;
+    if (hintEl) {
+      hintEl.hidden = !view.showHint;
+      hintEl.textContent = view.showHint ? view.hint : "";
+    }
+    if (pending) {
+      pending.hidden = !view.pendingLabel;
+      pending.textContent = view.pendingLabel;
+    }
+    if (useBtn) {
+      useBtn.hidden = !view.action;
+      useBtn.textContent = view.action?.label || "Use Focus";
+      useBtn.onclick = view.action
+        ? () => {
+            const applied = applyCueFill(field.value, view.action);
+            if (!applied) return;
+            cueFill = applied.fill;
+            field.value = applied.value;
+            field.focus();
+            field.setSelectionRange(field.value.length, field.value.length);
+            mountReturnCue(thread);
+          }
+        : null;
+    }
+    if (undoBtn) {
+      undoBtn.hidden = !view.showUndo;
+      undoBtn.onclick = view.showUndo
+        ? () => {
+            field.value = undoCueFill(cueFill);
+            cueFill = null;
+            field.focus();
+            mountReturnCue(thread);
+          }
+        : null;
+    }
+    if (view.showHint) field.setAttribute("aria-describedby", "pause-cue-hint");
+    else field.removeAttribute("aria-describedby");
+  }
+
+function normalizeCue(value) {
+    return String(value ?? "").replace(/\s+/g, " ").trim();
+  }
 
 export function openPause() {
     state.pauseTarget = state.chosenThread?.id;
     if (!state.pauseTarget) return;
     pausing = true;
+    cueFill = null;
     renderFocus();
     const field = $("pause-step");
-    field.value = state.chosenThread.resume_step || "";
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
   }
 export function cancelPause() {
     if (!pausing) return;
     pausing = false;
+    cueFill = null;
     renderFocus();
     $("btn-pause")?.focus();
   }
@@ -238,6 +297,7 @@ export async function pauseHere(event) {
         method: "POST", body: JSON.stringify({ next_step: step }),
       });
       pausing = false;
+      cueFill = null;
       state.focusState = "paused";
       rememberFocus();
       await loadChosenThread();
@@ -755,7 +815,7 @@ export function renderFocus() {
     // Done lives in the card while working; otherwise it waits in More actions.
     $("btn-menu-done").hidden = working && !pausing;
     card.className = "next-card has-item";
-    const resumeBlock = thread.resume_step
+    const resumeBlock = usefulResumeText(thread)
       ? `<div class="resume-step"><p class="resume-label">Where you left off</p><div class="markdown-body">${thread.resume_step_html}</div></div>`
       : '<p class="start-cue">Start with the smallest part. You can leave a note for later whenever you stop.</p>';
     let actions;
@@ -763,6 +823,14 @@ export function renderFocus() {
       actions = `<form id="pause-form" class="pause-form">
         <label for="pause-step">What’s the next tiny step?</label>
         <textarea id="pause-step" placeholder="Open the draft and write the first sentence" maxlength="2000" required></textarea>
+        <div id="pause-cue" class="return-cue" hidden>
+          <p id="pause-cue-hint" class="hint"></p>
+          <p class="return-cue-pending hint" hidden></p>
+          <div class="return-cue-actions">
+            <button type="button" class="ghost" id="btn-use-cue" hidden>Use Focus</button>
+            <button type="button" class="ghost" id="btn-undo-cue" hidden>Undo</button>
+          </div>
+        </div>
         <p id="pause-error" class="msg error" role="alert"></p>
         <div class="next-actions"><button type="submit" class="primary">Save and pause</button><button type="button" class="ghost" id="btn-cancel-pause">Keep working</button></div>
       </form>`;
@@ -792,15 +860,19 @@ export function renderFocus() {
     $("btn-choose-work")?.addEventListener("click", () => openWork().catch((error) => setMsg(error.message)));
     card.querySelector("[data-done]")?.addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
     const pauseForm = $("pause-form");
-    if (pauseForm && draft) {
-      const field = $("pause-step");
-      field.value = draft.value;
-      if (draft.focused) {
-        field.focus();
-        field.setSelectionRange(draft.at, draft.at);
-      }
-    }
     if (pauseForm) {
+      const field = $("pause-step");
+      if (draft) {
+        field.value = draft.value;
+        if (draft.focused) {
+          field.focus();
+          field.setSelectionRange(draft.at, draft.at);
+        }
+      } else {
+        field.value = thread.resume_step || "";
+      }
+      mountReturnCue(thread);
+      field.addEventListener("input", () => mountReturnCue(thread));
       pauseForm.addEventListener("submit", pauseHere);
       $("btn-cancel-pause").addEventListener("click", cancelPause);
       pauseForm.addEventListener("keydown", (event) => {

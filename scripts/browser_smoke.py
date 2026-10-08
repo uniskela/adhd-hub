@@ -269,6 +269,13 @@ def main():
                 page.reload()
                 expect(page.get_by_role("button", name="Resume", exact=True)).to_be_visible()
                 expect(page.locator("#focus-eyebrow")).to_have_text("Welcome back")
+                # A concrete cue stays quiet, and pause is still available.
+                page.get_by_role("button", name="Resume", exact=True).click()
+                page.get_by_role("button", name="Pause and leave a note", exact=True).click()
+                expect(page.locator("#pause-cue")).to_be_hidden()
+                expect(page.get_by_role("button", name="Save and pause", exact=True)).to_be_enabled()
+                page.get_by_role("button", name="Save and pause", exact=True).click()
+                expect(page.get_by_role("button", name="Resume", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Save a thought", exact=True).click()
                 page.locator("#capture-summary").fill("Open the draft and add one sentence")
                 page.get_by_role("button", name="Save thought", exact=True).click()
@@ -494,6 +501,52 @@ def main():
                 page.locator("#rewards-enabled").check()
                 page.screenshot(path=str(screenshots / "settings-mobile.png"), full_page=True)
                 page.get_by_role("button", name="Now", exact=True).click()
+                seed(
+                    "/threads",
+                    {
+                        "summary": "Finish the homepage intro",
+                        "project_slug": "my-website",
+                        "status": "open",
+                        "source_tool": "web",
+                        "resume_step": "Continue later",
+                        "focus": "Open service.py and run pytest",
+                        "goal": "Ship the homepage",
+                    },
+                )
+                page.get_by_role("button", name="My work", exact=True).click()
+                page.locator("#btn-open-projects-drawer").click()
+                page.locator('#project-list button.proj[data-slug="my-website"]').click()
+                page.locator("#thread-search").fill("homepage intro")
+                vague_row = page.locator("#threads .thread", has_text="Finish the homepage intro")
+                expect(vague_row).to_be_visible()
+                expect(vague_row.locator(".thread-scan")).to_contain_text("Open service.py")
+                expect(vague_row.locator(".thread-scan")).not_to_contain_text("Continue later")
+                vague_row.click()
+                page.locator("#btn-notes-focus").click()
+                expect(page.locator("#now-view")).to_be_visible()
+                expect(page.locator("#next-card .resume-step")).to_have_count(0)
+                page.get_by_role("button", name="Start this step", exact=True).click()
+                page.get_by_role("button", name="Pause and leave a note", exact=True).click()
+                expect(page.locator("#pause-cue-hint")).to_be_visible()
+                expect(page.locator("#pause-cue-hint")).not_to_have_attribute("role", "alert")
+                expect(page.get_by_role("button", name="Use Focus", exact=True)).to_be_visible()
+                expect(page.get_by_role("button", name="Save and pause", exact=True)).to_be_enabled()
+                page.locator("#focus-menu > summary").click()
+                expect(page.locator("#btn-menu-done")).to_be_enabled()
+                page.locator("#focus-menu > summary").click()
+                assert page.locator("#pause-form").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
+                page.get_by_role("button", name="Use Focus", exact=True).click()
+                expect(page.locator("#pause-step")).to_have_value("Open service.py and run pytest")
+                expect(page.locator("#pause-cue-hint")).to_be_hidden()
+                expect(page.locator("#pause-form")).to_be_visible()
+                page.get_by_role("button", name="Undo", exact=True).click()
+                expect(page.locator("#pause-step")).to_have_value("Continue later")
+                page.locator("#pause-step").fill("Open service.py, then run pytest")
+                expect(page.locator("#pause-cue")).to_be_hidden()
+                page.locator("#pause-step").fill("Continue later")
+                page.get_by_role("button", name="Save and pause", exact=True).click()
+                expect(page.locator("#pause-form")).to_have_count(0)
+                expect(page.get_by_role("button", name="Resume", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Progress", exact=True).click()
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 page.screenshot(path=str(screenshots / "progress-mobile.png"), full_page=True)

@@ -19,6 +19,7 @@ UI_JS_MODULES = {
     "screens.js",
     "now.js",
     "thread-title.mjs",
+    "return-cue.mjs",
     "work.js",
     "overlap.js",
     "overlap-review.mjs",

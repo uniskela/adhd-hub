@@ -1570,7 +1570,12 @@ input, select, textarea { border-color: var(--control-line); border-radius: 12px
 .pause-form { display: flex; flex-direction: column; gap: .5rem; }
 .pause-form label { margin: 0; font-size: .9375rem; color: var(--ink); }
 .pause-form .msg:empty { display: none; }
+.pause-form .return-cue { display: flex; flex-direction: column; align-items: flex-start; gap: .375rem; margin: 0; }
+.pause-form .return-cue[hidden] { display: none; }
+.pause-form .return-cue .hint { margin: 0; max-width: 52ch; font-size: .875rem; color: var(--muted); }
+.pause-form .return-cue-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .pause-form .next-actions { margin-top: .5rem; }
+#suggestion .suggestion-cue { margin: .25rem 0 .75rem; color: var(--ink-soft); overflow-wrap: anywhere; }
 .now-view .next-card .progress-details { margin: 0; padding-top: .5rem; border-top: 1px solid var(--line-soft); }
 .now-view .next-card .progress-details > summary { font-size: .9375rem; font-weight: 600; color: var(--ink); }
 .now-view .next-card .progress-details .markdown-body { color: var(--ink-soft); }
