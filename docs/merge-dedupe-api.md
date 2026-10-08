@@ -1,7 +1,7 @@
 # Duplicate-thread review and merge API
 
 Wave 7 backend contract for [#54](https://github.com/uniskela/adhd-hub/issues/54).
-The visual review UI is a separate task. Return-cue coaching has its own contract: [Return-cue coaching](return-cue-coaching.md).
+The dashboard's **Possible overlap** review ([#315](https://github.com/uniskela/adhd-hub/pull/315); see [Dashboard](dashboard.md)) builds on this contract. Return-cue coaching has its own contract: [Return-cue coaching](return-cue-coaching.md).
 
 ## Suggestions
 

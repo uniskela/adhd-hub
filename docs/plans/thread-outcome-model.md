@@ -18,8 +18,8 @@ One thread = one independently finishable outcome.
 - Independent Hub guidance schema versions (`AGENT_GUIDANCE_VERSION`, skill `hub_skill_version`)
 - `adhd-hub doctor --project` / `setup --check` drift detection; repair only via explicit setup/connect
 - **Forge-backed work is repo-authoritative** (B1/B2). Continuity never mirrors remote state by default; explicitly enabled publication changes only the Hub status block.
-- Wave 7 backend: deterministic duplicate review and explicitly human-confirmed local merges retain source threads and history; forge-backed pairs remain review-only. See [API contract](../merge-dedupe-api.md).
-- Wave 7 backend: deterministic, advisory `return_cue` coaching on checkpoint, pause, list, digest and overview thread payloads; never blocks a save, pause or completion. See [Return-cue coaching](../return-cue-coaching.md).
+- Wave 7: deterministic duplicate review and explicitly human-confirmed local merges retain source threads and history; forge-backed pairs remain review-only. Dashboard review: **Possible overlap**. See [API contract](../merge-dedupe-api.md).
+- Wave 7: deterministic, advisory `return_cue` coaching on checkpoint, pause, list, digest and overview thread payloads; never blocks a save, pause or completion. See [Return-cue coaching](../return-cue-coaching.md).
 
 ## Forge issue ownership
 
@@ -35,11 +35,11 @@ Association storage is first-class host-scoped external identity on the thread (
 - GitHub/Gitea sub-issue / parent-child hierarchy import
 - Epic/umbrella issues that are not themselves Hub threads
 - Roadmap/epic UI, full bidirectional reconciliation, PR↔issue graph UI
-- Automatic dependency sequencing; merge/dedupe UI (Wave 7)
+- Automatic dependency sequencing
 - Issue #15 child Wave issues as a hierarchical work graph in Hub
 
 ## Waves 6–8
 
 - Wave 6 (#52): AI summaries / project tags / organiser
-- Wave 7 (#54): merge/dedupe UI, stale triage, Next-up ranking
+- Wave 7 (#54): stale triage, Next-up ranking, merge/dedupe review, return-cue coaching
 - Wave 8 (#55): reversible wiki compaction, global search, energy modes

@@ -277,12 +277,12 @@ Current sequence:
 
 - **Shipped — Foundation B3 [#75](https://github.com/uniskela/adhd-hub/issues/75)** in v0.15.0 via [#152](https://github.com/uniskela/adhd-hub/pull/152): durable activity/event history, live UI invalidation, sync health and history.
 - **Shipped — Wave 6 [#52](https://github.com/uniskela/adhd-hub/issues/52)** in v0.16.0 via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162): heuristic and opt-in local LLM thread scan-lines, project tags, filters, last-touch cues, and organiser suggestions with confirm.
-- **Now — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** soft stale triage and calm Next-up ranking shipped in **v0.18.0**; merge/dedupe suggestions and return-cue coaching remain.
+- **Now — Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54):** soft stale triage and calm Next-up ranking shipped in **v0.18.0**. Merge/dedupe suggestions with human-confirmed local merges ([#312](https://github.com/uniskela/adhd-hub/pull/312), [#315](https://github.com/uniskela/adhd-hub/pull/315)) and advisory return-cue coaching ([#317](https://github.com/uniskela/adhd-hub/pull/317), [#320](https://github.com/uniskela/adhd-hub/pull/320)) are merged on `main` for **v0.21.0** (release PR [#309](https://github.com/uniskela/adhd-hub/pull/309), not yet published).
 - **Next — Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55):** progress compaction, local search, mobile capture and energy/context modes.
 - **Then:** activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72).
 - **Later:** shared/discovery surfaces [#56](https://github.com/uniskela/adhd-hub/issues/56).
 - **Deferred/opt-in:** Slack/Discord/calendar integrations [#20](https://github.com/uniskela/adhd-hub/issues/20).
-- **Independent maintenance:** MCP schema quality [#117](https://github.com/uniskela/adhd-hub/issues/117) and the remaining CI lockfile cleanup [#102](https://github.com/uniskela/adhd-hub/issues/102).
+- **Also merged for v0.21.0:** opt-in Clock-Off wind-down [#310](https://github.com/uniskela/adhd-hub/issues/310), MCP schema quality [#117](https://github.com/uniskela/adhd-hub/issues/117) and locked CI installs [#102](https://github.com/uniskela/adhd-hub/issues/102).
 
 ### Dashboard comfort
 

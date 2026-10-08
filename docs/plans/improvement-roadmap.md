@@ -6,13 +6,13 @@ This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [
 
 | Position | Work | Status |
 | --- | --- | --- |
-| **Now** | Wave 7 — continuity intelligence | Triage + Next-up shipped; merge/dedupe + return-cue coaching remain |
+| **Now** | Wave 7 — continuity intelligence | All four slices merged on `main`; merge/dedupe and return-cue coaching ship in **v0.21.0** (release PR [#309](https://github.com/uniskela/adhd-hub/pull/309), not yet published) |
 | **Next** | Wave 8 — find & capture | Planned |
 | **Then** | Activity insights | Planned after core clarity/findability work |
 | **Later** | Wave 9 — shared surfaces & discoverability | Deferred until Waves 7–8 are stable |
 | **Opt-in** | Wave 5 integrations | Only when a concrete need justifies them |
 
-Reviewed against `main` on **2026-10-05** (Sydney). Wave 6 / **v0.16.0** is published via [#159](https://github.com/uniskela/adhd-hub/pull/159), [#160](https://github.com/uniskela/adhd-hub/pull/160), [#161](https://github.com/uniskela/adhd-hub/pull/161), and [#162](https://github.com/uniskela/adhd-hub/pull/162); release PR [#163](https://github.com/uniskela/adhd-hub/pull/163) merged. Latest published package and tag is **v0.20.2**. **v0.20.0**–**v0.20.2** shipped opt-in Ponytail and Humanizer companions, Settings skills scope with Select all, and the calm UI wave (My work, Now, Progress, Settings, and sign-in). Wave 7 triage [#236](https://github.com/uniskela/adhd-hub/pull/236) and Next-up [#240](https://github.com/uniskela/adhd-hub/pull/240) shipped in **v0.18.0**; merge/dedupe suggestions and return-cue coaching remain open on [#54](https://github.com/uniskela/adhd-hub/issues/54). Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-10-08** (Sydney). Latest published package and tag is **v0.20.2**; release PR [#309](https://github.com/uniskela/adhd-hub/pull/309) proposes **v0.21.0** and is waiting for a manual merge. **v0.20.0**–**v0.20.2** shipped opt-in Ponytail and Humanizer companions, Settings skills scope with Select all, and the calm UI wave (My work, Now, Progress, Settings, and sign-in). Wave 7 triage [#236](https://github.com/uniskela/adhd-hub/pull/236) and Next-up [#240](https://github.com/uniskela/adhd-hub/pull/240) shipped in **v0.18.0**. The remaining Wave 7 slices are now merged on `main`: merge/dedupe suggestions ([#312](https://github.com/uniskela/adhd-hub/pull/312) backend, [#315](https://github.com/uniskela/adhd-hub/pull/315) UI) and return-cue coaching ([#317](https://github.com/uniskela/adhd-hub/pull/317) backend, [#320](https://github.com/uniskela/adhd-hub/pull/320) UI). [#54](https://github.com/uniskela/adhd-hub/issues/54) stays open until v0.21.0 is published. Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -38,7 +38,16 @@ The Hub already includes:
 - organisation / no-repository projects, notes Summarise, rewrite-all scan lines, and the mobile Projects rail (see [dashboard](../dashboard.md) and [notes](../notes.md));
 - opt-in Ponytail and Humanizer companions, Settings skills scope with Select all, and the calm UI wave, published in **v0.20.0**–**v0.20.2** (see [Connect](../connect.md), [companions](../coding-companions.md), and [dashboard](../dashboard.md)).
 
-Shipped work above does **not** replace the remaining product roadmap below. **NOW** is Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54).
+Merged on `main` for **v0.21.0** (release PR [#309](https://github.com/uniskela/adhd-hub/pull/309), not yet published):
+
+- Wave 7 duplicate review with human-confirmed local merges; forge-backed pairs stay review-only ([#312](https://github.com/uniskela/adhd-hub/pull/312), [#315](https://github.com/uniskela/adhd-hub/pull/315); see [merge API](../merge-dedupe-api.md));
+- Wave 7 advisory return-cue coaching that never blocks a save, pause or completion ([#317](https://github.com/uniskela/adhd-hub/pull/317), [#320](https://github.com/uniskela/adhd-hub/pull/320); see [return-cue coaching](../return-cue-coaching.md));
+- opt-in Clock-Off wind-down schedule, temporary override and quiet Now status ([#310](https://github.com/uniskela/adhd-hub/issues/310) via [#322](https://github.com/uniskela/adhd-hub/pull/322) and [#323](https://github.com/uniskela/adhd-hub/pull/323); see [Clock-Off](../clock-off-api.md));
+- MCP parameter descriptions, annotations and typed outputs ([#117](https://github.com/uniskela/adhd-hub/issues/117) via [#318](https://github.com/uniskela/adhd-hub/pull/318); see [MCP tool contract](../mcp-tool-contract.md));
+- locked CI installs and Release Please–managed `uv.lock` versions ([#102](https://github.com/uniskela/adhd-hub/issues/102) via [#311](https://github.com/uniskela/adhd-hub/pull/311));
+- non-destructive sample data ([#305](https://github.com/uniskela/adhd-hub/pull/305)) and the `completion.ready` end-of-task guidance fixes ([#307](https://github.com/uniskela/adhd-hub/pull/307), [#321](https://github.com/uniskela/adhd-hub/pull/321)).
+
+Shipped work above does **not** replace the remaining product roadmap below. **NOW** is Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) until v0.21.0 is published; Wave 8 is next.
 
 ## Product principles
 
@@ -86,7 +95,7 @@ Durable structured activity events, authenticated SSE live invalidation (API ref
 - calmer project list with tags/categories and useful filters;
 - optional human-confirmed AI organisation.
 
-Remote AI remains opt-in and must not leak secrets, raw transcripts, private URLs or machine paths. Prefer B3 events for freshness; do not create a competing history mechanism. Keep [#117](https://github.com/uniskela/adhd-hub/issues/117) as independent maintenance.
+Remote AI remains opt-in and must not leak secrets, raw transcripts, private URLs or machine paths. Prefer B3 events for freshness; do not create a competing history mechanism. MCP schema quality [#117](https://github.com/uniskela/adhd-hub/issues/117) landed separately as independent maintenance ([#318](https://github.com/uniskela/adhd-hub/pull/318)).
 
 ## Current priority
 
@@ -96,10 +105,12 @@ Remote AI remains opt-in and must not leak secrets, raw transcripts, private URL
 
 - soft stale-thread triage (**first slice**: confirm / snooze; never auto-dismiss) — shipped in **v0.18.0** ([#236](https://github.com/uniskela/adhd-hub/pull/236));
 - calm cross-project Next-up ranking (**second slice**) — shipped in **v0.18.0** ([#240](https://github.com/uniskela/adhd-hub/pull/240));
-- merge/dedupe suggestions with human confirmation;
-- better return-cue guidance.
+- merge/dedupe suggestions with human confirmation (**third slice**) — merged on `main` for **v0.21.0**: deterministic duplicate review, MCP `suggest_duplicate_threads` / `request_thread_merge` / `thread_merge_history`, and a **Possible overlap** review in the dashboard ([#312](https://github.com/uniskela/adhd-hub/pull/312), [#315](https://github.com/uniskela/adhd-hub/pull/315)). Merges only queue a pending action; a person approves in the UI. Forge-backed or source-imported threads are refused (`forge_authoritative`) and stay review-only;
+- better return-cue guidance (**fourth slice**) — merged on `main` for **v0.21.0**: an advisory `return_cue` on checkpoint, pause, list, digest and overview payloads, shown quietly by the Now pause field and as the **Left off** cue on My work. It never blocks Pause, Save or Done ([#317](https://github.com/uniskela/adhd-hub/pull/317), [#320](https://github.com/uniskela/adhd-hub/pull/320)).
 
-Richer stale-reminder context/direct CTAs are a narrower reminder UX improvement and do not complete this wave; Wave 7 still owns merge suggestions and return-cue quality coaching.
+All four slices are on `main`. Close [#54](https://github.com/uniskela/adhd-hub/issues/54) and move **Now** to Wave 8 in issue #15 once v0.21.0 is published.
+
+Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310), [#322](https://github.com/uniskela/adhd-hub/pull/322) backend/MCP, [#323](https://github.com/uniskela/adhd-hub/pull/323) UI) also merged for v0.21.0. It is an opt-in, advisory wind-down boundary that agents read through `get_overview` and `session_digest`. Only the person can set an override, from the dashboard or REST; MCP has no override tool. It supports Wave 7 return cues without pulling Wave 8 energy/context modes forward.
 
 ## Next product sequence
 
@@ -140,8 +151,9 @@ This is reflection tooling, not employee surveillance or productivity scoring.
 
 These can land without changing the product-wave sequence:
 
-- [#117](https://github.com/uniskela/adhd-hub/issues/117) — improve MCP parameter descriptions, annotations, output schemas and regression coverage using Glama TDQS explanations as diagnostics. **Independent** of the Wave 7 train; land separately when capacity allows.
-- [#102](https://github.com/uniskela/adhd-hub/issues/102) — finish remaining lockfile/CI install-mode cleanup (decide `--frozen` vs `--locked` after refresh). Package version on `main` is already **v0.20.2**; do not treat version-string drift as open product work.
+- [#117](https://github.com/uniskela/adhd-hub/issues/117) — ✅ closed via [#318](https://github.com/uniskela/adhd-hub/pull/318) (merged for v0.21.0). All 26 current tools describe every input parameter and declare all four annotation hints. Local tests guard both. Typed output schemas cover `resolve_project`, `upsert_progress`, `mark_done`, `session_digest` and `report_guidance_health`. **Remaining follow-up:** after v0.21.0 is published and Glama rebuilds, record the per-tool TDQS rescore against the 2026-09-22 baseline (issue scope item 6). Only then consider typed outputs for other mutation results with selection/error states, such as `pause_thread` and `request_thread_merge`.
+- [#102](https://github.com/uniskela/adhd-hub/issues/102) — ✅ closed via [#311](https://github.com/uniskela/adhd-hub/pull/311). CI installs with `--locked` (`UV_LOCKED=true`). Release Please bumps the `adhd-hub` version in `uv.lock` together with `pyproject.toml` (`release-please-config.json` `extra-files`). Do not hand-edit either version.
+- [#300](https://github.com/uniskela/adhd-hub/issues/300) — verification only: confirm the Docker Hub README and short description sync after the v0.21.0 image publishes, then close.
 
 Completed CI/security cleanup is historical and should not be treated as current roadmap work.
 
@@ -155,13 +167,15 @@ Completed CI/security cleanup is historical and should not be treated as current
 | Done | Foundation B2 #74 | Shipped in v0.8.0 |
 | Done | Foundation B3 #75 | Event ledger / live UI / sync health (#152) |
 | Done | Wave 6 #52 | Published in v0.16.0 (#159–#162); release #163 merged; latest published tag v0.20.2 |
-| **Now** | **Wave 7 #54** | Continuity intelligence — triage + Next-up published in v0.18.0; merge/dedupe + return cues remain |
+| **Now** | **Wave 7 #54** | Continuity intelligence — triage + Next-up published in v0.18.0; merge/dedupe (#312/#315) + return cues (#317/#320) merged for v0.21.0 (#309 pending) |
 | Next | Wave 8 #55 | Find & capture |
 | Then | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
-| Independent | MCP schema quality #117 | Land separately from Wave 7 |
-| Independent | CI lockfile cleanup #102 | Remaining maintenance |
+| Done | Clock-Off #310 | Backend/MCP #322 + UI #323 merged for v0.21.0 |
+| Done | MCP schema quality #117 | #318 merged for v0.21.0; Glama rescore after publish |
+| Done | CI lockfile cleanup #102 | #311 merged for v0.21.0 |
+| Verify | Docker Hub description #300 | Check after the v0.21.0 image publish |
 
 ## Keeping this page from drifting
 

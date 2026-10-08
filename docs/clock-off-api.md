@@ -1,7 +1,8 @@
 # Clock-Off backend and UI contract
 
-This first backend/MCP slice of [#310](https://github.com/uniskela/adhd-hub/issues/310)
-adds a global, opt-in advisory schedule. It uses the existing `prefs.json` and
+[#310](https://github.com/uniskela/adhd-hub/issues/310) adds a global, opt-in
+advisory schedule: backend/MCP in [#322](https://github.com/uniskela/adhd-hub/pull/322)
+and dashboard UI in [#323](https://github.com/uniskela/adhd-hub/pull/323). It uses the existing `prefs.json` and
 Hub timezone preference (`ADHD_HUB_TIMEZONE` supplies the initial default).
 It never kills processes, changes thread status, or requires strict Continuity
 Guard. The user remains in control. Settings → Appearance saves the schedule
