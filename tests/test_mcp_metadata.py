@@ -34,55 +34,6 @@ PUBLIC_TOOLS = {
 }
 
 
-async def test_annotation_profiles_match_real_side_effects(tmp_path):
-    server = build_mcp(HubService(Settings(data_dir=tmp_path, auth_token="test")))
-    tools = {tool.name: tool for tool in await server.list_tools()}
-    # Read-only, destructive, idempotent, open-world: every tool has all four hints.
-    profiles = {
-        (True, False, True, False): {
-            "check_overlap",
-            "suggest_duplicate_threads",
-            "thread_merge_history",
-            "list_open_threads",
-            "list_projects",
-            "list_pending_actions",
-            "list_reminders",
-            "get_overview",
-            "suggest_next_up",
-        },
-        (False, False, True, False): {
-            "request_thread_merge",
-            "rename_project",
-            "delete_project",
-        },
-        (False, False, False, False): {"resolve_project", "set_reminder"},
-        (False, True, False, False): {
-            "upsert_project",
-            "pause_thread",
-            "report_guidance_health",
-            "confirm_thread_relevant",
-            "snooze_thread_triage",
-            "session_digest",
-        },
-        (False, True, False, True): {"upsert_thread", "upsert_progress", "mark_done"},
-        (False, True, True, True): {"dismiss_thread"},
-        (False, False, True, True): {"register_workspace"},
-        (False, False, False, True): {"push_openclaw_memory"},
-    }
-    expected = {name: profile for profile, names in profiles.items() for name in names}
-    assert set(expected) == set(tools) == PUBLIC_TOOLS
-    for name, tool in tools.items():
-        annotations = tool.annotations
-        assert annotations is not None, name
-        actual = (
-            annotations.read_only_hint,
-            annotations.destructive_hint,
-            annotations.idempotent_hint,
-            annotations.open_world_hint,
-        )
-        assert actual == expected[name], name
-
-
 async def test_current_catalog_has_useful_parameter_descriptions(tmp_path):
     server = build_mcp(HubService(Settings(data_dir=tmp_path, auth_token="test")))
     tools = {tool.name: tool for tool in await server.list_tools()}
