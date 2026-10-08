@@ -238,7 +238,7 @@ def test_sign_in_is_one_calm_column_with_help_below_the_card():
 def test_every_dialog_has_a_title_row_with_a_close_button():
     html = (UI / "index.html").read_text()
     dialogs = re.findall(r'<dialog id="([\w-]+)".*?</dialog>', html, re.DOTALL)
-    assert len(dialogs) == 9
+    assert len(dialogs) == 10
     for block in re.findall(r"<dialog .*?</dialog>", html, re.DOTALL):
         assert 'class="dialog-head"' in block
         assert 'class="icon-button dialog-close"' in block

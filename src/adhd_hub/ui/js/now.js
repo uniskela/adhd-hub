@@ -5,12 +5,15 @@ import { loadAll, loadOverview } from './load.js';
 import { celebrate, dismissCelebration } from './progress.js';
 import { openWork, showScreen } from './screens.js';
 import { SOURCE_SYNC_LABELS, loadThreads, openSourceRefresh, rewriteScanLine, selectProject, sourceNeedsAttention, threadSourceName } from './work.js';
+import { hideOverlapCue, openOverlapReview, refreshOverlapCue } from './overlap.js';
 import { threadDisplayTitle } from './thread-title.mjs';
 
 export { threadDisplayTitle };
 
 /** Thread id currently shown in the Notes reader (for Summarise). */
 let notesThreadId = null;
+/** Full thread payload for the open reader, used by overlap review. */
+let readerThread = null;
 /** Resolve display title for a project slug from the overview cache. */
 export function projectTitleForSlug(slug) {
     if (!slug || slug === "unclassified") return "Inbox";
@@ -321,6 +324,8 @@ function fillReaderActions(thread) {
     }
     const rewrite = $("btn-notes-rewrite-scan");
     if (rewrite) rewrite.hidden = !id || !ai;
+    const overlap = $("btn-notes-overlap");
+    if (overlap) overlap.hidden = !id;
     const notice = $("notes-reader-source");
     if (notice) {
       if (thread && sourceNeedsAttention(thread)) {
@@ -344,6 +349,8 @@ export function closeNotesReader({ restoreFocus = true } = {}) {
     if (!reader || reader.hidden) return;
     ++notesRequest;
     notesThreadId = null;
+    readerThread = null;
+    hideOverlapCue();
     fillReaderActions(null);
     reader.hidden = true;
     reader.closest(".layout")?.classList.remove("notes-docked", "notes-expanded");
@@ -499,7 +506,13 @@ async function openNotesReader(trigger) {
     try {
       const data = await api("/threads/" + encodeURIComponent(trigger.dataset.notes));
       if (request !== notesRequest) return;
+      readerThread = data;
       body.innerHTML = data.progress_html || "<p class=\"notes-empty-hint\">No saved notes yet.</p>";
+      if (!thread && data?.summary) {
+        $("notes-reader-title").textContent = data.summary;
+        $("notes-reader-meta").textContent = [projectTitleForSlug(data.project_slug), `from ${threadSourceName(data)}`].filter(Boolean).join(" · ");
+        fillReaderActions(data);
+      }
       wireNotesActions(body);
       // Move focus into the notes only if the person has not already moved on (e.g. into the ⋯ menu).
       const active = document.activeElement;
@@ -511,6 +524,7 @@ async function openNotesReader(trigger) {
       ) {
         summariseNotes({ mode: "ensure", quiet: true }).catch(() => {});
       }
+      refreshOverlapCue(data, () => request === notesRequest && notesThreadId === data.id).catch(() => {});
     } catch (_) {
       if (request === notesRequest) body.textContent = "Could not load notes. Close and reopen to retry.";
     }
@@ -537,6 +551,13 @@ function wireNotesReaderControls() {
     });
     $("btn-notes-copy")?.addEventListener("click", () => {
       if (notesThreadId) copyReference(notesThreadId);
+    });
+    const overlapThread = () => readerThread || { id: notesThreadId };
+    $("btn-notes-overlap")?.addEventListener("click", () => {
+      openOverlapReview(overlapThread(), { force: true }).catch((error) => setMsg(error.message));
+    });
+    $("btn-overlap-cue")?.addEventListener("click", () => {
+      openOverlapReview(overlapThread()).catch((error) => setMsg(error.message));
     });
     $("btn-notes-refresh-source")?.addEventListener("click", () => {
       if (notesThreadId) openSourceRefresh(notesThreadId);
@@ -566,6 +587,17 @@ function wireNotesReaderControls() {
         closeNotesReader();
       }
     });
+  }
+
+export async function showThreadNotes(threadId) {
+    if (!threadId) return;
+    const existing = [...document.querySelectorAll("#threads button[data-notes]")].find(
+      (button) => button.dataset.notes === threadId
+    );
+    if (existing) return openNotesReader(existing);
+    const trigger = document.createElement("button");
+    trigger.dataset.notes = threadId;
+    return openNotesReader(trigger);
   }
 
 export function wireNotes(root) {
