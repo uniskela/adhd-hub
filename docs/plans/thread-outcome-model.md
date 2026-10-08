@@ -19,7 +19,7 @@ One thread = one independently finishable outcome.
 - `adhd-hub doctor --project` / `setup --check` drift detection; repair only via explicit setup/connect
 - **Forge-backed work is repo-authoritative** (B1/B2). Continuity never mirrors remote state by default; explicitly enabled publication changes only the Hub status block.
 - Wave 7 backend: deterministic duplicate review and explicitly human-confirmed local merges retain source threads and history; forge-backed pairs remain review-only. See [API contract](../merge-dedupe-api.md).
-- Wave 7 backend: deterministic, advisory `return_cue` coaching on every thread payload; never blocks a save, pause or completion. See [Return-cue coaching](../return-cue-coaching.md).
+- Wave 7 backend: deterministic, advisory `return_cue` coaching on checkpoint, pause, digest and overview thread payloads; never blocks a save, pause or completion. See [Return-cue coaching](../return-cue-coaching.md).
 
 ## Forge issue ownership
 
