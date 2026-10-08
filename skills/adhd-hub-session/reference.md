@@ -21,7 +21,7 @@ Hub owns version pins (`<!-- adhd-hub:guidance-version:N -->`, `hub_skill_versio
 1. Operator: `adhd-hub doctor --project .` (also records verification on Hub when credentials work)
 2. Repair AGENTS only: `adhd-hub setup . --refresh`
 3. Project-scoped Hub skills (deterministic, no LLM): `adhd-hub sync-project .` or `adhd-hub setup . --project-skills`
-4. Opt-in global Hub skills: `adhd-hub setup . --install-skills` (or Marketplace plugin update — see [Cursor plugin skill sync](https://github.com/uniskela/adhd-hub/blob/main/docs/cursor-plugin-skill-sync.md))
+4. Opt-in global Hub skills: `adhd-hub setup . --install-skills` (or Marketplace plugin update — see [Cursor plugin skill sync](https://github.com/uniskela/adhd-hub/blob/main/docs/public/cursor-plugin-skill-sync.md))
 5. Agent: if `session_digest.guidance.status` is not `last_verified_current`, mention once + point at doctor/refresh; after a local check, optionally `report_guidance_health`
 
 ## Progress routing

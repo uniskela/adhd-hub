@@ -23,6 +23,6 @@ def test_release_gate_classifies_subjects_and_paths():
     assert gate.is_release_surface("src/adhd_hub/app.py")
     assert gate.is_release_surface("pyproject.toml")
     assert gate.is_release_surface("docker-compose.yml")
-    assert not gate.is_release_surface("docs/dashboard.md")
+    assert not gate.is_release_surface("docs/public/dashboard.md")
     assert not gate.is_release_surface(".github/workflows/pages.yml")
     assert not gate.is_release_surface("skills/adhd-hub-session/SKILL.md")

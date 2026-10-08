@@ -99,7 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log.warning(
             "ADHD_HUB_AUTH_TOKEN is a weak/default value — OK only for pure local "
             "loopback without PUBLIC_URL or proxy trust. Set a strong token before "
-            "tunnels, reverse proxies, or non-loopback binds (docs/remote-mcp-access.md)."
+            "tunnels, reverse proxies, or non-loopback binds (docs/public/remote-mcp-access.md)."
         )
     settings.ensure_dirs()
     service = HubService(settings)

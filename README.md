@@ -12,13 +12,13 @@ Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRI
 
 My work with Notes & context (projects list, calm rows, and the reader opened beside them):
 
-![My work with Notes & context](docs/images/my-work-notes-hero.png)
+![My work with Notes & context](docs/public/images/my-work-notes-hero.png)
 
 | Now | My work | Progress | Settings |
 | --- | --- | --- | --- |
-| ![Now](docs/images/now-desktop.png) | ![My work](docs/images/my-work-desktop.png) | ![Progress](docs/images/progress-desktop.png) | ![Settings](docs/images/settings-desktop.png) |
+| ![Now](docs/public/images/now-desktop.png) | ![My work](docs/public/images/my-work-desktop.png) | ![Progress](docs/public/images/progress-desktop.png) | ![Settings](docs/public/images/settings-desktop.png) |
 
-Gallery shots use dummy demo data (Now shows a saved “Where you left off” step and a gentle “Is this still on your list?” check). More UI detail: [Dashboard](docs/dashboard.md) · [Notes & context](docs/notes.md).
+Gallery shots use dummy demo data (Now shows a saved “Where you left off” step and a gentle “Is this still on your list?” check). More UI detail: [Dashboard](docs/public/dashboard.md) · [Notes & context](docs/public/notes.md).
 
 ## Why
 
@@ -32,7 +32,7 @@ You start a Proxmox migration / homelab setup / refactor in Cursor Cloud, contin
 
 ## Quick start
 
-**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/environment-variables.md). Hub state (SQLite including project tags and scan-line cache, plus `ai.json` AI settings) lives under `/data` in the container — mount a named volume or bind there and keep `ADHD_HUB_DATA_DIR=/data` (see [What lives under `/data`](docs/installation.md#what-lives-under-data)).
+**Docker Compose with a published image is the recommended persistent server install.** See the [full installation guide](docs/public/installation.md) for a ready-to-copy Compose file, `docker run`, source/`uv`, upgrades, backups, reverse proxies, and client-only CLI installs. Every server setting is documented in the [environment variable reference](docs/public/environment-variables.md). Hub state (SQLite including project tags and scan-line cache, plus `ai.json` AI settings) lives under `/data` in the container — mount a named volume or bind there and keep `ADHD_HUB_DATA_DIR=/data` (see [What lives under `/data`](docs/public/installation.md#what-lives-under-data)).
 
 ### Docker from this checkout
 
@@ -77,7 +77,7 @@ Generic MCP config:
 
 Stdio is an **optional local mode**: it uses the configured Hub data directory and the same MCP tools, but it does not start the REST API, dashboard, or background scheduler. It has no bearer header because the MCP connection is the local child process itself. For a persistent/shared Hub, remote agents, OAuth, dashboard access, and scheduled reminders, keep using `adhd-hub serve`/Docker and the Streamable HTTP `/mcp` endpoint.
 
-See the [MCP tool contract](docs/mcp-tool-contract.md) for parameter metadata, output compatibility, side effects and local regression checks.
+See the [MCP tool contract](docs/public/mcp-tool-contract.md) for parameter metadata, output compatibility, side effects and local regression checks.
 
 Published images (only after a manual release-PR merge by `uniskela`):
 
@@ -98,7 +98,7 @@ Repo secrets for Docker Hub: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. GHCR uses 
 
 ### Connect Cursor
 
-**Marketplace plugin (recommended for Cursor):** install [adhd-hub-cursorskill](https://github.com/uniskela/adhd-hub-cursorskill) (Marketplace once published, or local/dev install of that repo). With a Hub already running, set plugin variables `ADHD_HUB_MCP_URL` (`{base}/mcp`) and `ADHD_HUB_AUTH_TOKEN`, then verify MCP tools and skills. That plugin ships the Hub rule + session/projects/env-check skills with Marketplace wiring; Hub remains the skill source of truth ([Cursor plugin skill sync](docs/cursor-plugin-skill-sync.md)).
+**Marketplace plugin (recommended for Cursor):** install [adhd-hub-cursorskill](https://github.com/uniskela/adhd-hub-cursorskill) (Marketplace once published, or local/dev install of that repo). With a Hub already running, set plugin variables `ADHD_HUB_MCP_URL` (`{base}/mcp`) and `ADHD_HUB_AUTH_TOKEN`, then verify MCP tools and skills. That plugin ships the Hub rule + session/projects/env-check skills with Marketplace wiring; Hub remains the skill source of truth ([Cursor plugin skill sync](docs/public/cursor-plugin-skill-sync.md)).
 
 **Project / CLI connect** (monorepos, `adhd-hub connect`, or non-Marketplace setups): merge [adapters/cursor-mcp.json](adapters/cursor-mcp.json) into your MCP config (URL + bearer via `${env:ADHD_HUB_AUTH_TOKEN}`), install the rule from [adapters/cursor-rule.mdc](adapters/cursor-rule.mdc) into `.cursor/rules/`, and optionally install skills:
 
@@ -109,11 +109,11 @@ npx skills add uniskela/adhd-hub -g
 npx skills add ./skills -g
 ```
 
-Or use `adhd-hub connect … --agents cursor --cursor-rule --skills` — see [docs/connect.md](docs/connect.md).
+Or use `adhd-hub connect … --agents cursor --cursor-rule --skills` — see [docs/public/connect.md](docs/public/connect.md).
 
-**Optional third-party companions** (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer): see [docs/coding-companions.md](docs/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Coding agents** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
+**Optional third-party companions** (i-have-adhd, Superpowers, Ponytail, Graphify, Context7, agent-browser, RTK, Serena, Humanizer): see [docs/public/coding-companions.md](docs/public/coding-companions.md). Choose only the tools that fit your workflow; Hub **Settings → Coding agents** and `adhd-hub connect --with-*` provide the supported opt-in install paths.
 
-For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/writing.md): one visible **Now** action, brief context, and a concrete return cue.
+For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/public/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 
 **Documentation site:** [uniskela.com/docs/adhd-hub](https://uniskela.com/docs/adhd-hub/) (Zensical via `uniskela/.com`). A GitHub Pages mirror stays at [uniskela.github.io/adhd-hub](https://uniskela.github.io/adhd-hub/) until the Pages cutover. Preview locally with `uv sync --extra dev && uv run zensical serve`. The Pages workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.
 
@@ -157,7 +157,7 @@ Install the Hub skills for OpenClaw:
 npx skills add uniskela/adhd-hub -g -a openclaw
 ```
 
-**Pairing (recommended):** In **Settings → Phone alerts**, click **Start pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. Full steps: [OpenClaw connection and alerts](docs/openclaw.md).
+**Pairing (recommended):** In **Settings → Phone alerts**, click **Start pairing**, copy the prompt into OpenClaw, then **Approve** what it submits. OpenClaw never needs `ADHD_HUB_AUTH_TOKEN` — only the short pairing code. Full steps: [OpenClaw connection and alerts](docs/public/openclaw.md).
 
 **Manual path:** Enable private hooks on the OpenClaw gateway. Then in **Settings → Phone alerts**, save the webhook or agent URL, bearer token, alert schedule, stale age, cooldown, and alert size. Use **Save and send a test** to verify the route.
 
@@ -170,7 +170,7 @@ ADHD_HUB_OPENCLAW_TOKEN=<OpenClaw hook bearer token>
 # ADHD_HUB_OPENCLAW_AGENT_URL=http://openclaw:18789/hooks/agent
 ```
 
-Environment changes require a restart; web UI changes apply immediately. The stale-work job sends OpenClaw one concise, non-nagging reminder and stays quiet when there is no stale work. Keep both services on your LAN or Tailscale. See [the OpenClaw guide](docs/openclaw.md) for details.
+Environment changes require a restart; web UI changes apply immediately. The stale-work job sends OpenClaw one concise, non-nagging reminder and stays quiet when there is no stale work. Keep both services on your LAN or Tailscale. See [the OpenClaw guide](docs/public/openclaw.md) for details.
 
 ## Optional transcript indexer
 
@@ -189,7 +189,7 @@ Roots (override in `config.toml` `[indexer]`):
 
 ## Homelab / Tailscale
 
-See [docs/deploy-homelab.md](docs/deploy-homelab.md). Typical pattern: Docker on Proxmox LXC, publish `:8787` on Tailscale, point Cursor Cloud + Windows + Dev LXC MCP clients at `http://<tailscale-ip>:8787/mcp`. When Cloud cannot join Tailscale, use a controlled HTTPS tunnel ([Remote MCP access](https://uniskela.com/docs/adhd-hub/remote-mcp-access/)) or the forge mailbox — never anonymous `/mcp`.
+See [docs/public/deploy-homelab.md](docs/public/deploy-homelab.md). Typical pattern: Docker on Proxmox LXC, publish `:8787` on Tailscale, point Cursor Cloud + Windows + Dev LXC MCP clients at `http://<tailscale-ip>:8787/mcp`. When Cloud cannot join Tailscale, use a controlled HTTPS tunnel ([Remote MCP access](https://uniskela.com/docs/adhd-hub/remote-mcp-access/)) or the forge mailbox — never anonymous `/mcp`.
 
 ## Optional forge sync (GitHub / Gitea)
 
@@ -204,19 +204,19 @@ Configure in Settings or via `ADHD_HUB_FORGE_*` env / `data/forge.json`. Rename/
 
 **Note:** Hub “wiki” = normal markdown files in the repo (`INDEX.md`, `projects/*/PROGRESS.md`). That is separate from Gitea/GitHub’s built-in Wiki feature. Issues show under the Issues tab when board sync works. Projects boards only if you set a project id/number.
 
-**Cloud / remote mailbox:** enable **Import cloud-agent issues (inbox)** and set **Inbox authors** (fail closed: empty allowlist imports nothing). The Hub polls open issues from those usernames that either have the `adhd-hub` label **or** a title starting with `[ADHD]` (Cursor Cloud, Codex/ChatGPT, Claude, etc.), creates threads, then closes them with `adhd-hub-synced` (never deletes). Title prefix is enough when agents cannot set labels. Optional `source:*` labels record the tool. Agents should use a short Goal/Focus/Next/Resume body and may append a Made-with footer under `## Attribution`. See [docs/forge-issue-inbox.md](docs/forge-issue-inbox.md).
+**Cloud / remote mailbox:** enable **Import cloud-agent issues (inbox)** and set **Inbox authors** (fail closed: empty allowlist imports nothing). The Hub polls open issues from those usernames that either have the `adhd-hub` label **or** a title starting with `[ADHD]` (Cursor Cloud, Codex/ChatGPT, Claude, etc.), creates threads, then closes them with `adhd-hub-synced` (never deletes). Title prefix is enough when agents cannot set labels. Optional `source:*` labels record the tool. Agents should use a short Goal/Focus/Next/Resume body and may append a Made-with footer under `## Attribution`. See [docs/public/forge-issue-inbox.md](docs/public/forge-issue-inbox.md).
 
-**PAT permissions:** see [docs/forge-permissions.md](docs/forge-permissions.md) for GitHub (fine-grained + classic) and Gitea scopes.
+**PAT permissions:** see [docs/public/forge-permissions.md](docs/public/forge-permissions.md) for GitHub (fine-grained + classic) and Gitea scopes.
 
 ## Privacy
 
 - Default store: SQLite + markdown wiki under `data/`  
-- Auth: REST and MCP accept bearer tokens. `/ui/` supports a separate dashboard password, with `ADHD_HUB_AUTH_TOKEN` for initial setup and recovery. Both issue a 12-hour HttpOnly, SameSite=Strict session cookie; credentials are never stored in localStorage. See [password setup and recovery](docs/authentication.md). Log out revokes the session. Browser sessions are stored in SQLite (`data/browser_sessions.sqlite3`) and survive a restart; login throttles stay in process memory. HTTPS sets the Secure cookie flag (configure trusted proxy headers when terminating TLS upstream).
+- Auth: REST and MCP accept bearer tokens. `/ui/` supports a separate dashboard password, with `ADHD_HUB_AUTH_TOKEN` for initial setup and recovery. Both issue a 12-hour HttpOnly, SameSite=Strict session cookie; credentials are never stored in localStorage. See [password setup and recovery](docs/public/authentication.md). Log out revokes the session. Browser sessions are stored in SQLite (`data/browser_sessions.sqlite3`) and survive a restart; login throttles stay in process memory. HTTPS sets the Secure cookie flag (configure trusted proxy headers when terminating TLS upstream).
 - Default-token development mode is allowed only with a loopback bind. Set a long random token before binding to `0.0.0.0`; generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Use HTTPS for remote access.
 - Cookie-authenticated writes require `X-Hub-Request: 1` and a matching Origin when present. CLI and MCP clients continue using bearer auth.
 - Settings precedence is process environment, then the first nonempty TOML file (`--config`, `./config.toml`, or `~/.config/adhd-hub/config.toml`), then `.env`. `ADHD_HUB_PUBLIC_URL` sets the externally reachable Hub base URL used for browser/deep links, forge links, install/connect output, and MCP OAuth discovery.
 - Bind `127.0.0.1` for local-only, or Tailscale-only — do not expose publicly without a reverse proxy / tunnel terminator and strong token ([Remote MCP access](https://uniskela.com/docs/adhd-hub/remote-mcp-access/))
-- Migrate instances with `/ui` backup zip or forge **Import** (see [docs/deploy-homelab.md](docs/deploy-homelab.md)). Optional passphrase backups use a versioned envelope: new exports are salted scrypt + Fernet (v2); v1 SHA-256 passphrase files still decrypt.
+- Migrate instances with `/ui` backup zip or forge **Import** (see [docs/public/deploy-homelab.md](docs/public/deploy-homelab.md)). Optional passphrase backups use a versioned envelope: new exports are salted scrypt + Fernet (v2); v1 SHA-256 passphrase files still decrypt.
 
 ## Adapters
 
@@ -235,7 +235,7 @@ Install a reversible, project-local `AGENTS.md` section that keeps coding-agent 
 adhd-hub setup /path/to/project
 ```
 
-Add `--install-skills` to install Hub skills (session, projects, env-check) globally for every skills.sh agent, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes global skill directories. Use `connect --skills --agents ...` when you want selected agent targets. See [project agent setup](docs/project-agent-setup.md). Keep connected projects aligned with canonical Hub skills using [project sync](docs/project-sync.md). For stronger Cursor enforcement than rules alone, opt into [continuity guard](docs/continuity-guard.md) with `adhd-hub setup . --continuity-guard`.
+Add `--install-skills` to install Hub skills (session, projects, env-check) globally for every skills.sh agent, or pass `--skills-source /path/to/adhd-hub/skills` while developing locally. Skill installation is opt-in because it changes global skill directories. Use `connect --skills --agents ...` when you want selected agent targets. See [project agent setup](docs/public/project-agent-setup.md). Keep connected projects aligned with canonical Hub skills using [project sync](docs/public/project-sync.md). For stronger Cursor enforcement than rules alone, opt into [continuity guard](docs/public/continuity-guard.md) with `adhd-hub setup . --continuity-guard`.
 
 ## Connect (one-liner)
 
@@ -253,13 +253,13 @@ irm http://<hub-host>:8787/install.ps1 | iex
 
 The CLI opens your browser (or prints a one-time code). Press **Allow** in the browser prompt, or type the code under **Settings → Coding agents** and choose **Allow this computer**. A session is saved on disk; do not `export ADHD_HUB_AUTH_TOKEN` into your profile for this step.
 
-Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matching the server), falling back to `git+https`. Choose agents in **Settings → Coding agents** (baked into `/install.sh` and `/install.ps1`), or pass `--agents` / `ADHD_HUB_CONNECT_AGENTS`. Hub alias `claude` maps to skills.sh `claude-code`; there is no Cursor-only default. Details: [docs/connect.md](docs/connect.md).
+Install scripts prefer this Hub's `/install/cli-wheel.url` (a PEP 427 wheel matching the server), falling back to `git+https`. Choose agents in **Settings → Coding agents** (baked into `/install.sh` and `/install.ps1`), or pass `--agents` / `ADHD_HUB_CONNECT_AGENTS`. Hub alias `claude` maps to skills.sh `claude-code`; there is no Cursor-only default. Details: [docs/public/connect.md](docs/public/connect.md).
 
 ```bash
 adhd-hub doctor --hub http://<hub-host>:8787 --project /path/to/project
 ```
 
-`connect` and `doctor` print a scannable report: outcome banner and Hub URL, then **Do next** (success) or **Fix these** (failure). Color is on for a TTY unless `NO_COLOR` or `ADHD_HUB_NO_COLOR` is set. Layout: [docs/connect.md](docs/connect.md#connect-and-doctor-report).
+`connect` and `doctor` print a scannable report: outcome banner and Hub URL, then **Do next** (success) or **Fix these** (failure). Color is on for a TTY unless `NO_COLOR` or `ADHD_HUB_NO_COLOR` is set. Layout: [docs/public/connect.md](docs/public/connect.md#connect-and-doctor-report).
 
 `adhd-hub connect` merges MCP configs, writes the reversible `AGENTS.md` block, and can install Cursor rules, global skills, OpenClaw skills, register the project, and scan `--find-roots`.
 
@@ -271,7 +271,7 @@ adhd-hub use-hub https://adhd-hub.example.com --project /path/to/project --agent
 
 ## Roadmap
 
-The single public roadmap lives in [docs/plans/improvement-roadmap.md](docs/plans/improvement-roadmap.md). GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker when current status changes faster than the docs.
+The single public roadmap lives in [docs/public/plans/improvement-roadmap.md](docs/public/plans/improvement-roadmap.md). GitHub issue [#15](https://github.com/uniskela/adhd-hub/issues/15) is the canonical tracker when current status changes faster than the docs.
 
 Current sequence:
 
@@ -286,7 +286,7 @@ Current sequence:
 
 ### Dashboard comfort
 
-The dashboard includes light/dark/system themes, a focus view, quick task capture, and optional XP, levels, and daily goals. See [dashboard preferences](docs/dashboard.md).
+The dashboard includes light/dark/system themes, a focus view, quick task capture, and optional XP, levels, and daily goals. See [dashboard preferences](docs/public/dashboard.md).
 
 ## Development
 
@@ -304,4 +304,4 @@ MIT — [LICENSE](LICENSE)
 
 ## Brand and rewards
 
-See the [brand guide](docs/brand-guide.md) for the logo, colours, and UI patterns. Current optional ranks, badges and shareable progress are documented in [dashboard preferences](docs/dashboard.md); future public/competitive reward ideas are not part of the active roadmap.
+See the [brand guide](docs/public/brand-guide.md) for the logo, colours, and UI patterns. Current optional ranks, badges and shareable progress are documented in [dashboard preferences](docs/public/dashboard.md); future public/competitive reward ideas are not part of the active roadmap.

@@ -26,7 +26,7 @@ from adhd_hub.project_setup import (
     run_skills_command,
 )
 
-COMPANIONS_DOC = "https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md"
+COMPANIONS_DOC = "https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md"
 I_HAVE_ADHD_SOURCE = "ayghri/i-have-adhd"
 HUMANIZER_SOURCE = "blader/humanizer"
 AGENT_BROWSER_SKILLS_SOURCE = "vercel-labs/agent-browser"

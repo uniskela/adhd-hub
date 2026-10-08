@@ -26,4 +26,4 @@ Canonical reference: [claude-hooks.json](claude-hooks.json).
 
 SessionStart / SessionEnd are **not** used for enforcement.
 
-See [docs/continuity-guard.md](../docs/continuity-guard.md).
+See [docs/public/continuity-guard.md](../docs/public/continuity-guard.md).

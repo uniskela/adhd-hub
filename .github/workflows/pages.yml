@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
+      - "docs/public/**"
       - "zensical.toml"
       - "pyproject.toml"
       - "uv.lock"

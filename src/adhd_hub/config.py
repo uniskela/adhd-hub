@@ -178,7 +178,7 @@ def validate_bind_token_safety(settings: Settings) -> None:
         "appears reachable beyond local-only development ("
         + "; ".join(problems)
         + "). Set a long random token before using a public URL, reverse proxy, "
-        "tunnel, or non-loopback bind. See docs/remote-mcp-access.md."
+        "tunnel, or non-loopback bind. See docs/public/remote-mcp-access.md."
     )
 
 

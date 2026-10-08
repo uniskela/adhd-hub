@@ -4,7 +4,8 @@ on:
     branches: [main]
     paths:
       - README.md
-      - docs/**
+      - docs/public/**
+      - docs/manifest.json
       - site/src/content/docs/**
       - .github/workflows/notify-uniskela-docs.yml
   release:

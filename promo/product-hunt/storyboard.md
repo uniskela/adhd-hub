@@ -22,17 +22,17 @@ The dot is the brand's "thought saved for later" (brand guide: *"The gold dot is
 
 | Claim / visual on screen | Where it comes from in the repo |
 | --- | --- |
-| "Welcome back", "Where you left off", **Resume**, **Choose something else**, "last touched …" | `src/adhd_hub/ui/js/now.js` (`focusStageLabel`, `renderFocus`), `docs/images/now-desktop.png` |
+| "Welcome back", "Where you left off", **Resume**, **Choose something else**, "last touched …" | `src/adhd_hub/ui/js/now.js` (`focusStageLabel`, `renderFocus`), `docs/public/images/now-desktop.png` |
 | "You're on it", **Mark step done**, **Pause and leave a note** | `now.js` working state |
 | "Leave a note for later", "What's the next tiny step?", **Save and pause**, **Keep working** | `now.js` pause form |
 | Toast "Next step saved. You can stop here." | `now.js` line ~242, brand guide voice section |
 | Start cue "Start with the smallest part. You can leave a note for later whenever you stop." | `now.js` (shown when a step has no saved resume step) |
-| My work: heading, subtitle, Projects rail, All projects, Open / Later / Finished counts, rows with **Left off:**, project line, relative time, **In focus** badge, chosen-row teal inset edge, selected-row tint | `docs/dashboard.md`, `docs/images/my-work-desktop.png`, `js/work.js`, `app.css` (`.thread-*`) |
+| My work: heading, subtitle, Projects rail, All projects, Open / Later / Finished counts, rows with **Left off:**, project line, relative time, **In focus** badge, chosen-row teal inset edge, selected-row tint | `docs/public/dashboard.md`, `docs/public/images/my-work-desktop.png`, `js/work.js`, `app.css` (`.thread-*`) |
 | "check overlap", "resume context", "save progress" | MCP tools `check_overlap`, `session_digest`, `upsert_progress` / `pause_thread` (README tool table, `AGENTS.md`) |
 | Cursor, Codex, Claude Code | Shipped adapters: `adapters/cursor-*`, `adapters/codex.md`, `adapters/claude-code.md` |
 | Self-hosted, open source, MCP | README (Docker/uv install, MIT licence, Streamable HTTP + stdio MCP) |
 | Dark scene colours | `app.css` `:root[data-theme="dark"]`, brand guide colour table |
-| Logo, icon, "Next step" bend | `docs/assets/logo.svg`, `icon.svg` (geometry copied verbatim, never animated) |
+| Logo, icon, "Next step" bend | `docs/public/assets/logo.svg`, `icon.svg` (geometry copied verbatim, never animated) |
 
 Not shown because it is roadmap or out of scope: merge/dedupe suggestions, mobile capture, energy modes, leaderboards, any autonomous Hub "agent". The Hub is drawn as a store the agents talk to, never as an actor.
 

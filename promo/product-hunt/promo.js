@@ -168,7 +168,7 @@
     return e;
   }
 
-  /* Official assets, geometry verbatim from docs/assets/*.svg (never transformed per-frame). */
+  /* Official assets, geometry verbatim from docs/public/assets/*.svg (never transformed per-frame). */
   const ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><rect width="64" height="64" rx="18" fill="#176B60"/><path d="M18 44h9a13 13 0 0 0 13-13V21" fill="none" stroke="#F7F5EF" stroke-width="7" stroke-linecap="round"/><circle cx="19" cy="23" r="5" fill="#EFC978"/></svg>';
   /* Wordmark text uses Figtree, as the in-app wordmark does; logo.svg's system-ui varies by OS. */
   const LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" width="720" height="160"><rect x="8" y="8" width="64" height="64" rx="18" fill="#176B60"/><path d="M26 52h9a13 13 0 0 0 13-13V29" fill="none" stroke="#F7F5EF" stroke-width="7" stroke-linecap="round"/><circle cx="27" cy="31" r="5" fill="#EFC978"/><text x="90" y="51" font-family="Figtree, system-ui, sans-serif" font-weight="700" font-size="32" letter-spacing="-1" fill="#203832">Progress Hub</text></svg>';

@@ -233,7 +233,7 @@ def test_dockerfile_includes_packaged_sync_sources() -> None:
 
 
 def test_docs_pin_sha_not_missing_v1() -> None:
-    text = (REPO_ROOT / "docs/project-sync.md").read_text(encoding="utf-8")
+    text = (REPO_ROOT / "docs/public/project-sync.md").read_text(encoding="utf-8")
     assert "sync-project.yml@<sha>" in text
     assert "sync-project.yml@v1" in text  # migration note only
     # Primary example must not instruct copying @v1 as the only pin.
