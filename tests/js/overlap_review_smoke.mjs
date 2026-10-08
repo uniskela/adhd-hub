@@ -168,7 +168,7 @@ assert(
   "reduced motion disables overlap motion"
 );
 assert(!css.includes(".overlap-review { animation"), "overlap surface has no entrance animation");
-assert(sw.includes("adhd-hub-shell-v50"), "shell cache includes the review module");
+assert(sw.includes("adhd-hub-shell-v51"), "shell cache includes the review module");
 assert(sw.includes("/ui/js/overlap.js"), "service worker precaches the controller");
 
 console.log("overlap_review_smoke: ok");

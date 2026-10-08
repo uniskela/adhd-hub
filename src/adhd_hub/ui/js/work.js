@@ -11,6 +11,7 @@ import {
   parseOwnerRepoFromUrl,
 } from './help.js';
 import { enqueueForgeJob } from './forge-jobs.js';
+import { usefulResumeText } from './return-cue.mjs';
 
 const EXPAND_KEY = "adhd_hub_project_expand";
 
@@ -1268,9 +1269,9 @@ export function sourceNeedsAttention(thread) {
     return ["refresh_available", "conflicted", "unavailable"].includes(thread?.source_sync_state);
   }
 
-/** One plain line for "Left off:", from the resume step or the scan line. */
+/** One plain line for "Left off:". A concrete resume cue, else the scan line. */
 export function leftOffLine(thread) {
-    const raw = String(thread?.resume_step || thread?.scan_line || "").trim();
+    const raw = String(usefulResumeText(thread) || thread?.scan_line || "").trim();
     if (!raw) return "";
     const first = raw.split(/\n+/).find((line) => line.trim()) || "";
     return first

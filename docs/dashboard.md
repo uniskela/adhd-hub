@@ -25,18 +25,18 @@ The main card can show:
 
 - **Your next step**, **You’re on it**, or **Welcome back**;
 - the project and last-touch time;
-- **Where you left off** when a resume step is saved.
+- **Where you left off** when a saved resume step is specific enough to restart from.
 
 Before starting:
 
 - **Start this step** or **Resume** begins the work;
 - **Choose something else** picks another thread;
-- **Help me choose** ranks quiet/stale open work with a useful resume cue first.
+- **Help me choose** ranks quiet/stale open work and shows a concrete resume cue when one is saved.
 
 While working:
 
 - **Mark step done** completes it;
-- **Pause and leave a note** saves the next pickup action;
+- **Pause and leave a note** saves the next pickup action. If that note is missing or vague, a quiet hint sits under the field. **Use Focus** or **Use next step** copies an existing line into the field for you to edit or undo; nothing is saved until you pause. Pause, save, and done stay available either way;
 - **Focus mode** can hide extra information and optionally run a 15-, 25-, or 45-minute timer.
 
 The **⋯** menu contains secondary actions such as **Choose another step**, **Open in My work**, **Copy agent prompt**, and **Mark step done** when you are not mid-step.
@@ -52,7 +52,7 @@ Desktop **My work** uses two columns: projects on the left and steps on the righ
 Each step row keeps only the useful scan information visible:
 
 - title;
-- **Left off:** resume step, or scan line when no resume step exists;
+- **Left off:** a concrete resume step, or the scan line when that step is missing or too vague to restart from;
 - project name while viewing **All projects**;
 - relative last-touch time;
 - a badge only for **In focus** or a source issue that needs review.
