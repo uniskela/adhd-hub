@@ -4,8 +4,10 @@ This first backend/MCP slice of [#310](https://github.com/uniskela/adhd-hub/issu
 adds a global, opt-in advisory schedule. It uses the existing `prefs.json` and
 Hub timezone preference (`ADHD_HUB_TIMEZONE` supplies the initial default).
 It never kills processes, changes thread status, or requires strict Continuity
-Guard. The user remains in control. Settings and Now controls are a frontend
-follow-up; the endpoints below provide their contract.
+Guard. The user remains in control. Settings → Appearance saves the schedule
+on change. Now shows a quiet status only while Clock-Off is enabled and a
+boundary is near, in progress, or overridden. The endpoints below are that
+contract.
 
 ## Configure the schedule
 
@@ -141,5 +143,7 @@ Clock-Off never marks work done, auto-pauses it, or rejects a user action.
 `tests/test_clock_off.py` covers schedule boundaries, active days, midnight,
 IANA offsets, DST gaps/folds, persistence, expiry and actual MCP tool responses.
 `tests/test_clock_off_api.py` covers authenticated configuration/override calls,
-validation, partial updates, restart persistence and expiry. Run the full pytest
-suite, Ruff and the existing browser smoke to check disabled dashboard behavior.
+validation, partial updates, restart persistence and expiry.
+`tests/test_clock_off_ui.py` covers settings payload shaping, wind-down copy,
+override expiry and the narrow layout rules. Run the full pytest suite, Ruff
+and the existing browser smoke, including the Clock-Off settings and Now path.

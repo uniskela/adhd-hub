@@ -15,6 +15,7 @@ import {
 } from './help.js';
 import { enqueueForgeJob, refreshForgeJobs } from './forge-jobs.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
+import { rememberSchedule } from './clock-off.js';
 
 export function showSettingsIndex() {
   const view = $("settings-view");
@@ -69,6 +70,7 @@ export async function loadPrefs() {
         Array.isArray(p.connect_companions) ? p.connect_companions : []
       );
       applyConnectSkillsMode(p.connect_skills_mode || "global");
+      rememberSchedule(p.clock_off);
     } catch (_e) {
       /* keep local */
     }

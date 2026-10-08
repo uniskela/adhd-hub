@@ -110,6 +110,11 @@
               </div>
             </details>
           </div>
+          <section id="clock-off-status" class="clock-off-status" hidden aria-labelledby="clock-off-status-title">
+            <p id="clock-off-status-title" tabindex="-1"></p>
+            <p id="clock-off-status-detail" class="hint" hidden></p>
+            <div id="clock-off-overrides" class="clock-off-overrides" hidden></div>
+          </section>
           <div id="next-card" class="next-card empty"></div>
           <div class="focus-mode-row" id="focus-mode-row" hidden>
             <button type="button" class="switch-button" id="btn-focus-mode" role="switch" aria-checked="false"><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>Focus mode</button>
@@ -402,6 +407,33 @@
                   <div class="setting">
                     <div class="setting-text"><label class="setting-label" for="timezone">Time zone</label><p class="hint" id="timezone-hint">Decides when a new day starts, for everyone using this hub.</p></div>
                     <select id="timezone" aria-describedby="timezone-hint"></select>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-text"><label class="setting-label" for="clock-off-enabled">Clock-Off</label><p class="hint" id="clock-off-hint">Help me stop work at a set time without losing where I was.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="clock-off-enabled" aria-describedby="clock-off-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
+                  <div id="clock-off-fields" class="clock-off-fields" hidden>
+                    <fieldset class="setting is-stacked clock-off-days">
+                      <legend class="setting-label">Active days</legend>
+                      <p class="hint" id="clock-off-days-hint">Clock-Off starts on these days and lasts until 6:00 am.</p>
+                      <div class="day-picks" role="group" aria-describedby="clock-off-days-hint">
+                        <label class="day-pick"><input type="checkbox" data-clock-day="0" value="0" checked /> Mon</label>
+                        <label class="day-pick"><input type="checkbox" data-clock-day="1" value="1" checked /> Tue</label>
+                        <label class="day-pick"><input type="checkbox" data-clock-day="2" value="2" checked /> Wed</label>
+                        <label class="day-pick"><input type="checkbox" data-clock-day="3" value="3" checked /> Thu</label>
+                        <label class="day-pick"><input type="checkbox" data-clock-day="4" value="4" checked /> Fri</label>
+                        <label class="day-pick"><input type="checkbox" data-clock-day="5" value="5" /> Sat</label>
+                        <label class="day-pick"><input type="checkbox" data-clock-day="6" value="6" /> Sun</label>
+                      </div>
+                    </fieldset>
+                    <div class="setting">
+                      <div class="setting-text"><label class="setting-label" for="clock-off-time">Clock-Off time</label><p class="hint" id="clock-off-time-hint">Local time in the time zone above.</p></div>
+                      <input type="time" id="clock-off-time" value="22:00" aria-describedby="clock-off-time-hint" required />
+                    </div>
+                    <div class="setting">
+                      <div class="setting-text"><label class="setting-label" for="clock-off-lead">Wind-down lead</label><p class="hint" id="clock-off-lead-hint">Minutes to finish a small step before Clock-Off. 0 skips the lead.</p></div>
+                      <input type="number" class="short-field" id="clock-off-lead" min="0" max="240" step="1" value="15" inputmode="numeric" aria-describedby="clock-off-lead-hint" />
+                    </div>
                   </div>
                 </div>
               </section>

@@ -19,6 +19,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -39,6 +40,20 @@ def main():
         request = Request(
             base + "/api" + path,
             data=json.dumps(payload).encode(),
+            headers={
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json",
+            },
+        )
+        with urlopen(request, timeout=10) as response:
+            return json.load(response)
+
+    def api_call(method, path, payload=None):
+        body = None if payload is None else json.dumps(payload).encode()
+        request = Request(
+            base + "/api" + path,
+            data=body,
+            method=method,
             headers={
                 "Authorization": "Bearer " + token,
                 "Content-Type": "application/json",
@@ -178,6 +193,82 @@ def main():
                 reminder = page.locator("#now-reminders .check-item")
                 expect(reminder).to_contain_text("Stretch, then open the draft")
                 expect(reminder).to_contain_text(re.compile(r"due \d+ minutes ago"))
+                # Disabled Clock-Off stays off the Now screen.
+                expect(page.locator("#clock-off-status")).to_be_hidden()
+                page.get_by_role("button", name="Settings", exact=True).click()
+                expect(page.locator("#clock-off-fields")).to_be_hidden()
+                page.locator("#clock-off-enabled").focus()
+
+                def prefs_put(response):
+                    return "/api/prefs" in response.url and response.request.method == "PUT"
+
+                with page.expect_response(prefs_put) as saved:
+                    page.keyboard.press("Space")
+                assert saved.value.ok
+                expect(page.locator("#clock-off-enabled")).to_be_checked()
+                expect(page.locator("#clock-off-fields")).to_be_visible()
+                page.locator("[data-clock-day='5']").focus()
+                with page.expect_response(prefs_put) as saved_day:
+                    page.keyboard.press("Space")
+                assert saved_day.value.ok
+                expect(page.locator("[data-clock-day='5']")).to_be_checked()
+                page.locator("#clock-off-lead").fill("20")
+                with page.expect_response(prefs_put) as saved_lead:
+                    page.locator("#clock-off-lead").press("Tab")
+                assert saved_lead.value.ok
+                page.reload()
+                page.get_by_role("button", name="Settings", exact=True).click()
+                expect(page.locator("#clock-off-enabled")).to_be_checked()
+                expect(page.locator("[data-clock-day='5']")).to_be_checked()
+                expect(page.locator("#clock-off-lead")).to_have_value("20")
+                hub_zone = ZoneInfo(api_call("GET", "/prefs")["timezone"])
+                later = datetime.now(hub_zone) + timedelta(minutes=10)
+                api_call(
+                    "PUT",
+                    "/prefs",
+                    {
+                        "clock_off": {
+                            "enabled": True,
+                            "active_days": [0, 1, 2, 3, 4, 5, 6],
+                            "clock_off_time": later.strftime("%H:%M"),
+                            "wind_down_minutes": 30,
+                        }
+                    },
+                )
+                page.reload()
+                expect(page.locator("#clock-off-status")).to_be_visible()
+                expect(page.locator("#clock-off-status-title")).to_have_text(
+                    "Save your next step before finishing"
+                )
+                expect(page.locator("dialog[open]")).to_have_count(0)
+                quiet = page.locator("#clock-off-status").inner_text().lower()
+                for word in ("streak", "alarm", "guilt", "failed", "overdue"):
+                    assert word not in quiet
+                assert page.locator("#clock-off-status").evaluate(
+                    "el => getComputedStyle(el).animationName === 'none'"
+                )
+                with page.expect_response(
+                    lambda response: response.url.endswith("/api/clock-off/override")
+                    and response.request.method == "POST"
+                ):
+                    page.get_by_role("button", name="30 minutes", exact=True).click()
+                expect(page.locator("#clock-off-status-title")).to_have_text("Clock-Off is paused")
+                expect(page.locator("#clock-off-status-detail")).to_contain_text("Until")
+                expect(page.get_by_role("button", name="End override", exact=True)).to_be_visible()
+                with page.expect_response(
+                    lambda response: response.url.endswith("/api/clock-off/override")
+                    and response.request.method == "DELETE"
+                ):
+                    page.get_by_role("button", name="End override", exact=True).click()
+                expect(page.locator("#clock-off-status-title")).to_have_text(
+                    "Save your next step before finishing"
+                )
+                page.get_by_role("button", name="Settings", exact=True).click()
+                with page.expect_response(prefs_put) as cleared:
+                    page.locator("#clock-off-enabled").uncheck()
+                assert cleared.value.ok
+                page.reload()
+                expect(page.locator("#clock-off-status")).to_be_hidden()
                 # My work folds the same reminder into one quiet "Needs you" line.
                 page.get_by_role("button", name="My work", exact=True).click()
                 expect(page.locator("#needs-you-summary")).to_have_text("1 thing needs a quick look")
@@ -499,7 +590,18 @@ def main():
                     page.locator("#btn-settings-index-back").click()
                 page.get_by_role("tab", name="Appearance", exact=True).click()
                 page.locator("#rewards-enabled").check()
+                page.set_viewport_size({"width": 320, "height": 700})
+                page.locator("#clock-off-enabled").check()
+                expect(page.locator("#clock-off-fields")).to_be_visible()
+                assert page.locator("#settings-view").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
+                assert page.locator(".day-picks").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
+                assert page.locator("#clock-off-time").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
                 page.screenshot(path=str(screenshots / "settings-mobile.png"), full_page=True)
+                with page.expect_response(
+                    lambda response: "/api/prefs" in response.url and response.request.method == "PUT"
+                ):
+                    page.locator("#clock-off-enabled").uncheck()
+                page.set_viewport_size({"width": 390, "height": 844})
                 page.get_by_role("button", name="Now", exact=True).click()
                 seed(
                     "/threads",
