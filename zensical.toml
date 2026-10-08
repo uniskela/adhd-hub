@@ -23,7 +23,10 @@ nav = [
   ]},
   { "Using the Hub" = [
     { "Dashboard" = "dashboard.md" },
-    { "Clock-Off backend contract" = "clock-off-api.md" },
+    { "Clock-Off" = "clock-off-api.md" },
+    { "Duplicate review & merge" = "merge-dedupe-api.md" },
+    { "Return-cue coaching" = "return-cue-coaching.md" },
+    { "MCP tool contract" = "mcp-tool-contract.md" },
     { "Notes & context" = "notes.md" },
     { "Coding companions" = "coding-companions.md" },
     { "Cursor plugin skill sync" = "cursor-plugin-skill-sync.md" },

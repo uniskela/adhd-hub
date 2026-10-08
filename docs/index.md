@@ -27,7 +27,7 @@ If this is your first time using the Hub, follow this order:
 
 For a practical day-to-day routine, see [Personal setup](setup.md). For concise Goal / Focus / Next / Blocked / Resume notes, see [Writing & continuity](writing.md). To read that continuity on My work, see [Notes & context](notes.md).
 
-For the Wave 7 backend review contract and Cursor fixtures, see [Duplicate-thread review and merge API](merge-dedupe-api.md) and [Return-cue coaching](return-cue-coaching.md).
+For the Wave 7 review contracts and Cursor fixtures, see [Duplicate-thread review and merge API](merge-dedupe-api.md) and [Return-cue coaching](return-cue-coaching.md). For the opt-in wind-down boundary, see [Clock-Off](clock-off-api.md). For the full MCP catalog, see [MCP tool contract](mcp-tool-contract.md).
 
 ## What belongs here?
 

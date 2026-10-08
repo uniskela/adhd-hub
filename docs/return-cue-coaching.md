@@ -1,7 +1,7 @@
 # Return-cue coaching
 
 Wave 7 backend contract for [#54](https://github.com/uniskela/adhd-hub/issues/54).
-The dashboard treatment is a separate UI task; this page is the contract it builds on.
+The dashboard treatment ([#320](https://github.com/uniskela/adhd-hub/pull/320)) builds on this contract; see [UI notes](#ui-notes).
 
 A return cue is the thread's `resume_step`: the first thing to do when you come
 back. Coaching tells people and coding agents whether that cue names something
