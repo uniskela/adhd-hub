@@ -489,7 +489,7 @@ def install_cursor_rule(project: Path, *, dry_run: bool = False) -> str:
 _FALLBACK_CURSOR_RULE = """---
 description: ADHD Progress Hub — check overlap and save progress on unfinished work
 alwaysApply: true
-hub_guidance_version: 7
+hub_guidance_version: 8
 ---
 
 # ADHD Progress Hub
@@ -507,7 +507,7 @@ When this workspace involves substantial starting, resuming, or pausing work:
 1. Call MCP `adhd-hub` → `resolve_project` with `create_if_missing=false`, then `session_digest` with the task query once per meaningful session. Reuse resolved context where possible. Create/register only after the workspace is authorized as a Hub project.
 2. One thread = one independently finishable outcome. Size the Goal to what the agent can finish (e.g. open a review-ready PR); a Goal that includes merge/deploy stays open/paused until that is done. If resuming a known thread, reuse its `thread_id`. Otherwise call `check_overlap` before potentially new work and reuse a candidate only when its Goal matches; different goal → separate thread (`force_new_thread=true` when needed).
 3. At meaningful checkpoints use `upsert_progress(thread_id=...)` with compact goal/focus/next/blocked/resume state (omit ritual content). When leaving mid-task, checkpoint then call `pause_thread(thread_id, next_step=...)` with one concrete resume action.
-4. End-of-task: prefer `completion.ready` when present (checkpoint first if Hub state is stale). Ready / Goal done → `mark_done` on that thread only. Any remaining work → `upsert_progress` then `pause_thread` — do not `mark_done`. If `mark_done` is denied/rejected for unfinished work: do not retry; checkpoint + `pause_thread` and continue normally.
+4. End-of-task (checkpoint first if Hub state is stale): `completion.ready` reflects stored state only (not PR/CI/merge), so it can block but never approve alone. `mark_done` on that thread only when `ready` is `true` or absent **and** the Goal is done with nothing remaining. `ready == false` (even if the Goal looks done) or any remaining work (even if `ready == true`) → `upsert_progress` (record it in `next_steps`) then `pause_thread` — do not `mark_done`. If `mark_done` is denied/rejected for unfinished work: do not retry; checkpoint + `pause_thread` and continue normally.
 
 If Hub guidance looks stale, mention it once and recommend `adhd-hub setup . --refresh` and `adhd-hub sync-project .` (or `setup . --project-skills`) — do not nag or hand-edit AGENTS.md.
 

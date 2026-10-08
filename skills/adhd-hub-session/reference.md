@@ -11,7 +11,7 @@
 | `upsert_thread` | Create/update a thread (one finishable outcome; optional goal/focus/next) |
 | `upsert_progress` | Update structured active state + PROGRESS.md; pass `thread_id` when known; `force_new_thread` for a new outcome; may return `needs_thread_selection` |
 | `pause_thread` | Pause unfinished work; set concrete next resume step |
-| `mark_done` | Close a known thread when `completion.ready` / Goal done; do not retry if rejected for unfinished work |
+| `mark_done` | Close a known thread only when `completion.ready` is not `false` **and** the Goal is done with no remaining work; do not retry if rejected for unfinished work |
 | `set_reminder` | once / session / daily / random |
 
 ## Keeping skills / AGENTS current
