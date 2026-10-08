@@ -120,3 +120,15 @@ jobs:
           jq -n --arg repository "$SOURCE_REPO" --arg sha "$SOURCE_SHA" --arg ref "refs/heads/main" \
             '{event_type:"docs-source-updated",client_payload:{repository:$repository,sha:$sha,ref:$ref}}' > "$RUNNER_TEMP/docs-dispatch.json"
           gh api --method POST repos/uniskela/.com/dispatches --input "$RUNNER_TEMP/docs-dispatch.json"
+
+  # Context7 docs indexing follows an actual Release Please release, not every push.
+  refresh-context7:
+    needs: release-please
+    if: >-
+      github.actor == 'uniskela' &&
+      needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/context7-refresh.yml
+    secrets:
+      CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
