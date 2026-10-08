@@ -70,17 +70,17 @@ def test_mcp_discovery_validation_and_progress(tmp_path):
             assert tools["list_reminders"]["annotations"]["readOnlyHint"] is True
             mark_ann = tools["mark_done"]["annotations"]
             assert mark_ann["readOnlyHint"] is False
-            assert mark_ann["destructiveHint"] is False
-            assert mark_ann["idempotentHint"] is True
+            assert mark_ann["destructiveHint"] is True
+            assert mark_ann["idempotentHint"] is False
             assert mark_ann["openWorldHint"] is True
             pause_ann = tools["pause_thread"]["annotations"]
             assert pause_ann["readOnlyHint"] is False
-            assert pause_ann["destructiveHint"] is False
+            assert pause_ann["destructiveHint"] is True
             assert pause_ann.get("idempotentHint") in (None, False)
             assert pause_ann["openWorldHint"] is False
             prog_ann = tools["upsert_progress"]["annotations"]
             assert prog_ann["readOnlyHint"] is False
-            assert prog_ann["destructiveHint"] is False
+            assert prog_ann["destructiveHint"] is True
             assert prog_ann["openWorldHint"] is True
             assert "pause_thread" in tools["mark_done"]["description"]
             assert "do not retry" in tools["mark_done"]["description"].lower()

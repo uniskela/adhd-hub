@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 
@@ -48,3 +49,81 @@ async def test_mcp_stdio_lists_and_calls_existing_tool_catalog(tmp_path) -> None
         assert overlap.is_error is not True
         assert reminders.is_error is not True
         assert overview.is_error is not True
+
+        async def call(name, arguments):
+            result = await session.call_tool(name, arguments)
+            assert result.is_error is not True, result
+            assert result.structured_content == json.loads(result.content[0].text)
+            return result.structured_content
+
+        # Exercise success, selection and error shapes over the real transport.
+        missing = await call(
+            "resolve_project", {"project_slug": "missing", "create_if_missing": False}
+        )
+        assert missing == {"error": "not_found"}
+        project = await call("resolve_project", {"project_slug": "contract"})
+        assert project["slug"] == "contract"
+        assert "result" not in project
+        thread = await call(
+            "upsert_thread",
+            {
+                "summary": "Ship contract",
+                "project_slug": "contract",
+                "goal": "Ship contract",
+            },
+        )
+        assert thread["return_cue"]["quality"] == "missing"
+        progress = await call(
+            "upsert_progress",
+            {
+                "project_slug": "contract",
+                "thread_id": thread["id"],
+                "resume_step": "Open tests/test_mcp_stdio.py",
+                "next_steps": [],
+            },
+        )
+        assert progress["thread_id"] == thread["id"]
+        assert progress["needs_thread_selection"] is False
+        assert progress["thread"]["completion"]["ready"] is True
+        await call(
+            "upsert_thread", {"summary": "Other unrelated outcome", "project_slug": "contract"}
+        )
+        selection = await call(
+            "upsert_progress", {"project_slug": "contract", "content": "checkpoint"}
+        )
+        assert selection["needs_thread_selection"] is True
+        assert len(selection["candidates"]) == 2
+        assert "created_thread" not in selection
+        notes = await call(
+            "upsert_progress",
+            {
+                "project_slug": "contract",
+                "content": "Decision recorded",
+                "create_thread_if_missing": False,
+            },
+        )
+        assert notes["thread"] is None
+        invalid = await call(
+            "upsert_progress", {"project_slug": "contract", "thread_id": "missing"}
+        )
+        assert invalid["error"] == "not_found"
+        assert "detail" in invalid
+        assert await call("mark_done", {"thread_id": "missing"}) == {
+            "error": "not_found",
+            "id": "missing",
+        }
+        guidance = await call(
+            "report_guidance_health",
+            {
+                "project_slug": "contract",
+                "agent_guidance_version": 7,
+            },
+        )
+        assert guidance["recorded"] is True
+        assert isinstance(guidance["guidance"], str)  # Existing JSON-string wire field.
+        digest = await call("session_digest", {})
+        assert "completion" in digest["items"][0]
+        assert "return_cue" in digest["items"][0]
+        done = await call("mark_done", {"thread_id": thread["id"]})
+        assert done["status"] == "done"
+        assert "return_cue" not in done  # mark_done retains its raw Thread wire shape.
