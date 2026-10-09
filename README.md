@@ -115,7 +115,7 @@ Or use `adhd-hub connect … --agents cursor --cursor-rule --skills` — see [do
 
 For calm, resumable project notes and plans, use the [ADHD-friendly writing guide](docs/public/writing.md): one visible **Now** action, brief context, and a concrete return cue.
 
-**Documentation site:** [uniskela.com/docs/adhd-hub](https://uniskela.com/docs/adhd-hub/) (Zensical via `uniskela/.com`). A GitHub Pages mirror stays at [uniskela.github.io/adhd-hub](https://uniskela.github.io/adhd-hub/) until the Pages cutover. Preview locally with `uv sync --extra dev && uv run zensical serve`. The Pages workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.
+**Documentation site:** [uniskela.com/docs/adhd-hub](https://uniskela.com/docs/adhd-hub/) (Zensical via `uniskela/com`). A GitHub Pages mirror stays at [uniskela.github.io/adhd-hub](https://uniskela.github.io/adhd-hub/) until the Pages cutover. Preview locally with `uv sync --extra dev && uv run zensical serve`. The Pages workflow deploys only from `main` after `uniskela` merges documentation changes; it does not run for pull requests or manual dispatches.
 
 - MCP (recommended persistent/shared transport): `http://<host>:8787/mcp`
 - MCP (optional local subprocess transport): `adhd-hub mcp-stdio`
