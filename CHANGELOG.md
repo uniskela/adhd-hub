@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/uniskela/adhd-hub/compare/v0.21.0...v0.21.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **docs:** separate public, internal and agent documentation ([#325](https://github.com/uniskela/adhd-hub/issues/325)) ([e6fd8da](https://github.com/uniskela/adhd-hub/commit/e6fd8da0d958588146444c0a6b8856bc459a4b9f))
+
 ## [0.21.0](https://github.com/uniskela/adhd-hub/compare/v0.20.2...v0.21.0) (2026-10-08)
 
 
