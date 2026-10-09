@@ -6,6 +6,13 @@
 
 Self-hosted **source of truth** for half-finished plans, migrations, and setups — so coding agents (Cursor, Codex, Claude Code, …) can check overlap, save progress, and nudge you later.
 
+<a href="https://www.producthunt.com/products/adhd-progress-hub?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-adhd-progress-hub" target="_blank" rel="noopener noreferrer">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1272430&amp;theme=dark">
+    <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1272430&amp;theme=light" alt="ADHD Progress Hub on Product Hunt" width="225">
+  </picture>
+</a>
+
 Inspired by [claude-adhd](https://github.com/shaheer-00/claude-adhd) (see [ATTRIBUTION.md](ATTRIBUTION.md)). This project is **tool-agnostic**: MCP over Streamable HTTP (plus an optional local stdio transport) + REST, optional OpenClaw notifications, and an optional local transcript indexer (summaries only).
 
 ## Screenshots
