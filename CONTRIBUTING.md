@@ -19,6 +19,8 @@ git diff --check
 uv run adhd-hub serve --host 127.0.0.1 --port 8787
 ```
 
+See [the documentation layout](docs/README.md) for public guides, internal contracts/plans and agent workflows. Keep root `AGENTS.md`, `skills/` and `adapters/` canonical.
+
 Preview the public docs site locally with `uv run zensical serve` (after `uv sync --extra dev`).
 
 CI runs the full pytest suite and Ruff with Python 3.12 and the locked `uv.lock`.
@@ -63,5 +65,5 @@ Document new coding tools under `adapters/` with a minimal MCP/config snippet.
 Hub `skills/` and `adapters/cursor-rule.mdc` are the source of truth for the
 [`adhd-hub-cursorskill`](https://github.com/uniskela/adhd-hub-cursorskill) plugin.
 Edit skills here; a GitHub Action opens a plugin PR (never pushes plugin `main`).
-See [Cursor plugin skill sync](docs/cursor-plugin-skill-sync.md) and
+See [Cursor plugin skill sync](docs/public/cursor-plugin-skill-sync.md) and
 [`.github/cursorskill-sync.md`](.github/cursorskill-sync.md).

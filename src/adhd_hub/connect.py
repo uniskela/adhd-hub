@@ -2416,7 +2416,7 @@ def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
         if any(s.name.startswith("companion ") for s in report.steps):
             print(
                 "  - Optional companions (pick what fits — see guide): "
-                "https://github.com/uniskela/adhd-hub/blob/main/docs/coding-companions.md"
+                "https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md"
             )
         print("  - You can close this tab/window when you're done — or keep the shell open.")
 

@@ -5,7 +5,7 @@ The `Sync Cursor skill plugin` workflow copies Hub skills and the Cursor rule in
 applies Marketplace link/setup rewrites, runs the plugin validator, and **opens a
 pull request** on the plugin repo. It never pushes to `adhd-hub-cursorskill` `main`.
 
-Operator-facing docs: [`docs/cursor-plugin-skill-sync.md`](../docs/cursor-plugin-skill-sync.md).
+Operator-facing docs: [`docs/public/cursor-plugin-skill-sync.md`](../docs/public/cursor-plugin-skill-sync.md).
 
 ## Required credentials (pick one)
 

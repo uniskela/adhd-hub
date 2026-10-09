@@ -12,7 +12,7 @@ services:
       - "8787:8787"
     # Cloudflare Tunnel (opt-in): comment out `ports:` above so Hub stays on the
     # Compose network only (do NOT publish host 8787). Uncomment `cloudflared`
-    # below. See docs/remote-mcp-access.md.
+    # below. See docs/public/remote-mcp-access.md.
     env_file:
       - .env
     environment:
@@ -44,7 +44,7 @@ services:
   #
   # In Cloudflare, route https://<hostname> → http://adhd-hub:8787 (Docker DNS).
   # Optional: put Cloudflare Access in front of the hostname for an extra gate.
-  # Docs: docs/remote-mcp-access.md
+  # Docs: docs/public/remote-mcp-access.md
   # ---------------------------------------------------------------------------
   # cloudflared:
   #   image: cloudflare/cloudflared:latest

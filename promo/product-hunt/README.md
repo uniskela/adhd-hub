@@ -12,7 +12,7 @@ A 17.5-second, 1920 × 1080, 60 fps looping promo for ADHD Progress Hub, built a
 | `qa/` | Checkpoint frames, `contact-sheet.png`, `report.json` |
 | `out/` | Render output (git-ignored) |
 
-The film uses Figtree from `src/adhd_hub/ui/brand/` and the official logo geometry from `docs/assets/`, so it must be served from the repository root.
+The film uses Figtree from `src/adhd_hub/ui/brand/` and the official logo geometry from `docs/public/assets/`, so it must be served from the repository root.
 
 ## Preview
 

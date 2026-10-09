@@ -36,7 +36,7 @@ Stdio uses the configured `ADHD_HUB_DATA_DIR` and needs no bearer header. It doe
 
 CLOUD_AGENT: do not assume local skill CLIs like `graphify` exist; one-line notice if missing, then repo tools / committed `graphify-out/`. LOCAL_WORKSPACE may have them. See `env-check`.
 
-Use the [forge issue inbox](../docs/forge-issue-inbox.md):
+Use the [forge issue inbox](../docs/public/forge-issue-inbox.md):
 
 1. Open a GitHub/Gitea issue titled `[ADHD] <summary>` as a user on the Hub **Inbox authors** allowlist. Title prefix is enough; the `adhd-hub` label is optional.
 2. Optional labels when the token can set them: `adhd-hub`, `project:<slug>`, `source:codex` (or `source:chatgpt`).
@@ -60,4 +60,4 @@ Codex has **no Hub-managed lifecycle deny hooks**. Opt-in
 surfaces in the same repo; for Codex itself, continuity stays **advisory**
 via skills, this AGENTS guidance, MCP, forge `[ADHD]` fallback, and optional
 `adhd-hub guard observe . --tool …`. See the strength table in
-[docs/continuity-guard.md](../docs/continuity-guard.md).
+[docs/public/continuity-guard.md](../docs/public/continuity-guard.md).

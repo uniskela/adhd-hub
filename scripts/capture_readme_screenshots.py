@@ -32,7 +32,7 @@ def main() -> None:
     out = Path(
         os.environ.get(
             "ADHD_HUB_SCREENSHOT_DIR",
-            str(root / "docs" / "images"),
+            str(root / "docs" / "public" / "images"),
         )
     )
     out.mkdir(parents=True, exist_ok=True)

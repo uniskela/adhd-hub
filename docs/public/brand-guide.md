@@ -1,0 +1,120 @@
+# Progress Hub brand guide
+
+**Small steps. Your pace.**
+
+Progress Hub gives unfinished work a place to wait. The identity should feel grounded, clear, and welcoming when someone returns after a break.
+
+The product's full name is **ADHD Progress Hub**; use **Progress Hub** in the interface and wordmark.
+
+## Brand in one screen
+
+- **Tone:** calm, concrete, non-punitive.
+- **Primary action:** teal in light mode, mint in dark mode.
+- **Achievement accent:** gold, used sparingly.
+- **Surfaces:** warm paper/light cards or charcoal/dark cards.
+- **Motion:** brief and subtle; respect reduced-motion preferences.
+- **Attention:** one clear primary action per immediate group.
+- **Avoid:** gradients, glow, guilt, streak pressure, competitive language, and unnecessary animation.
+
+## Logo and icon
+
+![Progress Hub logo](assets/logo.svg)
+
+The **Next step** mark combines a soft upward bend with a gold dot. The bend represents picking up a thread; the dot is a thought kept for later. Its open shape leaves room to continue. The symbol is deliberately simple enough for a favicon.
+
+- [App icon / favicon](assets/icon.svg): square SVG with a teal tile, ivory path, and gold dot.
+- [Light-surface wordmark](assets/logo.svg).
+- [Dark-surface wordmark](assets/logo-dark.svg).
+- [Visual brand sheet](assets/brand-sheet.html): open locally in a browser, or print to PDF.
+
+Use the icon at 32 px or larger in the app and 16 px for the favicon. Use the wordmark at 180 px or wider. Keep clear space of at least one-quarter of the icon width around standalone marks. Preserve the aspect ratio, colour relationships, and rounded corners. Do not add gradients, bevels, glow, or animation. The SVG wordmarks use live system-font text for editability; glyphs can vary slightly by operating system. For fixed print artwork, outline the type in a vector editor.
+
+## Colour system
+
+| Role | Light | Dark | Use |
+| --- | --- | --- | --- |
+| Canvas | Warm paper `#F7F6F3` | `#15171A` | Page and sidebar background |
+| Primary surface | White `#FFFFFF` | `#1D2024` | Grouped work, settings, and readers |
+| Secondary surface | `#EFEDE8` | `#272B30` | Quiet supporting controls |
+| Text | `#1F2328` | `#ECEEF0` | Headings and body |
+| Secondary text | `#5F6570` | `#A9AEB5` | Supporting text |
+| Primary action | Teal `#176B60` | Mint `#7FC8B8` | Action, focus and selection |
+| Selected subtle background | `#E3F0EC` | `#1F3632` | Selected rows/tabs |
+| Divider | `#E6E4DE` | `#33373D` | Thin boundaries |
+| Control border | `#D9D7D0` | `#474C53` | Inputs and secondary buttons |
+| Achievement accent | `#B18430` | `#DDBB68` | Milestones only |
+| Destructive action | `#A3293B` | `#F3A3AE` | Delete and irreversible actions |
+| Chart: added | Amber `#A9781C` | `#B8892C` | Progress chart bars only |
+| Chart: finished | Teal `#008A78` | `#1E9C87` | Progress chart bars only |
+
+Gold `#EFC978` is a small accent, not body text on white. The two chart colours were checked for colour-blind separation and 3:1 contrast against the card in each theme; the chart also has a legend, per-day labels and a **Show as a table** view, so colour is never the only cue. Use colour with labels and state text: earned badges say **Earned**, tabs expose selection, and destructive buttons name the action. Primary labels and normal body/secondary text should meet WCAG AA contrast in both modes; focus outlines should remain visible. The interface follows the system theme unless the user chooses otherwise.
+
+## Type, spacing, and buttons
+
+### Type
+
+Use Figtree, bundled with the app as a variable woff2 under the SIL Open Font License (see `ATTRIBUTION.md`). The system sans-serif stack is the fallback.
+
+- Body: 16 px / 1.55.
+- Main headings: 28–35 px, responsive.
+- Section headings: about 18–20 px.
+- Labels: about 14 px.
+- Minimum text size: 12 px.
+- Long notes: aim for about 65 characters per line.
+- Use sentence case; avoid all-caps labels and eyebrows.
+
+### Spacing and surfaces
+
+Use spacing steps of **4, 8, 12, 16, 24, and 32 px**.
+
+Prefer, in order:
+
+1. whitespace;
+2. alignment;
+3. dividers;
+4. extra containers only when they add useful grouping.
+
+Ordinary grouped surfaces use 14 px corners; controls use 10 px corners. The Now focus surface and dialogs may be slightly softer/larger. Keep normal page regions flat and reserve shadows for dialogs, popovers, and real elevation.
+
+- **Primary:** teal/mint fill, solid readable label; one primary action per immediate group. Verb first: Start, Resume, Save, Download PNG.
+- **Secondary:** white (dark: card) fill with a soft control border. Use for alternatives such as Choose another, Copy text, or Settings.
+- **Destructive:** berry/rose with an explicit action label and confirmation where data will be lost.
+- **Close:** a visible 44 × 44 px × button with an accessible label.
+- **Dialogs:** one pattern everywhere. An 18 px-radius card (480 px, wider only for project settings and the share preview) with a title row (22 px title, optional muted subtitle, Close at the top right), labelled fields stacked one per row with 6 px between label and field, and actions with the main one first and a quiet Cancel beside it. Escape and Close always cancel. Rare fields fold under **More options**; destructive actions sit on their own row under a hairline.
+- **Sign in:** one centred 400 px column: the logo, "Welcome back", a one-line subtitle, a card that holds only the field, Sign in and the method switch, then **Need help signing in?** folded underneath.
+- **Toasts:** a white card with a small dot for the kind (teal info, green success, amber warning, berry error), an optional action button, and a 44 px dismiss button. Errors get a faint berry tint.
+- **Folds:** every `<details>` summary shows the same small chevron, pointing down when closed and up when open.
+- **Field tips:** a 20 px “?” circle inside a 44 px target beside the label; the panel opens on click and closes on Escape or a click elsewhere.
+- **Settings rows:** label and one-line hint on the left, the control on the right, separated by a hairline inside a 14 px card. On/off choices are switches (a real checkbox with `role="switch"` over a 48 px track, 60 × 44 px target); theme is one segmented control; accent colours are 44 px swatches. Rarely used fields fold under **Advanced**. Settings save as they change unless the section holds keys or tokens, which keeps one Save button at its foot.
+- **Focus:** 3 px accent outline with space around it. Never remove keyboard focus styling.
+- **Motion:** brief colour transitions only; honour reduced-motion preferences. No animated XP counters, confetti, audio, or pulsing reminders.
+
+Controls target at least 44 px height on phones and touch screens. The installed app uses `viewport-fit=cover` and safe-area padding, so the top bar and bottom tabs stay clear of the notch and home indicator. Settings sections support Up/Down (or Left/Right), Home/End, and Tab; Escape returns to the previous view. Mobile navigation keeps Now, My work, Progress, and Settings visible with labelled line icons. Desktop and tablet use a left sidebar with the navigation, Save a thought and sync status; phones use a top bar with bottom tabs. Page changes do not animate; colour transitions honour reduced-motion preferences.
+
+## Voice and attention
+
+Write like a calm collaborator: brief, concrete, and useful. Prefer **Next step saved. You can stop here.** and **Choose one task. Everything else can wait.** Avoid guilt, urgency, lost streaks, or competitive comparisons. Do not promise that one design suits every person with ADHD; allow personal appearance and reward preferences.
+
+The **Now** screen answers: what am I doing, how do I start, and where can I leave it? Keep ranks, badges, charts, and settings on their own screens. Render notes as Markdown and keep long project context expandable.
+
+## Ranks, badges, and sharing
+
+Rewards are opt-in. Each currently finished thread contributes 10 XP. Every five finished threads advances a level. Ranks are personal milestones for the **hub**, not placements among people. The app does not currently have individual reward profiles.
+
+| Finished steps | XP | Rank | Badge earned |
+| --- | --- | --- | --- |
+| 0 | 0 | Seedling | — |
+| 1 | 10 | Seedling | First step |
+| 5 | 50 | Sprout | Finding rhythm |
+| 15 | 150 | Grower | Taking root |
+| 30 | 300 | Pathfinder | Branching out |
+| 60 | 600 | Wayfinder | Making space |
+| 100 | 1,000 | Trailblazer | 100 little wins |
+
+There are no deadlines or streak requirements. Breaks do not reduce totals. Reopening, deleting, or restoring data can change ranks and badges because they reflect current records; these are not a permanent award ledger. Duplicate completion requests do not award extra XP.
+
+Share cards use the light brand palette for predictable exports. Users preview a card, download a PNG, copy text, or open their device’s share sheet if supported. Exports contain only rank, level, XP, finished count, earned badge names, and the public repository URL (`github.com/uniskela/adhd-hub`). They omit task/project names, notes, tokens, account details, and server URLs. No public profile or hosted link is created.
+
+## Future leaderboard direction
+
+The reward payload has stable rank/badge IDs and a version for future integration. A leaderboard remains a separate feature: it would need opt-in individual profiles, clear scope, a trusted completion ledger, abuse handling, consent to publication, and withdrawal/deletion controls. Decide how imported work and reopened tasks count before comparing people. Preserve private, noncompetitive use as the default. See [reward roadmap](https://github.com/uniskela/adhd-hub/blob/main/docs/internal/rewards-roadmap.md).

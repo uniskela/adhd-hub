@@ -45,7 +45,7 @@ def test_pr_title_gate_allows_docs_titles_off_release_surface():
 
     ok, message = gate.check_pr_title(
         "docs: explain release squash titles",
-        ["docs/installation.md", "README.md", "AGENTS.md"],
+        ["docs/public/installation.md", "README.md", "AGENTS.md"],
     )
     assert ok
     assert "no release-surface" in message

@@ -1,0 +1,45 @@
+---
+search:
+  exclude: true
+---
+
+# Thread outcome model + guidance drift (foundation for Waves 6–8)
+
+One thread = one independently finishable outcome.
+
+## Shipped primitives
+
+- Structured thread fields: `goal`, `focus`, `next_steps` (≤3), `blocked_reason`, `resume_step`
+- `upsert_progress(thread_id=...)` / `force_new_thread` / `needs_thread_selection`
+- Thread-scoped `progress_notes.thread_id` (legacy rows stay unscoped)
+- `PROGRESS.md`: Active threads → Recent milestones → History (legacy log migrated)
+- Overlap scoring includes goal/focus/next/resume
+- Compact agent guidance (AGENTS block + session skill)
+- Independent Hub guidance schema versions (`AGENT_GUIDANCE_VERSION`, skill `hub_skill_version`)
+- `adhd-hub doctor --project` / `setup --check` drift detection; repair only via explicit setup/connect
+- **Forge-backed work is repo-authoritative** (B1/B2). Continuity never mirrors remote state by default; explicitly enabled publication changes only the Hub status block.
+- Wave 7: deterministic duplicate review and explicitly human-confirmed local merges retain source threads and history; forge-backed pairs remain review-only. Dashboard review: **Possible overlap**. See [API contract](../contracts/merge-dedupe-api.md).
+- Wave 7: deterministic, advisory `return_cue` coaching on checkpoint, pause, list, digest and overview thread payloads; never blocks a save, pause or completion. See [Return-cue coaching](../contracts/return-cue-coaching.md).
+
+## Forge issue ownership
+
+| Issue kind | Body ownership |
+|---|---|
+| Hub-created / wholly Hub-owned body | Hub may replace the status block (usually the whole body) |
+| Inbox / user-authored issue | Preserve content outside markers; upsert only the Hub status block |
+
+Association storage is first-class host-scoped external identity on the thread (`external_provider` / `external_host` / `external_owner` / `external_repo` / `external_issue_number`) with dual-write of legacy `forge_issue:<thread_id>` → issue number during Foundation B1 (#73). See `docs/internal/superpowers/specs/2026-09-12-source-aware-work-identity-design.md`.
+
+## Deliberately deferred (separate finishable outcomes)
+
+- GitHub/Gitea sub-issue / parent-child hierarchy import
+- Epic/umbrella issues that are not themselves Hub threads
+- Roadmap/epic UI, full bidirectional reconciliation, PR↔issue graph UI
+- Automatic dependency sequencing
+- Issue #15 child Wave issues as a hierarchical work graph in Hub
+
+## Waves 6–8
+
+- Wave 6 (#52): AI summaries / project tags / organiser
+- Wave 7 (#54): stale triage, Next-up ranking, merge/dedupe review, return-cue coaching
+- Wave 8 (#55): reversible wiki compaction, global search, energy modes

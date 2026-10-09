@@ -264,8 +264,8 @@ def adapt_env_check(text: str) -> str:
         )
     # Rewrite forge inbox link label to match published plugin wording.
     text = text.replace(
-        f"[docs/forge-issue-inbox.md]({HUB_DOCS_BLOB}/forge-issue-inbox.md)",
-        f"[forge issue inbox]({HUB_DOCS_BLOB}/forge-issue-inbox.md)",
+        f"[docs/public/forge-issue-inbox.md]({HUB_DOCS_BLOB}/public/forge-issue-inbox.md)",
+        f"[forge issue inbox]({HUB_DOCS_BLOB}/public/forge-issue-inbox.md)",
     )
     return text
 
@@ -393,7 +393,7 @@ def refresh_readme(plugin: Path, hub_sha: str, versions: dict[str, str]) -> None
         "mirrored skill/rule bodies here except for packaging emergencies. Sync is "
         "automated from Hub via GitHub Actions and opens a PR on this repo "
         "(never direct-pushes `main`). Contributor docs: "
-        f"[Cursor plugin skill sync]({HUB_REPO_URL}/blob/main/docs/cursor-plugin-skill-sync.md).\n\n"
+        f"[Cursor plugin skill sync]({HUB_REPO_URL}/blob/main/docs/public/cursor-plugin-skill-sync.md).\n\n"
         "| Field | Value |\n"
         "|-------|--------|\n"
         f"| Upstream commit | `{hub_sha}` |\n"

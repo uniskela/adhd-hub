@@ -2,7 +2,7 @@
 site_name = "ADHD Progress Hub"
 site_description = "A calm source of truth for unfinished work."
 site_url = "https://uniskela.com/docs/adhd-hub/"
-docs_dir = "docs"
+docs_dir = "docs/public"
 site_dir = "site"
 repo_url = "https://github.com/uniskela/adhd-hub"
 repo_name = "uniskela/adhd-hub"

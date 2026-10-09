@@ -78,8 +78,8 @@ def test_session_skill_requires_loud_mcp_down() -> None:
     assert "private LAN or Docker network alone does not protect" in text
     assert "thread_id" in text
     assert "pause_thread" in text
-    assert "../../docs/writing.md" not in text
-    assert "../../docs/forge-issue-inbox.md" not in text
+    assert "../../docs/public/writing.md" not in text
+    assert "../../docs/public/forge-issue-inbox.md" not in text
     assert "Made with [ADHD Progress Hub]" in text
     assert "Attribution" in text
 
