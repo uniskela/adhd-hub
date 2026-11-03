@@ -2,7 +2,7 @@ import { state, $, setMsg, escapeHtml, preferences } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, formatRelative, formatWhen, safeHttpUrl, safeLink, syncNeedsYou, wireMenu } from './dom.js';
 import { loadAll } from './load.js';
-import { closeNotesReader, reconcileNotesReader, showThreadNotes, wireNotes } from './now.js';
+import { closeNotesReader, projectTitleForSlug, reconcileNotesReader, showThreadNotes, wireNotes } from './now.js';
 import {
   IMPORT_POLICY_HINTS,
   IMPORT_POLICY_LABELS,
@@ -1307,9 +1307,17 @@ async function openWikiProgress(slug) {
         ? `<pre class="markdown-body" style="white-space:pre-wrap">${escapeHtml(content)}</pre>`
         : `<p class="notes-empty-hint">No project notes yet.</p>`;
       body.focus({ preventScroll: true });
-    } catch (_) {
+    } catch (_err) {
+      // Network/404: keep the reader open with a calm fallback instead of a toast.
       body.textContent = "Could not load project notes.";
     }
+  }
+
+function searchHitActionAttr(hit) {
+    const slug = hit.project_slug || hit.id || "";
+    if (hit.kind === "thread") return `data-search-thread="${escapeHtml(hit.id)}"`;
+    if (hit.kind === "wiki") return `data-search-wiki="${escapeHtml(slug)}"`;
+    return `data-search-project="${escapeHtml(slug)}"`;
   }
 
 export function renderSearchHits(hits, query) {
@@ -1323,21 +1331,11 @@ export function renderSearchHits(hits, query) {
       closeNotesReader({ restoreFocus: false });
       return;
     }
-    const projectName = (slug) => {
-      if (!slug || slug === "unclassified") return "Inbox";
-      const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
-      return project?.title || slug;
-    };
     root.innerHTML = `<ul class="thread-list" role="list">${hits
       .map((hit) => {
         const slug = hit.project_slug || "";
-        const meta = `${kindLabel(hit.kind)} · ${projectName(slug)}`;
-        const action =
-          hit.kind === "thread"
-            ? `data-search-thread="${escapeHtml(hit.id)}"`
-            : hit.kind === "wiki"
-              ? `data-search-wiki="${escapeHtml(slug || hit.id)}"`
-              : `data-search-project="${escapeHtml(slug || hit.id)}"`;
+        const meta = `${kindLabel(hit.kind)} · ${projectTitleForSlug(slug)}`;
+        const action = searchHitActionAttr(hit);
         return `<li><button type="button" class="thread" ${action} aria-controls="notes-reader" aria-expanded="false">
           <span class="thread-copy">
             <span class="thread-title">${escapeHtml(hit.title || hit.id)}</span>
@@ -1432,11 +1430,6 @@ export function renderThreads(threads) {
       return;
     }
     const showProject = !state.projectFilter;
-    const projectName = (slug) => {
-      if (!slug || slug === "unclassified") return "Inbox";
-      const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
-      return project?.title || slug;
-    };
     root.innerHTML = `<ul class="thread-list" role="list">${threads
       .map((t) => {
         const isChosen = t.id === state.chosenId;
@@ -1451,7 +1444,7 @@ export function renderThreads(threads) {
           <span class="thread-copy">
             <span class="thread-title">${escapeHtml(t.summary || "Untitled step")}</span>
             ${leftOff ? `<span class="thread-scan">Left off: ${escapeHtml(leftOff)}</span>` : ""}
-            ${showProject ? `<span class="thread-project">${escapeHtml(projectName(t.project_slug))}</span>` : ""}
+            ${showProject ? `<span class="thread-project">${escapeHtml(projectTitleForSlug(t.project_slug))}</span>` : ""}
           </span>
           <span class="thread-side">${flag}${when ? `<span class="thread-when">${escapeHtml(when)}</span>` : ""}</span>
         </button></li>`;
