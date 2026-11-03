@@ -331,6 +331,44 @@ export function applyConnectAgents(agents) {
       if ($("ca_codex")) $("ca_codex").checked = true;
       if ($("ca_claude")) $("ca_claude").checked = true;
     }
+    syncConnectCommands();
+  }
+export function syncConnectCommands() {
+    const agents = selectedConnectAgents();
+    const selected = agents.length > 0;
+    const csv = agents.join(",");
+    const origin = location.origin;
+    const commands = {
+      "install-cmd": selected ? `curl -fsSL "${origin}/install.sh" | sh -s -- . --agents "${csv}"` : "",
+      "install-cmd-win": selected ? `& ([scriptblock]::Create((irm "${origin}/install.ps1"))) -Agents "${csv}"` : "",
+    };
+    for (const [id, command] of Object.entries(commands)) {
+      const input = $(id);
+      if (input) input.value = command;
+    }
+    for (const id of ["btn-copy-install", "btn-copy-install-win"]) {
+      const button = $(id);
+      if (button) button.disabled = !selected;
+    }
+    // The wildcard also installs skills for other clients; MCP targets stay explicit.
+    const mcpAgents = agents.includes("*") ? "codex,claude,cursor" : csv;
+    const names = { codex: "Codex", claude: "Claude Code", cursor: "Cursor" };
+    const selectedNames = mcpAgents.split(",").map((agent) => names[agent]).join(", ");
+    const messages = {
+      "agents-user-setup": selected
+        ? `adhd-hub agents setup --agents ${mcpAgents} --scope user --hub ${origin}`
+        : "Choose agents above to create a setup command.",
+      "agents-doctor-command": selected
+        ? `adhd-hub agents doctor --agents ${mcpAgents} --scope user --hub ${origin}`
+        : "adhd-hub agents doctor",
+      "connect-selection-summary": selected
+        ? `MCP setup: ${selectedNames}. Registrations are checked when you run the command.`
+        : "Choose at least one agent to create a setup command.",
+    };
+    for (const [id, message] of Object.entries(messages)) {
+      const element = $(id);
+      if (element) element.textContent = message;
+    }
   }
 export function selectedConnectCompanions() {
     return CONNECT_COMPANION_IDS
@@ -395,7 +433,7 @@ export async function saveConnectAgents() {
       else parts.push("no companions");
       if (msg) {
         msg.textContent =
-          `Saved (${parts.join("; ")}). Re-copy the install command — scripts pick this up.`;
+          `Saved (${parts.join("; ")}). Run the setup command on each agent’s machine to apply these settings.`;
       }
       setMsg(`Connect defaults saved (${parts.join("; ")}).`);
     } catch (e) {

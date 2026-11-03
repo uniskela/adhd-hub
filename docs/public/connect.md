@@ -348,6 +348,13 @@ Both install scripts refresh an existing `adhd-hub` on PATH from **this Hub's** 
 
 `--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. With no selection, interactive CLI runs offer detected agents. Noninteractive runs require `--agents` / `-Agents` or `ADHD_HUB_CONNECT_AGENTS` and fail before login/config writes if none are selected. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
 
+In **Settings → Coding agents**, choose agents before copying setup. The Linux/macOS
+and Windows commands include that selection immediately; running the command adds
+missing MCP registrations and checks existing settings. The browser does not write
+configuration on the agent's machine. **Save as defaults** stores the agent, skills
+and extras choices for future installs. The user-level setup and doctor commands
+also follow the current selection and work without a project checkout.
+
 ```powershell
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents 'cursor,codex,claude'"
 # or all agents:

@@ -318,4 +318,5 @@ def test_ui_connections_copy_has_no_export(tmp_path: Path) -> None:
         assert "Allow this CLI" in text
         assert "btn-allow-cli" in text
         assert "install-cmd" in text
-        assert "export TOKEN=" in text
+        assert "This signs in the ADHD Hub CLI" in text
+        assert "Your selection updates the setup commands below" in text
