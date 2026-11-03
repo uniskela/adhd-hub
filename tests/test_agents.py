@@ -220,6 +220,60 @@ def test_doctor_does_not_use_cli_session_as_agent_credentials(agent_home, monkey
     assert "ahcli_private-session" not in json.dumps(report.agent_status)
 
 
+@pytest.mark.parametrize("agent", ["claude", "cursor", "codex"])
+def test_doctor_does_not_probe_client_oauth(agent_home, monkeypatch, agent):
+    from unittest.mock import Mock
+
+    from adhd_hub.agents import diagnose_agents
+
+    path = (
+        connect.codex_config_path()
+        if agent == "codex"
+        else getattr(connect, f"{agent}_user_mcp_path")()
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if agent == "codex":
+        path.write_text('[mcp_servers.adhd-hub]\nurl = "https://hub.example/mcp"\n')
+    else:
+        path.write_text(
+            json.dumps({"mcpServers": {"adhd-hub": {"url": "https://hub.example/mcp"}}})
+        )
+    monkeypatch.setenv("ADHD_HUB_AUTH_TOKEN", "unrelated-shell-credential")
+    probe = Mock(return_value={"tools_discovered": True, "detail": "anonymous tools available"})
+    monkeypatch.setattr("adhd_hub.agents.probe_mcp", probe)
+
+    report = diagnose_agents(hub_url="https://hub.example", agents=[agent])
+
+    probe.assert_not_called()
+    row = report.agent_status[0]
+    assert row["state"] == "configured"
+    assert row["runtime_verification"] == "not available"
+    assert "mcp" not in row
+    assert any(
+        "client OAuth" in step.detail and "not available" in step.detail for step in report.steps
+    )
+
+
+@pytest.mark.parametrize(
+    "host", ["localhost", "127.0.0.1", "127.0.0.2", "127.255.255.254", "[::1]"]
+)
+def test_mcp_url_accepts_http_loopback(host):
+    from adhd_hub.mcp_probe import validate_mcp_url
+
+    validate_mcp_url(f"http://{host}:8787/mcp")
+
+
+@pytest.mark.parametrize(
+    "host", ["127.example.com", "127.0.0.1.example.com", "192.168.1.2", "[::2]", "hub.example"]
+)
+def test_mcp_url_requires_https_for_non_loopback(host):
+    from adhd_hub.mcp_probe import validate_mcp_url
+
+    with pytest.raises(ValueError, match="HTTPS outside loopback"):
+        validate_mcp_url(f"http://{host}:8787/mcp")
+    validate_mcp_url(f"https://{host}:8787/mcp")
+
+
 @pytest.mark.parametrize(
     "agent,wrong", [("claude", "${env:ADHD_HUB_AUTH_TOKEN}"), ("cursor", "${ADHD_HUB_AUTH_TOKEN}")]
 )

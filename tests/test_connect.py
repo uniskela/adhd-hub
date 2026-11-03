@@ -27,6 +27,10 @@ from adhd_hub.connect import (
 
 @pytest.fixture(autouse=True)
 def isolated_agent_environment(tmp_path, monkeypatch, request):
+    home = tmp_path / "isolated-home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("ADHD_HUB_AUTH_TOKEN", raising=False)

@@ -363,7 +363,7 @@ def diagnose_agents(
                 row["state"] = "configured but missing credentials"
             elif not credential:
                 report.add(label + " auth", "warn", mode + "; runtime verification not available")
-            if probe and (mode == "environment bearer" or mode.startswith("client OAuth")):
+            if probe and mode == "environment bearer":
                 key = (entry["url"], bool(credential))
                 if key not in cache:
                     cache[key] = probe_mcp(entry["url"], token=credential)

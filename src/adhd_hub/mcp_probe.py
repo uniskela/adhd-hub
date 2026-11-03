@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import time
 from typing import Any
@@ -22,8 +23,13 @@ def validate_mcp_url(url: str) -> None:
     ):
         raise ValueError("MCP URL must be HTTP(S) without credentials, query or fragment")
     _ = parsed.port
-    if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
-        raise ValueError("MCP requires HTTPS outside loopback; use your private HTTPS endpoint")
+    if parsed.scheme != "https" and parsed.hostname != "localhost":
+        try:
+            loopback = ipaddress.ip_address(parsed.hostname).is_loopback
+        except ValueError:
+            loopback = False
+        if not loopback:
+            raise ValueError("MCP requires HTTPS outside loopback; use your private HTTPS endpoint")
 
 
 def _rpc_response(response: httpx.Response, request_id: int, deadline: float) -> dict[str, Any]:
