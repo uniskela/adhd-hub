@@ -2636,7 +2636,6 @@ class Store:
         *,
         since_iso: str,
         event_types: list[str],
-        limit: int = 20_000,
     ) -> list[dict[str, Any]]:
         """Raw activity rows for insights aggregation (excludes forge.* at call site).
 
@@ -2646,22 +2645,19 @@ class Store:
         types = [t for t in event_types if t]
         if not types:
             return []
-        limit = max(1, min(int(limit), 50_000))
         since_dt = datetime.fromisoformat(since_iso)
         if since_dt.tzinfo is None:
             since_dt = since_dt.replace(tzinfo=UTC)
         since_utc = since_dt.astimezone(UTC).isoformat()
         placeholders = ",".join("?" for _ in types)
-        # Newest-first so LIMIT sheds oldest rows; reverse for chronological agg.
         sql = (
             f"SELECT event_type, created_at, project_slug FROM activity_events "
             f"WHERE created_at >= ? AND event_type IN ({placeholders}) "
-            "ORDER BY created_at DESC, id DESC LIMIT ?"
+            "ORDER BY created_at, id"
         )
-        params: list[Any] = [since_utc, *types, limit]
+        params: list[Any] = [since_utc, *types]
         with self._conn() as conn:
             rows = list(conn.execute(sql, params).fetchall())
-        rows.reverse()
         return [
             {
                 "event_type": row["event_type"],

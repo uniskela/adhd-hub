@@ -114,9 +114,9 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 
 [#72](https://github.com/uniskela/adhd-hub/issues/72) — consuming B3 history. QA: [#343](https://github.com/uniskela/adhd-hub/issues/343).
 
-- Slice A (active): ledger-backed period totals + chart on Progress;
+- Slice A: ledger-backed period totals + chart merged in [#345](https://github.com/uniskela/adhd-hub/pull/345); separate resumed/note counts and project lists remain;
 - Slice B: persisted focus sessions;
-- Slice C: contribution heatmap;
+- Slice C (in progress): 12-week completion calendar with day details, table fallback and remembered visibility; focus/note metrics remain;
 - Slice D: trends / project breakdowns.
 
 ## Next product sequence
@@ -148,7 +148,7 @@ Slices B–D of [#72](https://github.com/uniskela/adhd-hub/issues/72) after Slic
 | Done | Wave 6 #52 | Published in v0.16.0 |
 | Done | Wave 7 #54 | Completed in v0.21.0 |
 | Done | Wave 8 #55 | Find & capture on main |
-| **Now** | **Activity insights #72** | Slice A ledger totals; then B–D |
+| **Now** | **Activity insights #72** | Slice A merged; completion calendar, then focus and remaining metrics |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
 | Verify | Docker Hub description #300 | Check after image publish |
