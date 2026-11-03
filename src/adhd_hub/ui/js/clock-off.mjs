@@ -47,6 +47,17 @@ function phrase(minutes) {
   return n === 1 ? "1 minute" : `${n} minutes`;
 }
 
+/** Lead minutes from window timestamps when present; else the saved schedule. */
+function windDownLead(clock, schedule) {
+  const off = Date.parse(clock?.clock_off_at);
+  const wind = Date.parse(clock?.wind_down_at);
+  if (Number.isFinite(off) && Number.isFinite(wind) && off >= wind) {
+    return Math.round((off - wind) / 60000);
+  }
+  const lead = Number(schedule?.wind_down_minutes);
+  return Number.isInteger(lead) ? lead : 15;
+}
+
 function presets(clock, zone, locale) {
   const items = [
     { minutes: 30, label: "30 minutes" },
@@ -100,7 +111,7 @@ export function clockOffStatus(envelope, now = new Date(), locale) {
   if (state === "normal") {
     const startIn = clock.wind_down_at ? minutesUntil(clock.wind_down_at, now) : null;
     if (clock.wind_down_at && startIn === 0) return { ...hidden, stale: true };
-    const notice = Math.min(Math.max(schedule.wind_down_minutes, 0), 60);
+    const notice = Math.min(Math.max(windDownLead(clock, schedule), 0), 60);
     if (!notice || startIn == null || startIn <= 0 || startIn > notice) return hidden;
     return {
       visible: true,
@@ -159,8 +170,9 @@ export function nextRefreshAt(envelope, now = new Date()) {
   add(clock.clock_off_at);
   add(clock.resumes_at);
   add(clock.override_until);
-  if (clock.wind_down_at && schedule.wind_down_minutes > 0) {
-    const notice = Math.min(schedule.wind_down_minutes, 60);
+  const lead = windDownLead(clock, schedule);
+  if (clock.wind_down_at && lead > 0) {
+    const notice = Math.min(lead, 60);
     const start = Date.parse(clock.wind_down_at) - notice * 60000;
     if (start > now.getTime()) times.push(start);
   }

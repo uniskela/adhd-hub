@@ -187,6 +187,31 @@ def test_override_duration_boundaries_are_accepted(settings: Settings, minutes: 
         assert response.json()["clock_off"]["state"] == "overridden"
 
 
+def test_override_requires_enabled_clock_off_and_disable_clears_it(settings: Settings) -> None:
+    with TestClient(create_app(settings)) as client:
+        assert (
+            client.post("/api/clock-off/override", headers=AUTH, json={"minutes": 30}).status_code
+            == 400
+        )
+        client.put("/api/prefs", headers=AUTH, json={"clock_off": SCHEDULE}).raise_for_status()
+        override = client.post("/api/clock-off/override", headers=AUTH, json={"minutes": 45})
+        assert override.status_code == 200
+        assert override.json()["clock_off"]["state"] == "overridden"
+        cleared = client.put(
+            "/api/prefs", headers=AUTH, json={"clock_off": {"enabled": False}}
+        )
+        assert cleared.status_code == 200
+        assert cleared.json()["clock_off"]["enabled"] is False
+        assert cleared.json()["clock_off_override_until"] is None
+        assert client.get("/api/clock-off", headers=AUTH).json()["clock_off"]["state"] == "normal"
+        assert (
+            client.post("/api/clock-off/override", headers=AUTH, json={"minutes": 30}).status_code
+            == 400
+        )
+        # Cancel remains safe while disabled.
+        assert client.delete("/api/clock-off/override", headers=AUTH).status_code == 200
+
+
 def test_browser_clock_off_mutations_require_same_origin(settings: Settings) -> None:
     browser_headers = {"X-Hub-Request": "1", "Origin": "http://testserver"}
     with TestClient(create_app(settings)) as client:
@@ -199,6 +224,7 @@ def test_browser_clock_off_mutations_require_same_origin(settings: Settings) -> 
         assert client.get("/api/clock-off").status_code == 200
         for method, path, kwargs in [
             ("put", "/api/prefs", {"json": {"clock_off": {"enabled": False}}}),
+            ("put", "/api/prefs", {"json": {"clock_off": SCHEDULE}}),
             ("post", "/api/clock-off/override", {"json": {"minutes": 30}}),
             ("delete", "/api/clock-off/override", {}),
         ]:

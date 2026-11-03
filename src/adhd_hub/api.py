@@ -249,7 +249,10 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.post("/clock-off/override", dependencies=[Depends(auth_dep)])
     def set_clock_off_override(payload: ClockOffOverrideRequest):
-        service.set_clock_off_override(payload.minutes)
+        try:
+            service.set_clock_off_override(payload.minutes)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
         return get_clock_off()
 
     @router.delete("/clock-off/override", dependencies=[Depends(auth_dep)])
@@ -270,6 +273,9 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             if not isinstance(payload["clock_off"], dict):
                 raise HTTPException(400, "clock_off must be an object")
             current["clock_off"].update(payload["clock_off"])
+            # Turning Clock-Off off clears a leftover override so re-enable is clean.
+            if current["clock_off"].get("enabled") is False:
+                current["clock_off_override_until"] = None
         current.update({k: v for k, v in payload.items() if v is not None and k != "clock_off"})
         try:
             current["timezone"] = validate_timezone(str(current.get("timezone") or "UTC"))

@@ -67,8 +67,9 @@ valid durations are 1–1440 whole minutes. Cancel it with
 Invalid durations return `422`.
 
 Overrides survive restart and expire at the original time. They do not change
-your schedule. Disabled Clock-Off stays `normal` even with a stored override.
-Only the override endpoints can write the override expiry.
+your schedule. Disabled Clock-Off stays `normal` even with a stored override. You cannot start
+a new override while Clock-Off is off; turning Clock-Off off clears any leftover
+override. Only the override endpoints can write the override expiry.
 
 ## Agent guidance
 
