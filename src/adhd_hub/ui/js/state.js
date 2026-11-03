@@ -164,6 +164,8 @@ export const state = {
   threadsCache: [],
   threadsRequest: 0,
   projectRequest: 0,
+  searchRequest: 0,
+  searchTimer: null,
   currentView: "open",
   projectFilter: null,
   tagFilter: null,

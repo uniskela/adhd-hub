@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
@@ -57,16 +58,35 @@ def clamp_limit(limit: int | None) -> int:
 
 
 def _snippet(haystack: str, needle: str) -> str | None:
+    """Window around the match on the original string (case-insensitive).
+
+    Prefer ``re.IGNORECASE`` on the original so indices stay aligned. Fall back
+    to a casefolded window only when length-changing casefolds break that path.
+    """
+    if not haystack:
+        return None
+    match = re.search(re.escape(needle), haystack, flags=re.IGNORECASE)
+    if match:
+        start = max(0, match.start() - SNIPPET_RADIUS)
+        end = min(len(haystack), match.end() + SNIPPET_RADIUS)
+        chunk = haystack[start:end].strip()
+        if start > 0:
+            chunk = "…" + chunk
+        if end < len(haystack):
+            chunk = chunk + "…"
+        return scrub_scan_text(chunk)
+
     lower = haystack.casefold()
-    idx = lower.find(needle.casefold())
+    folded = needle.casefold()
+    idx = lower.find(folded)
     if idx < 0:
         return scrub_scan_text(haystack[: SNIPPET_RADIUS * 2])
     start = max(0, idx - SNIPPET_RADIUS)
-    end = min(len(haystack), idx + len(needle) + SNIPPET_RADIUS)
-    chunk = haystack[start:end].strip()
+    end = min(len(lower), idx + len(folded) + SNIPPET_RADIUS)
+    chunk = lower[start:end].strip()
     if start > 0:
         chunk = "…" + chunk
-    if end < len(haystack):
+    if end < len(lower):
         chunk = chunk + "…"
     return scrub_scan_text(chunk)
 

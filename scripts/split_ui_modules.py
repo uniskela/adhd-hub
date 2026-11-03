@@ -80,9 +80,6 @@ MODULE_MAP: dict[str, list[str]] = {
         "fillProjectForm",
         "renderProjectHeader",
         "openProjectDialog",
-        "renderSearchHits",
-        "runGlobalSearch",
-        "scheduleSearch",
         "renderThreads",
         "loadThreads",
         "selectProject",
@@ -129,8 +126,6 @@ MUTABLE_STATE = [
     "threadsCache",
     "threadsRequest",
     "projectRequest",
-    "searchRequest",
-    "searchTimer",
     "currentView",
     "projectFilter",
     "overviewCache",
@@ -366,8 +361,6 @@ def build_state_js(_preamble: str) -> str:
         "  threadsCache: [],\n"
         "  threadsRequest: 0,\n"
         "  projectRequest: 0,\n"
-        "  searchRequest: 0,\n"
-        "  searchTimer: null,\n"
         '  currentView: "open",\n'
         "  projectFilter: null,\n"
         "  overviewCache: null,\n"

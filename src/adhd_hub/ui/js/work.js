@@ -2,7 +2,7 @@ import { state, $, setMsg, escapeHtml, preferences } from './state.js';
 import { api } from './api.js';
 import { confirmDialog, formatRelative, formatWhen, safeHttpUrl, safeLink, syncNeedsYou, wireMenu } from './dom.js';
 import { loadAll } from './load.js';
-import { closeNotesReader, reconcileNotesReader, wireNotes } from './now.js';
+import { closeNotesReader, reconcileNotesReader, showThreadNotes, wireNotes } from './now.js';
 import {
   IMPORT_POLICY_HINTS,
   IMPORT_POLICY_LABELS,
@@ -1280,24 +1280,128 @@ export function leftOffLine(thread) {
       .trim();
   }
 
+function kindLabel(kind) {
+    return { thread: "Thread", project: "Project", wiki: "Notes" }[kind] || kind;
+  }
+
+async function openWikiProgress(slug) {
+    if (!slug) return;
+    await selectProject(slug);
+    const reader = $("notes-reader");
+    const body = $("notes-reader-body");
+    if (!reader || !body) return;
+    $("notes-reader-title").textContent = "Project progress";
+    $("notes-reader-meta").textContent = slug;
+    reader.hidden = false;
+    document.body.classList.add("notes-reader-open");
+    body.textContent = "Loading notes…";
+    try {
+      const data = await api(`/wiki/${encodeURIComponent(slug)}/progress`);
+      const content = data.content || "";
+      body.innerHTML = content
+        ? `<pre class="markdown-body" style="white-space:pre-wrap">${escapeHtml(content)}</pre>`
+        : `<p class="notes-empty-hint">No project notes yet.</p>`;
+      body.focus({ preventScroll: true });
+    } catch (_) {
+      body.textContent = "Could not load project notes.";
+    }
+  }
+
+export function renderSearchHits(hits, query) {
+    const count = $("thread-count");
+    count.textContent = `${hits.length} ${hits.length === 1 ? "match" : "matches"} across threads, projects, and notes`;
+    count.classList.remove("visually-hidden");
+    setTabCount(state.currentView, hits.length);
+    const root = $("threads");
+    if (!hits.length) {
+      root.innerHTML = `<p class="thread-empty">No matches for “${escapeHtml(query)}”. Try a different search.</p>`;
+      closeNotesReader({ restoreFocus: false });
+      return;
+    }
+    const projectName = (slug) => {
+      if (!slug || slug === "unclassified") return "Inbox";
+      const project = (state.overviewCache?.projects || []).find((item) => item.slug === slug);
+      return project?.title || slug;
+    };
+    root.innerHTML = `<ul class="thread-list" role="list">${hits
+      .map((hit) => {
+        const slug = hit.project_slug || "";
+        const meta = `${kindLabel(hit.kind)} · ${projectName(slug)}`;
+        const action =
+          hit.kind === "thread"
+            ? `data-search-thread="${escapeHtml(hit.id)}"`
+            : hit.kind === "wiki"
+              ? `data-search-wiki="${escapeHtml(slug || hit.id)}"`
+              : `data-search-project="${escapeHtml(slug || hit.id)}"`;
+        return `<li><button type="button" class="thread" ${action} aria-controls="notes-reader" aria-expanded="false">
+          <span class="thread-copy">
+            <span class="thread-title">${escapeHtml(hit.title || hit.id)}</span>
+            ${hit.snippet ? `<span class="thread-scan">${escapeHtml(hit.snippet)}</span>` : ""}
+            <span class="thread-project">${escapeHtml(meta)}</span>
+          </span>
+        </button></li>`;
+      })
+      .join("")}</ul>`;
+    root.querySelectorAll("[data-search-thread]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        showThreadNotes(btn.dataset.searchThread).catch((error) => setMsg(error.message));
+      });
+    });
+    root.querySelectorAll("[data-search-project]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        $("thread-search").value = "";
+        selectProject(btn.dataset.searchProject || null).catch((error) => setMsg(error.message));
+      });
+    });
+    root.querySelectorAll("[data-search-wiki]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openWikiProgress(btn.dataset.searchWiki).catch((error) => setMsg(error.message));
+      });
+    });
+  }
+
+export async function runGlobalSearch(query) {
+    const request = ++state.searchRequest;
+    try {
+      const params = new URLSearchParams({ q: query, limit: "25" });
+      if (state.currentView === "done") params.set("include_done", "true");
+      const data = await api("/search?" + params.toString());
+      if (request !== state.searchRequest) return;
+      if ($("thread-search").value.trim() !== query) return;
+      renderSearchHits(data.hits || [], query);
+    } catch (error) {
+      if (request !== state.searchRequest) return;
+      setMsg(String(error.message || error));
+    }
+  }
+
+export function scheduleSearch() {
+    clearTimeout(state.searchTimer);
+    const query = $("thread-search").value.trim();
+    if (query.length < 2) {
+      state.searchRequest += 1;
+      renderThreads(state.threadsCache);
+      return;
+    }
+    state.searchTimer = setTimeout(() => {
+      runGlobalSearch(query).catch((error) => setMsg(String(error.message || error)));
+    }, 200);
+  }
+
 export function renderThreads(threads) {
-    const query = $("thread-search").value.trim().toLowerCase();
+    if ($("thread-search").value.trim().length >= 2) {
+      scheduleSearch();
+      return;
+    }
     const total = threads.length;
     setTabCount(state.currentView, total);
-    threads = threads.filter((thread) =>
-      [thread.summary, thread.resume_step, thread.goal, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
-        String(value || "").toLowerCase().includes(query)
-      )
-    );
     const count = $("thread-count");
-    count.textContent = query
-      ? `${threads.length} ${threads.length === 1 ? "match" : "matches"} out of ${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · searching the latest 100" : ""}`
-      : `${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · latest 100" : ""}`;
-    // Quiet by default; the count only shows while searching or when the list is capped.
-    count.classList.toggle("visually-hidden", !query && total !== 100);
+    count.textContent = `${total} ${total === 1 ? "step" : "steps"}${total === 100 ? " · latest 100" : ""}`;
+    // Quiet by default; the count only shows when the list is capped.
+    count.classList.toggle("visually-hidden", total !== 100);
     const root = $("threads");
     if (!threads.length) {
-      const message = query ? "No matches. Try a different search." :
+      const message =
         state.currentView === "done" ? "Finished work will appear here when you mark a step done." :
         state.currentView === "stale" ? "Nothing waiting here. Come back whenever you’re ready." :
         state.projectFilter ? "Nothing here. That’s fine." :
