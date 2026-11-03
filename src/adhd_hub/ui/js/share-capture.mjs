@@ -8,6 +8,14 @@ export function composeShareCaptureSummary(params) {
   const parts = [];
   if (title) parts.push(title);
   if (text && text !== title) parts.push(text);
-  if (url && url !== title && url !== text && !text.includes(url)) parts.push(url);
+  if (
+    url &&
+    url !== title &&
+    url !== text &&
+    !title.includes(url) &&
+    !text.includes(url)
+  ) {
+    parts.push(url);
+  }
   return parts.join("\n").slice(0, 500);
 }

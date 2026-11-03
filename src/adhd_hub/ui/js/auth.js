@@ -1,7 +1,7 @@
 import { state, $, setMsg } from './state.js';
 import { api } from './api.js';
 import { loadAll } from './load.js';
-import { chooseThread } from './now.js';
+import { chooseThread, openShareCaptureIfRequested } from './now.js';
 import { dismissCelebration } from './progress.js';
 import { savedScreen, showScreen } from './screens.js';
 
@@ -101,6 +101,7 @@ export async function handleLogin(ev) {
       await loadAll();
       const threadId = requestedThreadId();
       if (threadId) await chooseThread(threadId);
+      openShareCaptureIfRequested();
     } catch (error) {
       if (error.status === 401) { $("login-error").textContent = error.message; $("login-token").focus(); }
       else if (!$("app-shell").hidden) setMsg("Could not load dashboard: " + error.message);

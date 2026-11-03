@@ -28,6 +28,7 @@ function check(qs, expect) {{
 
 check("title=Hi&text=Hi&url=https://x.test", "Hi\\nhttps://x.test");
 check("title=A&text=B about https://x.test&url=https://x.test", "A\\nB about https://x.test");
+check("title=Read this: https://x.test&url=https://x.test", "Read this: https://x.test");
 check("text=only", "only");
 check("url=https://only.test", "https://only.test");
 check("", "");
@@ -51,5 +52,7 @@ def test_share_capture_module_served(tmp_path: Path) -> None:
         assert "composeShareCaptureSummary" in res.text
         boot = client.get("/ui/js/boot.js").text
         assert "openShareCaptureIfRequested" in boot
+        auth = client.get("/ui/js/auth.js").text
+        assert "openShareCaptureIfRequested" in auth
         sw = client.get("/ui/sw.js").text
         assert "/ui/js/share-capture.mjs" in sw
