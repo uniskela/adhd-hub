@@ -2124,6 +2124,9 @@ textarea.code-field { min-height: 0; resize: vertical; }
 .sync-health-status { margin: .125rem 0 0; color: var(--ink-soft); font-size: .875rem; }
 .cli-sessions-list { flex: 1 1 260px; display: flex; flex-direction: column; gap: .25rem; margin: 0; padding: 0; list-style: none; }
 .cli-sessions-list li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.cli-session-health[data-level="ok"] { color: var(--ok, var(--accent)); }
+.cli-session-health[data-level="warn"] { color: var(--warn, #b45309); }
+.cli-session-health[data-level="error"] { color: var(--danger, #b91c1c); }
 .settings-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
 .settings-footer a { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; color: var(--muted); font-size: .875rem; text-decoration: none; }
 .settings-footer a:hover { color: var(--accent); text-decoration: underline; }

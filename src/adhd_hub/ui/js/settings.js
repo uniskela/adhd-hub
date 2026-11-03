@@ -1192,16 +1192,39 @@ export function offerPendingConnect() {
     $("cli-connect-dialog-msg").textContent = "";
     if (!$("app-shell").hidden) $("cli-connect-dialog").showModal();
   }
+export function formatCliSessionHealth(session) {
+    const expiresIn = Number(session?.expires_in || 0);
+    const lastUsed = session?.last_used_at ? Number(session.last_used_at) : null;
+    const ageSec = lastUsed ? Math.max(0, Math.floor(Date.now() / 1000 - lastUsed)) : null;
+    let level = "ok";
+    let label = "healthy";
+    if (expiresIn <= 0) {
+      level = "error";
+      label = "expired";
+    } else if (expiresIn < 7 * 24 * 60 * 60) {
+      level = "warn";
+      label = `expires in ${Math.max(1, Math.ceil(expiresIn / 86400))}d`;
+    } else if (ageSec != null && ageSec > 14 * 24 * 60 * 60) {
+      level = "warn";
+      label = `quiet ${Math.ceil(ageSec / 86400)}d`;
+    } else if (ageSec != null && ageSec < 3600) {
+      label = "seen recently";
+    } else if (ageSec == null) {
+      label = "never used";
+    }
+    return { level, label, expiresIn, ageSec };
+  }
 export async function loadCliSessions() {
     try {
       const data = await api("/connect/sessions");
       const sessions = data.sessions || [];
       $("cli-sessions-wrap").hidden = sessions.length === 0;
       $("cli-sessions-list").innerHTML = sessions
-        .map(
-          (s) =>
-            `<li><span>Computer <code>${escapeHtml(String(s.id).slice(0, 8))}</code></span> <button type="button" class="ghost" data-revoke="${escapeHtml(s.id)}" aria-label="Revoke computer ${escapeHtml(String(s.id).slice(0, 8))}">Revoke</button></li>`
-        )
+        .map((s) => {
+          const health = formatCliSessionHealth(s);
+          const idShort = escapeHtml(String(s.id).slice(0, 8));
+          return `<li><span>Computer <code>${idShort}</code> <span class="hint cli-session-health" data-level="${health.level}">${escapeHtml(health.label)}</span></span> <button type="button" class="ghost" data-revoke="${escapeHtml(s.id)}" aria-label="Revoke computer ${idShort}">Revoke</button></li>`;
+        })
         .join("");
       $("cli-sessions-list")
         .querySelectorAll("[data-revoke]")
@@ -1210,9 +1233,16 @@ export async function loadCliSessions() {
             revokeCliSession(btn.getAttribute("data-revoke")).catch((e) => setMsg(String(e)))
           );
         });
+      return true;
     } catch (_e) {
-      /* optional */
+      // Optional panel: network/auth errors leave the prior list as-is.
+      return false;
     }
+  }
+export async function refreshCliSessionHealth() {
+    const ok = await loadCliSessions();
+    if (ok) setMsg("Connected computer health refreshed.");
+    else setMsg("Could not refresh connected computer health.", { variant: "error" });
   }
 export async function revokeCliSession(sessionId) {
     const shortId = String(sessionId || "").slice(0, 8);

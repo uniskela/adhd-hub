@@ -1999,8 +1999,12 @@ def run_doctor(
     ok, detail = probe_hub(hub_url, token=token)
     report.add("hub", "ok" if ok else "error", detail)
 
-    token_set = bool(token or os.environ.get("ADHD_HUB_AUTH_TOKEN"))
-    env_set = bool((os.environ.get("ADHD_HUB_AUTH_TOKEN") or "").strip())
+    from adhd_hub.connect_login import load_saved_token
+
+    env_raw = (os.environ.get("ADHD_HUB_AUTH_TOKEN") or "").strip()
+    env_set = bool(env_raw and env_raw != "change-me")
+    disk_token = load_saved_token(hub_url)
+    token_set = bool(token or env_set or disk_token)
     if token_set and env_set:
         token_detail = "set in environment"
     elif token_set:
@@ -2012,6 +2016,28 @@ def run_doctor(
         "ok" if token_set else "warn",
         token_detail,
     )
+    if (
+        env_set
+        and disk_token
+        and disk_token.startswith("ahcli_")
+        and env_raw != disk_token
+    ):
+        report.add(
+            "hub credentials shadow",
+            "warn",
+            "ADHD_HUB_AUTH_TOKEN env overrides the saved CLI session — unset the env "
+            "if doctor/connect auth looks wrong",
+        )
+    # HTTP MCP snippets use ${env:ADHD_HUB_AUTH_TOKEN}; a disk-only ahcli_ session
+    # authenticates CLI/REST but not Cursor/Codex/Claude headers unless env or OAuth Auth.
+    effective = str(token or disk_token or "")
+    if token_set and not env_set and effective.startswith("ahcli_"):
+        report.add(
+            "mcp agent auth",
+            "warn",
+            "CLI session alone does not feed HTTP MCP — set ADHD_HUB_AUTH_TOKEN for agents, "
+            "or use MCP Auth / Authenticate on /mcp",
+        )
 
     user_mcp = cursor_user_mcp_path()
     if user_mcp.is_file():

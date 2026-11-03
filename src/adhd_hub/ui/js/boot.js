@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, openShareCaptureIfRequested, renderDriftBanner, renderReminders, saveReminder, setReturnDensity, showThreadNotes, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi, updateReturnDensityUi } from './now.js';
 import { bindCompletionCalendar, openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshCliSessionHealth, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, restoreProject, rewriteAllProjectScanLines, saveProject, scheduleSearch, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -174,6 +174,9 @@ $("btn-allow-cli").addEventListener("click", () =>
   approveCliConnect($("cli-connect-code-input").value, "cli-connect-msg").catch((e) => {
     $("cli-connect-msg").textContent = e.message;
   })
+);
+$("btn-refresh-cli-sessions")?.addEventListener("click", () =>
+  refreshCliSessionHealth().catch((e) => setMsg(e.message || String(e)))
 );
 $("cli-connect-dialog").querySelector("form").addEventListener("submit", (event) => {
   if (event.submitter && event.submitter.value === "cancel") return;
