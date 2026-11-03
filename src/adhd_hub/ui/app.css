@@ -1702,7 +1702,7 @@ body.return-short .now-overview { display: none; }
 #work-view .rail { display: flex; flex-direction: column; gap: .75rem; min-height: 0; min-width: 0; overflow: hidden; }
 @media (min-width: 761px) {
   #work-view .layout { grid-template-columns: 240px minmax(0, 1fr); }
-  #work-view .rail { position: sticky; top: 1rem; max-height: calc(100dvh - 2rem); padding: 0; border: 0; }
+  #work-view .rail { position: sticky; top: 1rem; z-index: 1; max-height: calc(100dvh - 2rem); padding: 0; border: 0; overflow: visible; }
 }
 @media (min-width: 1100px) {
   #work-view .layout.notes-docked { grid-template-columns: 220px minmax(320px, 1fr) minmax(360px, 1.05fr); gap: 1.5rem; }
