@@ -668,6 +668,28 @@ export function wireNotes(root) {
       button.addEventListener("click", () => openNotesReader(button));
     });
   }
+import { composeShareCaptureSummary } from "./share-capture.mjs";
+export { composeShareCaptureSummary };
+
+/** After auth: open capture when launched via share_target (`?share=1`). */
+export function openShareCaptureIfRequested() {
+    const params = new URLSearchParams(location.search);
+    if (params.get("share") !== "1") return false;
+    const summary = composeShareCaptureSummary(params);
+    params.delete("share");
+    params.delete("title");
+    params.delete("text");
+    params.delete("url");
+    const query = params.toString();
+    history.replaceState({}, "", location.pathname + (query ? `?${query}` : "") + location.hash);
+    if (!summary) return false;
+    $("capture-error").textContent = "";
+    $("capture-summary").value = summary;
+    $("capture-dialog").showModal();
+    $("capture-summary").focus();
+    return true;
+  }
+
 export async function captureStep(event) {
     event.preventDefault();
     const summary = $("capture-summary").value.trim();

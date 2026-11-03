@@ -8,6 +8,16 @@
   "background_color": "#f7f6f3",
   "theme_color": "#f7f6f3",
   "lang": "en",
+  "share_target": {
+    "action": "/ui/?share=1",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "icons": [
     {
       "src": "/ui/brand/icon-192.png",

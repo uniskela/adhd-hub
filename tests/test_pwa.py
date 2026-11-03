@@ -15,11 +15,15 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert body["name"] == "ADHD Progress Hub"
         assert body["start_url"] == "/ui/"
         assert any(icon["src"].endswith("icon-192.png") for icon in body["icons"])
+        share = body["share_target"]
+        assert share["action"] == "/ui/?share=1"
+        assert share["method"] == "GET"
+        assert share["params"]["text"] == "text"
 
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v52" in sw.text
+        assert "adhd-hub-shell-v53" in sw.text
         assert "SKIP_WAITING" in sw.text
         assert "self.skipWaiting()" in sw.text
         # Updates wait for an explicit Refresh toast — do not auto-activate on install.
@@ -88,6 +92,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "accent.js",
             "screens.js",
             "now.js",
+            "share-capture.mjs",
             "thread-title.mjs",
             "return-cue.mjs",
             "clock-off.mjs",
