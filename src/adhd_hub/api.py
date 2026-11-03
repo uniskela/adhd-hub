@@ -515,6 +515,14 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
     def overlap(q: str = Query(..., min_length=2), limit: int | None = None):
         return service.check_overlap(q, limit=limit)
 
+    @router.get("/search", dependencies=[Depends(auth_dep)])
+    def search(
+        q: str = Query(..., min_length=2, max_length=200),
+        limit: int | None = Query(None, ge=1, le=50),
+        include_done: bool = False,
+    ):
+        return service.search_work(q, limit=limit, include_done=include_done)
+
     @router.post("/progress", dependencies=[Depends(auth_dep)])
     def progress(payload: ProgressUpsert):
         try:

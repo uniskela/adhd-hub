@@ -8,7 +8,7 @@ import { openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
 import { bindThemeControls } from './theme.js';
-import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, renderThreads, restoreProject, rewriteAllProjectScanLines, saveProject, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
+import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, restoreProject, rewriteAllProjectScanLines, saveProject, scheduleSearch, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
 import { refreshSyncHealth, retryForgeSync } from './sync-health.js';
 import { registerPwaUpdates } from './pwa-update.js';
@@ -323,7 +323,7 @@ function openNewProject() {
 $("btn-new-project").addEventListener("click", openNewProject);
 $("btn-new-project-rail")?.addEventListener("click", openNewProject);
 
-$("thread-search").addEventListener("input", () => renderThreads(state.threadsCache));
+$("thread-search").addEventListener("input", () => scheduleSearch());
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((t) => {
