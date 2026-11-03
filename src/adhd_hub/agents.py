@@ -273,6 +273,7 @@ def diagnose_agents(
     )
     cache: dict[tuple[str, bool], dict[str, Any]] = {}
     for agent in agents if agents is not None else AGENTS:
+        agent = "claude" if agent == "claude-code" else agent
         if agent not in AGENTS:
             report.add("agents", "error", "Supported MCP targets: codex,claude,cursor")
             continue
@@ -343,12 +344,17 @@ def diagnose_agents(
                 )
                 row["state"] = "invalid configuration"
                 continue
+            if mode == "local stdio (not probed)":
+                report.add(
+                    label + " transport", "warn", mode + "; runtime verification not available"
+                )
+                continue
             if entry.get("url") != mcp_url_for(hub_url):
                 report.add(
                     label + " URL",
                     "error",
-                    "configured URL differs from intended --hub "
-                    "or transport is local; inspect configuration before repair",
+                    "configured URL differs from intended --hub; "
+                    "inspect configuration before repair",
                 )
                 row["state"] = "different endpoint or transport"
                 continue

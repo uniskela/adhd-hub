@@ -254,6 +254,51 @@ def test_doctor_does_not_probe_client_oauth(agent_home, monkeypatch, agent):
     )
 
 
+def test_legacy_doctor_accepts_claude_code_alias(agent_home, monkeypatch, capsys):
+    hub = "http://127.0.0.1:8787"
+    connect.claude_user_mcp_path().write_text(
+        json.dumps({"mcpServers": {"adhd-hub": {"url": hub + "/mcp"}}})
+    )
+    monkeypatch.setattr(connect, "probe_hub", lambda *a, **k: (True, "health OK"))
+    monkeypatch.delenv("ADHD_HUB_PUBLIC_URL", raising=False)
+
+    assert run_cli(["doctor", "--agents", "claude-code", "--hub", hub, "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert len(result["agents"]) == 1
+    assert result["agents"][0]["agent"] == "claude"
+    assert result["agents"][0]["configured"]
+
+
+@pytest.mark.parametrize("agent", ["claude", "cursor", "codex"])
+@pytest.mark.parametrize("probe", [False, True])
+def test_doctor_warns_without_probing_local_stdio(agent_home, monkeypatch, agent, probe):
+    from unittest.mock import Mock
+
+    from adhd_hub.agents import config_paths, diagnose_agents
+
+    path = config_paths(agent, None)[0][1]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if agent == "codex":
+        path.write_text('[mcp_servers.adhd-hub]\ncommand = "adhd-hub"\nargs = ["mcp-stdio"]\n')
+    else:
+        entry = {"command": "adhd-hub", "args": ["mcp-stdio"]}
+        path.write_text(json.dumps({"mcpServers": {"adhd-hub": entry}}))
+    original = path.read_bytes()
+    http_probe = Mock()
+    monkeypatch.setattr("adhd_hub.agents.probe_mcp", http_probe)
+
+    report = diagnose_agents(hub_url="https://hub.example", agents=[agent], probe=probe)
+
+    assert report.ok
+    row = report.agent_status[0]
+    assert row["state"] == "configured"
+    assert row["runtime_verification"] == "not available"
+    assert "mcp" not in row
+    assert any(step.status == "warn" and "local stdio" in step.detail for step in report.steps)
+    http_probe.assert_not_called()
+    assert path.read_bytes() == original
+
+
 @pytest.mark.parametrize(
     "host", ["localhost", "127.0.0.1", "127.0.0.2", "127.255.255.254", "[::1]"]
 )
