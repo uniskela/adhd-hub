@@ -200,6 +200,11 @@ class HubService:
         fingerprint: str | None = None,
     ) -> None:
         fp = fingerprint or state_fingerprint(thread)
+        if fingerprint is None and event_type == THREAD_COMPLETED:
+            # state_fingerprint is content-only; identical reopen→complete
+            # cycles must still emit distinct completion events for insights.
+            stamp = thread.updated_at.isoformat() if thread.updated_at else ""
+            fp = f"{fp}:{stamp}"
         key = f"{event_type}:{thread.id}:{fp}"
         meta = {"status": thread.status.value, "fingerprint": fp}
         if metadata:
