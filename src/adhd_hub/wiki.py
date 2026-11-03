@@ -17,6 +17,18 @@ _HISTORY_COMPACT_RE = re.compile(
     r"</details>",
     flags=re.DOTALL | re.IGNORECASE,
 )
+# Neutralize user-authored closers inside the folded block so unwrap cannot
+# stop early on an inner ``</details>`` (Kody: lossless History recovery).
+_DETAILS_CLOSE = "</details>"
+_DETAILS_CLOSE_ESC = "<\u200b/details>"
+
+
+def _escape_details_close(text: str) -> str:
+    return text.replace(_DETAILS_CLOSE, _DETAILS_CLOSE_ESC)
+
+
+def _unescape_details_close(text: str) -> str:
+    return text.replace(_DETAILS_CLOSE_ESC, _DETAILS_CLOSE)
 
 
 def expand_history_body(body: str) -> str:
@@ -29,11 +41,11 @@ def expand_history_body(body: str) -> str:
         match = _HISTORY_COMPACT_RE.search(text)
         if not match:
             break
-        older = match.group(1).strip("\n")
+        older = _unescape_details_close(match.group(1).strip("\n"))
         before = text[: match.start()].rstrip("\n")
         after = text[match.end() :].lstrip("\n")
         text = "\n".join(part for part in (before, older, after) if part)
-    return text.strip()
+    return _unescape_details_close(text.strip())
 
 
 def compact_history_body(body: str, *, keep_lines: int = HISTORY_KEEP_LINES) -> str:
@@ -52,7 +64,7 @@ def compact_history_body(body: str, *, keep_lines: int = HISTORY_KEEP_LINES) -> 
         return full
     recent = lines[:keep]
     older = lines[keep:]
-    older_text = "\n".join(older).strip()
+    older_text = _escape_details_close("\n".join(older).strip())
     if not older_text:
         return "\n".join(recent).strip()
     block = (

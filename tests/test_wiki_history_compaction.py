@@ -36,6 +36,18 @@ def test_recompact_does_not_nest_details() -> None:
     assert expand_history_body(twice).splitlines() == lines
 
 
+def test_user_details_close_in_history_survives_compact_expand() -> None:
+    lines = [f"- line {i}" for i in range(12)]
+    lines[8] = "- note with </details> inside"
+    full = "\n".join(lines)
+    compacted = compact_history_body(full, keep_lines=5)
+    assert compacted.count("</details>") == 1  # only the Hub wrapper closer
+    assert "</details>" not in compacted.split("<details>", 1)[1].rsplit("</details>", 1)[0]
+    restored = expand_history_body(compacted)
+    assert restored.splitlines() == lines
+    assert expand_history_body(compact_history_body(restored, keep_lines=5)).splitlines() == lines
+
+
 def test_sync_progress_compacts_history(tmp_path: Path) -> None:
     wiki = Wiki(tmp_path / "wiki")
     history = "\n".join(f"- old {i}" for i in range(55))
