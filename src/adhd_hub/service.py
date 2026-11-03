@@ -2493,7 +2493,7 @@ class HubService:
             hour=0, minute=0, second=0, microsecond=0
         )
         rows = self.store.list_insight_event_rows(
-            since_iso=start.isoformat(),
+            since_iso=start.astimezone(UTC).isoformat(),
             event_types=sorted(INSIGHT_EVENT_TYPES),
         )
         return aggregate_insight_rows(

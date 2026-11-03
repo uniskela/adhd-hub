@@ -2638,11 +2638,22 @@ class Store:
         event_types: list[str],
         limit: int = 20_000,
     ) -> list[dict[str, Any]]:
-        """Raw activity rows for insights aggregation (excludes forge.* at call site)."""
+        """Raw activity rows for insights aggregation (excludes forge.* at call site).
+
+        ``since_iso`` may be local-offset; it is normalized to UTC before the
+        TEXT compare so rows stored via ``utcnow_iso()`` are not dropped.
+        """
         types = [t for t in event_types if t]
         if not types:
             return []
         limit = max(1, min(int(limit), 50_000))
+        try:
+            since_dt = datetime.fromisoformat(since_iso)
+        except ValueError:
+            since_dt = datetime.fromisoformat(since_iso.replace("Z", "+00:00"))
+        if since_dt.tzinfo is None:
+            since_dt = since_dt.replace(tzinfo=UTC)
+        since_utc = since_dt.astimezone(UTC).isoformat()
         placeholders = ",".join("?" for _ in types)
         # Newest-first so LIMIT sheds oldest rows; reverse for chronological agg.
         sql = (
@@ -2650,7 +2661,7 @@ class Store:
             f"WHERE created_at >= ? AND event_type IN ({placeholders}) "
             "ORDER BY created_at DESC, id DESC LIMIT ?"
         )
-        params: list[Any] = [since_iso, *types, limit]
+        params: list[Any] = [since_utc, *types, limit]
         with self._conn() as conn:
             rows = list(conn.execute(sql, params).fetchall())
         rows.reverse()
@@ -2677,11 +2688,11 @@ class Store:
             hour=0, minute=0, second=0, microsecond=0
         )
         rows = self.list_insight_event_rows(
-            since_iso=start.isoformat(),
+            since_iso=start.astimezone(UTC).isoformat(),
             event_types=sorted(INSIGHT_EVENT_TYPES),
         )
         return aggregate_insight_rows(
-            rows, timezone=timezone, chart_days=days
+            rows, timezone=timezone, chart_days=days, as_of=now.date()
         )["added_vs_finished"]
 
     def done_counts(self, timezone: str = "UTC") -> dict[str, int]:

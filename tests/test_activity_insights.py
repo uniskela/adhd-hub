@@ -58,6 +58,36 @@ def test_aggregate_ignores_forge_reconcile_and_buckets_periods() -> None:
     assert finished_today["added"] == 1
 
 
+def test_list_insight_event_rows_accepts_local_since_boundary(tmp_path: Path) -> None:
+    """Local +02:00 midnight must not drop UTC rows from the prior UTC calendar day."""
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="secret"))
+    bus = service.event_bus
+    # Local 2026-10-21 00:30+02:00 == 2026-10-20 22:30Z
+    event_at = datetime(2026, 10, 20, 22, 30, tzinfo=UTC)
+    publish_activity_event(
+        service.store,
+        event_type=THREAD_CREATED,
+        project_slug="tz",
+        thread_id="t-tz",
+        source="api",
+        idempotency_key="tz:created",
+        bus=bus,
+    )
+    with service.store._conn() as conn:
+        conn.execute(
+            "UPDATE activity_events SET created_at = ? WHERE thread_id = ?",
+            (event_at.isoformat(), "t-tz"),
+        )
+    local_since = "2026-10-21T00:00:00+02:00"
+    # Lexicographic compare against UTC would exclude this row; UTC normalize must keep it.
+    rows = service.store.list_insight_event_rows(
+        since_iso=local_since,
+        event_types=[THREAD_CREATED],
+    )
+    assert len(rows) == 1
+    assert rows[0]["created_at"] == event_at.isoformat()
+
+
 def test_list_insight_event_rows_keeps_newest_when_capped(tmp_path: Path) -> None:
     service = HubService(Settings(data_dir=tmp_path / "data", auth_token="secret"))
     bus = service.event_bus
