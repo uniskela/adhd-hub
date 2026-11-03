@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 
-const source = readFileSync(new URL("../../src/adhd_hub/ui/js/settings.js", import.meta.url), "utf8");
 const elements = new Map();
 for (const [id, value] of Object.entries({
   ca_cursor: "cursor", ca_codex: "codex", ca_claude: "claude", ca_all: "*",
@@ -11,22 +8,14 @@ for (const [id, value] of Object.entries({
   "agents-user-setup": "", "agents-doctor-command": "", "connect-selection-summary": "",
 })) elements.set(id, { value, checked: false, disabled: false, textContent: "" });
 let apiCalls = 0;
-const bindings = {
-  $: (id) => elements.get(id),
-  api: () => { apiCalls += 1; throw new Error("Selection must not call the Hub"); },
+globalThis.document = { getElementById: (id) => elements.get(id) };
+globalThis.location = { origin: "https://hub.example" };
+globalThis.fetch = () => {
+  apiCalls += 1;
+  throw new Error("Selection must not call the Hub");
 };
-const context = vm.createContext({ location: { origin: "https://hub.example" } });
-const module = new vm.SourceTextModule(source, { context });
-const imports = new Map([...source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)]
-  .map((match) => [match[2], match[1].split(",").map((name) => name.trim()).filter(Boolean)]));
-await module.link((specifier) => {
-  const names = imports.get(specifier);
-  return new vm.SyntheticModule(names, function () {
-    for (const name of names) this.setExport(name, bindings[name] || (() => {}));
-  }, { context });
-});
-await module.evaluate();
-const { applyConnectAgents, syncConnectCommands, selectedConnectAgents } = module.namespace;
+// The Python runner copies the UI modules alongside this fixture with ESM enabled.
+const { applyConnectAgents, syncConnectCommands, selectedConnectAgents } = await import("./settings.js");
 const value = (id) => elements.get(id).value;
 const text = (id) => elements.get(id).textContent;
 
