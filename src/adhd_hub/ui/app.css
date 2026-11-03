@@ -1881,8 +1881,9 @@ body.return-short .now-overview { display: none; }
 .activity-card { display: flex; flex-direction: column; gap: 1.25rem; }
 .activity-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .75rem; }
 .activity-head h2 { margin: 0 0 .125rem; font-size: 1.125rem; }
-.activity-totals, .activity-stats { margin: 0; font-size: .875rem; color: var(--muted); }
+.activity-totals, .activity-stats, .insights-summary { margin: 0; font-size: .875rem; color: var(--muted); }
 .activity-totals:empty { display: none; }
+.insights-summary { margin-bottom: .35rem; line-height: 1.45; }
 .chart-legend { display: flex; gap: 1rem; font-size: .875rem; color: var(--ink-soft); }
 .chart-legend span { display: inline-flex; align-items: center; gap: .375rem; }
 .chart-legend span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--chart-added); }

@@ -2631,50 +2631,56 @@ class Store:
                 bucket[status] = int(row["c"])
         return out
 
+    def list_insight_event_rows(
+        self,
+        *,
+        since_iso: str,
+        event_types: list[str],
+        limit: int = 20_000,
+    ) -> list[dict[str, Any]]:
+        """Raw activity rows for insights aggregation (excludes forge.* at call site)."""
+        types = [t for t in event_types if t]
+        if not types:
+            return []
+        limit = max(1, min(int(limit), 50_000))
+        placeholders = ",".join("?" for _ in types)
+        sql = (
+            f"SELECT event_type, created_at, project_slug FROM activity_events "
+            f"WHERE created_at >= ? AND event_type IN ({placeholders}) "
+            "ORDER BY created_at ASC, id ASC LIMIT ?"
+        )
+        params: list[Any] = [since_iso, *types, limit]
+        with self._conn() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [
+            {
+                "event_type": row["event_type"],
+                "created_at": row["created_at"],
+                "project_slug": row["project_slug"],
+            }
+            for row in rows
+        ]
+
     def analytics_added_done(self, days: int = 14, timezone: str = "UTC") -> list[dict[str, Any]]:
-        """Per-day counts of threads created vs marked done (approx via updated_at when done)."""
+        """Per-day created vs completed from the activity ledger (Slice A)."""
         from datetime import timedelta
 
+        from adhd_hub.insights import INSIGHT_EVENT_TYPES, aggregate_insight_rows
         from adhd_hub.timeutil import resolve_zone
 
         zone = resolve_zone(timezone)
         now = utcnow().astimezone(zone)
-        start = (now - timedelta(days=days - 1)).date()
-        days_map: dict[str, dict[str, int]] = {}
-        for i in range(days):
-            d = (start + timedelta(days=i)).isoformat()
-            days_map[d] = {"date": d, "added": 0, "finished": 0}
-        with self._conn() as conn:
-            created = conn.execute("SELECT created_at FROM threads").fetchall()
-            for row in created:
-                try:
-                    created_day = (
-                        datetime.fromisoformat(row["created_at"])
-                        .astimezone(zone)
-                        .date()
-                        .isoformat()
-                    )
-                except ValueError:
-                    continue
-                if created_day in days_map:
-                    days_map[created_day]["added"] += 1
-            done_rows = conn.execute(
-                "SELECT updated_at FROM threads WHERE status = ?",
-                (ThreadStatus.done.value,),
-            ).fetchall()
-            for row in done_rows:
-                try:
-                    day = (
-                        datetime.fromisoformat(row["updated_at"])
-                        .astimezone(zone)
-                        .date()
-                        .isoformat()
-                    )
-                except ValueError:
-                    continue
-                if day in days_map:
-                    days_map[day]["finished"] += 1
-        return [days_map[k] for k in sorted(days_map.keys())]
+        days = max(1, min(int(days), 90))
+        start = (now - timedelta(days=days - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        rows = self.list_insight_event_rows(
+            since_iso=start.isoformat(),
+            event_types=sorted(INSIGHT_EVENT_TYPES),
+        )
+        return aggregate_insight_rows(
+            rows, timezone=timezone, chart_days=days
+        )["added_vs_finished"]
 
     def done_counts(self, timezone: str = "UTC") -> dict[str, int]:
         from datetime import timedelta
