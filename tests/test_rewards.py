@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from adhd_hub.config import Settings
+from adhd_hub.events import THREAD_COMPLETED, publish_activity_event
 from adhd_hub.models import ThreadStatus, ThreadUpsert
 from adhd_hub.prefs import HubPrefs
 from adhd_hub.service import HubService
@@ -15,6 +16,22 @@ def test_rewards_follow_local_day_and_use_real_completions(tmp_path, monkeypatch
     completed = service.store.upsert_thread(
         ThreadUpsert(summary="One step", status=ThreadStatus.done)
     )
+    # Chart is ledger-backed (Slice A); thread rows alone do not fill it.
+    publish_activity_event(
+        service.store,
+        event_type=THREAD_COMPLETED,
+        project_slug="unclassified",
+        thread_id=completed.id,
+        source="api",
+        idempotency_key=f"test:completed:{completed.id}",
+        bus=service.event_bus,
+    )
+    # Stamp event onto the LA calendar day under test.
+    with service.store._conn() as conn:
+        conn.execute(
+            "UPDATE activity_events SET created_at = ? WHERE thread_id = ?",
+            (datetime(2026, 9, 7, 20, 0, tzinfo=UTC).isoformat(), completed.id),
+        )
     service.store.upsert_thread(ThreadUpsert(summary="Still open"))
     overview = service.overview()
     assert overview["done"] == 1

@@ -1702,7 +1702,7 @@ body.return-short .now-overview { display: none; }
 #work-view .rail { display: flex; flex-direction: column; gap: .75rem; min-height: 0; min-width: 0; overflow: hidden; }
 @media (min-width: 761px) {
   #work-view .layout { grid-template-columns: 240px minmax(0, 1fr); }
-  #work-view .rail { position: sticky; top: 1rem; max-height: calc(100dvh - 2rem); padding: 0; border: 0; }
+  #work-view .rail { position: sticky; top: 1rem; z-index: 1; max-height: calc(100dvh - 2rem); padding: 0; border: 0; overflow: visible; }
 }
 @media (min-width: 1100px) {
   #work-view .layout.notes-docked { grid-template-columns: 220px minmax(320px, 1fr) minmax(360px, 1.05fr); gap: 1.5rem; }
@@ -1881,8 +1881,9 @@ body.return-short .now-overview { display: none; }
 .activity-card { display: flex; flex-direction: column; gap: 1.25rem; }
 .activity-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .75rem; }
 .activity-head h2 { margin: 0 0 .125rem; font-size: 1.125rem; }
-.activity-totals, .activity-stats { margin: 0; font-size: .875rem; color: var(--muted); }
+.activity-totals, .activity-stats, .insights-summary { margin: 0; font-size: .875rem; color: var(--muted); }
 .activity-totals:empty { display: none; }
+.insights-summary { margin-bottom: .35rem; line-height: 1.45; }
 .chart-legend { display: flex; gap: 1rem; font-size: .875rem; color: var(--ink-soft); }
 .chart-legend span { display: inline-flex; align-items: center; gap: .375rem; }
 .chart-legend span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--chart-added); }

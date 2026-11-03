@@ -135,6 +135,32 @@ def main() -> None:
                         page.locator(f'[data-screen="{screen}"]:visible').first.click()
                         expect(page.locator(f"#{screen}-view" if screen != "work" else "#work-view")).to_be_visible()
 
+                def assert_project_menu_unclipped() -> None:
+                    panel = page.locator("#rail-menu .thread-utility-panel")
+                    expect(panel).to_be_visible()
+                    assert panel.evaluate("""el => {
+                      const r = el.getBoundingClientRect();
+                      return [
+                        [r.left + 5, r.top + 12],
+                        [r.left + 5, r.bottom - 12],
+                        [r.right - 5, r.top + 12],
+                        [r.right - 5, r.bottom - 12],
+                      ].every(([x, y]) => el.contains(document.elementFromPoint(x, y)));
+                    }"""), "Projects dropdown is clipped or covered"
+
+                for width in (1440, 768):
+                    page.set_viewport_size({"width": width, "height": 900})
+                    open_screen("work")
+                    for docked in (False, True) if width == 1440 else (False,):
+                        page.locator("#work-view .layout").evaluate(
+                            "(el, docked) => el.classList.toggle('notes-docked', docked)", docked
+                        )
+                        page.locator("#rail-menu > summary").click()
+                        assert_project_menu_unclipped()
+                        page.screenshot(path=str(screenshots / f"projects-menu-{width}-{docked}.png"))
+                        page.keyboard.press("Escape")
+                    page.locator("#work-view .layout").evaluate("el => el.classList.remove('notes-docked')")
+
                 for theme in ("light", "dark"):
                     page.evaluate("theme => localStorage.setItem('adhd_hub_theme', theme)", theme)
                     page.reload()
@@ -165,6 +191,7 @@ def main() -> None:
                 page.locator("#rail-menu > summary").click()
                 expect(page.locator("#btn-organise-projects")).to_be_visible()
                 expect(page.locator("#rail-menu .proj-dnd-hint")).to_be_visible()
+                assert_project_menu_unclipped()
                 page.keyboard.press("Escape")
                 expect(page.locator("#rail-menu > summary")).to_be_focused()
                 expect(page.locator("#projects-rail")).to_be_visible()  # Escape closed only the menu

@@ -59,6 +59,18 @@ assert(early.visible === false, "enabled but early stays quiet");
 const approaching = clockOffStatus(base, new Date("2026-10-09T10:30:00Z"), locale);
 assert(approaching.visible && approaching.title === "Wind-down starts in 15 minutes", approaching.title);
 
+// Approaching notice uses window timestamps even when the local schedule lead is stale.
+const staleSchedule = clockOffStatus({
+  schedule: { enabled: true, active_days: [0, 1, 2, 3, 4], clock_off_time: "22:00", wind_down_minutes: 5 },
+  clock_off: {
+    ...base.clock_off,
+    wind_down_at: "2026-10-09T10:00:00Z",
+    clock_off_at: "2026-10-09T11:00:00Z",
+    minutes_remaining: 60,
+  },
+}, new Date("2026-10-09T09:30:00Z"), locale);
+assert(staleSchedule.visible && staleSchedule.title === "Wind-down starts in 30 minutes", staleSchedule.title);
+
 const winding = clockOffStatus({
   ...base,
   clock_off: { ...base.clock_off, state: "winding_down", minutes_remaining: 12 },

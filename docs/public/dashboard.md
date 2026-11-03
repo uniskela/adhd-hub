@@ -204,7 +204,7 @@ On phones, Settings opens to the section list and each page has **All settings**
 
 ## Progress and sharing
 
-The **Last 14 days** card shows steps added, steps finished, open count, and this-week count. Hover/focus a day for details or choose **Show as a table** for the same data in rows.
+The **Activity** card summarises today / last 7 days / last 30 days / this month from the Hub activity ledger (steps started, finished, progress notes, projects touched). Reflection only — not a productivity score. The 14-day chart uses the same ledger for added vs finished. Hover/focus a day for details or choose **Show as a table**. Quiet periods show a calm empty state.
 
 With rewards enabled, Progress also shows:
 

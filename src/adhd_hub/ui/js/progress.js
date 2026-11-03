@@ -133,8 +133,38 @@ function chartDayName(value) {
     return date ? date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : String(value || "");
   }
 
+function insightLine(label, period) {
+    if (!period) return "";
+    const parts = [];
+    const finished = Number(period.completed) || 0;
+    const started = Number(period.created) || 0;
+    const notes = Number(period.progress) || 0;
+    const projects = Number(period.projects_touched) || 0;
+    if (finished) parts.push(`${finished} finished`);
+    if (started) parts.push(`${started} started`);
+    if (notes) parts.push(`${notes} notes`);
+    if (projects) parts.push(`${projects} ${projects === 1 ? "project" : "projects"}`);
+    return parts.length ? `${label}: ${parts.join(" · ")}` : `${label}: quiet`;
+  }
+
 export function renderStats(o) {
     $("stats").textContent = `${o.open ?? 0} open now · ${o.done_week ?? 0} finished this week`;
+    const insightsEl = $("insights-summary");
+    const periods = o.insights?.periods;
+    if (insightsEl) {
+      if (periods) {
+        insightsEl.hidden = false;
+        insightsEl.textContent = [
+          insightLine("Today", periods.today),
+          insightLine("Last 7 days", periods.last_7),
+          insightLine("Last 30 days", periods.last_30),
+          insightLine("This month", periods.month),
+        ].join(" · ");
+      } else {
+        insightsEl.hidden = true;
+        insightsEl.textContent = "";
+      }
+    }
     renderRewards();
     const series = o.added_vs_finished || [];
     const wrap = $("chart-wrap");
@@ -147,7 +177,7 @@ export function renderStats(o) {
       wrap.hidden = true;
       $("chart-empty").hidden = false;
       if (summary) summary.textContent = "";
-      if (totals) totals.textContent = "";
+      if (totals) totals.textContent = "Last 14 days on the activity ledger";
       return;
     }
     wrap.hidden = false;
