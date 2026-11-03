@@ -7,6 +7,62 @@ from pathlib import Path
 from adhd_hub.models import Thread, ThreadStatus
 from adhd_hub.store import slugify
 
+# Keep the newest History lines visible; older lines fold into a recoverable
+# <details> block (Wave 8 reversible wiki compaction).
+HISTORY_KEEP_LINES = 40
+_HISTORY_COMPACT_RE = re.compile(
+    r"<details>\s*"
+    r"<summary>Older history \(\d+ lines\) — expandable; full text preserved</summary>\s*"
+    r"(.*?)"
+    r"</details>",
+    flags=re.DOTALL | re.IGNORECASE,
+)
+
+
+def expand_history_body(body: str) -> str:
+    """Unwrap Hub History compaction blocks so full markdown is recoverable."""
+    text = (body or "").strip()
+    if not text:
+        return ""
+    # Expand repeatedly in case older runs nested (should not, but be safe).
+    while True:
+        match = _HISTORY_COMPACT_RE.search(text)
+        if not match:
+            break
+        older = match.group(1).strip("\n")
+        before = text[: match.start()].rstrip("\n")
+        after = text[match.end() :].lstrip("\n")
+        text = "\n".join(part for part in (before, older, after) if part)
+    return text.strip()
+
+
+def compact_history_body(body: str, *, keep_lines: int = HISTORY_KEEP_LINES) -> str:
+    """Fold older History lines into an expandable block; keep newest lines open.
+
+    Newest-first History (prepended notes) keeps the first ``keep_lines`` visible.
+    Full text remains inside ``<details>`` so compaction is reversible via
+    :func:`expand_history_body`.
+    """
+    full = expand_history_body(body)
+    if not full or full == "_No older history._":
+        return full
+    lines = full.splitlines()
+    keep = max(1, int(keep_lines))
+    if len(lines) <= keep:
+        return full
+    recent = lines[:keep]
+    older = lines[keep:]
+    older_text = "\n".join(older).strip()
+    if not older_text:
+        return "\n".join(recent).strip()
+    block = (
+        "<details>\n"
+        f"<summary>Older history ({len(older)} lines) — expandable; full text preserved</summary>\n\n"
+        f"{older_text}\n\n"
+        "</details>"
+    )
+    return ("\n".join(recent).rstrip() + "\n\n" + block).strip()
+
 
 class Wiki:
     def __init__(self, wiki_dir: Path, *, timezone: str = "UTC") -> None:
@@ -231,6 +287,7 @@ class Wiki:
         if path.exists():
             existing = path.read_text(encoding="utf-8")
             forge_body, history_body = self.extract_preserved_sections(existing)
+        history_body = compact_history_body(history_body)
         body = self.render_progress(
             slug,
             title=title,
@@ -265,6 +322,7 @@ class Wiki:
             label = thread.summary if thread else (title or slug)
             addition = f"### {stamp}\n\n**{label}**\n\n{note}\n"
             history_body = (addition + "\n" + history_body).strip() if history_body else addition.strip()
+        history_body = compact_history_body(history_body)
         heading = title or (thread.summary if thread else slug)
         threads = active_threads
         if threads is None:

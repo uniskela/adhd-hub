@@ -29,7 +29,7 @@ Use a verb, a concrete object, and a location where useful: `Run uv run pytest`,
 
 ## Active-work update
 
-Hub rewrites `PROGRESS.md` with **Active threads** (current structured state), **Recent milestones** (meaningful changes only), and **History** (recoverable older detail). Do not duplicate unchanged state into history. Omit empty Blocked sections rather than writing `None`.
+Hub rewrites `PROGRESS.md` with **Active threads** (current structured state), **Recent milestones** (meaningful changes only), and **History** (recoverable older detail). When History grows long, Hub folds older lines into an expandable `<details>` block so the newest lines stay scannable; expanding recovers the full text with nothing discarded. Do not duplicate unchanged state into history. Omit empty Blocked sections rather than writing `None`.
 
 When writing freeform notes (issues, handoffs), keep completed history below the active section:
 
