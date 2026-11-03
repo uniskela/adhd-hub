@@ -235,7 +235,8 @@ def test_cli_session_slides_expiry_on_use(tmp_path: Path) -> None:
     grant = store.start_grant(challenge=challenge, state=None, callback_url=None)
     store.approve_user_code(grant["user_code"])
     status, token, _expires = store.exchange(verifier=verifier, device_code=grant["device_code"])
-    assert status == "ok" and token
+    assert status == "ok"
+    assert token
     sessions = store.list_sessions()
     assert len(sessions) == 1
     before = sessions[0]["expires_at"]

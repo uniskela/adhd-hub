@@ -79,17 +79,29 @@ class OpenClawPairStore:
             return token
         return _cipher(self._auth_token).encrypt(token.encode()).decode()
 
-    def _decrypt_token(self, raw: dict[str, Any]) -> str:
+    def _decrypt_token(self, raw: dict[str, Any], *, required: bool = False) -> str:
         encrypted = raw.get("token_encrypted")
         if isinstance(encrypted, str) and encrypted:
-            if self._auth_token:
-                try:
-                    return _cipher(self._auth_token).decrypt(encrypted.encode()).decode()
-                except (InvalidToken, UnicodeDecodeError):
-                    return ""
-            return encrypted
+            if not self._auth_token:
+                if required:
+                    raise ValueError(
+                        "pair_token_undecryptable — hub auth token missing; restart pairing"
+                    )
+                return encrypted
+            try:
+                return _cipher(self._auth_token).decrypt(encrypted.encode()).decode()
+            except (InvalidToken, UnicodeDecodeError) as exc:
+                if required:
+                    raise ValueError(
+                        "pair_token_undecryptable — hub auth token changed since submit; "
+                        "restart pairing"
+                    ) from exc
+                return ""
         legacy = raw.get("token")
-        return str(legacy) if isinstance(legacy, str) else ""
+        token = str(legacy) if isinstance(legacy, str) else ""
+        if required and not token.strip():
+            raise ValueError("pair_token_missing — restart pairing")
+        return token
 
     def _load_raw(self) -> dict[str, Any]:
         if not self._path.is_file():
@@ -293,7 +305,7 @@ class OpenClawPairStore:
             alerts_enabled=bool(raw.get("alerts_enabled", base.alerts_enabled)),
             webhook_url=str(raw.get("webhook_url") or ""),
             agent_url=str(raw.get("agent_url") or ""),
-            token=self._decrypt_token(raw),
+            token=self._decrypt_token(raw, required=True),
             **schedule,
         )
         self.clear()

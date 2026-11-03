@@ -7,17 +7,66 @@ import hashlib
 import ipaddress
 import json
 import logging
+import socket
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from apscheduler.triggers.cron import CronTrigger
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from adhd_hub.openclaw import parse_cron
 
 log = logging.getLogger(__name__)
+
+# Explicit IMDS targets — do not blanket-ban ULA (Tailscale uses fd7a:…/48).
+_BLOCKED_METADATA_IPS = frozenset(
+    {
+        ipaddress.ip_address("169.254.169.254"),
+        ipaddress.ip_address("fd00:ec2::254"),
+    }
+)
+
+
+def _parse_ip_literal(host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    try:
+        if host.startswith(("0x", "0X")):
+            return ipaddress.ip_address(int(host, 16))
+        if host.isdigit():
+            return ipaddress.ip_address(int(host))
+    except ValueError:
+        return None
+    return None
+
+
+def _endpoint_host_blocked(host: str) -> bool:
+    """True when host is cloud metadata / link-local (DNS + odd IP literals)."""
+    if host in {"metadata", "metadata.google.internal", "metadata.goog"}:
+        return True
+    candidates: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+    literal = _parse_ip_literal(host)
+    if literal is not None:
+        candidates.append(literal)
+    else:
+        try:
+            for info in socket.getaddrinfo(host, None):
+                candidates.append(ipaddress.ip_address(info[4][0]))
+        except OSError:
+            # Unresolvable LAN names stay allowed (Hub may lack that DNS view).
+            return False
+    for ip in candidates:
+        mapped = getattr(ip, "ipv4_mapped", None)
+        check = mapped if mapped is not None else ip
+        if check.is_link_local or check.is_unspecified:
+            return True
+        if check in _BLOCKED_METADATA_IPS or ip in _BLOCKED_METADATA_IPS:
+            return True
+    return False
 
 
 class OpenClawConfig(BaseModel):
@@ -44,15 +93,10 @@ class OpenClawConfig(BaseModel):
         if parsed.username or parsed.password:
             raise ValueError("OpenClaw endpoints must not contain credentials")
         host = (parsed.hostname or "").lower().rstrip(".")
-        if host in {"metadata", "metadata.google.internal", "metadata.goog"}:
-            raise ValueError("OpenClaw endpoints must not target cloud metadata hosts")
-        try:
-            ip = ipaddress.ip_address(host)
-        except ValueError:
-            ip = None
-        if ip is not None and (ip.is_link_local or ip.is_unspecified):
-            # Keep loopback/RFC1918 — common for LAN/Tailscale OpenClaw.
-            raise ValueError("OpenClaw endpoints must not target link-local or unspecified addresses")
+        if _endpoint_host_blocked(host):
+            raise ValueError(
+                "OpenClaw endpoints must not target cloud metadata, link-local, or unspecified hosts"
+            )
         return cleaned
 
     @field_validator("stale_nudge_cron")
@@ -123,7 +167,12 @@ def load_openclaw_config(
                 merged["token"] = _cipher(auth_token).decrypt(encrypted.encode()).decode()
             except (InvalidToken, UnicodeDecodeError):
                 log.warning("Saved OpenClaw token could not be decrypted; reconnect it in Settings")
-    return OpenClawConfig.model_validate(merged)
+    try:
+        return OpenClawConfig.model_validate(merged)
+    except ValidationError as exc:
+        # Tightened URL rules must not crash hub boot on a legacy openclaw.json.
+        log.warning("Saved OpenClaw config is invalid (%s); using defaults", exc)
+        return env_defaults
 
 
 def save_openclaw_config(data_dir: Path, config: OpenClawConfig, *, auth_token: str) -> Path:

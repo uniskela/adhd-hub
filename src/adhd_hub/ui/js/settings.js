@@ -1233,13 +1233,15 @@ export async function loadCliSessions() {
             revokeCliSession(btn.getAttribute("data-revoke")).catch((e) => setMsg(String(e)))
           );
         });
+      return true;
     } catch (_e) {
-      /* optional */
+      return false;
     }
   }
 export async function refreshCliSessionHealth() {
-    await loadCliSessions();
-    setMsg("Connected computer health refreshed.");
+    const ok = await loadCliSessions();
+    if (ok) setMsg("Connected computer health refreshed.");
+    else setMsg("Could not refresh connected computer health.", { variant: "error" });
   }
 export async function revokeCliSession(sessionId) {
     const shortId = String(sessionId || "").slice(0, 8);

@@ -102,13 +102,47 @@ def test_openclaw_pair_rejects_unknown_failure_code(tmp_path: Path) -> None:
 
 
 def test_openclaw_rejects_metadata_and_link_local_urls() -> None:
-    with pytest.raises(ValueError, match="link-local|metadata"):
+    with pytest.raises(ValueError, match="metadata|link-local|unspecified"):
         OpenClawConfig(webhook_url="http://169.254.169.254/latest/meta-data")
-    with pytest.raises(ValueError, match="link-local|metadata"):
+    with pytest.raises(ValueError, match="metadata|link-local|unspecified"):
         OpenClawConfig(webhook_url="http://metadata.google.internal/computeMetadata/v1/")
+    with pytest.raises(ValueError, match="metadata|link-local|unspecified"):
+        OpenClawConfig(webhook_url="http://2852039166/")  # decimal 169.254.169.254
+    with pytest.raises(ValueError, match="metadata|link-local|unspecified"):
+        OpenClawConfig(webhook_url="http://[fd00:ec2::254]/")
     # LAN / Tailscale / loopback still allowed for same-host OpenClaw.
     ok = OpenClawConfig(webhook_url="http://127.0.0.1:18789/hooks/wake")
     assert ok.webhook_url.endswith("/hooks/wake")
+    # Tailscale-style ULA must not be blanket-banned.
+    tailscale = OpenClawConfig(webhook_url="http://[fd7a:115c:a1e0::1]:18789/hooks/wake")
+    assert "fd7a" in tailscale.webhook_url
+
+
+def test_openclaw_load_tolerates_legacy_blocked_url(tmp_path: Path) -> None:
+    from adhd_hub.openclaw_config import load_openclaw_config, openclaw_config_path
+
+    path = openclaw_config_path(tmp_path)
+    path.write_text(
+        '{"webhook_url":"http://169.254.169.254/hooks/wake","alerts_enabled":false}\n',
+        encoding="utf-8",
+    )
+    defaults = OpenClawConfig()
+    loaded = load_openclaw_config(tmp_path, env_defaults=defaults, auth_token="hub-secret")
+    assert loaded == defaults
+
+
+def test_openclaw_pair_approve_rejects_undecryptable_token(tmp_path: Path) -> None:
+    store = OpenClawPairStore(tmp_path, auth_token="hub-secret")
+    started = store.start()
+    store.submit(
+        user_code=started.user_code,
+        webhook_url="http://openclaw:18789/hooks/wake",
+        token="hook-secret",
+    )
+    broken = OpenClawPairStore(tmp_path, auth_token="rotated-secret")
+    with pytest.raises(ValueError, match="pair_token_undecryptable"):
+        broken.approve_config()
+    assert broken.status().status == "submitted"
 
 
 def test_openclaw_pair_prompt_requires_protected_token_provisioning() -> None:
