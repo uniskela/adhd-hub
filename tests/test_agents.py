@@ -61,8 +61,9 @@ def test_custom_auth_is_never_overwritten(agent_home, agent):
             }
         )
     path.write_text(original)
+    merge = getattr(connect, f"merge_{agent}_mcp")
     with pytest.raises(ValueError, match="custom"):
-        getattr(connect, f"merge_{agent}_mcp")(path, "https://other.example")
+        merge(path, "https://other.example")
     assert path.read_text() == original
 
 
@@ -220,6 +221,32 @@ def test_doctor_does_not_use_cli_session_as_agent_credentials(agent_home, monkey
     assert "ahcli_private-session" not in json.dumps(report.agent_status)
 
 
+@pytest.mark.parametrize("credential", [None, "test-agent-token"])
+def test_doctor_shares_probe_without_hiding_missing_credentials(agent_home, monkeypatch, credential):
+    from unittest.mock import Mock
+
+    from adhd_hub.agents import diagnose_agents
+
+    if credential:
+        monkeypatch.setenv("ADHD_HUB_AUTH_TOKEN", credential)
+    connect.merge_claude_mcp(connect.claude_user_mcp_path(), "https://hub.example")
+    connect.merge_cursor_mcp(connect.cursor_user_mcp_path(), "https://hub.example")
+    connect.merge_codex_mcp(connect.codex_config_path(), "https://hub.example")
+    probe = Mock(return_value={"tools_discovered": True, "detail": "test tools available"})
+    monkeypatch.setattr("adhd_hub.agents.probe_mcp", probe)
+
+    report = diagnose_agents(hub_url="https://hub.example")
+
+    probe.assert_called_once_with("https://hub.example/mcp", token=credential)
+    assert report.ok == bool(credential)
+    assert [row["agent"] for row in report.agent_status] == ["codex", "claude", "cursor"]
+    expected = "configured but missing credentials"
+    if credential:
+        expected = "MCP tools successfully discovered by direct HTTP"
+    assert all(row["state"] == expected for row in report.agent_status)
+    assert all(row["runtime_verification"] == "not available" for row in report.agent_status)
+
+
 @pytest.mark.parametrize("agent", ["claude", "cursor", "codex"])
 def test_doctor_does_not_probe_client_oauth(agent_home, monkeypatch, agent):
     from unittest.mock import Mock
@@ -347,7 +374,8 @@ def test_diagnostics_and_repair_interpolation(agent_home, agent, wrong):
     report = diagnose_agents(hub_url="https://hub.example", agents=[agent], probe=False)
     assert not report.ok
     report = setup_agents(hub_url="https://hub.example", agents=[agent], dry_run=True)
-    assert report.ok and path.read_text() == original
+    assert report.ok
+    assert path.read_text() == original
     setup_agents(hub_url="https://hub.example", agents=[agent])
     assert path.with_name(path.name + ".adhd-hub.bak").read_text() == original
     assert (
@@ -452,6 +480,74 @@ def test_probe_refuses_plaintext_credentials():
         assert not probe_mcp("http://remote.example/mcp", token="secret", client=client)[
             "initialized"
         ]
+
+
+@pytest.mark.parametrize("failure", ["size", "deadline", "boolean_id"])
+@pytest.mark.parametrize("sse", [False, True])
+def test_probe_response_limits_and_id_validation(failure, sse, monkeypatch):
+    from types import SimpleNamespace
+
+    from adhd_hub.mcp_probe import probe_mcp
+
+    clock = [0]
+    monkeypatch.setattr("adhd_hub.mcp_probe.time", SimpleNamespace(monotonic=lambda: clock[0]))
+    body = json.dumps({"jsonrpc": "2.0", "id": True if failure == "boolean_id" else 1, "result": {}})
+    if sse:
+        body = "data: " + body + "\n\n"
+    if failure == "size":
+        body = "x" * 1_048_577
+    responses = []
+
+    def handle(request):
+        if failure == "deadline":
+            clock[0] = 9
+        response = httpx.Response(
+            200, text=body,
+            headers={"content-type": "text/event-stream" if sse else "application/json"},
+        )
+        responses.append(response)
+        return response
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        result = probe_mcp("https://hub.example/mcp", token="test-secret", client=client)
+        assert not client.is_closed
+    assert not result["initialized"]
+    assert not result["tools_discovered"]
+    assert "Invalid MCP" in result["detail"]
+    assert len(responses) == 1
+    assert responses[0].is_closed
+    assert "test-secret" not in json.dumps(result)
+
+
+def test_probe_slash_redirect_preserves_session_and_protocol():
+    from adhd_hub.mcp_probe import probe_mcp
+
+    methods = []
+
+    def handle(request):
+        payload = json.loads(request.content)
+        methods.append(payload["method"])
+        assert request.headers["Authorization"] == "Bearer test-secret"
+        if request.url.path == "/mcp":
+            return httpx.Response(307, headers={"location": "/mcp/"})
+        assert request.url.path == "/mcp/"
+        if payload["method"] == "initialize":
+            result = {"protocolVersion": "2025-03-26", "serverInfo": {}}
+        else:
+            assert request.headers["Mcp-Session-Id"] == "test-session"
+            assert request.headers["MCP-Protocol-Version"] == "2025-03-26"
+            if payload["method"] == "notifications/initialized":
+                return httpx.Response(202)
+            result = {"tools": [{"name": "get_overview"}]}
+        return httpx.Response(
+            200, headers={"mcp-session-id": "test-session"},
+            json={"jsonrpc": "2.0", "id": payload["id"], "result": result},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        result = probe_mcp("https://hub.example/mcp", token="test-secret", client=client)
+    assert result["tools_discovered"]
+    assert methods == ["initialize", "initialize", "notifications/initialized", "tools/list"]
 
 
 def test_probe_local_streaming_server_session_and_pagination():
