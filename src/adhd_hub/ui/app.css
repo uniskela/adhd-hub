@@ -1929,6 +1929,8 @@ body.return-short .now-overview { display: none; }
 .chart-table tbody th { font-weight: 400; }
 .chart-table th:first-child { padding-left: 0; text-align: left; }
 .chart-table th:last-child, .chart-table td:last-child { padding-right: 0; }
+.chart-table-pager { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .75rem; min-height: 44px; }
+.chart-table-pager p { margin: 0; flex: 1 1 auto; text-align: center; font-size: .875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .chart-empty { margin: 0; color: var(--muted); }
 .completion-calendar > summary { padding: 0; font-size: 1.125rem; min-height: 44px; align-content: center; }
 .calendar-summary-meta { margin-left: .75rem; font-size: .875rem; font-weight: 400; color: var(--muted); }

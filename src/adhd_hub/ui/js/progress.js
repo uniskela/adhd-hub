@@ -147,11 +147,42 @@ function insightLine(label, period) {
     return parts.length ? `${label}: ${parts.join(" · ")}` : `${label}: quiet`;
   }
 
+let calendarTableMonths = [];
+let calendarTableMonthIndex = 0;
+
+function renderCalendarTablePage() {
+    const pager = $("completion-calendar-pager");
+    const months = calendarTableMonths;
+    if (!months.length) {
+      $("completion-calendar-table").innerHTML = "";
+      $("completion-calendar-page-label").textContent = "";
+      pager.hidden = true;
+      return;
+    }
+    const idx = Math.max(0, Math.min(calendarTableMonthIndex, months.length - 1));
+    calendarTableMonthIndex = idx;
+    const page = months[idx];
+    $("completion-calendar-table").innerHTML = page.days.map((day) =>
+      `<tr><th scope="row">${escapeHtml(chartDate(day.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }))}</th><td>${day.completed}</td></tr>`).join("");
+    $("completion-calendar-page-label").textContent = page.label;
+    $("completion-calendar-prev").disabled = idx === 0;
+    $("completion-calendar-next").disabled = idx >= months.length - 1;
+    pager.hidden = false;
+  }
+
 export function bindCompletionCalendar() {
     const calendar = $("completion-calendar");
     calendar.open = preferences.getItem("adhd_hub_completion_calendar") !== "false";
     calendar.addEventListener("toggle", () => {
       preferences.setItem("adhd_hub_completion_calendar", String(calendar.open));
+    });
+    $("completion-calendar-prev").addEventListener("click", () => {
+      calendarTableMonthIndex -= 1;
+      renderCalendarTablePage();
+    });
+    $("completion-calendar-next").addEventListener("click", () => {
+      calendarTableMonthIndex += 1;
+      renderCalendarTablePage();
     });
     const grid = $("completion-calendar-days");
     const showDay = (event) => {
@@ -213,8 +244,21 @@ function renderCompletionCalendar(o) {
       const current = day.date === o.insights.as_of ? ' aria-current="date"' : "";
       return `<button type="button" class="calendar-day" data-date="${escapeHtml(day.date)}" data-level="${level}" tabindex="${day.date === selectedDate ? 0 : -1}" aria-label="${escapeHtml(label(day))}"${current}></button>`;
     }).join("");
-    $("completion-calendar-table").innerHTML = days.map((day) =>
-      `<tr><th scope="row">${escapeHtml(chartDate(day.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }))}</th><td>${day.completed}</td></tr>`).join("");
+    const prevKey = calendarTableMonths[calendarTableMonthIndex]?.key;
+    const byMonth = new Map();
+    for (const day of days) {
+      const key = day.date.slice(0, 7);
+      if (!byMonth.has(key)) byMonth.set(key, []);
+      byMonth.get(key).push(day);
+    }
+    calendarTableMonths = [...byMonth.entries()].map(([key, monthDays]) => ({
+      key,
+      days: monthDays,
+      label: chartDate(monthDays[0].date).toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    }));
+    const kept = calendarTableMonths.findIndex((month) => month.key === prevKey);
+    calendarTableMonthIndex = kept >= 0 ? kept : Math.max(0, calendarTableMonths.length - 1);
+    renderCalendarTablePage();
     const selected = days.find((day) => day.date === selectedDate);
     $("completion-day-details").textContent = selected ? label(selected) : "Select a day to see its recorded completions.";
     if (focusedDate) ([...grid.children].find((day) => day.dataset.date === focusedDate) || grid.querySelector('[tabindex="0"]'))?.focus({ preventScroll: true });

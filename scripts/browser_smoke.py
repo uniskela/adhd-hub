@@ -450,7 +450,12 @@ def main():
                         check(grid.children.length === 78, 'Twelve-week calendar');
                         check([...grid.children].slice(0, 5).map(d => d.dataset.level).join('') === '01234', 'Intensity boundaries');
                         check(el('completion-calendar-summary').textContent.includes('15 recorded completions'), 'Calendar total');
-                        check(el('completion-calendar-table').children.length === 78, 'Calendar table');
+                        check(el('completion-calendar-table').children.length === 2, 'Calendar table latest month');
+                        check(el('completion-calendar-page-label').textContent.includes('2026'), 'Calendar table month label');
+                        el('completion-calendar-prev').click();
+                        check(el('completion-calendar-table').children.length === 31, 'Calendar table earlier month');
+                        el('completion-calendar-next').click();
+                        check(el('completion-calendar-table').children.length === 2, 'Calendar table later month');
                         grid.children[1].focus();
                         check(el('completion-day-details').textContent.includes('1 recorded completion.'), 'Exact day count');
                         grid.children[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
@@ -477,7 +482,17 @@ def main():
                 calendar_days.first.click()
                 expect(page.locator("#completion-day-details")).to_contain_text("recorded")
                 page.get_by_text("Show calendar as a table", exact=True).click()
-                expect(page.locator("#completion-calendar-table tr")).to_have_count(calendar_days.count())
+                latest_month_rows = page.evaluate(
+                    """() => {
+                        const days = [...document.querySelectorAll('#completion-calendar-days .calendar-day')];
+                        const key = days.at(-1)?.dataset.date?.slice(0, 7);
+                        return days.filter((day) => day.dataset.date.startsWith(key)).length;
+                    }"""
+                )
+                expect(page.locator("#completion-calendar-table tr")).to_have_count(latest_month_rows)
+                if calendar_days.count() > latest_month_rows:
+                    page.locator("#completion-calendar-prev").click()
+                    expect(page.locator("#completion-calendar-table tr")).not_to_have_count(latest_month_rows)
                 page.locator(_CALENDAR_SUMMARY).click()
                 expect(page.locator(_CALENDAR_BODY)).to_be_hidden()
                 page.reload()
