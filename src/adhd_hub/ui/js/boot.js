@@ -6,7 +6,7 @@ import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, openShareCaptureIfRequested, renderDriftBanner, renderReminders, saveReminder, setReturnDensity, showThreadNotes, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi, updateReturnDensityUi } from './now.js';
 import { bindCompletionCalendar, openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
-import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshCliSessionHealth, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
+import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshCliSessionHealth, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions, syncConnectCommands } from './settings.js';
 import { bindThemeControls } from './theme.js';
 import { archiveProject, deleteProject, fillProjectForm, applyOrgNorepoUi, loadThreads, onProjectSearchChange, onTagFilterChange, openOrganiseDialog, applyOrganiseSelection, openProjectDialog, renameProject, restoreProject, rewriteAllProjectScanLines, saveProject, scheduleSearch, selectAllProjectsFromRail, selectProject, suggestProjectForgeConnection, syncProjectForge, toggleProjectFilters, wireProjectsDrawer } from './work.js';
 import { bindLiveInvalidation, startLiveInvalidation } from './live.js';
@@ -92,10 +92,7 @@ $("btn-settings").addEventListener("click", () => {
   if (matchMedia("(max-width: 760px)").matches) showSettingsIndex();
   else selectSettingsTab("preferences");
   $("mcp-url").value = location.origin + "/mcp";
-  $("install-cmd").value =
-    'curl -fsSL "' + location.origin + '/install.sh" | sh -s -- .';
-  $("install-cmd-win").value =
-    'irm "' + location.origin + '/install.ps1" | iex';
+  syncConnectCommands();
   $("settings-msg").textContent = "";
   const agentsMsg = $("connect-agents-msg");
   if (agentsMsg) agentsMsg.textContent = "";
@@ -114,6 +111,13 @@ $("ca_all")?.addEventListener("change", () => {
     if ($("ca_codex")) $("ca_codex").checked = true;
     if ($("ca_claude")) $("ca_claude").checked = true;
   }
+  syncConnectCommands();
+});
+["ca_cursor", "ca_codex", "ca_claude"].forEach((id) => {
+  $(id)?.addEventListener("change", () => {
+    if (!$(id).checked && $("ca_all")) $("ca_all").checked = false;
+    syncConnectCommands();
+  });
 });
 $("cc_all")?.addEventListener("change", () => {
   const on = !!$("cc_all")?.checked;

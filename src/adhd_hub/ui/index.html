@@ -522,23 +522,11 @@
                 </div>
               </section>
               <section id="settings-connections" class="settings-panel" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
-                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Configure agents under the account that launches them. The short approval code signs in the ADHD Hub CLI; agents separately need <code>ADHD_HUB_AUTH_TOKEN</code> in their launch environment or MCP OAuth authorization. Keep tokens out of commands and config files. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/public/connect.md" target="_blank" rel="noopener">Connection guide</a></p></div>
-                <div class="settings-card"><p class="hint">Without a project checkout, run <code>adhd-hub agents setup --agents codex,claude,cursor --scope user --hub &lt;Hub URL&gt;</code>. Then run <code>adhd-hub agents doctor</code> with the same Hub and agent options. Doctor verifies MCP initialization and tools directly over HTTP; restart each agent and confirm its tools separately. Service credentials are not automatically inherited by SSH or diagnostic shells.</p></div>
-                <div class="settings-card">
-                  <div class="setting is-stacked">
-                    <div class="setting-text"><label class="setting-label" for="install-cmd">1. Run this in the project folder</label><p class="hint">It installs the Hub tools for the agents you pick below. Your browser opens, or the command prints a short code. Nothing lands in shell history as <code>export TOKEN=…</code>.</p></div>
-                    <div class="copy-field"><input id="install-cmd" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install" aria-label="Copy install command">Copy</button></div>
-                  </div>
-                  <div class="setting is-stacked" id="cli-connect-panel">
-                    <div class="setting-text"><label class="setting-label" for="cli-connect-code-input">2. Enter the code the command shows</label><p class="hint">Only needed if the browser did not open. This lets that computer talk to your hub.</p></div>
-                    <div class="copy-field"><input id="cli-connect-code-input" class="code-field connect-code" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /><button type="button" class="primary" id="btn-allow-cli">Allow this computer</button></div>
-                    <p id="cli-connect-msg" class="msg" role="status"></p>
-                  </div>
-                </div>
+                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Choose your assistants, then run setup on the machine where they work. Setup adds missing MCP registrations and checks existing settings before making changes. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/public/connect.md" target="_blank" rel="noopener">Connection guide</a></p></div>
                 <div class="settings-card">
                   <fieldset class="setting is-top">
                     <legend class="visually-hidden">Agents to set up</legend>
-                    <div class="setting-text"><p class="setting-label" aria-hidden="true">Agents to set up</p><p class="hint">Which assistants get MCP config and Hub skills. Used by the install command above. Claude Code is skills.sh id <code>claude-code</code>.</p></div>
+                    <div class="setting-text"><p class="setting-label" aria-hidden="true">1. Choose your agents</p><p class="hint">Your selection updates the setup commands below. Run setup as the account that launches these agents.</p><p id="connect-selection-summary" class="hint" role="status">Choose at least one agent to create a setup command.</p></div>
                     <div class="checks setting-choices" id="connect-agents-checks">
                       <label><input type="checkbox" id="ca_claude" value="claude" /> Claude Code</label>
                       <label><input type="checkbox" id="ca_cursor" value="cursor" /> Cursor</label>
@@ -546,6 +534,26 @@
                       <label><input type="checkbox" id="ca_all" value="*" /> Every skills.sh agent (*)</label>
                     </div>
                   </fieldset>
+                </div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><label class="setting-label" for="install-cmd">2. Run setup on the agent’s machine</label><p class="hint">Run this in your project folder. It configures MCP for your selected agents, adds missing registrations and installs your saved skills and extras. Existing custom settings are preserved for review. Restart your agents when setup finishes.</p></div>
+                    <div class="copy-field"><input id="install-cmd" class="code-field" readonly placeholder="Choose agents above to create a setup command" /><button type="button" class="ghost" id="btn-copy-install" aria-label="Copy install command" disabled>Copy</button></div>
+                  </div>
+                  <div class="setting is-stacked" id="cli-connect-panel">
+                    <div class="setting-text"><label class="setting-label" for="cli-connect-code-input">3. Approve CLI access if asked</label><p class="hint">Enter the code only if the browser did not open. This signs in the ADHD Hub CLI; your agents separately need <code>ADHD_HUB_AUTH_TOKEN</code> in their launch environment or MCP OAuth authorization. Keep tokens out of commands and config files.</p></div>
+                    <div class="copy-field"><input id="cli-connect-code-input" class="code-field connect-code" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /><button type="button" class="primary" id="btn-allow-cli">Allow this computer</button></div>
+                    <p id="cli-connect-msg" class="msg" role="status"></p>
+                  </div>
+                </div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><p class="setting-label">Already have the CLI? Set up every project</p><p class="hint">No project checkout is needed. Run this as the agent’s account to add user-level MCP registrations for the selected agents.</p></div>
+                    <pre class="snippet" id="agents-user-setup">Choose agents above to create a setup command.</pre>
+                    <div class="setting-text"><p class="hint">Then check access with <code id="agents-doctor-command">adhd-hub agents doctor</code>. Doctor checks MCP directly over HTTP; confirm tools in each restarted agent too. Service credentials are not automatically inherited by SSH or diagnostic shells.</p></div>
+                  </div>
+                </div>
+                <div class="settings-card">
                   <div class="setting is-top">
                     <div class="setting-text"><p class="setting-label" id="skills-mode-label">Where Hub skills go</p><p class="hint">The Hub’s own skills (session, projects, env-check). All projects needs <code>npx</code>. This project writes to <code>.agents/skills/</code>.</p></div>
                     <div class="checks setting-choices" id="connect-skills-mode-checks" role="radiogroup" aria-labelledby="skills-mode-label">
@@ -590,7 +598,7 @@
                 <div class="settings-card">
                   <div class="setting is-stacked">
                     <div class="setting-text"><label class="setting-label" for="install-cmd-win">Windows install</label><p class="hint">Paste into PowerShell in the project folder.</p></div>
-                    <div class="copy-field"><input id="install-cmd-win" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install-win" aria-label="Copy Windows install command">Copy</button></div>
+                    <div class="copy-field"><input id="install-cmd-win" class="code-field" readonly placeholder="Choose agents in Coding agents first" /><button type="button" class="ghost" id="btn-copy-install-win" aria-label="Copy Windows install command" disabled>Copy</button></div>
                   </div>
                   <div class="setting is-stacked">
                     <div class="setting-text"><label class="setting-label" for="mcp-url">MCP server address</label><p class="hint">Point the agent at this URL, then use MCP Auth, or set <code>ADHD_HUB_AUTH_TOKEN</code> in the agent environment (not shell history). Project MCP snippets stay token-free. CLI <code>ahcli_…</code> sessions are for the <code>adhd-hub</code> CLI, not Cursor headers.</p></div>
