@@ -272,8 +272,8 @@ def diagnose_agents(
         "this command never reads service environment files.",
     )
     cache: dict[tuple[str, bool], dict[str, Any]] = {}
-    for agent in agents if agents is not None else AGENTS:
-        agent = "claude" if agent == "claude-code" else agent
+    targets = agents if agents is not None else AGENTS
+    for agent in dict.fromkeys("claude" if a == "claude-code" else a for a in targets):
         if agent not in AGENTS:
             report.add("agents", "error", "Supported MCP targets: codex,claude,cursor")
             continue

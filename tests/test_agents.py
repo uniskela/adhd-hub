@@ -254,7 +254,10 @@ def test_doctor_does_not_probe_client_oauth(agent_home, monkeypatch, agent):
     )
 
 
-def test_legacy_doctor_accepts_claude_code_alias(agent_home, monkeypatch, capsys):
+@pytest.mark.parametrize(
+    "agents", ["claude-code", "claude-code,claude", "claude,claude-code", "claude,claude"]
+)
+def test_legacy_doctor_accepts_claude_code_alias(agent_home, monkeypatch, capsys, agents):
     hub = "http://127.0.0.1:8787"
     connect.claude_user_mcp_path().write_text(
         json.dumps({"mcpServers": {"adhd-hub": {"url": hub + "/mcp"}}})
@@ -262,7 +265,7 @@ def test_legacy_doctor_accepts_claude_code_alias(agent_home, monkeypatch, capsys
     monkeypatch.setattr(connect, "probe_hub", lambda *a, **k: (True, "health OK"))
     monkeypatch.delenv("ADHD_HUB_PUBLIC_URL", raising=False)
 
-    assert run_cli(["doctor", "--agents", "claude-code", "--hub", hub, "--json"]) == 0
+    assert run_cli(["doctor", "--agents", agents, "--hub", hub, "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert len(result["agents"]) == 1
     assert result["agents"][0]["agent"] == "claude"
