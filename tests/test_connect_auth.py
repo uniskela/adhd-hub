@@ -274,6 +274,15 @@ def test_cli_session_authorizes_mcp(tmp_path: Path) -> None:
             },
         )
         assert response.status_code == 200
+        tools = client.post("/mcp", headers=headers, json={
+            "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}
+        })
+        assert tools.status_code == 200
+        assert "get_overview" in tools.text
+        store.expire_session_now(token)
+        assert client.post("/mcp", headers=headers, json={
+            "jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}
+        }).status_code == 401
 
 
 def test_credentials_file_mode_and_lookup(tmp_path: Path, monkeypatch) -> None:
@@ -302,7 +311,9 @@ def test_ui_connections_copy_has_no_export(tmp_path: Path) -> None:
         home = client.get("/ui/")
         assert home.status_code == 200
         text = home.text
-        assert "Do <strong>not</strong> export your server access token" in text
+        assert "Keep tokens out of commands and config files" in text
+        assert "agents separately need" in text
+        assert "adhd-hub agents doctor" in text
         assert "Allow this computer" in text
         assert "Allow this CLI" in text
         assert "btn-allow-cli" in text

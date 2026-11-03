@@ -522,7 +522,8 @@
                 </div>
               </section>
               <section id="settings-connections" class="settings-panel" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
-                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Connect a computer so its agents save progress here. Do <strong>not</strong> export your server access token into the shell. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md" target="_blank" rel="noopener">Full guide</a></p></div>
+                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Configure agents under the account that launches them. The short approval code signs in the ADHD Hub CLI; agents separately need <code>ADHD_HUB_AUTH_TOKEN</code> in their launch environment or MCP OAuth authorization. Keep tokens out of commands and config files. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/public/connect.md" target="_blank" rel="noopener">Connection guide</a></p></div>
+                <div class="settings-card"><p class="hint">Without a project checkout, run <code>adhd-hub agents setup --agents codex,claude,cursor --scope user --hub &lt;Hub URL&gt;</code>. Then run <code>adhd-hub agents doctor</code> with the same Hub and agent options. Doctor verifies MCP initialization and tools directly over HTTP; restart each agent and confirm its tools separately. Service credentials are not automatically inherited by SSH or diagnostic shells.</p></div>
                 <div class="settings-card">
                   <div class="setting is-stacked">
                     <div class="setting-text"><label class="setting-label" for="install-cmd">1. Run this in the project folder</label><p class="hint">It installs the Hub tools for the agents you pick below. Your browser opens, or the command prints a short code. Nothing lands in shell history as <code>export TOKEN=…</code>.</p></div>
