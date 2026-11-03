@@ -2332,6 +2332,31 @@ def print_report(report: ConnectReport, *, verbose: bool = False, json_output: b
                           "steps": [asdict(s) for s in report.steps],
                           "agents": report.agent_status, "mcp_checks": report.mcp_checks}))
         return
+    _print_report_header(report)
+    attention = [s for s in report.steps if s.status in _ATTENTION]
+    done_ok = [s for s in report.steps if s.status == "ok"]
+    skipped = [s for s in report.steps if s.status == "skipped"]
+    _print_report_next_steps(report)
+
+    if not verbose:
+        registrations = [s for s in report.steps if "MCP (" in s.name and s.status == "ok"]
+        if registrations:
+            print("\nAgent registrations:")
+            for step in registrations:
+                print(f"  {step.name}: {step.detail}")
+
+    if attention:
+        _print_report_steps("Needs attention:", attention)
+    if done_ok or skipped:
+        _print_report_counts(done_ok, skipped)
+    if verbose:
+        _print_report_steps("Summary of what ran:", report.steps)
+    if not report.ok:
+        print()
+        print("Fix the XX/!! items above, then re-run the install/connect command.")
+
+
+def _print_report_header(report: ConnectReport) -> None:
     if report.continuity_text:
         print()
         print(report.continuity_text)
@@ -2354,71 +2379,53 @@ def print_report(report: ConnectReport, *, verbose: bool = False, json_output: b
         )
     print(f"Hub: {report.hub_url}")
 
-    attention = [s for s in report.steps if s.status in _ATTENTION]
-    fix_these = [s for s in report.steps if s.status in _FIX_THESE]
-    done_ok = [s for s in report.steps if s.status == "ok"]
-    skipped = [s for s in report.steps if s.status == "skipped"]
 
+def _print_report_next_steps(report: ConnectReport) -> None:
     if not report.ok:
         print()
         print("Fix these:")
+        fix_these = [s for s in report.steps if s.status in _FIX_THESE]
         for i, step in enumerate(fix_these, start=1):
             print(f"  {i}. {step.name} — {step.detail}")
-    else:
-        print()
-        print("Do next:")
-        print(f"  - Open the Hub UI: {report.hub_url}/ui")
-        if any(s.name == "setup complete" for s in report.steps):
-            print("  - Restart your coding agent(s) so MCP + skills reload.")
-            print("  - Ask each restarted agent to discover the ADHD Hub tools.")
-            setup = next((s for s in report.steps if s.name == "setup complete"), None)
-            if setup and "run:" in setup.detail:
-                # Prefer the already-formatted doctor line from setup complete.
-                doctor_part = setup.detail.split("run:", 1)[1].strip()
-                print(f"  - Verify anytime: {doctor_part}")
-            install_hint = permanent_cli_install_hint(report.hub_url)
-            if install_hint and not report.dry_run:
-                print(f"  - Optional CLI install: {install_hint}")
-        if any(s.name.startswith("companion ") for s in report.steps):
-            print(
-                "  - Optional companions (pick what fits — see guide): "
-                "https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md"
-            )
-        print("  - You can close this tab/window when you're done — or keep the shell open.")
+        return
+    print()
+    print("Do next:")
+    print(f"  - Open the Hub UI: {report.hub_url}/ui")
+    if any(s.name == "setup complete" for s in report.steps):
+        print("  - Restart your coding agent(s) so MCP + skills reload.")
+        print("  - Ask each restarted agent to discover the ADHD Hub tools.")
+        setup = next((s for s in report.steps if s.name == "setup complete"), None)
+        if setup and "run:" in setup.detail:
+            # Prefer the already-formatted doctor line from setup complete.
+            doctor_part = setup.detail.split("run:", 1)[1].strip()
+            print(f"  - Verify anytime: {doctor_part}")
+        install_hint = permanent_cli_install_hint(report.hub_url)
+        if install_hint and not report.dry_run:
+            print(f"  - Optional CLI install: {install_hint}")
+    if any(s.name.startswith("companion ") for s in report.steps):
+        print(
+            "  - Optional companions (pick what fits — see guide): "
+            "https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md"
+        )
+    print("  - You can close this tab/window when you're done — or keep the shell open.")
 
-    if not verbose:
-        registrations = [s for s in report.steps if "MCP (" in s.name and s.status == "ok"]
-        if registrations:
-            print("\nAgent registrations:")
-            for step in registrations:
-                print(f"  {step.name}: {step.detail}")
 
-    if attention:
-        print()
-        print("Needs attention:")
-        for step in attention:
-            mark = paint_status(step.status)
-            print(f"  [{mark}] {step.name}: {step.detail}")
+def _print_report_counts(done_ok: list[StepResult], skipped: list[StepResult]) -> None:
+    print()
+    print("Done:")
+    for group in _GROUP_ORDER:
+        count = sum(
+            1 for s in done_ok if classify_step_group(s.name) == group
+        )
+        if count:
+            print(f"  {group} · {count} ok")
+    if skipped:
+        print(f"  {len(skipped)} skipped (not installed or checked)")
 
-    if done_ok or skipped:
-        print()
-        print("Done:")
-        for group in _GROUP_ORDER:
-            count = sum(
-                1 for s in done_ok if classify_step_group(s.name) == group
-            )
-            if count:
-                print(f"  {group} · {count} ok")
-        if skipped:
-            print(f"  {len(skipped)} skipped (not installed or checked)")
 
-    if verbose:
-        print()
-        print("Summary of what ran:")
-        for step in report.steps:
-            mark = paint_status(step.status)
-            print(f"  [{mark}] {step.name}: {step.detail}")
-
-    if not report.ok:
-        print()
-        print("Fix the XX/!! items above, then re-run the install/connect command.")
+def _print_report_steps(title: str, steps: list[StepResult]) -> None:
+    print()
+    print(title)
+    for step in steps:
+        mark = paint_status(step.status)
+        print(f"  [{mark}] {step.name}: {step.detail}")
