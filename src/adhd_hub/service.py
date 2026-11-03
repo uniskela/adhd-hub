@@ -652,6 +652,8 @@ class HubService:
         from adhd_hub.timeutil import to_iso_utc
 
         current = self.prefs().model_dump()
+        if minutes is not None and not current["clock_off"]["enabled"]:
+            raise ValueError("Enable Clock-Off before setting a temporary override")
         current["clock_off_override_until"] = (
             to_iso_utc(datetime.now(UTC) + timedelta(minutes=minutes))
             if minutes is not None else None

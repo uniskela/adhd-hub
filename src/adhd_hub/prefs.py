@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from adhd_hub.clock_off import ClockOffSchedule
 from adhd_hub.companions import CONNECT_COMPANION_CHOICES
@@ -104,7 +104,20 @@ def load_prefs(data_dir: Path, *, default_timezone: str = "UTC") -> HubPrefs:
         return base
     merged = base.model_dump()
     merged.update({k: v for k, v in raw.items() if v is not None})
-    return HubPrefs.model_validate(merged)
+    try:
+        return HubPrefs.model_validate(merged)
+    except ValidationError as exc:
+        # Corrupt Clock-Off fields must not take the Hub down; drop only the bad ones.
+        recovered = dict(merged)
+        bad = {err.get("loc", ())[:1] for err in exc.errors()}
+        if ("clock_off",) in bad:
+            recovered.pop("clock_off", None)
+        if ("clock_off_override_until",) in bad:
+            recovered.pop("clock_off_override_until", None)
+        try:
+            return HubPrefs.model_validate(recovered)
+        except ValidationError:
+            return base
 
 
 def save_prefs(data_dir: Path, prefs: HubPrefs) -> Path:

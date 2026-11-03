@@ -123,8 +123,12 @@ An override is persisted as an absolute UTC expiry and survives restart without
 extending its duration. It never changes the schedule; when it expires the
 then-current schedule state applies automatically. It can cover midnight, DST
 or the 06:00 reset. Disabled Clock-Off remains `normal` even with a stored
-override. `PUT /api/prefs` rejects any `clock_off_override_until` write with
-`400`; only the explicit override endpoints create or cancel it.
+override. `POST /api/clock-off/override` returns `400` while Clock-Off is
+disabled; `DELETE` still clears a leftover expiry. Saving `clock_off.enabled:
+false` via `PUT /api/prefs` also clears any stored override so a later re-enable
+does not resume an old pause. `PUT /api/prefs` rejects any
+`clock_off_override_until` write with `400`; only the explicit override
+endpoints create or cancel it.
 
 All configuration, state and override endpoints use existing API authentication
 (bearer credentials or browser session with existing request/origin checks).

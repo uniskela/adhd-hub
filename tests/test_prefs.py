@@ -89,6 +89,30 @@ def test_prefs_rejects_unknown_skills_mode() -> None:
         HubPrefs(connect_skills_mode="everywhere")
 
 
+def test_load_prefs_recovers_corrupt_clock_off(tmp_path: Path) -> None:
+    (tmp_path / "prefs.json").write_text(
+        '{"timezone":"Australia/Sydney","clock_off":{"enabled":"nope"},'
+        '"connect_skills_mode":"project"}',
+        encoding="utf-8",
+    )
+    loaded = load_prefs(tmp_path)
+    assert loaded.timezone == "Australia/Sydney"
+    assert loaded.connect_skills_mode == "project"
+    assert loaded.clock_off.enabled is False
+    assert loaded.clock_off_override_until is None
+
+    (tmp_path / "prefs.json").write_text(
+        '{"timezone":"UTC","clock_off":{"enabled":true,"active_days":[1],'
+        '"clock_off_time":"21:00","wind_down_minutes":10},'
+        '"clock_off_override_until":"not-an-instant"}',
+        encoding="utf-8",
+    )
+    loaded = load_prefs(tmp_path)
+    assert loaded.clock_off.enabled is True
+    assert loaded.clock_off.clock_off_time == "21:00"
+    assert loaded.clock_off_override_until is None
+
+
 def test_format_timestamp_sydney() -> None:
     stamp = format_timestamp(
         datetime(2026, 1, 15, 12, 0, tzinfo=UTC),
