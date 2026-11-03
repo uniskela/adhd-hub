@@ -305,15 +305,40 @@
           <div class="activity-head">
             <div>
               <h2 id="activity-title">Activity</h2>
-              <p id="insights-summary" class="insights-summary" hidden></p>
-              <p id="activity-totals" class="activity-totals"></p>
-              <p id="stats" class="activity-stats"></p>
+              <p id="activity-range" class="activity-range"></p>
             </div>
-            <div class="chart-legend" aria-hidden="true"><span class="legend-added">Added</span><span class="legend-finished">Finished</span></div>
           </div>
+          <dl class="activity-metrics">
+            <div class="activity-metric metric-finished">
+              <dt>Steps finished</dt>
+              <dd id="activity-finished">0</dd>
+              <dd class="metric-caption">Every finished step counts.</dd>
+            </div>
+            <div class="activity-metric">
+              <dt>Steps added</dt>
+              <dd id="activity-added">0</dd>
+              <dd class="metric-caption">Ideas given a place to land.</dd>
+            </div>
+            <div class="activity-metric metric-days">
+              <dt>Days with activity</dt>
+              <dd><span id="activity-days">0</span><span class="metric-unit" id="activity-days-total"> / 14</span></dd>
+              <dd class="metric-caption">
+                <div id="activity-rhythm" class="activity-rhythm" aria-hidden="true"></div>
+                <p>Breaks belong here too.</p>
+              </dd>
+            </div>
+          </dl>
+          <p id="insights-summary" class="insights-summary" hidden></p>
           <div class="chart-wrap" id="chart-wrap" hidden>
+            <div class="activity-chart-head">
+              <h3>Day by day</h3>
+              <div class="chart-legend" aria-hidden="true"><span class="legend-added">Added</span><span class="legend-finished">Finished</span></div>
+            </div>
             <p id="chart-summary" class="chart-summary visually-hidden"></p>
-            <div class="chart" id="chart"></div>
+            <div class="chart-plot">
+              <div id="chart-scale" class="chart-scale" aria-hidden="true"></div>
+              <div class="chart" id="chart" aria-describedby="chart-summary"></div>
+            </div>
             <div class="chart-days" id="chart-days" aria-hidden="true"></div>
             <div id="chart-day-tip" class="chart-day-tip" role="tooltip" hidden></div>
             <details class="chart-table-details">
@@ -327,7 +352,39 @@
             </details>
           </div>
           <p id="chart-empty" class="chart-empty" hidden>Nothing added or finished in the last 14 days. That’s okay.</p>
+          <p id="stats" class="activity-stats"></p>
         </section>
+        <details id="completion-calendar" class="progress-card completion-calendar" open>
+          <summary>Completion calendar <span class="calendar-summary-meta">Last 12 weeks</span></summary>
+          <div class="completion-calendar-body">
+            <p id="completion-calendar-summary" class="hint"></p>
+            <div class="calendar-visual">
+            <div class="calendar-months" id="completion-calendar-months" aria-hidden="true"></div>
+            <div class="calendar-layout">
+              <div class="calendar-weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+              <div id="completion-calendar-days" class="calendar-days" role="group" aria-label="Daily recorded completions" aria-describedby="completion-calendar-help"></div>
+            </div>
+            <div class="calendar-legend" aria-label="Recorded completions per day">
+              <span>Completions</span><span data-level="0">0</span><span data-level="1">1</span><span data-level="2">2–3</span><span data-level="3">4–7</span><span data-level="4">8+</span>
+            </div>
+            </div>
+            <div class="calendar-description">
+            <h3>Day details</h3>
+            <p id="completion-day-details" class="calendar-day-details" aria-live="polite">Select a day to see its recorded completions.</p>
+            <p id="completion-calendar-help" class="hint">Use arrow keys to explore days, or select a day for details. Breaks never reset anything.</p>
+            </div>
+            <details class="chart-table-details">
+              <summary>Show calendar as a table</summary>
+              <div class="chart-table-scroll">
+                <table class="chart-table">
+                  <caption class="visually-hidden">Recorded completions in the last 12 weeks</caption>
+                  <thead><tr><th scope="col">Day</th><th scope="col">Finished</th></tr></thead>
+                  <tbody id="completion-calendar-table"></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </details>
         <section id="rewards-panel" class="progress-rewards" aria-labelledby="rank-name" hidden>
           <div class="progress-card rank-card">
             <div class="rank-head">

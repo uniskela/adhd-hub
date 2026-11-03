@@ -4,7 +4,7 @@ import { handleLogin, loadAuthStatus, logout, openPasswordDialog, savePassword, 
 import { closeModal, fillTimezoneSelect, positionOverflowMenu, toggleNeedsYou, wireMenu } from './dom.js';
 import { loadAll, loadOverview } from './load.js';
 import { captureStep, chooseThread, loadChosenThread, openReminderDialog, openShareCaptureIfRequested, renderDriftBanner, renderReminders, saveReminder, setReturnDensity, showThreadNotes, startFocusSession, toggleFocusMode, toggleReminderDue, updateFocusModeUi, updateReturnDensityUi } from './now.js';
-import { openSharePreview, saveRewardPreferences } from './progress.js';
+import { bindCompletionCalendar, openSharePreview, saveRewardPreferences } from './progress.js';
 import { showScreen } from './screens.js';
 import { approveCliConnect, approveOpenClawPair, cancelOpenClawPair, copyOpenClawPrompt, exportBackup, importBackup, importForgeInbox, loadCliSessions, loadForge, loadOpenClaw, loadPrefs, loadAiConfig, loadSampleData, offerPendingConnect, refreshSampleDataStatus, removeSampleData, saveConnectAgents, saveAiConfig, saveForge, saveOpenClaw, saveSettings, scanForgeImport, selectSettingsTab, showSettingsIndex, startOpenClawPair, applyAiBaseUrlPreset, syncAiBaseUrlPreset, syncAiLoadModelsButton, syncForge, testAndLoadAiModels, testOpenClaw, addForgeProfile, CONNECT_COMPANION_IDS, syncSelectAllCompanions } from './settings.js';
 import { bindThemeControls } from './theme.js';
@@ -338,6 +338,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 bindThemeControls();
+bindCompletionCalendar();
 wireProjectsDrawer();
 $("rewards-enabled").checked = preferences.getItem("adhd_hub_rewards") === "true";
 const savedGoal = preferences.getItem("adhd_hub_daily_goal") || "1";

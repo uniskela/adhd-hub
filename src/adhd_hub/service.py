@@ -2490,8 +2490,8 @@ class HubService:
         timezone = self.prefs().timezone
         zone = resolve_zone(timezone)
         now = utcnow().astimezone(zone)
-        # Cover last_30 and chart (14) plus a little slack for TZ edges.
-        start = (now - timedelta(days=40)).replace(
+        # Cover the completion calendar as well as the shorter period totals.
+        start = (now - timedelta(weeks=12)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         rows = self.store.list_insight_event_rows(
@@ -2984,6 +2984,21 @@ class HubService:
             self._sync_project_progress(slug, title=thread.summary, thread=thread)
         self.wiki.rebuild_index(self.store.list_threads(status=ThreadStatus.open, limit=500))
         self._forge_after_thread(thread)
+        if previous is None or state_fingerprint(previous) != state_fingerprint(thread):
+            self._publish_thread_lifecycle(
+                thread,
+                event_type=THREAD_CREATED if previous is None else THREAD_PROGRESS_UPDATED,
+                source=payload.source_tool or "api",
+                metadata={"created_thread": previous is None},
+            )
+        if thread.status == ThreadStatus.done and (
+            previous is None or previous.status != ThreadStatus.done
+        ):
+            self._publish_thread_lifecycle(
+                thread,
+                event_type=THREAD_COMPLETED,
+                source=payload.source_tool or "api",
+            )
         try:
             self.refresh_scan_line_ai(thread, require_auto_toggle=True)
         except Exception as exc:  # noqa: BLE001 — never block mutations on AI

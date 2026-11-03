@@ -90,6 +90,11 @@ def aggregate_insight_rows(
     for i in range(max(1, chart_days)):
         d = (chart_start + timedelta(days=i)).isoformat()
         days_map[d] = {"date": d, "added": 0, "finished": 0}
+    calendar_start = today - timedelta(weeks=11, days=today.weekday())
+    completion_days = {
+        (calendar_start + timedelta(days=i)).isoformat(): 0
+        for i in range((today - calendar_start).days + 1)
+    }
 
     for row in rows:
         event_type = str(row.get("event_type") or "")
@@ -108,6 +113,8 @@ def aggregate_insight_rows(
                 if slug:
                     period_projects[name].add(slug)
         key = day.isoformat()
+        if event_type == THREAD_COMPLETED and key in completion_days:
+            completion_days[key] += 1
         if key in days_map:
             if event_type == THREAD_CREATED:
                 days_map[key]["added"] += 1
@@ -123,4 +130,7 @@ def aggregate_insight_rows(
         "source": "activity_events",
         "periods": periods,
         "added_vs_finished": [days_map[k] for k in sorted(days_map.keys())],
+        "completion_days": [
+            {"date": day, "completed": count} for day, count in completion_days.items()
+        ],
     }
