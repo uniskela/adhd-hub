@@ -5,7 +5,7 @@ Use this page as the short operational checklist after you have installed the Hu
 ## Day in the life
 
 1. **Hub running** — use the [installation guide](installation.md) for Docker Compose (recommended), `docker run`, or source/`uv` setup.
-2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Coding agents** and do not export the server token into your shell.
+2. **Connect once** — prefer the [Connect one-liner](connect.md). Copy it from **Settings → Coding agents** and keep tokens out of command lines. CLI approval and agent MCP authentication are separate; see the connection guide.
 
    If your MCP client has **Auth** / **Authenticate**, configure `ADHD_HUB_PUBLIC_URL`, leave OAuth enabled, then approve the browser prompt. Static Bearer auth and CLI connect remain supported. See [MCP Auth / Authenticate](connect.md#mcp-auth-authenticate-oauth).
 

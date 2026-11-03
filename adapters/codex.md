@@ -16,7 +16,12 @@ url = "http://127.0.0.1:8787/mcp"
 bearer_token_env_var = "ADHD_HUB_AUTH_TOKEN"
 ```
 
-Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart it. Keep the token out of checked-in configuration. Use HTTPS for connections outside localhost. Verify the server with `uv run python scripts/probe_mcp.py` (set `ADHD_HUB_MCP_URL` for a remote hub).
+Set `ADHD_HUB_AUTH_TOKEN` in the environment used to launch Codex, then restart it. Keep the token out of checked-in configuration. Use HTTPS for connections outside localhost. Verify the server with `adhd-hub agents doctor --agents codex --hub https://hub.example.com`. This probes HTTP directly; confirm Codex's own tool list separately. `adhd-hub login` does not supply credentials to Codex automatically.
+
+`adhd-hub agents setup --agents codex --scope user --hub https://hub.example.com`
+uses `$CODEX_HOME/config.toml` when set, otherwise `~/.codex/config.toml`.
+Project scope uses `.codex/config.toml`; Codex must trust that project before
+loading it. Setup reports competing registrations instead of adding another.
 
 ### Local stdio alternative
 

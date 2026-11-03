@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -240,14 +241,20 @@ def cmd_sync_project(args: argparse.Namespace) -> int:
 
 
 def cmd_connect(args: argparse.Namespace) -> int:
+    from adhd_hub.agents import select_agents
     from adhd_hub.connect import print_report, resolve_hub_url, run_connect
     from adhd_hub.connect_login import resolve_cli_token, run_login
 
-    agents = [part.strip() for part in args.agents.split(",") if part.strip()]
+    try:
+        agents = select_agents(args.agents, non_interactive=args.non_interactive)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     find_roots = [Path(p) for p in (args.find_roots or [])]
     hub_url = resolve_hub_url(args.hub)
     token = resolve_cli_token(args.token, hub_url)
-    if not args.dry_run and not args.no_login and not token:
+    if (not args.dry_run and not args.no_login and not args.non_interactive
+            and sys.stdin.isatty() and not token):
         try:
             token = run_login(hub_url, open_browser=not args.no_browser)
         except (RuntimeError, ConnectionError, ValueError) as exc:
@@ -301,7 +308,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         token=resolve_cli_token(args.token, hub_url),
         agents=agents or None,
     )
-    print_report(report, verbose=args.verbose)
+    print_report(report, verbose=args.verbose, json_output=args.json)
     continuity_drift = any(
         s.status in {"warn", "error"}
         for s in report.steps
@@ -311,6 +318,41 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         or s.name == "project sync"
     )
     return 0 if report.ok and not continuity_drift else 1
+
+
+def cmd_agents(args: argparse.Namespace) -> int:
+    from adhd_hub.agents import AGENTS, diagnose_agents, select_agents, setup_agents
+    from adhd_hub.connect import ConnectReport, print_report, resolve_hub_url
+
+    try:
+        hub_url = resolve_hub_url(args.hub)
+        if args.agent_command in {"setup", "repair"}:
+            agents = select_agents(args.agents, non_interactive=args.non_interactive or args.json)
+        else:
+            agents = select_agents(args.agents, non_interactive=True) if args.agents else list(AGENTS)
+        project = Path(args.project) if args.project else None
+        if args.agent_command in {"setup", "repair"}:
+            dry_run = args.dry_run or (args.agent_command == "repair" and not args.apply)
+            report = setup_agents(hub_url=hub_url, agents=agents, project=project,
+                                  scope=args.scope or "user", dry_run=dry_run)
+            if not dry_run and report.ok:
+                diagnostic = diagnose_agents(hub_url=hub_url, agents=agents, project=project,
+                                             scope=args.scope or "user")
+                report.agent_status = diagnostic.agent_status
+                report.steps.extend(diagnostic.steps)
+        else:
+            report = diagnose_agents(hub_url=hub_url, agents=agents, project=project, scope=args.scope)
+        print_report(report, verbose=True, json_output=args.json)
+        return 0 if report.ok else 1
+    except (ValueError, OSError) as exc:
+        report = ConnectReport(hub_url="(unresolved)")
+        # Do not echo input URLs, credentials or parser fragments.
+        detail = str(exc) if isinstance(exc, ValueError) and str(exc).startswith("No agents") else (
+            "Cannot resolve agent setup; check --hub, --project, HOME and permissions"
+        )
+        report.add("agents", "error", detail)
+        print_report(report, verbose=True, json_output=args.json)
+        return 2
 
 
 def cmd_login(args: argparse.Namespace) -> int:
@@ -346,7 +388,7 @@ def cmd_use_hub(args: argparse.Namespace) -> int:
     hub_url = resolve_hub_url(args.hub)
     agents = [part.strip() for part in (args.agents or "").split(",") if part.strip()]
     token = resolve_cli_token(args.token, hub_url)
-    if not args.dry_run and not args.no_login and not token:
+    if not args.dry_run and not args.no_login and sys.stdin.isatty() and not token:
         try:
             token = run_login(hub_url, open_browser=not args.no_browser)
         except (RuntimeError, ConnectionError, ValueError) as exc:
@@ -531,19 +573,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     connect.add_argument(
         "--agents",
-        default="",
+        default=os.environ.get("ADHD_HUB_CONNECT_AGENTS", ""),
         help=(
             "Comma list of coding agents for MCP wire-up and skills install "
             "(cursor,codex,claude). Use * for skills on every agent. "
-            "Empty = no agent MCP/skills targets (set in Hub Settings → Coding agents "
-            "or pass explicitly). Claude maps to skills.sh id claude-code."
+            "Empty prompts with detected agents on a TTY; otherwise explicit targets are required. "
+            "Claude maps to skills.sh id claude-code."
         ),
     )
     connect.add_argument(
         "--scope",
         choices=("project", "user"),
         default="project",
-        help="Where to write Cursor MCP config (default: project)",
+        help="Where to write agent MCP config (default: project)",
     )
     connect.add_argument(
         "--skills",
@@ -660,6 +702,23 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     connect.set_defaults(func=cmd_connect)
+    connect.add_argument("--non-interactive", action="store_true", help="Never prompt or start CLI login")
+
+    agents_parser = sub.add_parser("agents", help="Set up and diagnose coding agent MCP access")
+    agent_commands = agents_parser.add_subparsers(dest="agent_command", required=True)
+    for command in ("setup", "status", "doctor", "repair"):
+        agent_parser = agent_commands.add_parser(command)
+        agent_parser.add_argument("--hub", default=None, help="Hub base URL or /mcp endpoint")
+        agent_parser.add_argument("--agents", default=os.environ.get("ADHD_HUB_CONNECT_AGENTS", ""))
+        agent_parser.add_argument("--scope", choices=("user", "project"), default=None)
+        agent_parser.add_argument("--project", default=None, help="Optional workspace; required for project scope")
+        agent_parser.add_argument("--json", action="store_true", help="Emit one JSON diagnostic object")
+        agent_parser.add_argument("--non-interactive", action="store_true")
+        if command in {"setup", "repair"}:
+            agent_parser.add_argument("--dry-run", action="store_true")
+        if command == "repair":
+            agent_parser.add_argument("--apply", action="store_true", help="Apply the previewed safe repairs")
+        agent_parser.set_defaults(func=cmd_agents)
 
     doctor = sub.add_parser(
         "doctor",
@@ -677,6 +736,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Project folder to inspect (alias for positional path)",
     )
     doctor.add_argument("--hub", default=None, help="Hub base URL")
+    doctor.add_argument("--json", action="store_true", help="Emit machine-readable diagnostics")
     doctor.add_argument(
         "--agents",
         default="",
@@ -720,7 +780,7 @@ def build_parser() -> argparse.ArgumentParser:
     use_hub.add_argument(
         "--project",
         default=".",
-        help="Project folder whose Cursor MCP to retarget (default: .)",
+        help="Project folder whose agent registrations to inspect (default: .)",
     )
     use_hub.add_argument(
         "--agents",
@@ -730,8 +790,8 @@ def build_parser() -> argparse.ArgumentParser:
     use_hub.add_argument(
         "--scope",
         choices=("project", "user", "both"),
-        default="project",
-        help="Where to write Cursor MCP config (default: project)",
+        default="both",
+        help="Scope to retarget (default: both = reuse each agent's existing scope)",
     )
     use_hub.add_argument(
         "--token",

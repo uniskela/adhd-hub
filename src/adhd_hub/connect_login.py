@@ -153,6 +153,9 @@ def _http_json(
     from adhd_hub.ssl_trust import annotate_connection_error, ensure_os_truststore
 
     ensure_os_truststore()
+    from adhd_hub.mcp_probe import validate_mcp_url
+
+    validate_mcp_url(url)
     headers = {"Accept": "application/json"}
     data = None
     if payload is not None:
@@ -363,7 +366,7 @@ def run_login(
         "mcp for agents",
         "warn",
         "HTTP MCP still needs ADHD_HUB_AUTH_TOKEN in the agent env, or MCP Auth on /mcp "
-        "(CLI session alone is for adhd-hub CLI/REST)",
+        "(the saved CLI session is not supplied to agents automatically)",
     )
     return token
 
@@ -374,6 +377,6 @@ def run_logout(hub_url: str, token: str | None) -> None:
     if auth:
         try:
             _http_json(f"{hub_url}/api/connect/session", method="DELETE", token=auth)
-        except ConnectionError:
+        except (ConnectionError, ValueError):
             pass
     clear_saved_token(hub_url)

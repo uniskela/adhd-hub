@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from adhd_hub.app import create_app
@@ -22,6 +23,24 @@ from adhd_hub.connect import (
     run_connect,
     run_doctor,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_agent_environment(tmp_path, monkeypatch, request):
+    home = tmp_path / "isolated-home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("ADHD_HUB_AUTH_TOKEN", raising=False)
+    monkeypatch.setenv("ADHD_HUB_CREDENTIALS", str(tmp_path / "credentials.json"))
+    if request.node.name.startswith("test_run_connect"):
+        # Configuration/skills tests assume the separate MCP diagnostic succeeds.
+        monkeypatch.setenv("ADHD_HUB_AUTH_TOKEN", "test-only-token")
+        monkeypatch.setattr("adhd_hub.agents.probe_mcp", lambda *a, **k: {
+            "tools_discovered": True, "detail": "test MCP tools available"
+        })
 
 
 def test_normalize_hub_url_strips_slash() -> None:
@@ -1061,7 +1080,7 @@ def test_print_report_shows_complete_banner(capsys, monkeypatch) -> None:
     )
     print_report(report)
     out = capsys.readouterr().out
-    assert "Complete! ADHD Hub is connected." in out
+    assert "Checks complete. See verification details below." in out
     assert "Do next:" in out
     assert "http://127.0.0.1:8787/ui" in out
     assert "Verify anytime:" in out
@@ -1083,7 +1102,7 @@ def test_print_report_default_collapses_ok(capsys, monkeypatch) -> None:
     )
     print_report(report, verbose=False)
     out = capsys.readouterr().out
-    assert "Complete! ADHD Hub is connected." in out
+    assert "Checks complete. See verification details below." in out
     assert "Do next:" in out
     assert "pick what fits" in out
     assert "coding-companions.md" in out
@@ -1352,4 +1371,4 @@ def test_doctor_survives_bad_project_mcp(tmp_path: Path, monkeypatch) -> None:
     mcp.write_text("{not-json", encoding="utf-8")
     with patch("adhd_hub.connect.probe_hub", return_value=(True, "ok")):
         report = run_doctor(hub_url="http://127.0.0.1:8787", project=project, token="t")
-    assert any(s.name == "cursor project MCP" and s.status == "error" for s in report.steps)
+    assert any(s.name == "cursor MCP" and s.status == "error" for s in report.steps)
