@@ -6,6 +6,7 @@ from adhd_hub.service import HubService
 
 PUBLIC_TOOLS = {
     "check_overlap",
+    "search_work",
     "suggest_duplicate_threads",
     "request_thread_merge",
     "thread_merge_history",
@@ -81,6 +82,7 @@ async def test_annotations_match_side_effects(tmp_path):
         # read-only, destructive, idempotent, open-world
         (True, False, True, False): {
             "check_overlap",
+            "search_work",
             "suggest_duplicate_threads",
             "thread_merge_history",
             "list_open_threads",

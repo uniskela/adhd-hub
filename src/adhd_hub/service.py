@@ -64,6 +64,14 @@ from adhd_hub.openclaw_config import OpenClawConfig
 from adhd_hub.openclaw_facade import OpenClawFacade
 from adhd_hub.overlap import check_overlap
 from adhd_hub.prefs import HubPrefs, load_prefs, save_prefs
+from adhd_hub.search import (
+    clamp_limit,
+    normalize_query,
+    rank_hits,
+    search_projects,
+    search_threads,
+    search_wiki_bodies,
+)
 from adhd_hub.store import Store, item_id, slugify, workspace_basename
 from adhd_hub.thread_state import (
     compact_thread_dict,
@@ -3075,6 +3083,38 @@ class HubService:
             threads,
             limit=limit or self.settings.overlap_limit,
         )
+
+    def search_work(
+        self,
+        query: str,
+        *,
+        limit: int | None = None,
+        include_done: bool = False,
+    ) -> dict:
+        """Local-first search across threads, projects, and wiki progress snippets."""
+        q = normalize_query(query)
+        capped = clamp_limit(limit)
+        if len(q) < 2:
+            return {"query": q, "hits": []}
+
+        # ponytail: full table scan + wiki read is fine at Hub scale; FTS if slow.
+        threads = self.store.list_threads(status=None, limit=2000)
+        projects = self.store.list_projects(limit=500, include_archived=False)
+        wiki_bodies: list[tuple[str, str, object]] = []
+        for project in projects:
+            raw = self.wiki.read_progress(project.slug) or ""
+            if raw:
+                wiki_bodies.append((project.slug, raw, project.updated_at))
+
+        hits = rank_hits(
+            [
+                *search_threads(q, threads, include_done=include_done),
+                *search_projects(q, projects),
+                *search_wiki_bodies(q, wiki_bodies),
+            ],
+            limit=capped,
+        )
+        return {"query": q, "hits": [h.as_dict() for h in hits]}
 
     def suggest_duplicate_threads(self, thread_id: str, *, limit: int = 5) -> dict:
         source = self.store.get_thread(thread_id)

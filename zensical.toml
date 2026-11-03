@@ -23,6 +23,7 @@ nav = [
   ]},
   { "Using the Hub" = [
     { "Dashboard" = "dashboard.md" },
+    { "Global search" = "global-search.md" },
     { "Clock-Off" = "clock-off-api.md" },
     { "Duplicate review & merge" = "merge-dedupe-api.md" },
     { "Return-cue coaching" = "return-cue-coaching.md" },

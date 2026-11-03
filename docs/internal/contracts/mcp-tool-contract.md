@@ -6,12 +6,12 @@ defaults, omission behavior and interactions. Names, defaults and validation
 remain compatible; schema metadata does not add business rules.
 
 The local inventory for issue [#117](https://github.com/uniskela/adhd-hub/issues/117)
-on 2026-10-08 contains **26 tools and 95 described input parameters**, rather
+on 2026-11-03 contains **27 tools** (adds `search_work`) with described input parameters, rather
 than the historical 20-tool Glama catalog or the issue's earlier 23-tool count:
 
 | Area | Tools |
 | --- | --- |
-| Discovery | `check_overlap`, `list_open_threads`, `list_projects`, `list_reminders`, `get_overview`, `suggest_next_up` |
+| Discovery | `check_overlap`, `search_work`, `list_open_threads`, `list_projects`, `list_reminders`, `get_overview`, `suggest_next_up` |
 | Project identity | `resolve_project`, `upsert_project`, `register_workspace` |
 | Pending human approval | `rename_project`, `delete_project`, `list_pending_actions`, `request_thread_merge` |
 | Duplicate review | `suggest_duplicate_threads`, `thread_merge_history` |
@@ -65,7 +65,7 @@ Retries that refresh timestamps or scheduling are not advertised as idempotent.
 
 | Tools | Read-only | Destructive | Idempotent | Open-world | Reason |
 | --- | --- | --- | --- | --- | --- |
-| `check_overlap`, `suggest_duplicate_threads`, `thread_merge_history`, `list_open_threads`, `list_projects`, `list_pending_actions`, `list_reminders`, `get_overview`, `suggest_next_up` | true | false | true | false | Local reads and ranking only. |
+| `check_overlap`, `search_work`, `suggest_duplicate_threads`, `thread_merge_history`, `list_open_threads`, `list_projects`, `list_pending_actions`, `list_reminders`, `get_overview`, `suggest_next_up` | true | false | true | false | Local reads and ranking only. |
 | `request_thread_merge`, `rename_project`, `delete_project` | false | false | true | false | Queue only; identical pending payloads are deduplicated. Execution requires separate human approval. |
 | `resolve_project` | false | false | false | false | May register a project or add a workspace mapping; repeated mapping saves refresh project timestamps. |
 | `upsert_project`, `report_guidance_health` | false | true | false | false | Replace registry/verification fields and refresh update/verification timestamps. |
