@@ -39,6 +39,10 @@ UI_JS_MODULES = {
 }
 UI_JS_ASSETS = {module: (JS_DIR / module).resolve() for module in UI_JS_MODULES}
 
+# Revalidate on every navigation so module graphs cannot mix old/new ES files
+# (heuristic HTTP cache + SW network-first otherwise serves a stale settings.js).
+_UI_REVALIDATE = {"Cache-Control": "no-cache"}
+
 
 def build_ui_router() -> APIRouter:
     router = APIRouter()
@@ -50,11 +54,13 @@ def build_ui_router() -> APIRouter:
 
     @router.get("/ui/", response_class=HTMLResponse)
     def ui_home():
-        return FileResponse(UI_DIR / "index.html")
+        return FileResponse(UI_DIR / "index.html", headers=_UI_REVALIDATE)
 
     @router.get("/ui/app.css")
     def ui_css():
-        return FileResponse(UI_DIR / "app.css", media_type="text/css")
+        return FileResponse(
+            UI_DIR / "app.css", media_type="text/css", headers=_UI_REVALIDATE
+        )
 
     @router.get("/ui/app.js")
     def ui_js_legacy():
@@ -68,13 +74,16 @@ def build_ui_router() -> APIRouter:
             raise HTTPException(404, "Asset not found")
         if not path.is_file():
             raise HTTPException(404, "Asset not found")
-        return FileResponse(path, media_type="text/javascript")
+        return FileResponse(
+            path, media_type="text/javascript", headers=_UI_REVALIDATE
+        )
 
     @router.get("/ui/manifest.webmanifest")
     def ui_manifest():
         return FileResponse(
             UI_DIR / "manifest.webmanifest",
             media_type="application/manifest+json",
+            headers=_UI_REVALIDATE,
         )
 
     @router.get("/ui/sw.js")
@@ -83,7 +92,10 @@ def build_ui_router() -> APIRouter:
         return Response(
             (UI_DIR / "sw.js").read_text(encoding="utf-8"),
             media_type="application/javascript",
-            headers={"Service-Worker-Allowed": "/ui/"},
+            headers={
+                "Service-Worker-Allowed": "/ui/",
+                **_UI_REVALIDATE,
+            },
         )
 
     @router.get("/ui/brand/{name}")
