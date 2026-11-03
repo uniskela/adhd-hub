@@ -586,7 +586,7 @@ def merge_codex_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
         raise TypeError("Codex mcp_servers must be a table")
     previous = servers.get(CODEX_SERVER_KEY)
     pattern = re.compile(
-        r'''^\[mcp_servers\.(?:adhd-hub|"adhd-hub"|'adhd-hub')\][^\n]*\n(?:(?!^\[)(?:[^\n]*\n|[^\n]+$))*''',
+        r'''^\[mcp_servers\.(?:adhd-hub|"adhd-hub"|'adhd-hub')\][^\n]*''',
         re.MULTILINE,
     )
     if previous is not None:
@@ -600,11 +600,14 @@ def merge_codex_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
         match = pattern.search(original)
         if not match:
             raise ValueError("custom Codex table layout; edit adhd-hub URL manually")
-        section, count = re.subn(r"^url\s*=.*$", lambda _: block_lines[1], match[0],
+        start = match.end()
+        next_table = re.search(r"^[ \t]*\[", original[start:], re.MULTILINE)
+        end = start + next_table.start() if next_table else len(original)
+        section, count = re.subn(r"^[ \t]*url\s*=.*$", lambda _: block_lines[1], original[start:end],
                                 count=1, flags=re.MULTILINE)
         if count != 1:
             raise ValueError("custom Codex URL layout; edit adhd-hub URL manually")
-        updated = original[:match.start()] + section + original[match.end():]
+        updated = original[:start] + section + original[end:]
         action = "unchanged" if updated == original else "updated"
     else:
         prefix = original.rstrip()
