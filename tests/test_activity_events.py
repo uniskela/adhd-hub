@@ -150,9 +150,11 @@ def test_upsert_progress_and_done_publish_events(service: HubService) -> None:
     # Reopen and complete again with unchanged content must publish a second
     # THREAD_COMPLETED (insights calendar / periods['today']['completed']).
     restored = service.undo_mark_done(thread.id, note="Undone.")
-    assert restored and restored.status.value == "open"
+    assert restored
+    assert restored.status.value == "open"
     done_again = service.mark_done(thread.id, note="Shipped again.")
-    assert done_again and done_again.status.value == "done"
+    assert done_again
+    assert done_again.status.value == "done"
     completed = [
         e
         for e in service.store.list_recent_activity_events(limit=50)

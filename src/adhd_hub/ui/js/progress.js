@@ -186,17 +186,32 @@ function renderCompletionCalendar(o) {
     const previousDate = grid.querySelector('[tabindex="0"]')?.dataset.date;
     const selectedDate = days.some((day) => day.date === previousDate) ? previousDate : days.at(-1)?.date;
     const total = days.reduce((sum, day) => sum + day.completed, 0);
-    const label = (day) => `${chartDate(day.date).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}: ${day.completed} recorded ${day.completed === 1 ? "completion" : "completions"}.`;
-    $("completion-calendar-summary").textContent = days.length
-      ? `${chartDayName(days[0].date)} – ${chartDayName(days.at(-1).date)} · ${o.insights.timezone}. ${total ? `${total} recorded ${total === 1 ? "completion" : "completions"}.` : "No recorded completions in this period. That’s okay."}`
-      : "Completion history will appear here when available.";
+    const completionWord = (n) => (n === 1 ? "completion" : "completions");
+    const calendarLevel = (n) => {
+      if (n >= 8) return 4;
+      if (n >= 4) return 3;
+      if (n >= 2) return 2;
+      return n ? 1 : 0;
+    };
+    const label = (day) =>
+      `${chartDate(day.date).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}: ${day.completed} recorded ${completionWord(day.completed)}.`;
+    let summary = "Completion history will appear here when available.";
+    if (days.length) {
+      const range = `${chartDayName(days[0].date)} – ${chartDayName(days.at(-1).date)} · ${o.insights.timezone}.`;
+      const totals = total
+        ? `${total} recorded ${completionWord(total)}.`
+        : "No recorded completions in this period. That’s okay.";
+      summary = `${range} ${totals}`;
+    }
+    $("completion-calendar-summary").textContent = summary;
     $("completion-calendar-months").innerHTML = days.map((day, i) => {
       if (i % 7 || (i && day.date.slice(0, 7) === days[i - 7].date.slice(0, 7))) return "";
       return `<span style="grid-column:${i / 7 + 1}">${escapeHtml(chartDate(day.date).toLocaleDateString(undefined, { month: "short" }))}</span>`;
     }).join("");
     grid.innerHTML = days.map((day) => {
-      const level = day.completed >= 8 ? 4 : day.completed >= 4 ? 3 : day.completed >= 2 ? 2 : day.completed ? 1 : 0;
-      return `<button type="button" class="calendar-day" data-date="${escapeHtml(day.date)}" data-level="${level}" tabindex="${day.date === selectedDate ? 0 : -1}" aria-label="${escapeHtml(label(day))}"${day.date === o.insights.as_of ? ' aria-current="date"' : ""}></button>`;
+      const level = calendarLevel(day.completed);
+      const current = day.date === o.insights.as_of ? ' aria-current="date"' : "";
+      return `<button type="button" class="calendar-day" data-date="${escapeHtml(day.date)}" data-level="${level}" tabindex="${day.date === selectedDate ? 0 : -1}" aria-label="${escapeHtml(label(day))}"${current}></button>`;
     }).join("");
     $("completion-calendar-table").innerHTML = days.map((day) =>
       `<tr><th scope="row">${escapeHtml(chartDate(day.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }))}</th><td>${day.completed}</td></tr>`).join("");

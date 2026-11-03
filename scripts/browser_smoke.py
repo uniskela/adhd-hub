@@ -23,6 +23,9 @@ from zoneinfo import ZoneInfo
 
 from playwright.sync_api import expect, sync_playwright
 
+_CALENDAR_SUMMARY = "#completion-calendar > summary"
+_CALENDAR_BODY = ".completion-calendar-body"
+
 
 def main():
     root = Path(__file__).resolve().parents[1]
@@ -475,15 +478,15 @@ def main():
                 expect(page.locator("#completion-day-details")).to_contain_text("recorded")
                 page.get_by_text("Show calendar as a table", exact=True).click()
                 expect(page.locator("#completion-calendar-table tr")).to_have_count(calendar_days.count())
-                page.locator("#completion-calendar > summary").click()
-                expect(page.locator(".completion-calendar-body")).to_be_hidden()
+                page.locator(_CALENDAR_SUMMARY).click()
+                expect(page.locator(_CALENDAR_BODY)).to_be_hidden()
                 page.reload()
                 expect(page.locator("#progress-view")).to_be_visible()
-                expect(page.locator(".completion-calendar-body")).to_be_hidden()
-                page.locator("#completion-calendar > summary").click()
-                expect(page.locator(".completion-calendar-body")).to_be_visible()
+                expect(page.locator(_CALENDAR_BODY)).to_be_hidden()
+                page.locator(_CALENDAR_SUMMARY).click()
+                expect(page.locator(_CALENDAR_BODY)).to_be_visible()
                 page.reload()
-                expect(page.locator(".completion-calendar-body")).to_be_visible()
+                expect(page.locator(_CALENDAR_BODY)).to_be_visible()
                 expect(page.locator("#rank-name")).to_have_text("Seedling")
                 expect(page.locator("#badges .earned")).to_have_count(1)
                 page.get_by_role("button", name="Share progress", exact=True).click()
@@ -769,10 +772,10 @@ def main():
                 blocked.keyboard.press("Escape")
                 expect(blocked.locator("#rewards-panel")).to_be_hidden()
                 blocked.get_by_role("button", name="Progress", exact=True).click()
-                blocked.locator("#completion-calendar > summary").click()
-                expect(blocked.locator(".completion-calendar-body")).to_be_hidden()
-                blocked.locator("#completion-calendar > summary").click()
-                expect(blocked.locator(".completion-calendar-body")).to_be_visible()
+                blocked.locator(_CALENDAR_SUMMARY).click()
+                expect(blocked.locator(_CALENDAR_BODY)).to_be_hidden()
+                blocked.locator(_CALENDAR_SUMMARY).click()
+                expect(blocked.locator(_CALENDAR_BODY)).to_be_visible()
                 isolated.close()
                 assert not errors, errors
                 browser.close()
