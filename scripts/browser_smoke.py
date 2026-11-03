@@ -491,8 +491,9 @@ def main():
                 )
                 expect(page.locator("#completion-calendar-table tr")).to_have_count(latest_month_rows)
                 if calendar_days.count() > latest_month_rows:
+                    latest_label = page.locator("#completion-calendar-page-label").inner_text()
                     page.locator("#completion-calendar-prev").click()
-                    expect(page.locator("#completion-calendar-table tr")).not_to_have_count(latest_month_rows)
+                    expect(page.locator("#completion-calendar-page-label")).not_to_have_text(latest_label)
                 page.locator(_CALENDAR_SUMMARY).click()
                 expect(page.locator(_CALENDAR_BODY)).to_be_hidden()
                 page.reload()
