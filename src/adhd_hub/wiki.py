@@ -10,15 +10,16 @@ from adhd_hub.store import slugify
 # Keep the newest History lines visible; older lines fold into a recoverable
 # <details> block (Wave 8 reversible wiki compaction).
 HISTORY_KEEP_LINES = 40
+# data-hub-history-fold marks Hub wrappers so user-quoted <details> never match.
 _HISTORY_COMPACT_RE = re.compile(
-    r"<details>\s*"
-    r"<summary>Older history \(\d+ lines\) — expandable; full text preserved</summary>\s*"
-    r"(.*?)"
+    r'<details data-hub-history-fold="1">\n'
+    r"<summary>Older history \(\d+ lines\) — expandable; full text preserved</summary>\n"
+    r"(.*?)\n"
     r"</details>",
-    flags=re.DOTALL | re.IGNORECASE,
+    flags=re.DOTALL,
 )
 # Neutralize user-authored closers inside the folded block so unwrap cannot
-# stop early on an inner ``</details>`` (Kody: lossless History recovery).
+# stop early on an inner ``</details>``.
 _DETAILS_CLOSE = "</details>"
 _DETAILS_CLOSE_ESC = "<\u200b/details>"
 
@@ -33,19 +34,22 @@ def _unescape_details_close(text: str) -> str:
 
 def expand_history_body(body: str) -> str:
     """Unwrap Hub History compaction blocks so full markdown is recoverable."""
-    text = (body or "").strip()
-    if not text:
+    text = body or ""
+    if not text.strip():
         return ""
-    # Expand repeatedly in case older runs nested (should not, but be safe).
+    # Only trailing Hub-tagged folds (compact always appends at end). Unescape
+    # only the recovered payload so user ZWSP sentinels elsewhere stay intact,
+    # and mid-body quoted folds are never selected.
     while True:
-        match = _HISTORY_COMPACT_RE.search(text)
-        if not match:
+        trailing = None
+        for match in _HISTORY_COMPACT_RE.finditer(text):
+            if not text[match.end() :].strip():
+                trailing = match
+        if trailing is None:
             break
-        older = _unescape_details_close(match.group(1).strip("\n"))
-        before = text[: match.start()].rstrip("\n")
-        after = text[match.end() :].lstrip("\n")
-        text = "\n".join(part for part in (before, older, after) if part)
-    return _unescape_details_close(text.strip())
+        older = _unescape_details_close(trailing.group(1))
+        text = text[: trailing.start()] + older + text[trailing.end() :]
+    return text.strip()
 
 
 def compact_history_body(body: str, *, keep_lines: int = HISTORY_KEEP_LINES) -> str:
@@ -53,7 +57,8 @@ def compact_history_body(body: str, *, keep_lines: int = HISTORY_KEEP_LINES) -> 
 
     Newest-first History (prepended notes) keeps the first ``keep_lines`` visible.
     Full text remains inside ``<details>`` so compaction is reversible via
-    :func:`expand_history_body`.
+    :func:`expand_history_body`. Line list round-trips as identity (blank lines
+    at the fold boundary are preserved).
     """
     full = expand_history_body(body)
     if not full or full == "_No older history._":
@@ -64,16 +69,17 @@ def compact_history_body(body: str, *, keep_lines: int = HISTORY_KEEP_LINES) -> 
         return full
     recent = lines[:keep]
     older = lines[keep:]
-    older_text = _escape_details_close("\n".join(older).strip())
-    if not older_text:
-        return "\n".join(recent).strip()
+    if not older:
+        return "\n".join(recent)
+    older_text = _escape_details_close("\n".join(older))
     block = (
-        "<details>\n"
-        f"<summary>Older history ({len(older)} lines) — expandable; full text preserved</summary>\n\n"
-        f"{older_text}\n\n"
+        '<details data-hub-history-fold="1">\n'
+        f"<summary>Older history ({len(older)} lines) — expandable; full text preserved</summary>\n"
+        f"{older_text}\n"
         "</details>"
     )
-    return ("\n".join(recent).rstrip() + "\n\n" + block).strip()
+    # Single separating newline: expand splices older back for identity.
+    return "\n".join(recent) + "\n" + block
 
 
 class Wiki:
