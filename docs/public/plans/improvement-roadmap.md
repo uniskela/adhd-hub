@@ -6,13 +6,13 @@ This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [
 
 | Position | Work | Status |
 | --- | --- | --- |
-| **Now** | Wave 8 — find & capture | Search, compaction, and share capture on `main`; return-view modes next for **v0.22.0** |
+| **Now** | Wave 8 — find & capture | All four slices merged on `main` for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published) |
 | **Next** | After Wave 8 | Activity insights (#72) |
 | **Then** | Activity insights | Planned after core clarity/findability work |
 | **Later** | Wave 9 — shared surfaces & discoverability | Deferred until Waves 7–8 are stable |
 | **Opt-in** | Wave 5 integrations | Only when a concrete need justifies them |
 
-Reviewed against `main` on **2026-11-03**. Latest published package and tag is **v0.21.1**. **Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) shipped in v0.21.0** (triage + Next-up earlier; merge/dedupe + return-cue coaching in 0.21.0). Issue [#15](https://github.com/uniskela/adhd-hub/issues/15) marks **Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55)** as **NOW**. Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-11-03**. Latest published package and tag is **v0.21.1**. **Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) shipped in v0.21.x** (triage + Next-up earlier; merge/dedupe + return-cue coaching in v0.21.0). Issue [#15](https://github.com/uniskela/adhd-hub/issues/15) marks **Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55)** as **NOW**. Search, compaction, share capture, and Short/Deep return view are on `main` for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published). Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -49,7 +49,7 @@ Shipped in **v0.21.0**:
 - locked CI installs and Release Please–managed `uv.lock` versions ([#102](https://github.com/uniskela/adhd-hub/issues/102) via [#311](https://github.com/uniskela/adhd-hub/pull/311));
 - non-destructive sample data ([#305](https://github.com/uniskela/adhd-hub/pull/305)) and the `completion.ready` end-of-task guidance fixes ([#307](https://github.com/uniskela/adhd-hub/pull/307), [#321](https://github.com/uniskela/adhd-hub/pull/321)).
 
-**NOW** is Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). Search, reversible wiki compaction, and mobile/share capture are on `main` (see [global search](../global-search.md)). **Energy/context modes** (Short vs Deep Now return view) is the active closing slice.
+**NOW** is Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). Global search, reversible wiki compaction, mobile/share capture, and energy/context modes (Short vs Deep Now return view) are merged on `main` for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published). See [global search](../global-search.md).
 
 ## Product principles
 
@@ -110,10 +110,10 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 
 [#55](https://github.com/uniskela/adhd-hub/issues/55) — after Wave 7.
 
-- ✅ **Global search** — local-first threads / projects / wiki snippets; REST + MCP + My work UI ([global search](../global-search.md));
-- ✅ reversible progress compaction;
-- ✅ mobile/share capture (Web Share Target → Save a thought);
-- energy/context modes (active — Short vs Deep return view; local prefs; no guilt).
+- ✅ **Global search** — local-first threads / projects / wiki snippets; REST + MCP + My work UI ([#338](https://github.com/uniskela/adhd-hub/pull/338); [global search](../global-search.md));
+- ✅ reversible progress compaction ([#339](https://github.com/uniskela/adhd-hub/pull/339));
+- ✅ mobile/share capture (Web Share Target → Save a thought) ([#341](https://github.com/uniskela/adhd-hub/pull/341));
+- ✅ energy/context modes (Short vs Deep Now return view; local prefs; no guilt) ([#342](https://github.com/uniskela/adhd-hub/pull/342)).
 
 ## Next product sequence
 
@@ -143,7 +143,7 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 | Done | Foundation A / B1 / B2 / B3 | Shipped |
 | Done | Wave 6 #52 | Published in v0.16.0 |
 | Done | Wave 7 #54 | Completed in v0.21.0 |
-| **Now** | **Wave 8 #55** | Find & capture — closing with Short/Deep return view |
+| **Now** | **Wave 8 #55** | Merged on main for v0.22.0 (release PR #340, not yet published) |
 | Then | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
