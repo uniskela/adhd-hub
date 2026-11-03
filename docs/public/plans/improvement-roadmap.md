@@ -6,9 +6,9 @@ This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [
 
 | Position | Work | Status |
 | --- | --- | --- |
-| **Now** | Wave 8 — find & capture | Search, compaction, and share capture on `main`; return-view modes next for **v0.22.0** |
-| **Next** | After Wave 8 | Activity insights (#72) |
-| **Then** | Activity insights | Planned after core clarity/findability work |
+| **Now** | Activity insights #72 | Slice A (ledger totals on Progress) for **v0.22.x** |
+| **Next** | Insights Slice B–D | Focus sessions, heatmap, trends |
+| **Then** | Wave 9 | Shared surfaces / discoverability |
 | **Later** | Wave 9 — shared surfaces & discoverability | Deferred until Waves 7–8 are stable |
 | **Opt-in** | Wave 5 integrations | Only when a concrete need justifies them |
 
@@ -49,7 +49,7 @@ Shipped in **v0.21.0**:
 - locked CI installs and Release Please–managed `uv.lock` versions ([#102](https://github.com/uniskela/adhd-hub/issues/102) via [#311](https://github.com/uniskela/adhd-hub/pull/311));
 - non-destructive sample data ([#305](https://github.com/uniskela/adhd-hub/pull/305)) and the `completion.ready` end-of-task guidance fixes ([#307](https://github.com/uniskela/adhd-hub/pull/307), [#321](https://github.com/uniskela/adhd-hub/pull/321)).
 
-**NOW** is Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). Search, reversible wiki compaction, and mobile/share capture are on `main` (see [global search](../global-search.md)). **Energy/context modes** (Short vs Deep Now return view) is the active closing slice.
+Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55) slices are on `main`. **NOW** is Activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72) — Slice A (ledger-backed totals) first; testing checklist [#343](https://github.com/uniskela/adhd-hub/issues/343).
 
 ## Product principles
 
@@ -106,20 +106,24 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 
 ## Current priority
 
-### Wave 8 — find & capture 🔄 **NOW**
+### Wave 8 — find & capture ✅
 
-[#55](https://github.com/uniskela/adhd-hub/issues/55) — after Wave 7.
+[#55](https://github.com/uniskela/adhd-hub/issues/55) — on `main` (search, compaction, share capture, Short/Deep return view).
 
-- ✅ **Global search** — local-first threads / projects / wiki snippets; REST + MCP + My work UI ([global search](../global-search.md));
-- ✅ reversible progress compaction;
-- ✅ mobile/share capture (Web Share Target → Save a thought);
-- energy/context modes (active — Short vs Deep return view; local prefs; no guilt).
+### Activity insights & statistics 🔄 **NOW**
+
+[#72](https://github.com/uniskela/adhd-hub/issues/72) — consuming B3 history. QA: [#343](https://github.com/uniskela/adhd-hub/issues/343).
+
+- Slice A (active): ledger-backed period totals + chart on Progress;
+- Slice B: persisted focus sessions;
+- Slice C: contribution heatmap;
+- Slice D: trends / project breakdowns.
 
 ## Next product sequence
 
-### Activity insights & statistics
+### Activity insights (remaining)
 
-[#72](https://github.com/uniskela/adhd-hub/issues/72) — after the core clarity/findability work, consuming B3 history.
+Slices B–D of [#72](https://github.com/uniskela/adhd-hub/issues/72) after Slice A.
 
 ### Wave 9 — shared surfaces & discoverability
 
@@ -143,8 +147,8 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 | Done | Foundation A / B1 / B2 / B3 | Shipped |
 | Done | Wave 6 #52 | Published in v0.16.0 |
 | Done | Wave 7 #54 | Completed in v0.21.0 |
-| **Now** | **Wave 8 #55** | Find & capture — closing with Short/Deep return view |
-| Then | Activity insights #72 | Uses B3 history |
+| Done | Wave 8 #55 | Find & capture on main |
+| **Now** | **Activity insights #72** | Slice A ledger totals; then B–D |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
 | Verify | Docker Hub description #300 | Check after image publish |

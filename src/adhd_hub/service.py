@@ -2481,12 +2481,37 @@ class HubService:
             )
         return [self.thread_public_dict(t) for t in threads]
 
+    def activity_insights(self) -> dict:
+        """Ledger-backed period totals for Progress (Slice A / #72)."""
+        from adhd_hub.insights import INSIGHT_EVENT_TYPES, aggregate_insight_rows
+        from adhd_hub.store import utcnow
+        from adhd_hub.timeutil import resolve_zone
+
+        timezone = self.prefs().timezone
+        zone = resolve_zone(timezone)
+        now = utcnow().astimezone(zone)
+        # Cover last_30 and chart (14) plus a little slack for TZ edges.
+        start = (now - timedelta(days=40)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        rows = self.store.list_insight_event_rows(
+            since_iso=start.astimezone(UTC).isoformat(),
+            event_types=sorted(INSIGHT_EVENT_TYPES),
+        )
+        return aggregate_insight_rows(
+            rows,
+            timezone=timezone,
+            chart_days=14,
+            as_of=now.date(),
+        )
+
     def overview(self) -> dict:
         open_threads = self.list_open_threads(limit=500)
         stale = self.list_stale_threads()
         blocked = self.store.list_threads(status=ThreadStatus.blocked, limit=100)
         timezone = self.prefs().timezone
         stats = self.store.done_counts(timezone=timezone)
+        insights = self.activity_insights()
         from adhd_hub.rewards import reward_summary
         return {
             "open": len(open_threads),
@@ -2503,7 +2528,8 @@ class HubService:
             "done_today": stats["done_today"],
             "done_week": stats["done_week"],
             "day_streak": stats["day_streak"],
-            "added_vs_finished": self.store.analytics_added_done(14, timezone=timezone),
+            "added_vs_finished": insights["added_vs_finished"],
+            "insights": insights,
             "projects": self.list_projects(),
             "timezone": self.prefs().timezone,
             "clock_off": self.clock_off_state().model_dump(mode="json"),

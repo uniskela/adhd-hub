@@ -60,4 +60,4 @@ def test_return_density_wired_in_ui(tmp_path: Path) -> None:
         assert "body.return-short .now-overview" in css
         sw = client.get("/ui/sw.js").text
         assert "/ui/js/return-density.mjs" in sw
-        assert "adhd-hub-shell-v54" in sw
+        assert "adhd-hub-shell-v55" in sw
