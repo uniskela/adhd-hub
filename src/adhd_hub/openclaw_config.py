@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import json
 import logging
 from pathlib import Path
@@ -42,6 +43,16 @@ class OpenClawConfig(BaseModel):
             raise ValueError("OpenClaw endpoints must be complete http(s) URLs")
         if parsed.username or parsed.password:
             raise ValueError("OpenClaw endpoints must not contain credentials")
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if host in {"metadata", "metadata.google.internal", "metadata.goog"}:
+            raise ValueError("OpenClaw endpoints must not target cloud metadata hosts")
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            ip = None
+        if ip is not None and (ip.is_link_local or ip.is_unspecified):
+            # Keep loopback/RFC1918 — common for LAN/Tailscale OpenClaw.
+            raise ValueError("OpenClaw endpoints must not target link-local or unspecified addresses")
         return cleaned
 
     @field_validator("stale_nudge_cron")

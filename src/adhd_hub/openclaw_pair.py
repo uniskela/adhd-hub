@@ -13,13 +13,16 @@ pasting long-lived Hub tokens into OpenClaw while keeping a human gate.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from cryptography.fernet import InvalidToken
+
 from adhd_hub.connect_auth import generate_user_code, normalize_user_code
-from adhd_hub.openclaw_config import OpenClawConfig
+from adhd_hub.openclaw_config import OpenClawConfig, _cipher
 
 PAIR_SECONDS = 15 * 60
 PAIR_FAILURE_CODES = frozenset({"hooks_token_secretref_unsupported"})
@@ -64,9 +67,29 @@ def pair_path(data_dir: Path) -> Path:
 
 
 class OpenClawPairStore:
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(self, data_dir: Path, *, auth_token: str = "") -> None:
         self._path = pair_path(data_dir)
+        self._auth_token = auth_token
         self._path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _encrypt_token(self, token: str) -> str:
+        if not self._auth_token:
+            # Tests / misconfig: persist plaintext under the encrypted key shape
+            # so status still sees token_present; prefer setting auth_token.
+            return token
+        return _cipher(self._auth_token).encrypt(token.encode()).decode()
+
+    def _decrypt_token(self, raw: dict[str, Any]) -> str:
+        encrypted = raw.get("token_encrypted")
+        if isinstance(encrypted, str) and encrypted:
+            if self._auth_token:
+                try:
+                    return _cipher(self._auth_token).decrypt(encrypted.encode()).decode()
+                except (InvalidToken, UnicodeDecodeError):
+                    return ""
+            return encrypted
+        legacy = raw.get("token")
+        return str(legacy) if isinstance(legacy, str) else ""
 
     def _load_raw(self) -> dict[str, Any]:
         if not self._path.is_file():
@@ -82,7 +105,17 @@ class OpenClawPairStore:
             if self._path.is_file():
                 self._path.unlink(missing_ok=True)
             return
-        self._path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        payload = (json.dumps(data, indent=2) + "\n").encode("utf-8")
+        # Pending submit may include the OpenClaw hook token — keep mode tight.
+        fd = os.open(self._path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            os.write(fd, payload)
+        finally:
+            os.close(fd)
+        try:
+            self._path.chmod(0o600)
+        except OSError:
+            pass
 
     def clear(self) -> None:
         self._save_raw(None)
@@ -103,7 +136,7 @@ class OpenClawPairStore:
                 expires_at=expires_at,
                 webhook_url=str(raw.get("webhook_url") or ""),
                 agent_url=str(raw.get("agent_url") or ""),
-                token_present=bool(raw.get("token")),
+                token_present=bool(raw.get("token_encrypted") or raw.get("token")),
                 submitted_at=float(raw["submitted_at"]) if raw.get("submitted_at") else None,
                 hub_origin=str(raw.get("hub_origin") or ""),
             )
@@ -222,7 +255,7 @@ class OpenClawPairStore:
                 "submitted_at": now,
                 "webhook_url": preview.webhook_url,
                 "agent_url": preview.agent_url,
-                "token": preview.token,
+                "token_encrypted": self._encrypt_token(preview.token),
                 "alerts_enabled": preview.alerts_enabled,
                 "stale_nudge_cron": preview.stale_nudge_cron,
                 "stale_days": preview.stale_days,
@@ -260,7 +293,7 @@ class OpenClawPairStore:
             alerts_enabled=bool(raw.get("alerts_enabled", base.alerts_enabled)),
             webhook_url=str(raw.get("webhook_url") or ""),
             agent_url=str(raw.get("agent_url") or ""),
-            token=str(raw.get("token") or ""),
+            token=self._decrypt_token(raw),
             **schedule,
         )
         self.clear()

@@ -9,7 +9,7 @@ from adhd_hub.openclaw_pair import OpenClawPairStore, openclaw_pair_prompt
 
 
 def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
-    store = OpenClawPairStore(tmp_path)
+    store = OpenClawPairStore(tmp_path, auth_token="hub-secret")
     started = store.start(hub_origin="https://hub.example.test")
     assert started.status == "waiting"
     assert started.user_code
@@ -25,6 +25,12 @@ def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
     assert submitted.status == "submitted"
     assert submitted.webhook_url.endswith("/hooks/wake")
     assert submitted.token_present is True
+    pair_path = tmp_path / "openclaw_pair.json"
+    assert pair_path.is_file()
+    assert (pair_path.stat().st_mode & 0o777) == 0o600
+    on_disk = pair_path.read_text(encoding="utf-8")
+    assert "hook-secret" not in on_disk
+    assert "token_encrypted" in on_disk
     submitted_public = submitted.public_dict()
     assert "error_code" not in submitted_public
     assert "hooks_token_secretref_unsupported" in submitted_public["prompt"]
@@ -43,7 +49,7 @@ def test_openclaw_pair_roundtrip(tmp_path: Path) -> None:
 
 
 def test_openclaw_pair_start_preserves_submitted(tmp_path: Path) -> None:
-    store = OpenClawPairStore(tmp_path)
+    store = OpenClawPairStore(tmp_path, auth_token="hub-secret")
     started = store.start()
     store.submit(
         user_code=started.user_code,
@@ -56,7 +62,7 @@ def test_openclaw_pair_start_preserves_submitted(tmp_path: Path) -> None:
 
 
 def test_openclaw_pair_rejects_bad_code(tmp_path: Path) -> None:
-    store = OpenClawPairStore(tmp_path)
+    store = OpenClawPairStore(tmp_path, auth_token="hub-secret")
     started = store.start()
     with pytest.raises(ValueError, match="user_code_mismatch"):
         store.submit(
@@ -68,7 +74,7 @@ def test_openclaw_pair_rejects_bad_code(tmp_path: Path) -> None:
 
 
 def test_openclaw_pair_records_protected_token_failure_without_token(tmp_path: Path) -> None:
-    store = OpenClawPairStore(tmp_path)
+    store = OpenClawPairStore(tmp_path, auth_token="hub-secret")
     started = store.start()
 
     failed = store.fail(
@@ -86,13 +92,23 @@ def test_openclaw_pair_records_protected_token_failure_without_token(tmp_path: P
 
 
 def test_openclaw_pair_rejects_unknown_failure_code(tmp_path: Path) -> None:
-    store = OpenClawPairStore(tmp_path)
+    store = OpenClawPairStore(tmp_path, auth_token="hub-secret")
     started = store.start()
 
     with pytest.raises(ValueError, match="invalid_pair_error_code"):
         store.fail(user_code=started.user_code, error_code="unexpected_failure")
 
     assert store.status().status == "waiting"
+
+
+def test_openclaw_rejects_metadata_and_link_local_urls() -> None:
+    with pytest.raises(ValueError, match="link-local|metadata"):
+        OpenClawConfig(webhook_url="http://169.254.169.254/latest/meta-data")
+    with pytest.raises(ValueError, match="link-local|metadata"):
+        OpenClawConfig(webhook_url="http://metadata.google.internal/computeMetadata/v1/")
+    # LAN / Tailscale / loopback still allowed for same-host OpenClaw.
+    ok = OpenClawConfig(webhook_url="http://127.0.0.1:18789/hooks/wake")
+    assert ok.webhook_url.endswith("/hooks/wake")
 
 
 def test_openclaw_pair_prompt_requires_protected_token_provisioning() -> None:

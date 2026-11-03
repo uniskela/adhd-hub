@@ -383,9 +383,10 @@ class ConnectStore:
             if float(row["expires_at"]) <= now:
                 conn.execute("DELETE FROM cli_sessions WHERE id = ?", (row["id"],))
                 return False
+            # Sliding expiry: active MCP/CLI use keeps the session alive.
             conn.execute(
-                "UPDATE cli_sessions SET last_used_at = ? WHERE id = ?",
-                (now, row["id"]),
+                "UPDATE cli_sessions SET last_used_at = ?, expires_at = ? WHERE id = ?",
+                (now, now + CLI_SESSION_SECONDS, row["id"]),
             )
             return True
 

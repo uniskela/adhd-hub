@@ -50,7 +50,13 @@ def _read_credentials() -> dict[str, Any]:
 def _write_credentials(data: dict[str, Any]) -> Path:
     path = credentials_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    payload = (json.dumps(data, indent=2) + "\n").encode("utf-8")
+    # Create/truncate at 0600 so the token is never briefly world-readable.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _CREDENTIALS_MODE)
+    try:
+        os.write(fd, payload)
+    finally:
+        os.close(fd)
     try:
         path.chmod(_CREDENTIALS_MODE)
     except OSError:
@@ -91,9 +97,8 @@ def load_saved_token(hub_url: str) -> str | None:
     token = entry.get("token")
     if not isinstance(token, str) or not token.strip():
         return None
-    expires_at = entry.get("expires_at")
-    if isinstance(expires_at, (int, float)) and expires_at <= time.time():
-        return None
+    # Keep returning the token past local expires_at — Hub sliding expiry / 401
+    # are the source of truth. Stale local TTL used to block reconnect forever.
     return token.strip()
 
 
@@ -354,6 +359,12 @@ def run_login(
         hub_url, token, expires_in=int(token_body.get("expires_in") or 0) or None
     )
     report.add("login", "ok", f"session saved to {path} (not in your shell env)")
+    report.add(
+        "mcp for agents",
+        "warn",
+        "HTTP MCP still needs ADHD_HUB_AUTH_TOKEN in the agent env, or MCP Auth on /mcp "
+        "(CLI session alone is for adhd-hub CLI/REST)",
+    )
     return token
 
 

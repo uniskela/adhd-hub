@@ -571,20 +571,23 @@
                 </div>
                 <div class="settings-card" id="cli-sessions-wrap" hidden>
                   <div class="setting is-top">
-                    <div class="setting-text"><p class="setting-label">Connected computers</p><p class="hint">Revoke one and that computer will need to connect again.</p></div>
+                    <div class="setting-text"><p class="setting-label">Connected computers</p><p class="hint">CLI sessions for <code>adhd-hub</code> on each machine (not Cursor MCP Auth). HTTP MCP still needs <code>ADHD_HUB_AUTH_TOKEN</code> in the agent env or the MCP Auth button. Health uses last use + expiry; active use slides the 90-day window.</p></div>
+                    <div class="setting-actions" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+                      <button type="button" class="ghost" id="btn-refresh-cli-sessions">Check health</button>
+                    </div>
                     <ul id="cli-sessions-list" class="cli-sessions-list"></ul>
                   </div>
                 </div>
               </section>
               <section id="settings-mcp" class="settings-panel" role="tabpanel" aria-labelledby="tab-mcp" tabindex="0" hidden>
-                <div class="settings-panel-head"><h2>Remote access</h2><p class="hint">For Windows machines and tools that connect over MCP.</p></div>
+                <div class="settings-panel-head"><h2>Remote access</h2><p class="hint">For Windows machines and tools that connect over MCP. Prefer the client’s <strong>Auth / Authenticate</strong> on this URL. A Coding-agents CLI session does not fill HTTP MCP headers by itself.</p></div>
                 <div class="settings-card">
                   <div class="setting is-stacked">
                     <div class="setting-text"><label class="setting-label" for="install-cmd-win">Windows install</label><p class="hint">Paste into PowerShell in the project folder.</p></div>
                     <div class="copy-field"><input id="install-cmd-win" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install-win" aria-label="Copy Windows install command">Copy</button></div>
                   </div>
                   <div class="setting is-stacked">
-                    <div class="setting-text"><label class="setting-label" for="mcp-url">MCP server address</label><p class="hint">For assistants that still use a bearer header. Project MCP files stay token-free, so they are safe to commit. A saved CLI session is a different token from your server access token.</p></div>
+                    <div class="setting-text"><label class="setting-label" for="mcp-url">MCP server address</label><p class="hint">Point the agent at this URL, then use MCP Auth, or set <code>ADHD_HUB_AUTH_TOKEN</code> in the agent environment (not shell history). Project MCP snippets stay token-free. CLI <code>ahcli_…</code> sessions are for the <code>adhd-hub</code> CLI, not Cursor headers.</p></div>
                     <div class="copy-field"><input id="mcp-url" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-mcp" aria-label="Copy MCP server address">Copy</button></div>
                   </div>
                   <div class="setting is-stacked">

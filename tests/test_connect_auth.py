@@ -229,6 +229,21 @@ def test_start_rejects_non_loopback_callback(tmp_path: Path) -> None:
         assert resp.status_code == 400
 
 
+def test_cli_session_slides_expiry_on_use(tmp_path: Path) -> None:
+    store = ConnectStore(tmp_path / "connect.sqlite3")
+    verifier, challenge = generate_pkce()
+    grant = store.start_grant(challenge=challenge, state=None, callback_url=None)
+    store.approve_user_code(grant["user_code"])
+    status, token, _expires = store.exchange(verifier=verifier, device_code=grant["device_code"])
+    assert status == "ok" and token
+    sessions = store.list_sessions()
+    assert len(sessions) == 1
+    before = sessions[0]["expires_at"]
+    assert store.valid_session(token) is True
+    after = store.list_sessions()[0]["expires_at"]
+    assert after >= before
+
+
 def test_cli_session_authorizes_mcp(tmp_path: Path) -> None:
     settings = Settings(data_dir=tmp_path, auth_token="secret")
     store = ConnectStore(tmp_path / "connect.sqlite3")
@@ -267,6 +282,15 @@ def test_credentials_file_mode_and_lookup(tmp_path: Path, monkeypatch) -> None:
     assert (path.stat().st_mode & 0o777) == 0o600
     assert load_saved_token("http://hub.example:8787") == "ahcli_test"
     assert credentials_path() == path
+    # Past local expires_at still returns the token (Hub is source of truth).
+    import json
+    import time
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    hub = next(iter(data["sessions"]))
+    data["sessions"][hub]["expires_at"] = time.time() - 10
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert load_saved_token("http://hub.example:8787") == "ahcli_test"
     from adhd_hub.connect_login import load_saved_default_hub
 
     assert load_saved_default_hub() == "http://hub.example:8787"
