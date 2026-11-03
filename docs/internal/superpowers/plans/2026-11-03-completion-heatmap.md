@@ -15,7 +15,7 @@
 - [x] Extend browser smoke for populated/empty calendars, day details, storage-denied behavior, and collapse persistence; inspect light/dark desktop/mobile screenshots.
 - [x] Run full Pytest, Ruff, browser smoke and UI polish checks; refresh Graphify; audit docs/wiki.
 - [x] Update verified merged Slice A checklist items in #343; leave unmerged heatmap checks unchecked.
-- [ ] Open a PR with validation results, linked checklist, and the remaining Slice B/C/D scope.
+- [x] Open [PR #349](https://github.com/uniskela/adhd-hub/pull/349) with validation results, linked checklist, and the remaining Slice B/C/D scope.
 
 ## Verification
 
