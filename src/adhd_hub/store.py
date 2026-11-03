@@ -2647,10 +2647,7 @@ class Store:
         if not types:
             return []
         limit = max(1, min(int(limit), 50_000))
-        try:
-            since_dt = datetime.fromisoformat(since_iso)
-        except ValueError:
-            since_dt = datetime.fromisoformat(since_iso.replace("Z", "+00:00"))
+        since_dt = datetime.fromisoformat(since_iso)
         if since_dt.tzinfo is None:
             since_dt = since_dt.replace(tzinfo=UTC)
         since_utc = since_dt.astimezone(UTC).isoformat()
