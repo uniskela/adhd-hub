@@ -786,7 +786,7 @@ def detect_context7_mcp() -> bool | None:
     """True if a context7 MCP entry exists in a known client config."""
     checked = False
     cursor = Path.home() / ".cursor" / "mcp.json"
-    claude = Path.home() / ".claude" / "mcp.json"
+    claude = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home()) / ".claude.json"
     for path in (cursor, claude):
         if not path.is_file():
             continue
@@ -798,7 +798,7 @@ def detect_context7_mcp() -> bool | None:
         servers = data.get("mcpServers") or data.get("servers") or {}
         if isinstance(servers, dict) and "context7" in servers:
             return True
-    codex = Path.home() / ".codex" / "config.toml"
+    codex = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
     if codex.is_file():
         checked = True
         text = codex.read_text(encoding="utf-8")
@@ -811,7 +811,7 @@ def detect_context7_mcp() -> bool | None:
 
 def detect_serena_mcp() -> bool | None:
     checked = False
-    for path in (Path.home() / ".cursor" / "mcp.json", Path.home() / ".claude" / "mcp.json"):
+    for path in (Path.home() / ".cursor" / "mcp.json", Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home()) / ".claude.json"):
         if not path.is_file():
             continue
         checked = True
@@ -822,7 +822,7 @@ def detect_serena_mcp() -> bool | None:
         servers = data.get("mcpServers") or data.get("servers") or {}
         if isinstance(servers, dict) and "serena" in servers:
             return True
-    codex = Path.home() / ".codex" / "config.toml"
+    codex = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
     if codex.is_file():
         checked = True
         text = codex.read_text(encoding="utf-8")
@@ -1790,7 +1790,7 @@ def install_companions(
             if "cursor" in resolved or all_star:
                 targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
             if "claude" in resolved or all_star:
-                targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
+                targets.append(("claude", Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home()) / ".claude.json"))
             if not targets and resolved and "codex" not in resolved and not all_star:
                 steps.append(
                     CompanionStep(
@@ -1821,7 +1821,7 @@ def install_companions(
                         )
                     )
             if "codex" in resolved or all_star:
-                codex_path = Path.home() / ".codex" / "config.toml"
+                codex_path = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
                 try:
                     action = merge_codex_stdio_mcp(
                         codex_path,
@@ -1930,7 +1930,7 @@ def install_companions(
         if "cursor" in resolved or all_star:
             mcp_targets.append(("cursor", Path.home() / ".cursor" / "mcp.json"))
         if "claude" in resolved or all_star:
-            mcp_targets.append(("claude", Path.home() / ".claude" / "mcp.json"))
+            mcp_targets.append(("claude", Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home()) / ".claude.json"))
         for label, mcp_path in mcp_targets:
             try:
                 action = merge_stdio_mcp_json(
@@ -1952,7 +1952,7 @@ def install_companions(
                     )
                 )
         if "codex" in resolved or all_star:
-            codex_path = Path.home() / ".codex" / "config.toml"
+            codex_path = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
             try:
                 action = merge_codex_stdio_mcp(
                     codex_path,

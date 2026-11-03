@@ -11,6 +11,12 @@ npx skills add /path/to/adhd-hub/skills -g -a claude-code
 
 ## MCP (when the Hub is reachable)
 
+Configure user scope in `~/.claude.json` (top-level `mcpServers`), or project
+scope in `.mcp.json`. `~/.claude/mcp.json` is not a Claude Code registration.
+Prefer `adhd-hub agents setup --agents claude --scope user --hub https://hub.example.com`,
+or Claude's supported `claude mcp add-json --scope user` command. Keep unrelated
+settings in `~/.claude.json` intact.
+
 ```json
 {
   "mcpServers": {
@@ -18,12 +24,18 @@ npx skills add /path/to/adhd-hub/skills -g -a claude-code
       "type": "http",
       "url": "http://127.0.0.1:8787/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
+        "Authorization": "Bearer ${ADHD_HUB_AUTH_TOKEN}"
       }
     }
   }
 }
 ```
+
+Inject `ADHD_HUB_AUTH_TOKEN` into the environment that launches Claude. A saved
+`adhd-hub login` session does not populate that environment. Claude uses `${VAR}`;
+Cursor uses `${env:VAR}`. Use HTTPS outside loopback. Run `adhd-hub agents doctor
+--agents claude --hub https://hub.example.com` for a direct MCP check, then restart
+Claude and check `/mcp` to verify its own connection.
 
 ### Local stdio alternative
 

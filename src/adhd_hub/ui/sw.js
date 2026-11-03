@@ -1,6 +1,6 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
 /* Bump CACHE when PRECACHE entries or SW behaviour change (avoid colliding open PRs). */
-const CACHE = "adhd-hub-shell-v55";
+const CACHE = "adhd-hub-shell-v57";
 const PRECACHE = [
   "/ui/",
   "/ui/app.css",
@@ -76,7 +76,8 @@ self.addEventListener("fetch", (event) => {
 
   if (networkFirst) {
     event.respondWith(
-      fetch(req)
+      // no-cache: revalidate so boot.js / settings.js cannot diverge across upgrades
+      fetch(req, { cache: "no-cache" })
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();

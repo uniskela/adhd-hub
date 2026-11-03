@@ -23,6 +23,9 @@ from zoneinfo import ZoneInfo
 
 from playwright.sync_api import expect, sync_playwright
 
+_CALENDAR_SUMMARY = "#completion-calendar > summary"
+_CALENDAR_BODY = ".completion-calendar-body"
+
 
 def main():
     root = Path(__file__).resolve().parents[1]
@@ -402,6 +405,104 @@ def main():
                 expect(page.locator("#chart .col")).to_have_count(14)
                 page.get_by_text("Show as a table", exact=True).click()
                 expect(page.locator("#chart-table-body tr")).to_have_count(14)
+                # Check fixtures in one browser turn so live refresh cannot replace them mid-check.
+                page.evaluate("""async () => {
+                    const { renderStats } = await import('/ui/js/progress.js');
+                    const { state } = await import('/ui/js/state.js');
+                    const overview = state.overviewCache;
+                    const el = id => document.getElementById(id);
+                    const check = (ok, message) => { if (!ok) throw new Error(message); };
+                    const series = Array.from({ length: 14 }, (_, i) => ({
+                        date: `2026-10-${18 + i}`, added: i === 1 ? 2 : 0,
+                        finished: i === 13 ? 5 : i === 6 ? 1 : 0,
+                    }));
+                    try {
+                        renderStats({ ...overview, added_vs_finished: series });
+                        check(el('activity-finished').textContent === '6', 'Finished total');
+                        check(el('activity-added').textContent === '2', 'Added total');
+                        check(el('activity-days').textContent === '3', 'Active days');
+                        check(document.querySelectorAll('.rhythm-day').length === 14, 'Day strip');
+                        check(document.querySelectorAll('.rhythm-day.is-active').length === 3, 'Active strip');
+                        check(el('chart-scale').textContent === '630', 'Whole-count scale');
+                        check(el('chart-table-body').lastElementChild.lastElementChild.textContent === '5', 'Table count');
+                        const day = el('chart').lastElementChild;
+                        check(day.querySelector('.done').style.height === '83.3%', 'Shared scale');
+                        day.focus();
+                        check(!el('chart-day-tip').hidden && el('chart-day-tip').textContent.includes('5 finished'), 'Keyboard details');
+                        renderStats({ ...overview, added_vs_finished: series.map(d => ({ ...d, added: 0, finished: 0 })) });
+                        check(!el('chart-empty').hidden && el('chart-wrap').hidden, 'Quiet period');
+                        for (const id of ['activity-finished', 'activity-added', 'activity-days']) {
+                            check(el(id).textContent === '0', `Reset ${id}`);
+                        }
+                        check(el('chart-day-tip').hidden, 'Hide stale tooltip');
+                        check(el('chart-table-body').children.length === 0, 'Clear stale table');
+                        renderStats({ ...overview, added_vs_finished: [] });
+                        check(!el('chart-empty').hidden, 'Missing series');
+                        check(el('activity-range').textContent.includes('at your pace'), 'Missing dates');
+                        const completionDays = Array.from({ length: 78 }, (_, i) => ({
+                            date: new Date(Date.UTC(2026, 7, 17 + i)).toISOString().slice(0, 10),
+                            completed: [0, 1, 2, 4, 8][i] || 0,
+                        }));
+                        const calendarOverview = { ...overview, insights: { ...overview.insights,
+                            completion_days: completionDays, as_of: '2026-11-02', timezone: 'UTC' } };
+                        renderStats(calendarOverview);
+                        const grid = el('completion-calendar-days');
+                        check(grid.children.length === 78, 'Twelve-week calendar');
+                        check([...grid.children].slice(0, 5).map(d => d.dataset.level).join('') === '01234', 'Intensity boundaries');
+                        check(el('completion-calendar-summary').textContent.includes('15 recorded completions'), 'Calendar total');
+                        check(el('completion-calendar-table').children.length === 2, 'Calendar table latest month');
+                        check(el('completion-calendar-page-label').textContent.includes('2026'), 'Calendar table month label');
+                        el('completion-calendar-prev').click();
+                        check(el('completion-calendar-table').children.length === 31, 'Calendar table earlier month');
+                        el('completion-calendar-next').click();
+                        check(el('completion-calendar-table').children.length === 2, 'Calendar table later month');
+                        grid.children[1].focus();
+                        check(el('completion-day-details').textContent.includes('1 recorded completion.'), 'Exact day count');
+                        grid.children[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+                        check(document.activeElement === grid.children[8], 'Move one week with arrow key');
+                        renderStats(calendarOverview);
+                        check(document.activeElement === grid.children[8], 'Keep focus after live refresh');
+                        check(grid.querySelectorAll('[tabindex="0"]').length === 1, 'One keyboard entry point');
+                        renderStats({ ...calendarOverview, insights: { ...calendarOverview.insights,
+                            completion_days: completionDays.map(d => ({ ...d, completed: 0 })) } });
+                        check([...grid.children].every(d => d.dataset.level === '0'), 'Neutral quiet days');
+                        check(el('completion-calendar-summary').textContent.includes('No recorded completions'), 'Calm empty calendar');
+                    } finally {
+                        renderStats(overview);
+                    }
+                }""")
+                calendar_days = page.locator("#completion-calendar-days .calendar-day")
+                calendar_days.last.focus()
+                page.keyboard.press("Home")
+                expect(calendar_days.first).to_be_focused()
+                page.keyboard.press("ArrowRight")
+                expect(calendar_days.nth(7)).to_be_focused()
+                page.keyboard.press("End")
+                expect(calendar_days.last).to_be_focused()
+                calendar_days.first.click()
+                expect(page.locator("#completion-day-details")).to_contain_text("recorded")
+                page.get_by_text("Show calendar as a table", exact=True).click()
+                latest_month_rows = page.evaluate(
+                    """() => {
+                        const days = [...document.querySelectorAll('#completion-calendar-days .calendar-day')];
+                        const key = days.at(-1)?.dataset.date?.slice(0, 7);
+                        return days.filter((day) => day.dataset.date.startsWith(key)).length;
+                    }"""
+                )
+                expect(page.locator("#completion-calendar-table tr")).to_have_count(latest_month_rows)
+                if calendar_days.count() > latest_month_rows:
+                    latest_label = page.locator("#completion-calendar-page-label").inner_text()
+                    page.locator("#completion-calendar-prev").click()
+                    expect(page.locator("#completion-calendar-page-label")).not_to_have_text(latest_label)
+                page.locator(_CALENDAR_SUMMARY).click()
+                expect(page.locator(_CALENDAR_BODY)).to_be_hidden()
+                page.reload()
+                expect(page.locator("#progress-view")).to_be_visible()
+                expect(page.locator(_CALENDAR_BODY)).to_be_hidden()
+                page.locator(_CALENDAR_SUMMARY).click()
+                expect(page.locator(_CALENDAR_BODY)).to_be_visible()
+                page.reload()
+                expect(page.locator(_CALENDAR_BODY)).to_be_visible()
                 expect(page.locator("#rank-name")).to_have_text("Seedling")
                 expect(page.locator("#badges .earned")).to_have_count(1)
                 page.get_by_role("button", name="Share progress", exact=True).click()
@@ -477,7 +578,9 @@ def main():
                 expect(page.locator("#rewards-enabled")).to_be_focused()
                 page.get_by_role("button", name="Now", exact=True).click()
                 page.get_by_role("button", name="Help me choose", exact=True).click()
+                suggested_title = page.locator("#suggestion h3").inner_text()
                 page.get_by_role("button", name="Choose this", exact=True).click()
+                expect(page.locator("#focus-title")).to_have_text(suggested_title)
                 page.evaluate("localStorage.setItem(\"adhd_hub_theme\", \"light\")"); page.reload()
                 page.screenshot(
                     path=str(screenshots / "dashboard-light.png"),
@@ -684,6 +787,11 @@ def main():
                 blocked.locator("#rewards-enabled").uncheck()
                 blocked.keyboard.press("Escape")
                 expect(blocked.locator("#rewards-panel")).to_be_hidden()
+                blocked.get_by_role("button", name="Progress", exact=True).click()
+                blocked.locator(_CALENDAR_SUMMARY).click()
+                expect(blocked.locator(_CALENDAR_BODY)).to_be_hidden()
+                blocked.locator(_CALENDAR_SUMMARY).click()
+                expect(blocked.locator(_CALENDAR_BODY)).to_be_visible()
                 isolated.close()
                 assert not errors, errors
                 browser.close()

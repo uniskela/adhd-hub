@@ -147,6 +147,22 @@ def test_upsert_progress_and_done_publish_events(service: HubService) -> None:
     ]
     assert len(completed) == 1
 
+    # Reopen and complete again with unchanged content must publish a second
+    # THREAD_COMPLETED (insights calendar / periods['today']['completed']).
+    restored = service.undo_mark_done(thread.id, note="Undone.")
+    assert restored
+    assert restored.status.value == "open"
+    done_again = service.mark_done(thread.id, note="Shipped again.")
+    assert done_again
+    assert done_again.status.value == "done"
+    completed = [
+        e
+        for e in service.store.list_recent_activity_events(limit=50)
+        if e.event_type == THREAD_COMPLETED and e.thread_id == thread.id
+    ]
+    assert len(completed) == 2
+    assert completed[0].idempotency_key != completed[1].idempotency_key
+
 
 def test_forge_reconcile_outcome_events(service: HubService) -> None:
     service._record_forge_reconcile_outcome(

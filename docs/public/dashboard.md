@@ -204,7 +204,11 @@ On phones, Settings opens to the section list and each page has **All settings**
 
 ## Progress and sharing
 
-The **Activity** card summarises today / last 7 days / last 30 days / this month from the Hub activity ledger (steps started, finished, progress notes, projects touched). Reflection only — not a productivity score. The 14-day chart uses the same ledger for added vs finished. Hover/focus a day for details or choose **Show as a table**. Quiet periods show a calm empty state.
+The **Activity** card highlights steps finished, steps added, and days with activity over the last 14 days, followed by today / last 7 days / last 30 days / this month totals from the Hub activity ledger. Reflection only — not a productivity score. The daily chart uses a shared count scale, striped bars for added steps, and solid bars for finished steps. Hover, tap, or focus a day for details, or choose **Show as a table**. Quiet periods show a calm empty state. Dates follow the Hub’s time zone.
+
+The **Completion calendar** shows recorded completions across 12 Monday-based weeks, including the current week through today. Zero days stay neutral; darker squares mean more completions. Select a square by hover, tap, or keyboard to read its date and exact count. Arrow keys move between days or weeks, **Home** and **End** reach the first and last day, and **Show calendar as a table** lists the same counts one month at a time. **Earlier** and **Later** move between those months. Activate the **Completion calendar** heading to hide or show it; the choice stays in this browser.
+
+These insights are for private reflection. Rendering uses local activity events and sends no history to AI or an external analytics service. History begins when events were recorded; older completed thread rows are not backfilled. Reopening a step does not erase its recorded completion. Reward totals describe the current thread inventory, so they can differ from the historical calendar. Focus time and separate progress-note calendar metrics are not available yet; the period summaries label combined progress events as **progress updates**.
 
 With rewards enabled, Progress also shows:
 

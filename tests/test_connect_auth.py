@@ -229,6 +229,22 @@ def test_start_rejects_non_loopback_callback(tmp_path: Path) -> None:
         assert resp.status_code == 400
 
 
+def test_cli_session_slides_expiry_on_use(tmp_path: Path) -> None:
+    store = ConnectStore(tmp_path / "connect.sqlite3")
+    verifier, challenge = generate_pkce()
+    grant = store.start_grant(challenge=challenge, state=None, callback_url=None)
+    store.approve_user_code(grant["user_code"])
+    status, token, _expires = store.exchange(verifier=verifier, device_code=grant["device_code"])
+    assert status == "ok"
+    assert token
+    sessions = store.list_sessions()
+    assert len(sessions) == 1
+    before = sessions[0]["expires_at"]
+    assert store.valid_session(token) is True
+    after = store.list_sessions()[0]["expires_at"]
+    assert after >= before
+
+
 def test_cli_session_authorizes_mcp(tmp_path: Path) -> None:
     settings = Settings(data_dir=tmp_path, auth_token="secret")
     store = ConnectStore(tmp_path / "connect.sqlite3")
@@ -258,6 +274,15 @@ def test_cli_session_authorizes_mcp(tmp_path: Path) -> None:
             },
         )
         assert response.status_code == 200
+        tools = client.post("/mcp", headers=headers, json={
+            "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}
+        })
+        assert tools.status_code == 200
+        assert "get_overview" in tools.text
+        store.expire_session_now(token)
+        assert client.post("/mcp", headers=headers, json={
+            "jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}
+        }).status_code == 401
 
 
 def test_credentials_file_mode_and_lookup(tmp_path: Path, monkeypatch) -> None:
@@ -267,6 +292,15 @@ def test_credentials_file_mode_and_lookup(tmp_path: Path, monkeypatch) -> None:
     assert (path.stat().st_mode & 0o777) == 0o600
     assert load_saved_token("http://hub.example:8787") == "ahcli_test"
     assert credentials_path() == path
+    # Past local expires_at still returns the token (Hub is source of truth).
+    import json
+    import time
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    hub = next(iter(data["sessions"]))
+    data["sessions"][hub]["expires_at"] = time.time() - 10
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert load_saved_token("http://hub.example:8787") == "ahcli_test"
     from adhd_hub.connect_login import load_saved_default_hub
 
     assert load_saved_default_hub() == "http://hub.example:8787"
@@ -277,9 +311,12 @@ def test_ui_connections_copy_has_no_export(tmp_path: Path) -> None:
         home = client.get("/ui/")
         assert home.status_code == 200
         text = home.text
-        assert "Do <strong>not</strong> export your server access token" in text
+        assert "Keep tokens out of commands and config files" in text
+        assert "agents separately need" in text
+        assert "adhd-hub agents doctor" in text
         assert "Allow this computer" in text
         assert "Allow this CLI" in text
         assert "btn-allow-cli" in text
         assert "install-cmd" in text
-        assert "export TOKEN=" in text
+        assert "This signs in the ADHD Hub CLI" in text
+        assert "Your selection updates the setup commands below" in text

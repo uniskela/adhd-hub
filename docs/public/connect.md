@@ -1,6 +1,158 @@
 # Connect a machine or project in one step
 
-Point coding agents at a running ADHD Progress Hub without hand-editing every config file, and without putting the **server** access token in your shell.
+Point coding agents at a running ADHD Progress Hub without hand-editing every config file, and without putting bearer tokens in commands or configuration files.
+
+## Agent setup and authenticated diagnostics
+
+Without a project checkout:
+
+```bash
+adhd-hub agents setup --hub https://hub.example.com --agents codex,claude,cursor --scope user
+adhd-hub agents status --hub https://hub.example.com --agents codex,claude,cursor
+adhd-hub agents doctor --hub https://hub.example.com --agents codex,claude,cursor --json
+```
+
+`setup` writes registrations, then checks MCP directly. If credentials are missing,
+registrations are still saved and the command exits nonzero with recovery guidance.
+`status` and `doctor` share the same read-only checks: neither launches an agent,
+changes configuration, sends notifications, nor writes verification back to the Hub.
+They report executable detection, config paths/scopes, credential presence (`SET` or
+`MISSING`), endpoint reachability, initialization, authentication and discovery of
+`get_overview`. A config file alone never means connected. Exit status is nonzero
+for configuration errors, missing environment credentials or failed authenticated
+probes. Missing executables and inaccessible client OAuth stores remain warnings.
+
+The probe handles JSON and SSE, MCP session IDs, the initialized notification,
+protocol negotiation and paginated `tools/list`, with time and response-size limits.
+HTTP 401/403 means missing, expired, rejected or insufficient credentials; the CLI
+cannot infer which from the status alone. TLS/network failures are separate from
+configuration findings. HTTPS is required outside loopback. Redirects to other
+endpoints are refused so credentials cannot follow them.
+
+### Authentication methods are separate
+
+| Method | Used by | What setup does |
+| --- | --- | --- |
+| Server bearer (`ADHD_HUB_AUTH_TOKEN`) | Processes inheriting that environment variable | New registrations reference the variable; no literal secret is written |
+| CLI short-code session | `adhd-hub` CLI using its local credentials file | Login saves a CLI session; it does **not** fill agent environments or OAuth stores |
+| MCP OAuth browser authorization | The client that completed authorization | Existing headerless/OAuth configurations are preserved; authorize separately in each client |
+
+The Hub accepts CLI-session bearers at MCP too, but agents do not automatically
+read the CLI credentials file. A successful CLI login or CLI-token probe therefore
+cannot verify an agent's credentials. Agent diagnostics use the agent registration's
+environment bearer, never silently substitute a saved CLI session. Client OAuth,
+custom headers, alternate token variables and local stdio registrations are preserved
+and reported as unavailable for direct verification. Use the client's own MCP status
+to verify these integrations. To change to OAuth, review/remove the bearer header
+(or Codex's `bearer_token_env_var`) yourself and authorize with the client's Auth
+control; Codex supports `codex mcp login adhd-hub`.
+
+### Locations and scopes
+
+| Client | User scope | Project scope | Bearer syntax |
+| --- | --- | --- | --- |
+| Claude Code | `~/.claude.json`, top-level `mcpServers` | `.mcp.json` | `Bearer ${ADHD_HUB_AUTH_TOKEN}` |
+| Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | `Bearer ${env:ADHD_HUB_AUTH_TOKEN}` |
+| Codex | `~/.codex/config.toml` | `.codex/config.toml` | `bearer_token_env_var = "ADHD_HUB_AUTH_TOKEN"` |
+
+`CODEX_HOME` and `CLAUDE_CONFIG_DIR` overrides are respected. With
+`CLAUDE_CONFIG_DIR`, user `.claude.json` lives **inside** that directory. Claude's
+local per-project entries inside its user JSON are also inspected when `--project`
+is supplied. Codex ancestor `.codex/config.toml` layers are inspected; project
+configuration only loads for trusted projects. Pass the intended `--project` to
+detect project/user conflicts. User-only setup deliberately does not inspect an
+arbitrary current directory or scan every checkout on the machine.
+
+`connect --scope project` now consistently targets project scope for all three
+clients; older releases always wrote Codex and Claude at user scope. Existing
+user entries cause a conflict report: reuse `--scope user` or review/remove the
+redundant entry. Setup never silently deletes registrations from another scope.
+Unrelated settings/servers and existing custom authentication are preserved. JSON
+writes and supported Codex table edits are atomic, with one private
+`*.adhd-hub.bak` backup of the pre-edit file. Unusual TOML layouts are refused for
+manual review; comments and other tables are retained. JSON-with-comments is not
+rewritten automatically.
+
+### Preview and repair
+
+```bash
+adhd-hub agents setup --agents claude,cursor,codex --hub https://hub.example.com --dry-run
+adhd-hub agents repair --agents claude --hub https://hub.example.com
+adhd-hub agents repair --agents claude --hub https://hub.example.com --apply
+# Explicit workspace:
+adhd-hub agents setup --agents claude,cursor,codex --scope project --project ./repo --hub https://hub.example.com
+```
+
+Repair previews by default. `--apply` uses the same idempotent setup helpers;
+`--dry-run` always wins over apply. Recognized old interpolation is repaired.
+Custom authentication/transport cannot be retargeted automatically. Review scope
+conflicts and malformed files manually; previews never print their contents.
+Restart selected agents after applying, then ask each agent to list Hub tools.
+The direct probe does not establish that a launched agent inherited the same HOME,
+PATH, current directory, environment or OAuth session.
+
+### Headless Debian, SSH and multiple users
+
+Run setup as the account that actually launches agents. For example, log in as
+that account over SSH, then use an accessible working directory:
+
+```bash
+cd "$HOME"
+export PATH="$HOME/.local/bin:$PATH"
+adhd-hub agents setup --hub https://hub.example.com --agents codex,claude,cursor --scope user --non-interactive
+# Bash: read a token without putting its value in shell history or command arguments.
+read -r -s -p 'Hub bearer token: ' ADHD_HUB_AUTH_TOKEN
+printf '\n'
+export ADHD_HUB_AUTH_TOKEN
+adhd-hub agents doctor --hub https://hub.example.com --agents codex,claude,cursor --scope user
+# Launch agents from this environment, or inject the variable in their service.
+```
+
+An initial missing-credential result is expected until the variable is injected.
+For unattended installation, inject it with your existing secret manager/service
+launcher before setup; do not put its value on a command line. Do not copy a
+server `.env` into a checkout or shell profile.
+
+A systemd service's `EnvironmentFile=` applies to its processes, not a new SSH
+shell. An administrator's successful probe does not verify a service account.
+Switching accounts with `sudo -u ... -H` changes HOME but normally filters environment
+variables and retains cwd. This explains both missing-token errors and attempts
+to read a protected administrator checkout's `.mcp.json`. Use a service-account
+login, `cd "$HOME"`, and the same approved environment injection as the launcher.
+Doctor never reads privileged service environment files or inspects another
+process's environment. An administrator must manage any service changes; setup
+does not edit systemd, restart services or change networking.
+
+If a separate MCP server launches `codex`, that executable also needs to be on the
+launcher's PATH. ADHD Hub diagnostics check the selected clients, not unrelated
+servers. Run `command -v codex claude cursor-agent` in the agent launch context.
+Each user has separate config/OAuth stores; copying another user's registration is
+not a substitute for setup and authentication under the right account.
+
+### Windows
+
+Run setup in PowerShell under the Windows account that launches the agents:
+
+```powershell
+adhd-hub agents setup --hub https://hub.example.com --agents codex,claude,cursor --scope user --non-interactive
+adhd-hub agents doctor --hub https://hub.example.com --agents codex,claude,cursor --json
+```
+
+Home paths resolve under that account's profile, including
+`$HOME\.claude.json`. A Windows service, scheduled task, WSL session, SSH session
+and desktop app can have different users, HOME and environments. Environment
+changes affect newly launched processes; restart the agent/launcher after the
+approved credential injection. Prefer per-client OAuth for desktop use when
+available. Do not put tokens in PowerShell commands, profiles or project files.
+`install.ps1 -NonInteractive -Agents 'codex,claude,cursor'` forwards noninteractive
+setup; `install.sh --non-interactive --agents codex,claude,cursor` does the same on
+Linux/macOS. `ADHD_HUB_CONNECT_NON_INTERACTIVE=1` is the installer env equivalent.
+
+Official configuration references checked 2026-11-03:
+[Claude Code MCP](https://code.claude.com/docs/en/mcp),
+[Claude config locations](https://code.claude.com/docs/en/mcp-quickstart),
+[Cursor MCP](https://cursor.com/docs/mcp),
+[Codex MCP](https://developers.openai.com/codex/mcp).
 
 ## Recommended connect flow
 
@@ -63,7 +215,7 @@ The bootstrap scripts try the least disruptive path first:
 - Otherwise they can fall back to `uvx --from <this Hub's wheel URL>`, then GitHub if the wheel URL is unavailable.
 - If `uv` is missing, interactive runs ask before using Astral's official installer.
 - Non-interactive runs never install `uv` automatically unless `ADHD_HUB_INSTALL_UV=1` is set.
-- After an ephemeral `uvx` connect, the script may offer to install the CLI permanently. Non-interactive opt-in is `ADHD_HUB_INSTALL_CLI=1`.
+- After an ephemeral `uvx` connect, interactive scripts may offer to install the CLI permanently. Non-interactive opt-in is `ADHD_HUB_INSTALL_CLI=1`.
 - Dry-run connect does not install or refresh the CLI.
 
 If no supported toolchain is available, the script prints the manual recovery steps instead of modifying the machine silently.
@@ -121,7 +273,7 @@ adhd-hub use-hub https://adhd-hub.example.com \
 That command:
 
 1. Saves the URL as your CLI **default hub** (`~/.config/adhd-hub/credentials.json` → `default_hub`)
-2. Retargets Cursor / Codex / Claude MCP entries to `https://…/mcp`
+2. Retargets Cursor / Codex / Claude MCP entries to `https://…/mcp`, reusing each existing scope (`--scope both`, the default) without creating a second registration
 3. Runs the browser login handshake if you are not already signed in to that Hub
 
 Afterward, `adhd-hub doctor` / `connect` / `login` without `--hub` use the saved host (env vars like `ADHD_HUB_PUBLIC_URL` still win when set).
@@ -140,7 +292,7 @@ adhd-hub connect /path/to/project --hub https://adhd-hub.example.com --agents cu
 | One-time connect code | Hub SQLite for ~10 minutes, single-use | Reuse / replay; it expires |
 | CLI session (`ahcli_…`) | `~/.config/adhd-hub/credentials.json` on the client | Shell `export`, git, progress notes |
 
-The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it under **Settings → Coding agents → Connected computers** or with `adhd-hub logout`. Dashboard password login is unchanged.
+The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Each accepted use refreshes it for 90 days, and the saved credentials file is kept so the CLI can reconnect while the Hub session is still valid. Revoke it under **Settings → Coding agents → Connected computers** or with `adhd-hub logout`. Dashboard password login is unchanged.
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
 
@@ -188,13 +340,20 @@ authorization URL or expose the callback publicly.
 - Static `Authorization: Bearer …` with `ADHD_HUB_AUTH_TOKEN` on the client (or `${env:ADHD_HUB_AUTH_TOKEN}` in MCP config).
 - CLI `adhd-hub connect` / `adhd-hub login` (user-code + Allow in **Settings → Coding agents**).
 
-**Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` always probes that Hub’s OAuth well-known when diagnosing a non-loopback Hub (or when `ADHD_HUB_PUBLIC_URL` is set), independent of any local `ADHD_HUB_OAUTH_ENABLED` in the doctor process; it warns on missing/malformed metadata. Unreachable Hub is a warning, not a hard failure.
+**Rollback:** set `ADHD_HUB_OAUTH_ENABLED=false` on the Hub and restart. Discovery (`.well-known/…`) and `/api/oauth/*` turn off; static Bearer and CLI connect keep working. `adhd-hub doctor --hub <url>` always probes that Hub’s OAuth well-known when diagnosing a non-loopback Hub (or when `ADHD_HUB_PUBLIC_URL` is set), independent of any local `ADHD_HUB_OAUTH_ENABLED` in the doctor process; it warns on missing/malformed metadata. OAuth discovery failures are warnings; failed authenticated MCP probes are errors in doctor.
 
 ## CLI wire-up flags
 
-Both install scripts refresh an existing `adhd-hub` on PATH from **this Hub's** `/install/cli-wheel.url` when `uv` is available, then prefer that durable CLI (ephemeral `uvx --from <wheel>` is the fallback; GitHub git if the wheel URL is missing). If `uv` itself is missing, they offer an interactive Astral bootstrap (see above) or honor `ADHD_HUB_INSTALL_UV=1`. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` runs `login` automatically when no session is saved (`--no-login` skips that).
+Both install scripts refresh an existing `adhd-hub` on PATH from **this Hub's** `/install/cli-wheel.url` when `uv` is available, then prefer that durable CLI (ephemeral `uvx --from <wheel>` is the fallback; GitHub git if the wheel URL is missing). If `uv` itself is missing, they offer an interactive Astral bootstrap (see above) or honor `ADHD_HUB_INSTALL_UV=1`. Prefer `uv tool install git+https://github.com/uniskela/adhd-hub.git` only when you want a standalone CLI without a running Hub. `connect` offers CLI login on an interactive TTY when no session is saved (`--no-login` or `--non-interactive` skips it). Agent-only setup never starts CLI login.
 
-`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. There is no assumed default: set agents in **Settings → Coding agents**, pass `--agents` / `-Agents`, or set `ADHD_HUB_CONNECT_AGENTS`. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
+`--agents` controls which tools get **MCP / config wire-up** and which agents receive Hub **skills**. With no selection, interactive CLI runs offer detected agents. Noninteractive runs require `--agents` / `-Agents` or `ADHD_HUB_CONNECT_AGENTS` and fail before login/config writes if none are selected. Use `*` to install skills for every skills.sh agent. Hub alias `claude` maps to skills.sh id `claude-code`.
+
+In **Settings → Coding agents**, choose agents before copying setup. The Linux/macOS
+and Windows commands include that selection immediately; running the command adds
+missing MCP registrations and checks existing settings. The browser does not write
+configuration on the agent's machine. **Save as defaults** stores the agent, skills
+and extras choices for future installs. The user-level setup and doctor commands
+also follow the current selection and work without a project checkout.
 
 ```powershell
 iex "& { $(irm $env:ADHD_HUB_PUBLIC_URL/install.ps1) } -Agents 'cursor,codex,claude'"
@@ -218,7 +377,7 @@ Install-script flags (also via env): `--agents`, `--scope`, `--register`, `--ope
 
 ```bash
 adhd-hub connect /path/to/project \
-  --hub http://100.x.x.x:8787 \
+  --hub https://hub.example.com \
   --agents cursor,codex \
   --scope project \
   --cursor-rule \
@@ -228,9 +387,9 @@ adhd-hub connect /path/to/project \
   --find-roots ~/Projects
 
 # Preview without writing files or registering:
-adhd-hub connect /path/to/project --hub http://100.x.x.x:8787 --cursor-rule --skills --dry-run
+adhd-hub connect /path/to/project --hub https://hub.example.com --cursor-rule --skills --dry-run
 
-adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
+adhd-hub doctor --hub https://hub.example.com --project /path/to/project
 ```
 
 ### What connect configures
@@ -238,7 +397,7 @@ adhd-hub doctor --hub http://100.x.x.x:8787 --project /path/to/project
 For Cursor-only Marketplace install (skills + rule + BYO MCP variables, no per-project `connect`), see [adhd-hub-cursorskill](https://github.com/uniskela/adhd-hub-cursorskill) and [Cursor plugin skill sync](cursor-plugin-skill-sync.md). `adhd-hub connect` remains the project/CLI path below.
 
 - **Cursor MCP** — project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (`--scope user`), using `${env:ADHD_HUB_AUTH_TOKEN}` so the file stays token-free
-- **Codex / Claude** — optional MCP blocks when listed in `--agents`
+- **Codex / Claude** — selected scope from the table above; existing settings/authentication are preserved
 - **Cursor rule** — `.cursor/rules/adhd-hub.mdc` with `--cursor-rule`
 - **AGENTS.md** — same reversible managed block as `adhd-hub setup`
 - **Skills** — Hub skills via Settings mode or flags: `--skills` (global npx `-g`) or `--project-skills` (repo `.agents/skills`). Missing `npx` for global **warns** and still succeeds; project sync failures warn the same way. Companions (i-have-adhd, etc.) stay separate opt-ins / Select all in Settings.
@@ -252,38 +411,12 @@ For Cursor-only Marketplace install (skills + rule + BYO MCP variables, no per-p
 
 `adhd-hub connect` and `adhd-hub doctor` print the same scannable report (login uses it too). While a subprocess runs, the CLI uses a quiet prefix, for example `→ Running  npx skills add …` (dim on a color TTY).
 
-### Outcome first
-
-A banner, then the Hub URL:
-
-```text
-Complete! ADHD Hub is connected.
-Hub: http://127.0.0.1:8787
-```
-
-On failure the banner is `Connect finished with errors — see summary below.` (doctor uses that same wording). Color is green for success and red for failure when color is on. Failure here means at least one step has status **error**. **warn**, **missing**, and **manual** still appear under **Needs attention** on a green report (typical for `doctor` when optional files are absent).
-
-### Do next or Fix these
-
-- **Do next** (success) — short bullets. Always includes opening the Hub UI and a close-the-terminal note. After `connect`, also restart agents, a `doctor` verify line, and optional `adhd-hub` PATH install. Optional companions guide when companion steps ran.
-- **Fix these** (failure) — numbered `name — detail` lines for **warn**, **error**, and **missing** steps only. Manual companion tips are not listed here.
-
-A failing report ends with `Fix the XX/!! items above, then re-run the install/connect command.`
-
-### Needs attention and Done
-
-**Needs attention** lists every **warn**, **error**, **missing**, or **manual** step with a mark and the same step detail. Empty sections are omitted.
-
-| Status | Mark | Color (when enabled) |
-| --- | --- | --- |
-| ok | `OK` | green |
-| skipped, manual | `--` | dim |
-| warn, missing | `!!` | yellow |
-| error | `XX` | red |
-
-OK and skipped steps collapse under **Done** as group counts (`Hub`, `Agents`, `Companions`, `Other` when any of that group succeeded or was skipped), for example `Hub · 3 ok`.
-
-Pass global `-v` / `--verbose` to also print **Summary of what ran** with every step.
+The banner reports errors or attention items and never says an agent is connected
+because a file exists. Normal output includes registration destinations; `-v`
+also lists all checks. Setup can save configuration while credentials are missing:
+review the authentication and direct HTTP results before using the registration.
+Dry runs say **Preview only** and do not start login, install tools or write files.
+For machine-readable output use `agents … --json` or `doctor --json`.
 
 ### Color
 

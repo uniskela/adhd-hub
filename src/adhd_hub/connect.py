@@ -7,11 +7,13 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TextIO
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from adhd_hub.cli_style import paint_status, print_running, style
@@ -200,6 +202,8 @@ class ConnectReport:
     continuity_text: str | None = None
     continuity_items: list[Any] | None = None
     dry_run: bool = False
+    agent_status: list[dict[str, Any]] = field(default_factory=list)
+    mcp_checks: dict[str, Any] = field(default_factory=dict)
 
     def add(self, name: str, status: str, detail: str) -> None:
         self.steps.append(StepResult(name, status, detail))
@@ -215,7 +219,12 @@ def normalize_hub_url(url: str) -> str:
         raise ValueError("hub URL is empty")
     if not re.match(r"^https?://", cleaned, re.IGNORECASE):
         raise ValueError("hub URL must start with http:// or https://")
-    return cleaned
+    parsed = urlsplit(cleaned)
+    if not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("hub URL requires a host and must not contain credentials, query or fragment")
+    _ = parsed.port  # Validate the port before a request or config write.
+    path = parsed.path.removesuffix("/mcp").rstrip("/")
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc, path, "", ""))
 
 
 def resolve_hub_url(explicit: str | None = None) -> str:
@@ -278,10 +287,12 @@ def _http_json(
 
 
 def probe_hub(hub_url: str, *, token: str | None = None) -> tuple[bool, str]:
+    from adhd_hub.mcp_probe import validate_mcp_url
     from adhd_hub.ssl_trust import format_tls_failure
 
     base = normalize_hub_url(hub_url)
     try:
+        validate_mcp_url(mcp_url_for(base))
         health = _http_json(f"{base}/api/health", token=token)
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
         return False, f"unreachable ({format_tls_failure(exc)})"
@@ -428,26 +439,68 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
+    _write_config(path, json.dumps(data, indent=2) + "\n")
+
+
+def _write_config(path: Path, text: str) -> None:
+    """Replace atomically; keep one private backup of the pre-edit configuration."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and path.is_symlink():
+    if path.is_symlink():
         raise ValueError(f"refusing to modify symlink: {path}")
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    if path.exists():
+        backup = path.with_name(path.name + ".adhd-hub.bak")
+        try:
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(path.read_bytes())
+    fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(text)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
-def merge_cursor_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
-    data = _read_json(path) if path.exists() else {}
+def _merge_http_mcp(path: Path, snippet: dict[str, Any], *, dry_run: bool) -> str:
+    if path.is_symlink():
+        raise ValueError(f"refusing to modify symlink: {path}")
+    data = _read_json(path)
     servers = data.setdefault("mcpServers", {})
     if not isinstance(servers, dict):
         raise TypeError(f"{path}: mcpServers must be an object")
-    snippet = cursor_mcp_snippet(hub_url)
     previous = servers.get(CURSOR_MCP_KEY)
-    if previous == snippet and path.exists():
+    if previous is not None:
+        if not isinstance(previous, dict):
+            raise ValueError("custom adhd-hub configuration; inspect before repairing")
+        headers = previous.get("headers")
+        managed_headers = (None, {}, {"Authorization": "Bearer ${env:ADHD_HUB_AUTH_TOKEN}"},
+                           {"Authorization": "Bearer ${ADHD_HUB_AUTH_TOKEN}"})
+        if ("command" in previous or previous.get("type") not in (None, "http")
+                or headers not in managed_headers or "auth" in previous):
+            if previous.get("url") == snippet["url"]:
+                return "unchanged (custom authentication preserved)"
+            raise ValueError("custom adhd-hub authentication/transport; inspect before retargeting")
+        # An existing headerless entry may use a client's OAuth store.
+        snippet = {**previous, **({"type": snippet["type"]} if "type" in snippet else {}),
+                   "url": snippet["url"], **(
+            {"headers": snippet["headers"]} if headers else {}
+        )}
+    if previous == snippet:
         return "unchanged"
     if dry_run:
-        return "would update" if previous else "would create"
+        return "would update" if previous is not None else "would create"
     servers[CURSOR_MCP_KEY] = snippet
     _write_json(path, data)
-    return "updated" if previous else "created"
+    return "updated" if previous is not None else "created"
+
+
+def merge_cursor_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
+    return _merge_http_mcp(path, cursor_mcp_snippet(hub_url), dry_run=dry_run)
 
 
 def cursor_user_mcp_path() -> Path:
@@ -516,23 +569,45 @@ Never put credentials, customer/personal data, private Hub URLs, internal hostna
 
 
 def merge_codex_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
-    """Merge [mcp_servers.adhd-hub] into Codex config.toml (simple line rewrite)."""
+    """Edit only a conventional Hub table; refuse unsupported/custom layouts."""
     block_lines = [
         f"[mcp_servers.{CODEX_SERVER_KEY}]",
-        f'url = "{mcp_url_for(hub_url)}"',
+        f'url = {json.dumps(mcp_url_for(hub_url))}',
         'bearer_token_env_var = "ADHD_HUB_AUTH_TOKEN"',
         "",
     ]
     block = "\n".join(block_lines)
-    if path.exists() and path.is_symlink():
+    if path.is_symlink():
         raise ValueError(f"refusing to modify symlink: {path}")
     original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    data = tomllib.loads(original)
+    servers = data.get("mcp_servers", {})
+    if not isinstance(servers, dict):
+        raise TypeError("Codex mcp_servers must be a table")
+    previous = servers.get(CODEX_SERVER_KEY)
     pattern = re.compile(
-        rf"^\[mcp_servers\.{re.escape(CODEX_SERVER_KEY)}\]\n(?:(?!^\[).*\n?)*",
+        r'''^\[mcp_servers\.(?:adhd-hub|"adhd-hub"|'adhd-hub')\][^\n]*''',
         re.MULTILINE,
     )
-    if pattern.search(original):
-        updated = pattern.sub(block, original)
+    if previous is not None:
+        if not isinstance(previous, dict) or "command" in previous:
+            raise ValueError("custom adhd-hub transport; inspect before repairing")
+        if previous.get("url") == mcp_url_for(hub_url):
+            return "unchanged"
+        if (previous.get("bearer_token_env_var") not in (None, "ADHD_HUB_AUTH_TOKEN")
+                or any(k in previous for k in ("http_headers", "env_http_headers", "http_headers_helper"))):
+            raise ValueError("custom adhd-hub authentication; inspect before retargeting")
+        match = pattern.search(original)
+        if not match:
+            raise ValueError("custom Codex table layout; edit adhd-hub URL manually")
+        start = match.end()
+        next_table = re.search(r"^[ \t]*\[", original[start:], re.MULTILINE)
+        end = start + next_table.start() if next_table else len(original)
+        section, count = re.subn(r"^[ \t]*url\s*=.*$", lambda _: block_lines[1], original[start:end],
+                                count=1, flags=re.MULTILINE)
+        if count != 1:
+            raise ValueError("custom Codex URL layout; edit adhd-hub URL manually")
+        updated = original[:start] + section + original[end:]
         action = "unchanged" if updated == original else "updated"
     else:
         prefix = original.rstrip()
@@ -540,40 +615,29 @@ def merge_codex_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
         action = "created" if not original else "updated"
     if updated == original:
         return "unchanged"
+    tomllib.loads(updated)
     if dry_run:
         return "would update" if original else "would create"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(updated if updated.endswith("\n") else updated + "\n", encoding="utf-8")
+    _write_config(path, updated if updated.endswith("\n") else updated + "\n")
     return action
 
 
 def codex_config_path() -> Path:
-    return Path.home() / ".codex" / "config.toml"
+    return Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
 
 
 def merge_claude_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
-    data = _read_json(path) if path.exists() else {}
-    servers = data.setdefault("mcpServers", {})
-    if not isinstance(servers, dict):
-        raise TypeError(f"{path}: mcpServers must be an object")
     snippet = {
         "type": "http",
         "url": mcp_url_for(hub_url),
-        "headers": {"Authorization": "Bearer ${env:ADHD_HUB_AUTH_TOKEN}"},
+        "headers": {"Authorization": "Bearer ${ADHD_HUB_AUTH_TOKEN}"},
     }
-    previous = servers.get(CURSOR_MCP_KEY)
-    if previous == snippet and path.exists():
-        return "unchanged"
-    if dry_run:
-        return "would update" if previous else "would create"
-    servers[CURSOR_MCP_KEY] = snippet
-    _write_json(path, data)
-    return "updated" if previous else "created"
+    return _merge_http_mcp(path, snippet, dry_run=dry_run)
 
 
 def claude_user_mcp_path() -> Path:
-    # Common Claude Code user MCP location; merge is idempotent if absent.
-    return Path.home() / ".claude" / "mcp.json"
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    return Path(config_dir) / ".claude.json" if config_dir else Path.home() / ".claude.json"
 
 
 def find_candidate_projects(roots: list[Path], *, limit: int = 50) -> list[Path]:
@@ -695,6 +759,8 @@ def render_install_sh(
 # The CLI opens your browser (or prints a one-time code) so you can Allow it
 # in Hub Settings → Coding agents. A session is saved on disk — do not export
 # ADHD_HUB_AUTH_TOKEN into your shell profile for this step.
+# Agent MCP needs its own environment bearer or client OAuth authorization.
+# Run as the account that launches the agents, from a directory it can access.
 #
 # Usage:
 #   curl -fsSL {base}/install.sh | sh -s -- /path/to/project
@@ -720,6 +786,7 @@ CURSOR_RULE=1
 REGISTER=0
 OPENCLAW=0
 DRY_RUN=0
+NON_INTERACTIVE=0
 WITH_I_HAVE_ADHD={baked_iha}
 WITH_GRAPHIFY={baked_gf}
 WITH_RTK={baked_rtk}
@@ -734,6 +801,7 @@ case "${{ADHD_HUB_CONNECT_OPENCLAW_SKILLS:-}}" in 1|true|TRUE|yes|YES) OPENCLAW=
 case "${{ADHD_HUB_CONNECT_SKILLS_MODE:-}}" in global|project|off) SKILLS_MODE="${{ADHD_HUB_CONNECT_SKILLS_MODE}}" ;; esac
 case "${{ADHD_HUB_CONNECT_NO_SKILLS:-}}" in 1|true|TRUE|yes|YES) SKILLS_MODE=off ;; esac
 case "${{ADHD_HUB_CONNECT_DRY_RUN:-}}" in 1|true|TRUE|yes|YES) DRY_RUN=1 ;; esac
+case "${{ADHD_HUB_CONNECT_NON_INTERACTIVE:-}}" in 1|true|TRUE|yes|YES) NON_INTERACTIVE=1 ;; esac
 case "${{ADHD_HUB_CONNECT_WITH_I_HAVE_ADHD:-}}" in 1|true|TRUE|yes|YES) WITH_I_HAVE_ADHD=1 ;; esac
 case "${{ADHD_HUB_CONNECT_WITH_GRAPHIFY:-}}" in 1|true|TRUE|yes|YES) WITH_GRAPHIFY=1 ;; esac
 case "${{ADHD_HUB_CONNECT_WITH_RTK:-}}" in 1|true|TRUE|yes|YES) WITH_RTK=1 ;; esac
@@ -823,6 +891,10 @@ while [ "$#" -gt 0 ]; do
       DRY_RUN=1
       shift
       ;;
+    --non-interactive)
+      NON_INTERACTIVE=1
+      shift
+      ;;
     --)
       shift
       break
@@ -845,8 +917,12 @@ export ADHD_HUB_CONNECT_USER_PATH="$PATH"
 # shellcheck disable=SC2086
 for _ADHD_EXTRA_FLAG in $EXTRA_FLAGS; do
   [ "$_ADHD_EXTRA_FLAG" != "--dry-run" ] || DRY_RUN=1
+  [ "$_ADHD_EXTRA_FLAG" != "--non-interactive" ] || NON_INTERACTIVE=1
 done
 set -- connect "$PROJECT" --hub "$HUB_URL" --agents "$AGENTS" --scope "$SCOPE"
+[ "$NON_INTERACTIVE" -eq 1 ] && set -- "$@" --non-interactive
+echo "Agent setup uses the current account's HOME/PATH/environment. CLI login does not authenticate coding agents."
+echo "Selected agents: ${{AGENTS:-choose interactively; non-interactive runs require --agents}}"
 case "$SKILLS_MODE" in
   global) set -- "$@" --skills ;;
   project) set -- "$@" --project-skills ;;
@@ -982,7 +1058,7 @@ _adhd_offer_permanent_cli() {{
     1|true|TRUE|yes|YES) ANSWER=y ;;
   esac
   if [ -z "$ANSWER" ]; then
-    if [ -r /dev/tty ]; then
+    if [ "$NON_INTERACTIVE" -eq 0 ] && [ -r /dev/tty ]; then
       printf "Install adhd-hub permanently on PATH with uv tool install? [y/N] " >/dev/tty
       IFS= read -r ANSWER </dev/tty || ANSWER=""
       export ADHD_HUB_CLI_INSTALL_PROMPTED=1
@@ -1047,7 +1123,7 @@ _adhd_bootstrap_uv_and_cli() {{
     1|true|TRUE|yes|YES) ANSWER=y ;;
   esac
   if [ -z "$ANSWER" ]; then
-    if [ -r /dev/tty ]; then
+    if [ "$NON_INTERACTIVE" -eq 0 ] && [ -r /dev/tty ]; then
       printf "Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N] " >/dev/tty
       IFS= read -r ANSWER </dev/tty || ANSWER=""
     else
@@ -1098,7 +1174,7 @@ if command -v uv >/dev/null 2>&1; then
     1|true|TRUE|yes|YES) ANSWER=y ;;
   esac
   if [ -z "$ANSWER" ]; then
-    if [ -r /dev/tty ]; then
+    if [ "$NON_INTERACTIVE" -eq 0 ] && [ -r /dev/tty ]; then
       printf "adhd-hub is not on PATH. Install it now with uv tool install? [y/N] " >/dev/tty
       IFS= read -r ANSWER </dev/tty || ANSWER=""
     fi
@@ -1195,7 +1271,8 @@ param(
   [switch]$WithSerena,
   [switch]$WithPonytail,
   [switch]$WithHumanizer,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$NonInteractive
 )
 $ErrorActionPreference = "Stop"
 if (-not $HubUrl) {{
@@ -1268,8 +1345,13 @@ if ($WithSerena) {{ $connectArgs += "--with-serena" }}
 if ($WithPonytail) {{ $connectArgs += "--with-ponytail" }}
 if ($WithHumanizer) {{ $connectArgs += "--with-humanizer" }}
 if ($DryRun) {{ $connectArgs += "--dry-run" }}
+if (Test-EnvFlag "ADHD_HUB_CONNECT_NON_INTERACTIVE") {{ $NonInteractive = $true }}
+if ($NonInteractive) {{ $connectArgs += "--non-interactive" }}
+Write-Host "Agent setup uses this account's HOME/PATH/environment. CLI login does not authenticate coding agents."
+Write-Host ("Selected agents: {{0}} (empty prompts interactively; otherwise pass -Agents)" -f $Agents)
 if ($env:ADHD_HUB_CONNECT_FLAGS) {{
   $connectArgs += ($env:ADHD_HUB_CONNECT_FLAGS -split '\\s+' | Where-Object {{ $_ }})
+  if ($connectArgs -contains "--non-interactive") {{ $NonInteractive = $true }}
 }}
 
 # `exit` after `irm | iex` closes the whole interactive PowerShell window.
@@ -1288,7 +1370,7 @@ function Offer-AdhdPermanentCli {{
     '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
   }}
   if (-not $answer) {{
-    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+    if (-not $NonInteractive -and [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
       $answer = Read-Host "Install adhd-hub permanently on PATH with uv tool install? [y/N]"
       $env:ADHD_HUB_CLI_INSTALL_PROMPTED = "1"
     }} else {{
@@ -1402,7 +1484,7 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {{
     '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
   }}
   if (-not $answer) {{
-    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+    if (-not $NonInteractive -and [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
       $answer = Read-Host "adhd-hub is not on PATH. Install it now with uv tool install? [y/N]"
     }}
   }}
@@ -1438,7 +1520,7 @@ switch -Regex ($env:ADHD_HUB_INSTALL_UV) {{
   '^(1|true|TRUE|yes|YES)$' {{ $answer = "y" }}
 }}
 if (-not $answer) {{
-  if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
+  if (-not $NonInteractive -and [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {{
     $answer = Read-Host "Install uv now using the official Astral installer, then install the ADHD Hub CLI? [y/N]"
   }} else {{
     Write-AdhdManualUv
@@ -1521,6 +1603,13 @@ def run_connect(
     if dry_run:
         report.add("mode", "ok", "dry-run (no files or remote writes)")
 
+    from adhd_hub.mcp_probe import validate_mcp_url
+
+    try:
+        validate_mcp_url(mcp_url_for(hub_url))
+    except ValueError:
+        report.add("hub", "error", "Use HTTPS outside loopback before configuring agents")
+        return report
     ok, detail = probe_hub(hub_url, token=token)
     report.add("hub probe", "ok" if ok else "warn", detail)
 
@@ -1535,45 +1624,26 @@ def run_connect(
     if skills_all_agents and not agents_set:
         agents_set = {"cursor", "codex", "claude"}
 
-    if "cursor" in agents_set:
-        try:
-            if scope == "user":
-                path = cursor_user_mcp_path()
-                action = merge_cursor_mcp(path, hub_url, dry_run=dry_run)
-                report.add("cursor MCP (user)", "ok", f"{action}: {path}")
-            else:
-                path = cursor_project_mcp_path(project)
-                action = merge_cursor_mcp(path, hub_url, dry_run=dry_run)
-                report.add("cursor MCP (project)", "ok", f"{action}: {path}")
-        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            report.add("cursor MCP", "error", str(exc))
+    from adhd_hub.agents import AGENTS, diagnose_agents, setup_agents
 
-        if cursor_rule:
-            try:
-                action = install_cursor_rule(project, dry_run=dry_run)
-                report.add(
-                    "cursor rule",
-                    "ok",
-                    f"{action}: {project / '.cursor' / 'rules' / RULE_FILENAME}",
-                )
-            except (OSError, ValueError) as exc:
-                report.add("cursor rule", "error", str(exc))
-
-    if "codex" in agents_set:
+    selected = sorted({"claude" if a == "claude-code" else a for a in agents_set} & set(AGENTS))
+    if selected:
+        setup = setup_agents(hub_url=hub_url, agents=selected, scope=scope,
+                             project=project, dry_run=dry_run)
+        report.steps.extend(setup.steps)
+        if setup.ok and not dry_run:
+            diagnostic = diagnose_agents(hub_url=hub_url, agents=selected,
+                                         scope=scope, project=project)
+            report.agent_status = diagnostic.agent_status
+            report.steps.extend(diagnostic.steps)
+    else:
+        report.add("agents", "warn", "No supported MCP targets selected; pass --agents codex,claude,cursor")
+    if "cursor" in agents_set and cursor_rule:
         try:
-            path = codex_config_path()
-            action = merge_codex_mcp(path, hub_url, dry_run=dry_run)
-            report.add("codex MCP", "ok", f"{action}: {path}")
-        except (OSError, ValueError, TypeError) as exc:
-            report.add("codex MCP", "error", str(exc))
-
-    if "claude" in agents_set or "claude-code" in agents_set:
-        try:
-            path = claude_user_mcp_path()
-            action = merge_claude_mcp(path, hub_url, dry_run=dry_run)
-            report.add("claude MCP", "ok", f"{action}: {path}")
-        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            report.add("claude MCP", "error", str(exc))
+            action = install_cursor_rule(project, dry_run=dry_run)
+            report.add("cursor rule", "ok", f"{action}: {project / '.cursor/rules' / RULE_FILENAME}")
+        except (OSError, ValueError) as exc:
+            report.add("cursor rule", "error", str(exc))
 
     try:
         agents_path = project / "AGENTS.md"
@@ -1809,77 +1879,6 @@ def run_connect(
     return report
 
 
-def _doctor_push_guidance_verification(
-    *,
-    hub_url: str,
-    token: str | None,
-    project: Path,
-    continuity: list[Any],
-    report: ConnectReport,
-) -> None:
-    """Best-effort: record local doctor versions on the Hub for session_digest.
-
-    Hub cannot inspect the client filesystem; doctor is the local verifier.
-    Failures stay warns so offline / auth issues never fail the doctor banner alone.
-    """
-    auth = (token or "").strip()
-    if not auth or auth == "change-me":
-        return
-
-    def _installed(name_prefix: str) -> int | None:
-        for item in continuity:
-            name = getattr(item, "name", "") or ""
-            if name.startswith(name_prefix) or name == name_prefix:
-                return getattr(item, "installed_version", None)
-        return None
-
-    payload = {
-        "workspace_path": str(project),
-        "agent_guidance_version": _installed("AGENTS.md"),
-        "session_skill_version": _installed("adhd-hub-session"),
-        "cursor_rule_version": _installed("Cursor rule"),
-        "source": "doctor",
-    }
-    if all(
-        payload[k] is None
-        for k in (
-            "agent_guidance_version",
-            "session_skill_version",
-            "cursor_rule_version",
-        )
-    ):
-        report.add(
-            "guidance verify",
-            "warn",
-            "no local version markers found to record",
-        )
-        return
-
-    base = normalize_hub_url(hub_url)
-    try:
-        _http_json(
-            f"{base}/api/guidance/verify",
-            token=auth,
-            method="POST",
-            payload=payload,
-        )
-        report.add(
-            "guidance verify",
-            "ok",
-            "recorded on Hub for session_digest.guidance",
-        )
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        ValueError,
-        TypeError,
-        json.JSONDecodeError,
-        OSError,
-    ) as exc:
-        report.add("guidance verify", "warn", f"could not record ({exc})")
-
-
 def _doctor_remote_checks(report: ConnectReport, hub_url: str, token: str | None) -> None:
     """Optional authenticated checks against forge / OpenClaw / indexer metadata."""
     auth = token or os.environ.get("ADHD_HUB_AUTH_TOKEN")
@@ -1942,39 +1941,7 @@ def _doctor_remote_checks(report: ConnectReport, hub_url: str, token: str | None
                 "configured"
                 + (" · alerts on" if oc.get("alerts_enabled") else " · alerts off"),
             )
-            # Soft probe: POST test only when alerts enabled (avoid surprise wake).
-            if oc.get("alerts_enabled"):
-                try:
-                    headers = {
-                        "Accept": "application/json",
-                        "Authorization": f"Bearer {auth}",
-                        "Content-Type": "application/json",
-                    }
-                    req = Request(
-                        f"{base}/api/openclaw/test",
-                        data=b"{}",
-                        headers=headers,
-                        method="POST",
-                    )
-                    with urlopen(req, timeout=10) as resp:
-                        body = resp.read().decode("utf-8")
-                    data = json.loads(body) if body else {}
-                    ok = bool(data.get("ok") or data.get("sent") or data.get("status") == "ok")
-                    report.add(
-                        "openclaw test",
-                        "ok" if ok else "warn",
-                        str(data.get("detail") or data.get("message") or data)[:160],
-                    )
-                except (
-                    HTTPError,
-                    URLError,
-                    TimeoutError,
-                    ValueError,
-                    TypeError,
-                    json.JSONDecodeError,
-                    OSError,
-                ) as exc:
-                    report.add("openclaw test", "warn", str(exc)[:160])
+
     except (
         HTTPError,
         URLError,
@@ -1999,8 +1966,12 @@ def run_doctor(
     ok, detail = probe_hub(hub_url, token=token)
     report.add("hub", "ok" if ok else "error", detail)
 
-    token_set = bool(token or os.environ.get("ADHD_HUB_AUTH_TOKEN"))
-    env_set = bool((os.environ.get("ADHD_HUB_AUTH_TOKEN") or "").strip())
+    from adhd_hub.connect_login import load_saved_token
+
+    env_raw = (os.environ.get("ADHD_HUB_AUTH_TOKEN") or "").strip()
+    env_set = bool(env_raw and env_raw != "change-me")
+    disk_token = load_saved_token(hub_url)
+    token_set = bool(token or env_set or disk_token)
     if token_set and env_set:
         token_detail = "set in environment"
     elif token_set:
@@ -2012,43 +1983,45 @@ def run_doctor(
         "ok" if token_set else "warn",
         token_detail,
     )
+    if (
+        env_set
+        and disk_token
+        and disk_token.startswith("ahcli_")
+        and env_raw != disk_token
+    ):
+        report.add(
+            "hub credentials shadow",
+            "warn",
+            "ADHD_HUB_AUTH_TOKEN env overrides the saved CLI session — unset the env "
+            "if doctor/connect auth looks wrong",
+        )
+    # HTTP MCP snippets use ${env:ADHD_HUB_AUTH_TOKEN}; a disk-only ahcli_ session
+    # authenticates CLI/REST but not Cursor/Codex/Claude headers unless env or OAuth Auth.
+    effective = str(token or disk_token or "")
+    if token_set and not env_set and effective.startswith("ahcli_"):
+        report.add(
+            "mcp agent auth",
+            "warn",
+            "CLI session alone does not feed HTTP MCP — set ADHD_HUB_AUTH_TOKEN for agents, "
+            "or use MCP Auth / Authenticate on /mcp",
+        )
 
-    user_mcp = cursor_user_mcp_path()
-    if user_mcp.is_file():
-        try:
-            data = _read_json(user_mcp)
-            has = CURSOR_MCP_KEY in (data.get("mcpServers") or {})
-            report.add("cursor user MCP", "ok" if has else "warn", str(user_mcp))
-        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            report.add("cursor user MCP", "error", str(exc))
-    else:
-        report.add("cursor user MCP", "warn", f"missing {user_mcp}")
+    from adhd_hub.agents import diagnose_agents
+    from adhd_hub.mcp_probe import probe_mcp
 
-    codex = codex_config_path()
-    if codex.is_file():
-        try:
-            text = codex.read_text(encoding="utf-8")
-            has = f"[mcp_servers.{CODEX_SERVER_KEY}]" in text
-            report.add("codex MCP", "ok" if has else "warn", str(codex))
-        except OSError as exc:
-            report.add("codex MCP", "error", str(exc))
-    else:
-        report.add("codex MCP", "warn", f"missing {codex}")
+    diagnostic = diagnose_agents(hub_url=hub_url, agents=agents, project=project)
+    report.steps.extend(diagnostic.steps)
+    report.agent_status = diagnostic.agent_status
+    if token and not env_set:
+        # A CLI credential can verify the endpoint but does not populate agent headers.
+        cli_probe = probe_mcp(mcp_url_for(hub_url), token=token)
+        report.mcp_checks["cli_credentials"] = cli_probe
+        report.add("CLI direct MCP", "ok" if cli_probe["tools_discovered"] else "error",
+                   cli_probe["detail"] + "; agent launch environment remains unverified")
 
     if project is not None:
         project = project.expanduser().resolve()
         report.add("project", "ok" if project.is_dir() else "error", str(project))
-        proj_mcp = cursor_project_mcp_path(project)
-        if proj_mcp.is_file():
-            try:
-                data = _read_json(proj_mcp)
-                has = CURSOR_MCP_KEY in (data.get("mcpServers") or {})
-                report.add("cursor project MCP", "ok" if has else "warn", str(proj_mcp))
-            except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-                report.add("cursor project MCP", "error", str(exc))
-        else:
-            report.add("cursor project MCP", "warn", f"missing {proj_mcp}")
-
         from adhd_hub.guidance_health import (
             GuidanceStatus,
             format_continuity_report,
@@ -2197,14 +2170,6 @@ def run_doctor(
                 report.add("continuity guard", "warn", f"could not evaluate: {exc}")
         except Exception as exc:  # noqa: BLE001 — doctor must not crash
             report.add("project sync", "warn", f"could not evaluate: {exc}")
-        if ok and token_set:
-            _doctor_push_guidance_verification(
-                hub_url=hub_url,
-                token=token or os.environ.get("ADHD_HUB_AUTH_TOKEN"),
-                project=project,
-                continuity=continuity,
-                report=report,
-            )
 
     report.add(
         "skills CLI",
@@ -2270,7 +2235,7 @@ def run_use_hub(
     hub_url: str,
     project: Path | None = None,
     agents: list[str] | None = None,
-    scope: str = "project",
+    scope: str = "both",
     token: str | None = None,
     dry_run: bool = False,
 ) -> ConnectReport:
@@ -2285,6 +2250,13 @@ def run_use_hub(
     if dry_run:
         report.add("mode", "ok", "dry-run (no files or remote writes)")
 
+    from adhd_hub.mcp_probe import validate_mcp_url
+
+    try:
+        validate_mcp_url(mcp_url_for(hub_url))
+    except ValueError:
+        report.add("hub", "error", "Use HTTPS outside loopback before configuring agents")
+        return report
     ok, detail = probe_hub(hub_url, token=token)
     report.add("hub probe", "ok" if ok else "warn", detail)
 
@@ -2315,41 +2287,26 @@ def run_use_hub(
             return report
         report.add("project", "ok", str(project_path))
 
-    if "cursor" in agents_set:
-        try:
-            targets: list[tuple[str, Path]] = []
-            if scope in {"user", "both"}:
-                targets.append(("cursor MCP (user)", cursor_user_mcp_path()))
-            if scope in {"project", "both"}:
-                if project_path is None:
-                    report.add(
-                        "cursor MCP (project)",
-                        "warn",
-                        "skipped — pass --project to retarget project MCP",
-                    )
-                else:
-                    targets.append(("cursor MCP (project)", cursor_project_mcp_path(project_path)))
-            for label, path in targets:
-                action = merge_cursor_mcp(path, hub_url, dry_run=dry_run)
-                report.add(label, "ok", f"{action}: {path}")
-        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            report.add("cursor MCP", "error", str(exc))
+    from adhd_hub.agents import AGENTS, registrations, setup_agents
 
-    if "codex" in agents_set:
-        try:
-            path = codex_config_path()
-            action = merge_codex_mcp(path, hub_url, dry_run=dry_run)
-            report.add("codex MCP", "ok", f"{action}: {path}")
-        except (OSError, ValueError, TypeError) as exc:
-            report.add("codex MCP", "error", str(exc))
-
-    if "claude" in agents_set or "claude-code" in agents_set:
-        try:
-            path = claude_user_mcp_path()
-            action = merge_claude_mcp(path, hub_url, dry_run=dry_run)
-            report.add("claude MCP", "ok", f"{action}: {path}")
-        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            report.add("claude MCP", "error", str(exc))
+    selected = sorted({"claude" if a == "claude-code" else a for a in agents_set} & set(AGENTS))
+    for agent in selected:
+        target_scope = scope
+        if scope == "both":
+            try:
+                existing = [(location, path) for location, path, entry in
+                            registrations(agent, project_path) if entry is not None]
+            except (OSError, ValueError, TypeError):
+                report.add(f"{agent} MCP", "error", "Cannot inspect scopes; check syntax and permissions")
+                continue
+            if len(existing) > 1 or (existing and existing[0][0] not in {"user", "project"}):
+                report.add(f"{agent} MCP", "error", "scope conflict or local/ancestor registration; "
+                           "review existing entries before retargeting")
+                continue
+            target_scope = existing[0][0] if existing else ("project" if project_path else "user")
+        setup = setup_agents(hub_url=hub_url, agents=[agent], scope=target_scope,
+                             project=project_path, dry_run=dry_run)
+        report.steps.extend(setup.steps)
 
     doctor = format_hub_cli_command(
         hub_url,
@@ -2366,16 +2323,52 @@ def run_use_hub(
     return report
 
 
-def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
+def print_report(report: ConnectReport, *, verbose: bool = False, json_output: bool = False) -> None:
     """Print a connect/doctor report with a clear completion banner."""
+    if json_output:
+        from dataclasses import asdict
+
+        print(json.dumps({"hub_url": report.hub_url, "ok": report.ok, "dry_run": report.dry_run,
+                          "steps": [asdict(s) for s in report.steps],
+                          "agents": report.agent_status, "mcp_checks": report.mcp_checks}))
+        return
+    _print_report_header(report)
+    attention = [s for s in report.steps if s.status in _ATTENTION]
+    done_ok = [s for s in report.steps if s.status == "ok"]
+    skipped = [s for s in report.steps if s.status == "skipped"]
+    _print_report_next_steps(report)
+
+    if not verbose:
+        registrations = [s for s in report.steps if "MCP (" in s.name and s.status == "ok"]
+        if registrations:
+            print("\nAgent registrations:")
+            for step in registrations:
+                print(f"  {step.name}: {step.detail}")
+
+    if attention:
+        _print_report_steps("Needs attention:", attention)
+    if done_ok or skipped:
+        _print_report_counts(done_ok, skipped)
+    if verbose:
+        _print_report_steps("Summary of what ran:", report.steps)
+    if not report.ok:
+        print()
+        print("Fix the XX/!! items above, then re-run the install/connect command.")
+
+
+def _print_report_header(report: ConnectReport) -> None:
     if report.continuity_text:
         print()
         print(report.continuity_text)
         print()
 
     print()
-    if report.ok:
-        print(style("Complete! ADHD Hub is connected.", fg="green", bold=True))
+    if report.dry_run:
+        print(style("Preview only — no changes applied.", fg="yellow", bold=True))
+    elif report.ok and any(s.status in _ATTENTION for s in report.steps):
+        print(style("Checks finished — needs attention below.", fg="yellow", bold=True))
+    elif report.ok:
+        print(style("Checks complete. See verification details below.", fg="green", bold=True))
     else:
         print(
             style(
@@ -2386,66 +2379,53 @@ def print_report(report: ConnectReport, *, verbose: bool = False) -> None:
         )
     print(f"Hub: {report.hub_url}")
 
-    attention = [s for s in report.steps if s.status in _ATTENTION]
-    fix_these = [s for s in report.steps if s.status in _FIX_THESE]
-    done_ok = [s for s in report.steps if s.status == "ok"]
-    skipped = [s for s in report.steps if s.status == "skipped"]
 
+def _print_report_next_steps(report: ConnectReport) -> None:
     if not report.ok:
         print()
         print("Fix these:")
+        fix_these = [s for s in report.steps if s.status in _FIX_THESE]
         for i, step in enumerate(fix_these, start=1):
             print(f"  {i}. {step.name} — {step.detail}")
-    else:
-        print()
-        print("Do next:")
-        print(f"  - Open the Hub UI: {report.hub_url}/ui")
-        if any(s.name == "setup complete" for s in report.steps):
-            print("  - Restart your coding agent(s) so MCP + skills reload.")
-            print("  - When you pick work up later, agents will see Hub progress.")
-            setup = next((s for s in report.steps if s.name == "setup complete"), None)
-            if setup and "run:" in setup.detail:
-                # Prefer the already-formatted doctor line from setup complete.
-                doctor_part = setup.detail.split("run:", 1)[1].strip()
-                print(f"  - Verify anytime: {doctor_part}")
-            install_hint = permanent_cli_install_hint(report.hub_url)
-            if install_hint and not report.dry_run:
-                # Ask on TTY (or ADHD_HUB_INSTALL_CLI=1); otherwise print the command.
-                # Skip during --dry-run; install.sh/ps1 set ADHD_HUB_FROM_INSTALL_SCRIPT.
-                offer_permanent_cli_install(report.hub_url)
-        if any(s.name.startswith("companion ") for s in report.steps):
-            print(
-                "  - Optional companions (pick what fits — see guide): "
-                "https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md"
-            )
-        print("  - You can close this tab/window when you're done — or keep the shell open.")
+        return
+    print()
+    print("Do next:")
+    print(f"  - Open the Hub UI: {report.hub_url}/ui")
+    if any(s.name == "setup complete" for s in report.steps):
+        print("  - Restart your coding agent(s) so MCP + skills reload.")
+        print("  - Ask each restarted agent to discover the ADHD Hub tools.")
+        setup = next((s for s in report.steps if s.name == "setup complete"), None)
+        if setup and "run:" in setup.detail:
+            # Prefer the already-formatted doctor line from setup complete.
+            doctor_part = setup.detail.split("run:", 1)[1].strip()
+            print(f"  - Verify anytime: {doctor_part}")
+        install_hint = permanent_cli_install_hint(report.hub_url)
+        if install_hint and not report.dry_run:
+            print(f"  - Optional CLI install: {install_hint}")
+    if any(s.name.startswith("companion ") for s in report.steps):
+        print(
+            "  - Optional companions (pick what fits — see guide): "
+            "https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md"
+        )
+    print("  - You can close this tab/window when you're done — or keep the shell open.")
 
-    if attention:
-        print()
-        print("Needs attention:")
-        for step in attention:
-            mark = paint_status(step.status)
-            print(f"  [{mark}] {step.name}: {step.detail}")
 
-    if done_ok or skipped:
-        print()
-        print("Done:")
-        for group in _GROUP_ORDER:
-            count = sum(
-                1 for s in done_ok if classify_step_group(s.name) == group
-            )
-            if count:
-                print(f"  {group} · {count} ok")
-        if skipped:
-            print(f"  {len(skipped)} skipped (not installed or checked)")
+def _print_report_counts(done_ok: list[StepResult], skipped: list[StepResult]) -> None:
+    print()
+    print("Done:")
+    for group in _GROUP_ORDER:
+        count = sum(
+            1 for s in done_ok if classify_step_group(s.name) == group
+        )
+        if count:
+            print(f"  {group} · {count} ok")
+    if skipped:
+        print(f"  {len(skipped)} skipped (not installed or checked)")
 
-    if verbose:
-        print()
-        print("Summary of what ran:")
-        for step in report.steps:
-            mark = paint_status(step.status)
-            print(f"  [{mark}] {step.name}: {step.detail}")
 
-    if not report.ok:
-        print()
-        print("Fix the XX/!! items above, then re-run the install/connect command.")
+def _print_report_steps(title: str, steps: list[StepResult]) -> None:
+    print()
+    print(title)
+    for step in steps:
+        mark = paint_status(step.status)
+        print(f"  [{mark}] {step.name}: {step.detail}")

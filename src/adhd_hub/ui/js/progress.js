@@ -138,16 +138,134 @@ function insightLine(label, period) {
     const parts = [];
     const finished = Number(period.completed) || 0;
     const started = Number(period.created) || 0;
-    const notes = Number(period.progress) || 0;
+    const updates = Number(period.progress) || 0;
     const projects = Number(period.projects_touched) || 0;
     if (finished) parts.push(`${finished} finished`);
     if (started) parts.push(`${started} started`);
-    if (notes) parts.push(`${notes} notes`);
+    if (updates) parts.push(`${updates} progress ${updates === 1 ? "update" : "updates"}`);
     if (projects) parts.push(`${projects} ${projects === 1 ? "project" : "projects"}`);
     return parts.length ? `${label}: ${parts.join(" · ")}` : `${label}: quiet`;
   }
 
+let calendarTableMonths = [];
+let calendarTableMonthIndex = 0;
+
+function renderCalendarTablePage() {
+    const pager = $("completion-calendar-pager");
+    const months = calendarTableMonths;
+    if (!months.length) {
+      $("completion-calendar-table").innerHTML = "";
+      $("completion-calendar-page-label").textContent = "";
+      pager.hidden = true;
+      return;
+    }
+    const idx = Math.max(0, Math.min(calendarTableMonthIndex, months.length - 1));
+    calendarTableMonthIndex = idx;
+    const page = months[idx];
+    $("completion-calendar-table").innerHTML = page.days.map((day) =>
+      `<tr><th scope="row">${escapeHtml(chartDate(day.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }))}</th><td>${day.completed}</td></tr>`).join("");
+    $("completion-calendar-page-label").textContent = page.label;
+    $("completion-calendar-prev").disabled = idx === 0;
+    $("completion-calendar-next").disabled = idx >= months.length - 1;
+    pager.hidden = false;
+  }
+
+export function bindCompletionCalendar() {
+    const calendar = $("completion-calendar");
+    calendar.open = preferences.getItem("adhd_hub_completion_calendar") !== "false";
+    calendar.addEventListener("toggle", () => {
+      preferences.setItem("adhd_hub_completion_calendar", String(calendar.open));
+    });
+    $("completion-calendar-prev").addEventListener("click", () => {
+      calendarTableMonthIndex -= 1;
+      renderCalendarTablePage();
+    });
+    $("completion-calendar-next").addEventListener("click", () => {
+      calendarTableMonthIndex += 1;
+      renderCalendarTablePage();
+    });
+    const grid = $("completion-calendar-days");
+    const showDay = (event) => {
+      const day = event.target.closest(".calendar-day");
+      if (!day) return;
+      grid.querySelector('[tabindex="0"]')?.setAttribute("tabindex", "-1");
+      day.tabIndex = 0;
+      $("completion-day-details").textContent = day.getAttribute("aria-label");
+    };
+    grid.addEventListener("focusin", showDay);
+    grid.addEventListener("click", showDay);
+    grid.addEventListener("pointerover", showDay);
+    grid.addEventListener("keydown", (event) => {
+      const day = event.target.closest(".calendar-day");
+      if (!day) return;
+      const days = [...grid.querySelectorAll(".calendar-day")];
+      const offsets = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 };
+      let index = days.indexOf(day);
+      if (event.key in offsets) index += offsets[event.key];
+      else if (event.key === "Home") index = 0;
+      else if (event.key === "End") index = days.length - 1;
+      else return;
+      event.preventDefault();
+      days[Math.max(0, Math.min(index, days.length - 1))].focus();
+    });
+  }
+
+function renderCompletionCalendar(o) {
+    const days = o.insights?.completion_days || [];
+    const grid = $("completion-calendar-days");
+    const focusedDate = grid.contains(document.activeElement) ? document.activeElement.dataset.date : null;
+    const previousDate = grid.querySelector('[tabindex="0"]')?.dataset.date;
+    const selectedDate = days.some((day) => day.date === previousDate) ? previousDate : days.at(-1)?.date;
+    const total = days.reduce((sum, day) => sum + day.completed, 0);
+    const completionWord = (n) => (n === 1 ? "completion" : "completions");
+    const calendarLevel = (n) => {
+      if (n >= 8) return 4;
+      if (n >= 4) return 3;
+      if (n >= 2) return 2;
+      return n ? 1 : 0;
+    };
+    const label = (day) =>
+      `${chartDate(day.date).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}: ${day.completed} recorded ${completionWord(day.completed)}.`;
+    let summary = "Completion history will appear here when available.";
+    if (days.length) {
+      const range = `${chartDayName(days[0].date)} – ${chartDayName(days.at(-1).date)} · ${o.insights.timezone}.`;
+      const totals = total
+        ? `${total} recorded ${completionWord(total)}.`
+        : "No recorded completions in this period. That’s okay.";
+      summary = `${range} ${totals}`;
+    }
+    $("completion-calendar-summary").textContent = summary;
+    $("completion-calendar-months").innerHTML = days.map((day, i) => {
+      if (i % 7 || (i && day.date.slice(0, 7) === days[i - 7].date.slice(0, 7))) return "";
+      return `<span style="grid-column:${i / 7 + 1}">${escapeHtml(chartDate(day.date).toLocaleDateString(undefined, { month: "short" }))}</span>`;
+    }).join("");
+    grid.innerHTML = days.map((day) => {
+      const level = calendarLevel(day.completed);
+      const current = day.date === o.insights.as_of ? ' aria-current="date"' : "";
+      return `<button type="button" class="calendar-day" data-date="${escapeHtml(day.date)}" data-level="${level}" tabindex="${day.date === selectedDate ? 0 : -1}" aria-label="${escapeHtml(label(day))}"${current}></button>`;
+    }).join("");
+    const prevKey = calendarTableMonths[calendarTableMonthIndex]?.key;
+    const byMonth = new Map();
+    for (const day of days) {
+      const key = day.date.slice(0, 7);
+      if (!byMonth.has(key)) byMonth.set(key, []);
+      byMonth.get(key).push(day);
+    }
+    calendarTableMonths = [...byMonth.entries()].map(([key, monthDays]) => ({
+      key,
+      days: monthDays,
+      label: chartDate(monthDays[0].date).toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    }));
+    const kept = calendarTableMonths.findIndex((month) => month.key === prevKey);
+    calendarTableMonthIndex = kept >= 0 ? kept : Math.max(0, calendarTableMonths.length - 1);
+    renderCalendarTablePage();
+    const selected = days.find((day) => day.date === selectedDate);
+    $("completion-day-details").textContent = selected ? label(selected) : "Select a day to see its recorded completions.";
+    if (focusedDate) ([...grid.children].find((day) => day.dataset.date === focusedDate) || grid.querySelector('[tabindex="0"]'))?.focus({ preventScroll: true });
+  }
+
 export function renderStats(o) {
+    renderCompletionCalendar(o);
     $("stats").textContent = `${o.open ?? 0} open now · ${o.done_week ?? 0} finished this week`;
     const insightsEl = $("insights-summary");
     const periods = o.insights?.periods;
@@ -170,14 +288,28 @@ export function renderStats(o) {
     const wrap = $("chart-wrap");
     const chart = $("chart");
     const summary = $("chart-summary");
-    const totals = $("activity-totals");
+    const added = series.reduce((sum, d) => sum + (Number(d.added) || 0), 0);
+    const finished = series.reduce((sum, d) => sum + (Number(d.finished) || 0), 0);
+    $("activity-finished").textContent = finished;
+    $("activity-added").textContent = added;
+    $("activity-days").textContent = series.filter((d) => d.added > 0 || d.finished > 0).length;
+    $("activity-days-total").textContent = ` / ${series.length || 14}`;
+    $("activity-rhythm").innerHTML = series.map((d) =>
+      `<span class="rhythm-day${d.added > 0 || d.finished > 0 ? " is-active" : ""}"></span>`).join("");
+    const rangeDate = (value) => chartDate(value)?.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) || "";
+    $("activity-range").textContent = series.length
+      ? `${rangeDate(series[0].date)} – ${rangeDate(series.at(-1).date)}` : "Your recent activity, at your pace.";
+    $("chart-day-tip").hidden = true;
     // A quiet fortnight (every count zero) gets the calm empty line, not 14 stubs.
     const active = series.some((d) => (Number(d.added) || 0) + (Number(d.finished) || 0) > 0);
     if (!series.length || !active) {
       wrap.hidden = true;
       $("chart-empty").hidden = false;
       if (summary) summary.textContent = "";
-      if (totals) totals.textContent = "Last 14 days on the activity ledger";
+      chart.innerHTML = "";
+      $("chart-days").innerHTML = "";
+      $("chart-scale").innerHTML = "";
+      $("chart-table-body").innerHTML = "";
       return;
     }
     wrap.hidden = false;
@@ -189,23 +321,21 @@ export function renderStats(o) {
       added: Number(d.added) || 0,
       finished: Number(d.finished) || 0,
     }));
-    const added = days.reduce((sum, d) => sum + d.added, 0);
-    const finished = days.reduce((sum, d) => sum + d.finished, 0);
     const line = `${added} ${added === 1 ? "step" : "steps"} added, ${finished} finished`;
-    if (totals) totals.textContent = line;
     if (summary) summary.textContent = `Bar chart of the last 14 days: ${line}. A table version follows.`;
     chart.setAttribute("role", "group");
     chart.setAttribute("aria-label", "Daily activity");
     chart.removeAttribute("aria-hidden");
-    // Side-by-side bars share one scale, so the taller of the two sets the top.
-    const max = Math.max(1, ...days.map((d) => Math.max(d.added, d.finished)));
+    // An even ceiling keeps the middle tick in whole steps on the shared scale.
+    const max = Math.ceil(Math.max(1, ...days.map((d) => Math.max(d.added, d.finished))) / 2) * 2;
+    $("chart-scale").innerHTML = `<span>${max}</span><span>${max / 2}</span><span>0</span>`;
     const bar = (kind, value) => value
       ? `<span class="bar ${kind}" style="height:${((value / max) * 100).toFixed(1)}%"></span>`
       : `<span class="bar ${kind} is-zero"></span>`;
     chart.innerHTML = days
       .map((d) => `<div class="col" tabindex="0" role="img" aria-label="${escapeHtml(`${d.name}: ${d.added} added, ${d.finished} finished`)}" data-date="${escapeHtml(d.name)}" data-added="${d.added}" data-finished="${d.finished}">${bar("add", d.added)}${bar("done", d.finished)}</div>`)
       .join("");
-    $("chart-days").innerHTML = days.map((d) => `<span>${escapeHtml(d.label)}</span>`).join("");
+    $("chart-days").innerHTML = days.map((d) => `<span><span class="chart-weekday">${escapeHtml(chartDate(d.date)?.toLocaleDateString(undefined, { weekday: "short" }) || "")}</span>${escapeHtml(d.label)}</span>`).join("");
     $("chart-table-body").innerHTML = days
       .map((d) => `<tr><th scope="row">${escapeHtml(d.name)}</th><td>${d.added}</td><td>${d.finished}</td></tr>`)
       .join("");

@@ -26,7 +26,9 @@ class OpenClawFacade:
     def __init__(self, hub: HubService) -> None:
         self._hub = hub
         self._stale_schedule_callback: Callable[[str], None] | None = None
-        self._pair_store = OpenClawPairStore(hub.settings.data_dir)
+        self._pair_store = OpenClawPairStore(
+            hub.settings.data_dir, auth_token=hub.settings.auth_token
+        )
         config = load_openclaw_config(
             hub.settings.data_dir,
             env_defaults=openclaw_from_settings(hub.settings),

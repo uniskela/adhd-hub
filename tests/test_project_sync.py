@@ -207,9 +207,9 @@ def test_workflow_is_reusable_workflow_call() -> None:
     assert "HUB_REF_INPUT" in text
     # Third-party actions must be SHA-pinned (floating tags are a write-job risk).
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in text
-    assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" in text
+    assert "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0" in text
     assert "actions/checkout@v7" not in text
-    assert "actions/setup-python@v6" not in text
+    assert "actions/setup-python@v7" not in text
     assert "${{ inputs.hub_ref }}" not in text.split("run:")[-1] or "env:" in text
     # No direct inputs interpolation inside shell run bodies for agents re-apply.
     assert 'adhd-hub sync-project . --source ../hub --agents "${{ inputs.agents }}"' not in text

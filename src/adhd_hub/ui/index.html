@@ -305,15 +305,40 @@
           <div class="activity-head">
             <div>
               <h2 id="activity-title">Activity</h2>
-              <p id="insights-summary" class="insights-summary" hidden></p>
-              <p id="activity-totals" class="activity-totals"></p>
-              <p id="stats" class="activity-stats"></p>
+              <p id="activity-range" class="activity-range"></p>
             </div>
-            <div class="chart-legend" aria-hidden="true"><span class="legend-added">Added</span><span class="legend-finished">Finished</span></div>
           </div>
+          <dl class="activity-metrics">
+            <div class="activity-metric metric-finished">
+              <dt>Steps finished</dt>
+              <dd id="activity-finished">0</dd>
+              <dd class="metric-caption">Every finished step counts.</dd>
+            </div>
+            <div class="activity-metric">
+              <dt>Steps added</dt>
+              <dd id="activity-added">0</dd>
+              <dd class="metric-caption">Ideas given a place to land.</dd>
+            </div>
+            <div class="activity-metric metric-days">
+              <dt>Days with activity</dt>
+              <dd><span id="activity-days">0</span><span class="metric-unit" id="activity-days-total"> / 14</span></dd>
+              <dd class="metric-caption">
+                <div id="activity-rhythm" class="activity-rhythm" aria-hidden="true"></div>
+                <p>Breaks belong here too.</p>
+              </dd>
+            </div>
+          </dl>
+          <p id="insights-summary" class="insights-summary" hidden></p>
           <div class="chart-wrap" id="chart-wrap" hidden>
+            <div class="activity-chart-head">
+              <h3>Day by day</h3>
+              <div class="chart-legend" aria-hidden="true"><span class="legend-added">Added</span><span class="legend-finished">Finished</span></div>
+            </div>
             <p id="chart-summary" class="chart-summary visually-hidden"></p>
-            <div class="chart" id="chart"></div>
+            <div class="chart-plot">
+              <div id="chart-scale" class="chart-scale" aria-hidden="true"></div>
+              <div class="chart" id="chart" aria-describedby="chart-summary"></div>
+            </div>
             <div class="chart-days" id="chart-days" aria-hidden="true"></div>
             <div id="chart-day-tip" class="chart-day-tip" role="tooltip" hidden></div>
             <details class="chart-table-details">
@@ -327,7 +352,44 @@
             </details>
           </div>
           <p id="chart-empty" class="chart-empty" hidden>Nothing added or finished in the last 14 days. That’s okay.</p>
+          <p id="stats" class="activity-stats"></p>
         </section>
+        <details id="completion-calendar" class="progress-card completion-calendar" open>
+          <summary>Completion calendar <span class="calendar-summary-meta">Last 12 weeks</span></summary>
+          <div class="completion-calendar-body">
+            <p id="completion-calendar-summary" class="hint"></p>
+            <div class="calendar-visual">
+            <div class="calendar-months" id="completion-calendar-months" aria-hidden="true"></div>
+            <div class="calendar-layout">
+              <div class="calendar-weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+              <div id="completion-calendar-days" class="calendar-days" role="group" aria-label="Daily recorded completions" aria-describedby="completion-calendar-help"></div>
+            </div>
+            <div class="calendar-legend" aria-label="Recorded completions per day">
+              <span>Completions</span><span data-level="0">0</span><span data-level="1">1</span><span data-level="2">2–3</span><span data-level="3">4–7</span><span data-level="4">8+</span>
+            </div>
+            </div>
+            <div class="calendar-description">
+            <h3>Day details</h3>
+            <p id="completion-day-details" class="calendar-day-details" aria-live="polite">Select a day to see its recorded completions.</p>
+            <p id="completion-calendar-help" class="hint">Use arrow keys to explore days, or select a day for details. Breaks never reset anything.</p>
+            </div>
+            <details class="chart-table-details">
+              <summary>Show calendar as a table</summary>
+              <div class="chart-table-scroll">
+                <table class="chart-table">
+                  <caption class="visually-hidden">Recorded completions in the last 12 weeks</caption>
+                  <thead><tr><th scope="col">Day</th><th scope="col">Finished</th></tr></thead>
+                  <tbody id="completion-calendar-table"></tbody>
+                </table>
+              </div>
+              <nav class="chart-table-pager" id="completion-calendar-pager" aria-label="Calendar table by month" hidden>
+                <button type="button" class="ghost" id="completion-calendar-prev">Earlier</button>
+                <p id="completion-calendar-page-label" aria-live="polite"></p>
+                <button type="button" class="ghost" id="completion-calendar-next">Later</button>
+              </nav>
+            </details>
+          </div>
+        </details>
         <section id="rewards-panel" class="progress-rewards" aria-labelledby="rank-name" hidden>
           <div class="progress-card rank-card">
             <div class="rank-head">
@@ -460,22 +522,11 @@
                 </div>
               </section>
               <section id="settings-connections" class="settings-panel" role="tabpanel" aria-labelledby="tab-connections" tabindex="0" hidden>
-                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Connect a computer so its agents save progress here. Do <strong>not</strong> export your server access token into the shell. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/public/coding-companions.md" target="_blank" rel="noopener">Full guide</a></p></div>
-                <div class="settings-card">
-                  <div class="setting is-stacked">
-                    <div class="setting-text"><label class="setting-label" for="install-cmd">1. Run this in the project folder</label><p class="hint">It installs the Hub tools for the agents you pick below. Your browser opens, or the command prints a short code. Nothing lands in shell history as <code>export TOKEN=…</code>.</p></div>
-                    <div class="copy-field"><input id="install-cmd" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install" aria-label="Copy install command">Copy</button></div>
-                  </div>
-                  <div class="setting is-stacked" id="cli-connect-panel">
-                    <div class="setting-text"><label class="setting-label" for="cli-connect-code-input">2. Enter the code the command shows</label><p class="hint">Only needed if the browser did not open. This lets that computer talk to your hub.</p></div>
-                    <div class="copy-field"><input id="cli-connect-code-input" class="code-field connect-code" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /><button type="button" class="primary" id="btn-allow-cli">Allow this computer</button></div>
-                    <p id="cli-connect-msg" class="msg" role="status"></p>
-                  </div>
-                </div>
+                <div class="settings-panel-head"><h2>Coding agents</h2><p class="hint">Choose your assistants, then run setup on the machine where they work. Setup adds missing MCP registrations and checks existing settings before making changes. <a href="https://github.com/uniskela/adhd-hub/blob/main/docs/public/connect.md" target="_blank" rel="noopener">Connection guide</a></p></div>
                 <div class="settings-card">
                   <fieldset class="setting is-top">
                     <legend class="visually-hidden">Agents to set up</legend>
-                    <div class="setting-text"><p class="setting-label" aria-hidden="true">Agents to set up</p><p class="hint">Which assistants get MCP config and Hub skills. Used by the install command above. Claude Code is skills.sh id <code>claude-code</code>.</p></div>
+                    <div class="setting-text"><p class="setting-label" aria-hidden="true">1. Choose your agents</p><p class="hint">Your selection updates the setup commands below. Run setup as the account that launches these agents.</p><p class="hint"><output id="connect-selection-summary">Choose at least one agent to create a setup command.</output></p></div>
                     <div class="checks setting-choices" id="connect-agents-checks">
                       <label><input type="checkbox" id="ca_claude" value="claude" /> Claude Code</label>
                       <label><input type="checkbox" id="ca_cursor" value="cursor" /> Cursor</label>
@@ -483,6 +534,26 @@
                       <label><input type="checkbox" id="ca_all" value="*" /> Every skills.sh agent (*)</label>
                     </div>
                   </fieldset>
+                </div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><label class="setting-label" for="install-cmd">2. Run setup on the agent’s machine</label><p class="hint">Run this in your project folder. It configures MCP for your selected agents, adds missing registrations and installs your saved skills and extras. Existing custom settings are preserved for review. Restart your agents when setup finishes.</p></div>
+                    <div class="copy-field"><input id="install-cmd" class="code-field" readonly placeholder="Choose agents above to create a setup command" /><button type="button" class="ghost" id="btn-copy-install" aria-label="Copy install command" disabled>Copy</button></div>
+                  </div>
+                  <div class="setting is-stacked" id="cli-connect-panel">
+                    <div class="setting-text"><label class="setting-label" for="cli-connect-code-input">3. Approve CLI access if asked</label><p class="hint">Enter the code only if the browser did not open. This signs in the ADHD Hub CLI; your agents separately need <code>ADHD_HUB_AUTH_TOKEN</code> in their launch environment or MCP OAuth authorization. Keep tokens out of commands and config files.</p></div>
+                    <div class="copy-field"><input id="cli-connect-code-input" class="code-field connect-code" autocomplete="off" spellcheck="false" placeholder="ABCD-WXYZ" maxlength="16" /><button type="button" class="primary" id="btn-allow-cli">Allow this computer</button></div>
+                    <p id="cli-connect-msg" class="msg" role="status"></p>
+                  </div>
+                </div>
+                <div class="settings-card">
+                  <div class="setting is-stacked">
+                    <div class="setting-text"><p class="setting-label">Already have the CLI? Set up every project</p><p class="hint">No project checkout is needed. Run this as the agent’s account to add user-level MCP registrations for the selected agents.</p></div>
+                    <pre class="snippet" id="agents-user-setup">Choose agents above to create a setup command.</pre>
+                    <div class="setting-text"><p class="hint">Then check access with <code id="agents-doctor-command">adhd-hub agents doctor</code>. Doctor checks MCP directly over HTTP; confirm tools in each restarted agent too. Service credentials are not automatically inherited by SSH or diagnostic shells.</p></div>
+                  </div>
+                </div>
+                <div class="settings-card">
                   <div class="setting is-top">
                     <div class="setting-text"><p class="setting-label" id="skills-mode-label">Where Hub skills go</p><p class="hint">The Hub’s own skills (session, projects, env-check). All projects needs <code>npx</code>. This project writes to <code>.agents/skills/</code>.</p></div>
                     <div class="checks setting-choices" id="connect-skills-mode-checks" role="radiogroup" aria-labelledby="skills-mode-label">
@@ -514,20 +585,23 @@
                 </div>
                 <div class="settings-card" id="cli-sessions-wrap" hidden>
                   <div class="setting is-top">
-                    <div class="setting-text"><p class="setting-label">Connected computers</p><p class="hint">Revoke one and that computer will need to connect again.</p></div>
+                    <div class="setting-text"><p class="setting-label">Connected computers</p><p class="hint">CLI sessions for <code>adhd-hub</code> on each machine (not Cursor MCP Auth). HTTP MCP still needs <code>ADHD_HUB_AUTH_TOKEN</code> in the agent env or the MCP Auth button. Health uses last use + expiry; active use slides the 90-day window.</p></div>
+                    <div class="setting-actions" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+                      <button type="button" class="ghost" id="btn-refresh-cli-sessions">Check health</button>
+                    </div>
                     <ul id="cli-sessions-list" class="cli-sessions-list"></ul>
                   </div>
                 </div>
               </section>
               <section id="settings-mcp" class="settings-panel" role="tabpanel" aria-labelledby="tab-mcp" tabindex="0" hidden>
-                <div class="settings-panel-head"><h2>Remote access</h2><p class="hint">For Windows machines and tools that connect over MCP.</p></div>
+                <div class="settings-panel-head"><h2>Remote access</h2><p class="hint">For Windows machines and tools that connect over MCP. Prefer the client’s <strong>Auth / Authenticate</strong> on this URL. A Coding-agents CLI session does not fill HTTP MCP headers by itself.</p></div>
                 <div class="settings-card">
                   <div class="setting is-stacked">
                     <div class="setting-text"><label class="setting-label" for="install-cmd-win">Windows install</label><p class="hint">Paste into PowerShell in the project folder.</p></div>
-                    <div class="copy-field"><input id="install-cmd-win" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-install-win" aria-label="Copy Windows install command">Copy</button></div>
+                    <div class="copy-field"><input id="install-cmd-win" class="code-field" readonly placeholder="Choose agents in Coding agents first" /><button type="button" class="ghost" id="btn-copy-install-win" aria-label="Copy Windows install command" disabled>Copy</button></div>
                   </div>
                   <div class="setting is-stacked">
-                    <div class="setting-text"><label class="setting-label" for="mcp-url">MCP server address</label><p class="hint">For assistants that still use a bearer header. Project MCP files stay token-free, so they are safe to commit. A saved CLI session is a different token from your server access token.</p></div>
+                    <div class="setting-text"><label class="setting-label" for="mcp-url">MCP server address</label><p class="hint">Point the agent at this URL, then use MCP Auth, or set <code>ADHD_HUB_AUTH_TOKEN</code> in the agent environment (not shell history). Project MCP snippets stay token-free. CLI <code>ahcli_…</code> sessions are for the <code>adhd-hub</code> CLI, not Cursor headers.</p></div>
                     <div class="copy-field"><input id="mcp-url" class="code-field" readonly /><button type="button" class="ghost" id="btn-copy-mcp" aria-label="Copy MCP server address">Copy</button></div>
                   </div>
                   <div class="setting is-stacked">

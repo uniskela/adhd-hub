@@ -205,7 +205,7 @@ def test_session_digest_guidance_honesty(tmp_path: Path) -> None:
     assert digest2.guidance["status"] == "last_verified_current"
 
 
-def test_doctor_records_guidance_verification_when_hub_ok(
+def test_doctor_is_read_only_when_hub_ok(
     tmp_path: Path, monkeypatch
 ) -> None:
     from unittest.mock import patch
@@ -238,10 +238,6 @@ def test_doctor_records_guidance_verification_when_hub_ok(
             token="secret-token",
         )
 
-    names = {s.name: s for s in report.steps}
-    assert names["guidance verify"].status == "ok"
-    assert posted["token"] == "secret-token"
-    assert posted["payload"]["source"] == "doctor"
-    assert posted["payload"]["agent_guidance_version"] == AGENT_GUIDANCE_VERSION
-    assert posted["payload"]["workspace_path"] == str(project.resolve())
+    assert not posted
+    assert not any(s.name == "guidance verify" for s in report.steps)
     assert report.continuity_items is not None

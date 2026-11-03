@@ -23,7 +23,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         sw = client.get("/ui/sw.js")
         assert sw.status_code == 200
         assert sw.headers.get("service-worker-allowed") == "/ui/"
-        assert "adhd-hub-shell-v55" in sw.text
+        assert "adhd-hub-shell-v57" in sw.text
         assert "SKIP_WAITING" in sw.text
         assert "self.skipWaiting()" in sw.text
         # Updates wait for an explicit Refresh toast — do not auto-activate on install.
@@ -74,6 +74,7 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
 
         boot = client.get("/ui/js/boot.js")
         assert boot.status_code == 200
+        assert boot.headers.get("cache-control") == "no-cache"
         assert "export async function loadAll" in boot.text or "loadAll" in boot.text
         assert "registerPwaUpdates" in boot.text
         assert "pwa-update.js" in boot.text
@@ -82,6 +83,13 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
         assert "A newer Hub is ready." in client.get("/ui/js/pwa-update.js").text
         assert "toast-action" in client.get("/ui/app.css").text
         assert "_toastSetAction" in client.get("/ui/js/state.js").text
+        assert 'cache: "no-cache"' in client.get("/ui/sw.js").text
+        assert client.get("/ui/sw.js").headers.get("cache-control") == "no-cache"
+        settings = client.get("/ui/js/settings.js")
+        assert settings.status_code == 200
+        assert settings.headers.get("cache-control") == "no-cache"
+        assert "refreshCliSessionHealth" in settings.text
+        assert "refreshCliSessionHealth" in boot.text
 
         for name in (
             "state.js",
@@ -111,7 +119,9 @@ def test_pwa_manifest_and_service_worker(tmp_path: Path):
             "boot.js",
             "pwa-update.js",
         ):
-            assert client.get(f"/ui/js/{name}").status_code == 200, name
+            res = client.get(f"/ui/js/{name}")
+            assert res.status_code == 200, name
+            assert res.headers.get("cache-control") == "no-cache", name
 
         assert client.get("/ui/js/not-a-module.js").status_code == 404
         assert client.get("/ui/js/capture.js").status_code == 404
