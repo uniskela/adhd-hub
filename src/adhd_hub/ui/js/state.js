@@ -166,6 +166,8 @@ export const state = {
   projectRequest: 0,
   searchRequest: 0,
   searchTimer: null,
+  lastSearchQuery: "",
+  searchHitsCache: [],
   currentView: "open",
   projectFilter: null,
   tagFilter: null,
