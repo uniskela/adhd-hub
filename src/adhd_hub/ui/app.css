@@ -1603,6 +1603,8 @@ input, select, textarea { border-color: var(--control-line); border-radius: 12px
 .link-button { min-height: 44px; padding: 0 .75rem; background: transparent; border: 0; color: var(--accent); font-weight: 600; }
 .link-button:hover { background: var(--accent-soft); color: var(--accent-strong); filter: none; }
 body.focus-mode .now-overview { display: none; }
+/* Wave 8 Short return view — hide overview chrome; focus card omits notes in JS. */
+body.return-short .now-overview { display: none; }
 .clock-off-status { margin: 0; padding-left: .875rem; border-left: 3px solid var(--accent); min-width: 0; }
 .clock-off-status[hidden], .clock-off-fields[hidden], .clock-off-overrides[hidden] { display: none; }
 .clock-off-status p { margin: 0; font-weight: 600; overflow-wrap: anywhere; }

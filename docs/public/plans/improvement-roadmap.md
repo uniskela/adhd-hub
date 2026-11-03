@@ -6,8 +6,8 @@ This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [
 
 | Position | Work | Status |
 | --- | --- | --- |
-| **Now** | Wave 8 — find & capture | Search + wiki compaction on `main`; mobile/share capture next for **v0.22.0** |
-| **Next** | Remaining Wave 8 slices | Energy/context modes |
+| **Now** | Wave 8 — find & capture | Search, compaction, and share capture on `main`; return-view modes next for **v0.22.0** |
+| **Next** | After Wave 8 | Activity insights (#72) |
 | **Then** | Activity insights | Planned after core clarity/findability work |
 | **Later** | Wave 9 — shared surfaces & discoverability | Deferred until Waves 7–8 are stable |
 | **Opt-in** | Wave 5 integrations | Only when a concrete need justifies them |
@@ -49,7 +49,7 @@ Shipped in **v0.21.0**:
 - locked CI installs and Release Please–managed `uv.lock` versions ([#102](https://github.com/uniskela/adhd-hub/issues/102) via [#311](https://github.com/uniskela/adhd-hub/pull/311));
 - non-destructive sample data ([#305](https://github.com/uniskela/adhd-hub/pull/305)) and the `completion.ready` end-of-task guidance fixes ([#307](https://github.com/uniskela/adhd-hub/pull/307), [#321](https://github.com/uniskela/adhd-hub/pull/321)).
 
-**NOW** is Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). **Local-first global search** and **reversible wiki History compaction** are on `main` (see [global search](../global-search.md)). **Mobile/share capture** (Web Share Target → Save a thought) is the active slice; energy/context modes stay later.
+**NOW** is Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55). Search, reversible wiki compaction, and mobile/share capture are on `main` (see [global search](../global-search.md)). **Energy/context modes** (Short vs Deep Now return view) is the active closing slice.
 
 ## Product principles
 
@@ -112,8 +112,8 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 
 - ✅ **Global search** — local-first threads / projects / wiki snippets; REST + MCP + My work UI ([global search](../global-search.md));
 - ✅ reversible progress compaction;
-- mobile/share capture (active — Web Share Target → Save a thought);
-- energy/context modes without productivity guilt.
+- ✅ mobile/share capture (Web Share Target → Save a thought);
+- energy/context modes (active — Short vs Deep return view; local prefs; no guilt).
 
 ## Next product sequence
 
@@ -143,7 +143,7 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 | Done | Foundation A / B1 / B2 / B3 | Shipped |
 | Done | Wave 6 #52 | Published in v0.16.0 |
 | Done | Wave 7 #54 | Completed in v0.21.0 |
-| **Now** | **Wave 8 #55** | Find & capture — search + compaction on main; share capture next |
+| **Now** | **Wave 8 #55** | Find & capture — closing with Short/Deep return view |
 | Then | Activity insights #72 | Uses B3 history |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |

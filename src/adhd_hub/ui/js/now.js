@@ -8,6 +8,7 @@ import { SOURCE_SYNC_LABELS, loadThreads, openSourceRefresh, rewriteScanLine, se
 import { hideOverlapCue, openOverlapReview, refreshOverlapCue } from './overlap.js';
 import { threadDisplayTitle } from './thread-title.mjs';
 import { applyCueFill, coachingView, undoCueFill, usefulResumeText } from './return-cue.mjs';
+import { applyReturnDensity } from './return-density.mjs';
 
 export { threadDisplayTitle };
 
@@ -828,11 +829,12 @@ export function renderFocus() {
     const working = state.focusState === "working";
     $("focus-eyebrow").textContent = focusStageLabel();
     $("focus-title").textContent = threadDisplayTitle(thread) || "Untitled step";
+    const shortView = state.returnDensity === "short";
     const touched = formatRelative(thread.display_updated_at || thread.updated_at);
     meta.textContent = [projectTitleForSlug(thread.project_slug), touched && `last touched ${touched}`]
       .filter(Boolean)
       .join(" · ");
-    meta.hidden = false;
+    meta.hidden = shortView;
     menu.hidden = false;
     // Done lives in the card while working; otherwise it waits in More actions.
     $("btn-menu-done").hidden = working && !pausing;
@@ -867,10 +869,13 @@ export function renderFocus() {
         <button type="button" class="ghost" id="btn-choose-work">Choose something else</button>
       </div>`;
     }
+    const notesBlock = shortView
+      ? ""
+      : `<details class="progress-details"><summary>Project notes</summary><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Pause and leave a note to add one.</p>"}</div></details>`;
     card.innerHTML = `
       ${resumeBlock}
       ${actions}
-      <details class="progress-details"><summary>Project notes</summary><div class="markdown-body">${thread.progress_html || "<p>No project notes yet. Pause and leave a note to add one.</p>"}</div></details>`;
+      ${notesBlock}`;
     $("btn-start")?.addEventListener("click", () => {
       state.focusState = "working";
       rememberFocus();
@@ -1314,6 +1319,23 @@ export function updateFocusModeUi() {
     else clearFocusSession();
     renderDriftBanner();
   }
+
+/** Sync body class + Settings radios for Short/Deep return view. */
+export function updateReturnDensityUi() {
+    applyReturnDensity(state.returnDensity);
+    document.querySelectorAll("[data-return-density]").forEach((btn) => {
+      const on = btn.getAttribute("data-return-density") === state.returnDensity;
+      btn.setAttribute("aria-checked", String(on));
+    });
+  }
+
+export function setReturnDensity(value) {
+    state.returnDensity = value === "short" ? "short" : "deep";
+    preferences.setItem("adhd_hub_return_density", state.returnDensity);
+    updateReturnDensityUi();
+    renderFocus();
+  }
+
 export function toggleFocusMode() {
     state.focusModeOn = !state.focusModeOn;
     preferences.setItem("adhd_hub_focus_mode", String(state.focusModeOn));

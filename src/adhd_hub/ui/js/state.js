@@ -187,6 +187,10 @@ export const state = {
   focusModeOn: preferences.getItem("adhd_hub_focus_mode") === "true",
   focusEndsAt: Number(preferences.getItem("adhd_hub_focus_ends_at") || 0) || 0,
   focusTimerId: null,
+  /** Now return view: "short" | "deep" (default deep = current layout). */
+  returnDensity:
+    preferences.getItem("adhd_hub_return_density") === "short" ? "short" : "deep",
+
   archivedProjectsCache: [],
   currentTz:
     preferences.getItem(tzKey) ||
