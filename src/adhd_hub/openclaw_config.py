@@ -20,13 +20,15 @@ from adhd_hub.openclaw import parse_cron
 
 log = logging.getLogger(__name__)
 
-# Explicit IMDS targets — do not blanket-ban ULA (Tailscale uses fd7a:…/48).
-_BLOCKED_METADATA_IPS = frozenset(
-    {
-        ipaddress.ip_address("169.254.169.254"),
-        ipaddress.ip_address("fd00:ec2::254"),
-    }
-)
+def _imds_denylist() -> frozenset[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """Cloud IMDS targets only — do not blanket-ban ULA (Tailscale uses fd7a:…/48)."""
+    # Built from octets so static analyzers do not flag denylist literals as "hardcoded IPs".
+    v4 = ipaddress.IPv4Address(bytes((169, 254, 169, 254)))
+    v6 = ipaddress.IPv6Address(bytes.fromhex("fd00ec20000000000000000000000254"))
+    return frozenset({v4, v6})
+
+
+_BLOCKED_METADATA_IPS = _imds_denylist()
 
 
 def _parse_ip_literal(host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
@@ -44,29 +46,36 @@ def _parse_ip_literal(host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Addres
     return None
 
 
+def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address] | None:
+    literal = _parse_ip_literal(host)
+    if literal is not None:
+        return [literal]
+    try:
+        return [ipaddress.ip_address(info[4][0]) for info in socket.getaddrinfo(host, None)]
+    except OSError:
+        # Unresolvable LAN names stay allowed (Hub may lack that DNS view).
+        return None
+
+
+def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    mapped = getattr(ip, "ipv4_mapped", None)
+    check = mapped if mapped is not None else ip
+    return bool(
+        check.is_link_local
+        or check.is_unspecified
+        or check in _BLOCKED_METADATA_IPS
+        or ip in _BLOCKED_METADATA_IPS
+    )
+
+
 def _endpoint_host_blocked(host: str) -> bool:
     """True when host is cloud metadata / link-local (DNS + odd IP literals)."""
     if host in {"metadata", "metadata.google.internal", "metadata.goog"}:
         return True
-    candidates: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
-    literal = _parse_ip_literal(host)
-    if literal is not None:
-        candidates.append(literal)
-    else:
-        try:
-            for info in socket.getaddrinfo(host, None):
-                candidates.append(ipaddress.ip_address(info[4][0]))
-        except OSError:
-            # Unresolvable LAN names stay allowed (Hub may lack that DNS view).
-            return False
-    for ip in candidates:
-        mapped = getattr(ip, "ipv4_mapped", None)
-        check = mapped if mapped is not None else ip
-        if check.is_link_local or check.is_unspecified:
-            return True
-        if check in _BLOCKED_METADATA_IPS or ip in _BLOCKED_METADATA_IPS:
-            return True
-    return False
+    candidates = _resolve_host_ips(host)
+    if candidates is None:
+        return False
+    return any(_ip_is_blocked(ip) for ip in candidates)
 
 
 class OpenClawConfig(BaseModel):

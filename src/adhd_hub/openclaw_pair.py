@@ -83,10 +83,9 @@ class OpenClawPairStore:
         encrypted = raw.get("token_encrypted")
         if isinstance(encrypted, str) and encrypted:
             if not self._auth_token:
-                if required:
-                    raise ValueError(
-                        "pair_token_undecryptable — hub auth token missing; restart pairing"
-                    )
+                # _encrypt_token stores plaintext under this key when auth_token is unset.
+                if required and not encrypted.strip():
+                    raise ValueError("pair_token_missing — restart pairing")
                 return encrypted
             try:
                 return _cipher(self._auth_token).decrypt(encrypted.encode()).decode()

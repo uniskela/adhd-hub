@@ -1235,6 +1235,7 @@ export async function loadCliSessions() {
         });
       return true;
     } catch (_e) {
+      // Optional panel: network/auth errors leave the prior list as-is.
       return false;
     }
   }

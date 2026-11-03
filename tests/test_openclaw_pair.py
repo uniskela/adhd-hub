@@ -145,6 +145,18 @@ def test_openclaw_pair_approve_rejects_undecryptable_token(tmp_path: Path) -> No
     assert broken.status().status == "submitted"
 
 
+def test_openclaw_pair_approve_without_auth_token_accepts_plaintext(tmp_path: Path) -> None:
+    store = OpenClawPairStore(tmp_path, auth_token="")
+    started = store.start()
+    store.submit(
+        user_code=started.user_code,
+        webhook_url="http://openclaw:18789/hooks/wake",
+        token="hook-secret",
+    )
+    config = store.approve_config()
+    assert config.token == "hook-secret"
+
+
 def test_openclaw_pair_prompt_requires_protected_token_provisioning() -> None:
     prompt = openclaw_pair_prompt(
         hub_origin="https://hub.example.test",
