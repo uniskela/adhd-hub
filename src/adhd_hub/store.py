@@ -2644,14 +2644,16 @@ class Store:
             return []
         limit = max(1, min(int(limit), 50_000))
         placeholders = ",".join("?" for _ in types)
+        # Newest-first so LIMIT sheds oldest rows; reverse for chronological agg.
         sql = (
             f"SELECT event_type, created_at, project_slug FROM activity_events "
             f"WHERE created_at >= ? AND event_type IN ({placeholders}) "
-            "ORDER BY created_at ASC, id ASC LIMIT ?"
+            "ORDER BY created_at DESC, id DESC LIMIT ?"
         )
         params: list[Any] = [since_iso, *types, limit]
         with self._conn() as conn:
-            rows = conn.execute(sql, params).fetchall()
+            rows = list(conn.execute(sql, params).fetchall())
+        rows.reverse()
         return [
             {
                 "event_type": row["event_type"],

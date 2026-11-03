@@ -58,6 +58,37 @@ def test_aggregate_ignores_forge_reconcile_and_buckets_periods() -> None:
     assert finished_today["added"] == 1
 
 
+def test_list_insight_event_rows_keeps_newest_when_capped(tmp_path: Path) -> None:
+    service = HubService(Settings(data_dir=tmp_path / "data", auth_token="secret"))
+    bus = service.event_bus
+    base = datetime(2026, 11, 1, 12, 0, tzinfo=UTC)
+    for i in range(5):
+        publish_activity_event(
+            service.store,
+            event_type=THREAD_CREATED,
+            project_slug="cap",
+            thread_id=f"t-{i}",
+            source="api",
+            idempotency_key=f"cap:created:{i}",
+            bus=bus,
+        )
+        with service.store._conn() as conn:
+            conn.execute(
+                "UPDATE activity_events SET created_at = ? WHERE thread_id = ?",
+                ((base + timedelta(hours=i)).isoformat(), f"t-{i}"),
+            )
+    rows = service.store.list_insight_event_rows(
+        since_iso=base.isoformat(),
+        event_types=[THREAD_CREATED],
+        limit=2,
+    )
+    stamps = [r["created_at"] for r in rows]
+    assert stamps == [
+        (base + timedelta(hours=3)).isoformat(),
+        (base + timedelta(hours=4)).isoformat(),
+    ]
+
+
 def test_overview_insights_from_persisted_events(tmp_path: Path) -> None:
     service = HubService(Settings(data_dir=tmp_path / "data", auth_token="secret"))
     bus = service.event_bus
