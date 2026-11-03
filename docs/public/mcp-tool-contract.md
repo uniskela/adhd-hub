@@ -6,7 +6,7 @@ See [Connect](connect.md) to connect your client.
 
 | Area | Tools |
 | --- | --- |
-| Discovery | `check_overlap`, `list_open_threads`, `list_projects`, `list_reminders`, `get_overview`, `suggest_next_up` |
+| Discovery | `check_overlap`, `search_work`, `list_open_threads`, `list_projects`, `list_reminders`, `get_overview`, `suggest_next_up` |
 | Project identity | `resolve_project`, `upsert_project`, `register_workspace` |
 | Pending human approval | `rename_project`, `delete_project`, `list_pending_actions`, `request_thread_merge` |
 | Duplicate review | `suggest_duplicate_threads`, `thread_merge_history` |

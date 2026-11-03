@@ -48,6 +48,9 @@ Below the card, the dashboard links to open steps, this week’s finished steps,
 ## My work: browse and review
 
 Desktop **My work** uses two columns: projects on the left and steps on the right.
+**Search threads, projects, notes** (two or more characters) runs a local Hub
+search across unfinished threads, projects, and wiki progress snippets — see
+[Global search](global-search.md). Clearing the field restores the ordinary list.
 
 Each step row keeps only the useful scan information visible:
 

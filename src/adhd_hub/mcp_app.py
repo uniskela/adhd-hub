@@ -99,6 +99,41 @@ def build_mcp(service: HubService) -> MCPServer:
             openWorldHint=False,
         )
     )
+    def search_work(
+        query: Annotated[
+            str,
+            Field(
+                description="Keywords to find across Hub threads, projects, and local wiki progress snippets.",
+                min_length=2,
+                max_length=200,
+            ),
+        ],
+        limit: Annotated[
+            int,
+            Field(description="Maximum hits to return (1–50); defaults to 25.", ge=1, le=50),
+        ] = 25,
+        include_done: Annotated[
+            bool,
+            Field(
+                description="When true, also match done/dismissed threads; default false keeps unfinished only."
+            ),
+        ] = False,
+    ) -> dict[str, Any]:
+        """Search local Hub work without an external index.
+
+        Returns mixed hits (thread, project, wiki) with quiet snippets. Read-only;
+        does not create or change threads.
+        """
+        return service.search_work(query, limit=limit, include_done=include_done)
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        )
+    )
     def suggest_duplicate_threads(
         thread_id: Annotated[
             str,

@@ -24,6 +24,8 @@
   let threadsCache = [];
   let threadsRequest = 0;
   let projectRequest = 0;
+  let searchRequest = 0;
+  let searchTimer = null;
   const tzKey = "adhd_hub_timezone";
   let currentView = "open";
   let projectFilter = null;
@@ -786,18 +788,85 @@
     card.querySelector("[data-done]").addEventListener("click", () => markDone(thread.id).catch((error) => setMsg(error.message)));
   }
 
-  function renderThreads(threads) {
-    const query = $("thread-search").value.trim().toLowerCase();
-    const total = threads.length;
-    threads = threads.filter((thread) =>
-      [thread.summary, thread.scan_line, thread.project_slug, thread.progress_snippet].some((value) =>
-        String(value || "").toLowerCase().includes(query)
-      )
+  function renderSearchHits(hits, query) {
+    const root = $("threads");
+    $("thread-count").textContent = `${hits.length} match${hits.length === 1 ? "" : "es"} across threads, projects, and notes`;
+    if (!hits.length) {
+      root.innerHTML = `<p class="hint">No matches for “${escapeHtml(query)}”. Try a different search.</p>`;
+      return;
+    }
+    const kindLabel = (kind) => ({ thread: "Thread", project: "Project", wiki: "Notes" }[kind] || kind);
+    root.innerHTML = hits
+      .map((hit, index) => {
+        const slug = hit.project_slug || "";
+        const projectLabel = !slug || slug === "unclassified" ? "Inbox" : slug;
+        return `<article class="thread search-hit" aria-labelledby="search-title-${index}">
+          <div class="thread-topline">
+            <span class="thread-number">${index + 1}</span>
+            <span class="thread-project">${escapeHtml(kindLabel(hit.kind))} · ${escapeHtml(projectLabel)}</span>
+            ${hit.status ? `<span class="thread-status">${escapeHtml(hit.status)}</span>` : ""}
+          </div>
+          <h3 id="search-title-${index}">${escapeHtml(hit.title || hit.id)}</h3>
+          ${hit.snippet ? `<p class="thread-scan">${escapeHtml(hit.snippet)}</p>` : ""}
+          <div class="actions thread-actions">
+            ${
+              hit.kind === "thread"
+                ? `<button type="button" class="thread-primary compact" data-choose="${escapeHtml(hit.id)}">${hit.id === chosenId ? "Return to Now" : "Choose this step"}</button>`
+                : `<button type="button" class="thread-primary compact" data-open-project="${escapeHtml(hit.project_slug || hit.id)}">Open project</button>`
+            }
+          </div>
+        </article>`;
+      })
+      .join("");
+    root.querySelectorAll("[data-choose]").forEach((btn) =>
+      btn.addEventListener("click", () => chooseThread(btn.dataset.choose))
     );
+    root.querySelectorAll("[data-open-project]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        selectProject(btn.dataset.openProject || null).catch((error) => setMsg(error.message));
+        $("thread-search").value = "";
+      })
+    );
+  }
+
+  async function runGlobalSearch(query) {
+    const request = ++searchRequest;
+    try {
+      const params = new URLSearchParams({ q: query, limit: "25" });
+      if (currentView === "done") params.set("include_done", "true");
+      const data = await api("/search?" + params.toString());
+      if (request !== searchRequest) return;
+      if ($("thread-search").value.trim() !== query) return;
+      renderSearchHits(data.hits || [], query);
+    } catch (error) {
+      if (request !== searchRequest) return;
+      setMsg(String(error.message || error));
+    }
+  }
+
+  function scheduleSearch() {
+    clearTimeout(searchTimer);
+    const query = $("thread-search").value.trim();
+    if (query.length < 2) {
+      searchRequest += 1;
+      renderThreads(threadsCache);
+      return;
+    }
+    searchTimer = setTimeout(() => {
+      runGlobalSearch(query).catch((error) => setMsg(String(error.message || error)));
+    }, 200);
+  }
+
+  function renderThreads(threads) {
+    if ($("thread-search").value.trim().length >= 2) {
+      scheduleSearch();
+      return;
+    }
+    const total = threads.length;
     $("thread-count").textContent = `${threads.length} of ${total} loaded threads${total === 100 ? " (latest 100)" : ""}`;
     const root = $("threads");
     if (!threads.length) {
-      const message = query ? "No matches. Try a different search." :
+      const message =
         currentView === "done" ? "Finished work will appear here when you mark a thread done." :
         currentView === "stale" ? "Nothing waiting here. Return whenever you’re ready." :
         "No open threads here. Save progress from your connected assistant to pick it up later.";
@@ -1886,7 +1955,7 @@
     $("p_title").focus();
   });
 
-  $("thread-search").addEventListener("input", () => renderThreads(threadsCache));
+  $("thread-search").addEventListener("input", () => scheduleSearch());
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab").forEach((t) => {
