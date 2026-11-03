@@ -118,6 +118,8 @@ Open Hub pages listen for authenticated live updates (SSE) and refresh relevant 
 
 The installable PWA caches the **UI shell only**. When a newer shell is waiting, a sticky **Refresh** toast lets you activate it; the Hub never forces a mid-task reload.
 
+On a phone, after you install the Hub, the system share sheet can target **Progress Hub**. Shared title/text/url open **Save a thought** already filled in (you confirm before anything is stored). Offline share queue is not part of this release.
+
 ### Sync health
 
 Under **Settings → Issue sync**, **Last sync** shows:
@@ -129,7 +131,7 @@ Under **Settings → Issue sync**, **Last sync** shows:
 
 ## Capture, pause, and return
 
-Use **Save a thought** for a quick capture without leaving the current task.
+Use **Save a thought** for a quick capture without leaving the current task. The installed PWA can also receive shared text/links into that same dialog.
 
 When stopping:
 

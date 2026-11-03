@@ -18,6 +18,7 @@ UI_JS_MODULES = {
     "accent.js",
     "screens.js",
     "now.js",
+    "share-capture.mjs",
     "thread-title.mjs",
     "return-cue.mjs",
     "clock-off.mjs",

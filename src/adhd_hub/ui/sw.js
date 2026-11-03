@@ -1,6 +1,6 @@
 /* ADHD Progress Hub — shell cache only. Never caches /api or auth. */
 /* Bump CACHE when PRECACHE entries or SW behaviour change (avoid colliding open PRs). */
-const CACHE = "adhd-hub-shell-v52";
+const CACHE = "adhd-hub-shell-v53";
 const PRECACHE = [
   "/ui/",
   "/ui/app.css",
@@ -20,6 +20,7 @@ const PRECACHE = [
   "/ui/js/accent.js",
   "/ui/js/load.js",
   "/ui/js/now.js",
+  "/ui/js/share-capture.mjs",
   "/ui/js/thread-title.mjs",
   "/ui/js/return-cue.mjs",
   "/ui/js/clock-off.mjs",
