@@ -18,7 +18,7 @@ def test_to_iso_utc_aware_and_naive() -> None:
     localish = datetime(2026, 9, 23, 0, 0, 0, tzinfo=sydney)
     assert to_iso_utc(localish) == "2026-09-22T14:00:00Z"
 
-    naive = datetime(2026, 9, 23, 14, 30, 21)  # noqa: DTZ001 — intentional naive input
+    naive = datetime(2026, 9, 23, 14, 30, 21)  # intentional naive input
     assert to_iso_utc(naive) == "2026-09-23T14:30:21Z"
 
 
