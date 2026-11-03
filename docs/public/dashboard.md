@@ -17,6 +17,8 @@ The dashboard has four main areas:
 
 On desktop, the compact **Appearance** button cycles System → Light → Dark. The same choices live under **Settings → Appearance**; on mobile, use Settings. The browser remembers the preference when storage is available.
 
+**Return view** (also under Appearance) chooses how much Now shows when you come back: **Short** keeps the next step (resume + actions); **Deep** adds project notes and the overview strip. It is a local preference only — not a score or capacity judgment.
+
 ## Now: one step at a time
 
 The **Now** screen keeps one chosen step in front of you.

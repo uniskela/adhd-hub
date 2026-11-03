@@ -19,6 +19,7 @@ UI_JS_MODULES = {
     "screens.js",
     "now.js",
     "share-capture.mjs",
+    "return-density.mjs",
     "thread-title.mjs",
     "return-cue.mjs",
     "clock-off.mjs",

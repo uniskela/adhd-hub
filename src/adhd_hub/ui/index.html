@@ -397,6 +397,13 @@
                     </div>
                   </fieldset>
                   <div class="setting">
+                    <div class="setting-text"><p class="setting-label" id="return-density-label">Return view</p><p class="hint" id="return-density-hint">How much context Now shows when you come back. Short keeps the next step; Deep adds notes and overview.</p></div>
+                    <div class="theme-toggle segmented" role="radiogroup" aria-labelledby="return-density-label" aria-describedby="return-density-hint">
+                      <button type="button" class="theme-option" role="radio" aria-checked="false" data-return-density="short" aria-label="Short return view">Short</button>
+                      <button type="button" class="theme-option" role="radio" aria-checked="true" data-return-density="deep" aria-label="Deep return view">Deep</button>
+                    </div>
+                  </div>
+                  <div class="setting">
                     <div class="setting-text"><label class="setting-label" for="rewards-enabled">Gentle rewards</label><p class="hint" id="rewards-hint">Ranks and milestones for finished steps. No streaks to lose.</p></div>
                     <span class="switch"><input type="checkbox" role="switch" id="rewards-enabled" aria-describedby="rewards-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
                   </div>
