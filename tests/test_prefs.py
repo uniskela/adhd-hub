@@ -113,6 +113,21 @@ def test_load_prefs_recovers_corrupt_clock_off(tmp_path: Path) -> None:
     assert loaded.clock_off_override_until is None
 
 
+def test_load_prefs_keeps_valid_fields_when_other_keys_are_corrupt(tmp_path: Path) -> None:
+    (tmp_path / "prefs.json").write_text(
+        '{"timezone":"Australia/Sydney","clock_off":{"enabled":true,"active_days":[4],'
+        '"clock_off_time":"22:30","wind_down_minutes":20},'
+        '"connect_companions":["not-a-real-tool"],"connect_skills_mode":"project"}',
+        encoding="utf-8",
+    )
+    loaded = load_prefs(tmp_path)
+    assert loaded.timezone == "Australia/Sydney"
+    assert loaded.connect_skills_mode == "project"
+    assert loaded.connect_companions == []
+    assert loaded.clock_off.enabled is True
+    assert loaded.clock_off.clock_off_time == "22:30"
+
+
 def test_format_timestamp_sydney() -> None:
     stamp = format_timestamp(
         datetime(2026, 1, 15, 12, 0, tzinfo=UTC),
