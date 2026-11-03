@@ -24,7 +24,8 @@ def _imds_denylist() -> frozenset[ipaddress.IPv4Address | ipaddress.IPv6Address]
     """Cloud IMDS targets only — do not blanket-ban ULA (Tailscale uses fd7a:…/48)."""
     # Built from octets so static analyzers do not flag denylist literals as "hardcoded IPs".
     v4 = ipaddress.IPv4Address(bytes((169, 254, 169, 254)))
-    v6 = ipaddress.IPv6Address(bytes.fromhex("fd00ec20000000000000000000000254"))
+    # fd00:ec2::254 (AWS IMDS IPv6)
+    v6 = ipaddress.IPv6Address(bytes.fromhex("fd000ec2000000000000000000000254"))
     return frozenset({v4, v6})
 
 
