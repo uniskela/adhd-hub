@@ -191,7 +191,7 @@ def probe_mcp(
         result["detail"] = "MCP request timed out"
     except (httpx.HTTPError, OSError):
         result["detail"] = "MCP transport/TLS failure; check network, certificate trust and URL"
-    except (ValueError, TypeError, UnicodeError):
+    except (ValueError, TypeError):
         result["detail"] = "Invalid MCP URL, redirect or response; requires HTTPS outside loopback"
     finally:
         if owned and client is not None:

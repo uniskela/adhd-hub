@@ -586,7 +586,7 @@ def merge_codex_mcp(path: Path, hub_url: str, *, dry_run: bool = False) -> str:
         raise TypeError("Codex mcp_servers must be a table")
     previous = servers.get(CODEX_SERVER_KEY)
     pattern = re.compile(
-        r'''^\[mcp_servers\.(?:adhd-hub|"adhd-hub"|'adhd-hub')\][^\n]*\n(?:(?!^\[).*\n?)*''',
+        r'''^\[mcp_servers\.(?:adhd-hub|"adhd-hub"|'adhd-hub')\][^\n]*\n(?:(?!^\[)(?:[^\n]*\n|[^\n]+$))*''',
         re.MULTILINE,
     )
     if previous is not None:
