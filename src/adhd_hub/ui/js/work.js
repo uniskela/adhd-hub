@@ -1289,6 +1289,7 @@ async function openWikiProgress(slug) {
     $("thread-search").value = "";
     state.searchRequest += 1;
     state.lastSearchQuery = "";
+    state.lastSearchView = "";
     state.searchHitsCache = [];
     await selectProject(slug);
     const reader = $("notes-reader");
@@ -1373,6 +1374,7 @@ export async function runGlobalSearch(query) {
       if (request !== state.searchRequest) return;
       if ($("thread-search").value.trim() !== query) return;
       state.lastSearchQuery = query;
+      state.lastSearchView = state.currentView;
       state.searchHitsCache = data.hits || [];
       renderSearchHits(state.searchHitsCache, query);
     } catch (error) {
@@ -1387,11 +1389,12 @@ export function scheduleSearch() {
     if (query.length < 2) {
       state.searchRequest += 1;
       state.lastSearchQuery = "";
+      state.lastSearchView = "";
       state.searchHitsCache = [];
       renderThreads(state.threadsCache);
       return;
     }
-    if (query === state.lastSearchQuery) {
+    if (query === state.lastSearchQuery && state.lastSearchView === state.currentView) {
       renderSearchHits(state.searchHitsCache, query);
       return;
     }
@@ -1404,7 +1407,7 @@ export function renderThreads(threads) {
     const query = $("thread-search").value.trim();
     if (query.length >= 2) {
       // Keep current hits on list refresh; only input changes schedule a new search.
-      if (query === state.lastSearchQuery) {
+      if (query === state.lastSearchQuery && state.lastSearchView === state.currentView) {
         renderSearchHits(state.searchHitsCache, query);
       } else {
         scheduleSearch();
