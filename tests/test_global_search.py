@@ -24,6 +24,21 @@ def test_normalize_query_trims_and_caps() -> None:
     assert len(normalize_query("x" * 500)) == 200
 
 
+def test_empty_scrubbed_snippet_becomes_null() -> None:
+    from adhd_hub.search import SearchHit
+
+    hit = SearchHit(
+        kind="thread",
+        id="t1",
+        title="t",
+        snippet="",
+        project_slug="p",
+        status="open",
+        score=1.0,
+    )
+    assert hit.as_dict()["snippet"] is None
+
+
 def test_search_finds_thread_by_goal(service: HubService) -> None:
     service.store.upsert_project(ProjectUpsert(slug="alpha", title="Alpha"))
     service.store.upsert_thread(

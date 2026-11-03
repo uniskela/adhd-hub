@@ -36,7 +36,7 @@ class SearchHit:
             "kind": self.kind,
             "id": self.id,
             "title": self.title,
-            "snippet": self.snippet,
+            "snippet": self.snippet or None,
             "project_slug": self.project_slug,
             "status": self.status,
             "score": round(self.score, 3),

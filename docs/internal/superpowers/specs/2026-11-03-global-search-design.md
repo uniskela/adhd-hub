@@ -28,7 +28,7 @@ My work `#thread-search` filters the latest loaded threads in the browser (`summ
 - MCP: `search_work(query, limit=25, include_done=false)`
 - `q` / `query`: min length 2, max 200 (trim; empty → empty hits)
 - `limit`: 1–50, default 25
-- `include_done`: default false (open + paused threads; always search projects + wiki)
+- `include_done`: default false (open + blocked threads; always search projects + wiki)
 
 ### Match surfaces
 

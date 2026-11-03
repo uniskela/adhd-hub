@@ -115,7 +115,7 @@ def build_mcp(service: HubService) -> MCPServer:
         include_done: Annotated[
             bool,
             Field(
-                description="When true, also match done/dismissed threads; default false keeps unfinished only."
+                description="When true, also match done/dismissed threads; default false matches open and blocked only."
             ),
         ] = False,
     ) -> dict[str, Any]:
