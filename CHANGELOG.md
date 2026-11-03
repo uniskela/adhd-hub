@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.22.0](https://github.com/uniskela/adhd-hub/compare/v0.21.1...v0.22.0) (2026-11-03)
+
+
+### Features
+
+* **progress:** add accessible completion calendar and visual activity summary ([#349](https://github.com/uniskela/adhd-hub/issues/349)) ([c42c164](https://github.com/uniskela/adhd-hub/commit/c42c16476af65f5f35784bb02191a144fec7103e))
+* **progress:** add ledger-backed activity insights (Slice A) ([#345](https://github.com/uniskela/adhd-hub/issues/345)) ([27809fe](https://github.com/uniskela/adhd-hub/commit/27809fe0e3c12025fc596c69c63f079ab5f0edc0))
+* **progress:** paginate completion calendar table by month ([#352](https://github.com/uniskela/adhd-hub/issues/352)) ([a19ab6d](https://github.com/uniskela/adhd-hub/commit/a19ab6df0263e762573a52becfbc84085295e9a9))
+* **search:** add local-first global search for Wave 8 ([#338](https://github.com/uniskela/adhd-hub/issues/338)) ([d9953c2](https://github.com/uniskela/adhd-hub/commit/d9953c29fd56c5c480ea031d5c9fb0d95ff7acd6))
+* **ui:** add Short/Deep Now return view preference ([#342](https://github.com/uniskela/adhd-hub/issues/342)) ([33fcee6](https://github.com/uniskela/adhd-hub/commit/33fcee68712321d0dd6f4f898e14a8a5a1464935))
+* **ui:** add Web Share Target into Save a thought ([#341](https://github.com/uniskela/adhd-hub/issues/341)) ([bd54e17](https://github.com/uniskela/adhd-hub/commit/bd54e172fce1bba43e963d618f24ce9b0131f3e6))
+* **wiki:** reversibly compact long PROGRESS History sections ([#339](https://github.com/uniskela/adhd-hub/issues/339)) ([c1ee283](https://github.com/uniskela/adhd-hub/commit/c1ee283b7df5c30be14d16484b2b71485f185fcb))
+
+
+### Bug Fixes
+
+* **clock-off:** harden override lifecycle and prefs recovery ([#347](https://github.com/uniskela/adhd-hub/issues/347)) ([c6bd4d1](https://github.com/uniskela/adhd-hub/commit/c6bd4d1db9e60da98bd5f0788541d9e6dbeebffe))
+* **connect:** keep CLI sessions reconnectable and harden OpenClaw pairing ([#354](https://github.com/uniskela/adhd-hub/issues/354)) ([ddfaec9](https://github.com/uniskela/adhd-hub/commit/ddfaec92a0a686742acea75e0a8662f03fb19ac8))
+* **connect:** simplify MCP diagnostic control flow ([#357](https://github.com/uniskela/adhd-hub/issues/357)) ([670b0ce](https://github.com/uniskela/adhd-hub/commit/670b0cea546ea11faecca2bc8b396583e4cf4b62))
+* **connect:** verify agent MCP authentication and preserve registrations ([#356](https://github.com/uniskela/adhd-hub/issues/356)) ([285dc21](https://github.com/uniskela/adhd-hub/commit/285dc21981369ee1e9443ac772e90c83b8fd3643))
+* **deps:** bump working Python and GitHub Actions deps ([#358](https://github.com/uniskela/adhd-hub/issues/358)) ([87c2e16](https://github.com/uniskela/adhd-hub/commit/87c2e165dfdcec788fee3f159323d91eaba3c0c1))
+* **ui:** connect agent selection to MCP setup commands ([#359](https://github.com/uniskela/adhd-hub/issues/359)) ([02d8008](https://github.com/uniskela/adhd-hub/commit/02d8008bcec2f2d7e32c4c400c8bd8ada6df595b))
+* **ui:** prevent Projects dropdown clipping ([#348](https://github.com/uniskela/adhd-hub/issues/348)) ([35f23f7](https://github.com/uniskela/adhd-hub/commit/35f23f76cf4b4161b039fa4a035a689d9c2b2caf))
+* **ui:** revalidate shell JS so module graphs cannot skew ([#355](https://github.com/uniskela/adhd-hub/issues/355)) ([2e784d2](https://github.com/uniskela/adhd-hub/commit/2e784d27fc1416c7c6a3b355a921d096fb433526))
+
+
+### Documentation
+
+* add responsive Product Hunt badge to README ([#330](https://github.com/uniskela/adhd-hub/issues/330)) ([0d31c83](https://github.com/uniskela/adhd-hub/commit/0d31c83af4dd7dc63e994b56e8d57131846f4e56))
+
 ## [0.21.1](https://github.com/uniskela/adhd-hub/compare/v0.21.0...v0.21.1) (2026-10-09)
 
 
