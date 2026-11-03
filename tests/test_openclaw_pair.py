@@ -102,6 +102,11 @@ def test_openclaw_pair_rejects_unknown_failure_code(tmp_path: Path) -> None:
 
 
 def test_openclaw_rejects_metadata_and_link_local_urls() -> None:
+    from adhd_hub.openclaw_config import _endpoint_host_blocked
+
+    assert _endpoint_host_blocked("169.254.169.254") is True
+    assert _endpoint_host_blocked("fd00:ec2::254") is True
+    assert _endpoint_host_blocked("fd00:ec20::254") is False
     with pytest.raises(ValueError, match="metadata|link-local|unspecified"):
         OpenClawConfig(webhook_url="http://169.254.169.254/latest/meta-data")
     with pytest.raises(ValueError, match="metadata|link-local|unspecified"):
