@@ -292,7 +292,7 @@ adhd-hub connect /path/to/project --hub https://adhd-hub.example.com --agents cu
 | One-time connect code | Hub SQLite for ~10 minutes, single-use | Reuse / replay; it expires |
 | CLI session (`ahcli_…`) | `~/.config/adhd-hub/credentials.json` on the client | Shell `export`, git, progress notes |
 
-The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Revoke it under **Settings → Coding agents → Connected computers** or with `adhd-hub logout`. Dashboard password login is unchanged.
+The CLI session is accepted as Bearer for REST and MCP. It is **not** the server access token. Each accepted use refreshes it for 90 days, and the saved credentials file is kept so the CLI can reconnect while the Hub session is still valid. Revoke it under **Settings → Coding agents → Connected computers** or with `adhd-hub logout`. Dashboard password login is unchanged.
 
 Project MCP snippets still interpolate an environment variable so they stay safe to commit. Existing clients that already use `ADHD_HUB_AUTH_TOKEN` keep working.
 

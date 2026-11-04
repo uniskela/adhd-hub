@@ -49,4 +49,4 @@ Dashboard passwords cannot be used as bearer credentials for REST or MCP. Those 
 
 ## CLI connect handshake
 
-`POST /api/connect/start` (unauthenticated, rate-limited) creates a 10-minute, single-use grant. The operator approves it while signed into `/ui` (`POST /api/connect/approve`). The CLI then calls `POST /api/connect/token` once (poll with `device_code`, or the one-time `code` delivered to `http://127.0.0.1:<port>/callback`). Replay, expiry, and a wrong PKCE verifier are rejected. Issued `ahcli_` tokens are hashed in `data/connect.sqlite3` and last 90 days or until revoked.
+`POST /api/connect/start` (unauthenticated, rate-limited) creates a 10-minute, single-use grant. The operator approves it while signed into `/ui` (`POST /api/connect/approve`). The CLI then calls `POST /api/connect/token` once (poll with `device_code`, or the one-time `code` delivered to `http://127.0.0.1:<port>/callback`). Replay, expiry, and a wrong PKCE verifier are rejected. Issued `ahcli_` tokens are hashed in `data/connect.sqlite3`. Each accepted use refreshes that session for 90 days, until it is revoked.
