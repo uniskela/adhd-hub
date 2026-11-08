@@ -404,20 +404,58 @@ def _is_newer_than_hub(item: ComponentHealth) -> bool:
     )
 
 
+def _is_global_skill_path(path: Path | None) -> bool:
+    """True when ``path`` sits under a known home-dir skill install root."""
+    if path is None:
+        return False
+    try:
+        resolved = path.expanduser().resolve()
+    except OSError:
+        return False
+    home = Path.home().resolve()
+    for root in (
+        home / ".agents" / "skills",
+        home / ".claude" / "skills",
+        home / ".codex" / "skills",
+        home / ".cursor" / "skills-cursor",
+    ):
+        try:
+            resolved.relative_to(root)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def _is_project_scoped_newer(item: ComponentHealth) -> bool:
+    """Newer markers that cause setup/sync to refuse writes (not global skills)."""
+    if not _is_newer_than_hub(item):
+        return False
+    if item.name.startswith("AGENTS.md") or item.name == "Cursor rule":
+        return True
+    if item.name.endswith(" skill"):
+        # Missing path → unknown; treat as project-scoped to stay safe.
+        return not _is_global_skill_path(item.path)
+    return False
+
+
 def repair_hint(items: list[ComponentHealth]) -> list[str]:
     hints: list[str] = []
     agents = next((i for i in items if i.name.startswith("AGENTS.md")), None)
     rule = next((i for i in items if i.name == "Cursor rule"), None)
     skills_stale = [i for i in items if i.name.endswith(" skill") and i.needs_repair]
-    newer = [i for i in items if _is_newer_than_hub(i)]
-    if newer:
-        # sync-project / setup --refresh refuse all writes when any marker is
-        # newer, so never suggest those commands until the CLI is upgraded.
+    project_newer = [i for i in items if _is_project_scoped_newer(i)]
+    if project_newer:
+        # setup/sync refuse all writes when a project-scoped marker is newer.
+        # Newer global (home-dir) skill installs must not suppress repair hints.
         hints.append(
             "Upgrade the adhd-hub CLI (or Hub image) — project guidance is newer "
             "than this package; setup --refresh / sync-project will refuse to downgrade"
         )
         return hints
+    # Drop newer global skills from the stale list so we don't recommend sync
+    # solely to "fix" a home-dir install that sync does not touch.
+    skills_stale = [i for i in skills_stale if not _is_newer_than_hub(i)]
     if (
         agents
         and agents.needs_repair
