@@ -6,12 +6,12 @@ This is the **single public roadmap page** for ADHD Progress Hub. GitHub issue [
 
 | Position | Work | Status |
 | --- | --- | --- |
-| **Now** | Activity insights #72 | Slice A ([#345](https://github.com/uniskela/adhd-hub/pull/345)) and completion calendar ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)) merged for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published) |
+| **Now** | Activity insights #72 | Slice A ([#345](https://github.com/uniskela/adhd-hub/pull/345)) and completion calendar ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)) shipped in **v0.22.x** ([#340](https://github.com/uniskela/adhd-hub/pull/340)); focus sessions and remaining metrics next |
 | **Next** | Insights remaining | Focus sessions, then trends and remaining metrics |
 | **Then** | Wave 9 | Shared surfaces / discoverability |
 | **Opt-in** | Wave 5 integrations | Only when a concrete need justifies them |
 
-Reviewed against `main` on **2026-11-04**. Latest published package and tag is **v0.21.1**. **Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) shipped in v0.21.x** (triage + Next-up earlier; merge/dedupe + return-cue coaching in v0.21.0). Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55) ([#338](https://github.com/uniskela/adhd-hub/pull/338), [#339](https://github.com/uniskela/adhd-hub/pull/339), [#341](https://github.com/uniskela/adhd-hub/pull/341), [#342](https://github.com/uniskela/adhd-hub/pull/342)), Activity insights Slice A ([#345](https://github.com/uniskela/adhd-hub/pull/345)), and the 12-week completion calendar ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)) are merged on `main` for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published). **NOW** remains Activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72); focus sessions and remaining metrics are next. Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
+Reviewed against `main` on **2026-11-08**. Latest published package and tag is **v0.22.1**. **Wave 7 [#54](https://github.com/uniskela/adhd-hub/issues/54) shipped in v0.21.x** (triage + Next-up earlier; merge/dedupe + return-cue coaching in v0.21.0). Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55) ([#338](https://github.com/uniskela/adhd-hub/pull/338), [#339](https://github.com/uniskela/adhd-hub/pull/339), [#341](https://github.com/uniskela/adhd-hub/pull/341), [#342](https://github.com/uniskela/adhd-hub/pull/342)) and Activity insights Slice A ([#345](https://github.com/uniskela/adhd-hub/pull/345)), including the 12-week completion calendar ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)), shipped in **v0.22.x** ([#340](https://github.com/uniskela/adhd-hub/pull/340)). **NOW** remains Activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72); focus sessions and remaining metrics are next. Narrow documentation stamps can land without changing the sequence below; issue #15 remains authoritative when status changes.
 
 ## Current state
 
@@ -48,7 +48,7 @@ Shipped in **v0.21.0**:
 - locked CI installs and Release Please–managed `uv.lock` versions ([#102](https://github.com/uniskela/adhd-hub/issues/102) via [#311](https://github.com/uniskela/adhd-hub/pull/311));
 - non-destructive sample data ([#305](https://github.com/uniskela/adhd-hub/pull/305)) and the `completion.ready` end-of-task guidance fixes ([#307](https://github.com/uniskela/adhd-hub/pull/307), [#321](https://github.com/uniskela/adhd-hub/pull/321)).
 
-Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55) ([#338](https://github.com/uniskela/adhd-hub/pull/338), [#339](https://github.com/uniskela/adhd-hub/pull/339), [#341](https://github.com/uniskela/adhd-hub/pull/341), [#342](https://github.com/uniskela/adhd-hub/pull/342)), Activity insights Slice A ([#345](https://github.com/uniskela/adhd-hub/pull/345)), and the 12-week completion calendar ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)) are merged on `main` for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published). **NOW** is Activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72); focus sessions and remaining metrics are next. Testing checklist [#343](https://github.com/uniskela/adhd-hub/issues/343).
+Wave 8 [#55](https://github.com/uniskela/adhd-hub/issues/55) ([#338](https://github.com/uniskela/adhd-hub/pull/338), [#339](https://github.com/uniskela/adhd-hub/pull/339), [#341](https://github.com/uniskela/adhd-hub/pull/341), [#342](https://github.com/uniskela/adhd-hub/pull/342)) and Activity insights Slice A ([#345](https://github.com/uniskela/adhd-hub/pull/345)), including the 12-week completion calendar ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)), shipped in **v0.22.x** ([#340](https://github.com/uniskela/adhd-hub/pull/340)). **NOW** is Activity insights [#72](https://github.com/uniskela/adhd-hub/issues/72); focus sessions and remaining metrics are next. Testing checklist [#343](https://github.com/uniskela/adhd-hub/issues/343).
 
 ## Product principles
 
@@ -107,7 +107,7 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 
 ### Wave 8 — find & capture ✅
 
-[#55](https://github.com/uniskela/adhd-hub/issues/55) — merged on `main` for **v0.22.0** (release PR [#340](https://github.com/uniskela/adhd-hub/pull/340), not yet published):
+[#55](https://github.com/uniskela/adhd-hub/issues/55) — shipped in **v0.22.x** ([#340](https://github.com/uniskela/adhd-hub/pull/340)):
 
 - global search ([#338](https://github.com/uniskela/adhd-hub/pull/338));
 - reversible progress compaction ([#339](https://github.com/uniskela/adhd-hub/pull/339));
@@ -118,9 +118,9 @@ Clock-Off ([#310](https://github.com/uniskela/adhd-hub/issues/310)) also shipped
 
 [#72](https://github.com/uniskela/adhd-hub/issues/72) — consuming B3 history. QA: [#343](https://github.com/uniskela/adhd-hub/issues/343).
 
-- Slice A: ledger-backed period totals + chart merged for **v0.22.0** ([#345](https://github.com/uniskela/adhd-hub/pull/345)); separate resumed/note counts and project lists remain;
+- Slice A: ledger-backed period totals + chart shipped in **v0.22.x** ([#345](https://github.com/uniskela/adhd-hub/pull/345)); separate resumed/note counts and project lists remain;
 - Slice B: persisted focus sessions;
-- Slice C: 12-week completion calendar with day details, month-paged table fallback and remembered visibility merged for **v0.22.0** ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)); focus/note calendar metrics remain;
+- Slice C: 12-week completion calendar with day details, month-paged table fallback and remembered visibility shipped in **v0.22.x** ([#349](https://github.com/uniskela/adhd-hub/pull/349), [#352](https://github.com/uniskela/adhd-hub/pull/352)); focus/note calendar metrics remain;
 - Slice D: trends / project breakdowns.
 
 ## Next product sequence
@@ -151,8 +151,8 @@ Focus sessions and the remaining metrics of [#72](https://github.com/uniskela/ad
 | Done | Foundation A / B1 / B2 / B3 | Shipped |
 | Done | Wave 6 #52 | Published in v0.16.0 |
 | Done | Wave 7 #54 | Completed in v0.21.0 |
-| Done | Wave 8 #55 | Merged for v0.22.0 (#338, #339, #341, #342; release PR #340, not yet published) |
-| **Now** | **Activity insights #72** | Slice A (#345) and completion calendar (#349, #352) merged for v0.22.0; focus sessions and remaining metrics next |
+| Done | Wave 8 #55 | Shipped in v0.22.x (#338, #339, #341, #342; [#340](https://github.com/uniskela/adhd-hub/pull/340)) |
+| **Now** | **Activity insights #72** | Slice A (#345) and completion calendar (#349, #352) shipped in v0.22.x; focus sessions and remaining metrics next |
 | Later | Wave 9 #56 | Shared surfaces / discoverability |
 | Opt-in | Wave 5 #20 | Only when justified |
 | Verify | Docker Hub description #300 | Check after image publish |
