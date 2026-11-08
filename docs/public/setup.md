@@ -27,6 +27,7 @@ After a Hub upgrade:
 
 - run `adhd-hub doctor --project /path/to/project` on each active project;
 - use `adhd-hub setup . --refresh` for stale managed guidance;
+- if doctor says the project copy is newer than this CLI, upgrade the CLI instead of refreshing ([project sync](project-sync.md));
 - add `--install-skills` only when you intentionally want global skill updates.
 
 See [project agent setup](project-agent-setup.md#keeping-guidance-and-skills-current).

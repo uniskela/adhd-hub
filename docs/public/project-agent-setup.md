@@ -82,7 +82,10 @@ Use the matching repair:
 | Global Hub skills | `adhd-hub setup . --install-skills` |
 | Stronger Cursor enforcement wanted | `adhd-hub setup . --continuity-guard` |
 
-`setup --check` is dry-run only. See [Project sync](project-sync.md) and [Continuity Guard](continuity-guard.md).
+`setup --check` is dry-run only. If the managed copy is newer than this CLI,
+doctor says to upgrade the CLI; `setup` and `sync-project` refuse the
+downgrade unless you pass `--allow-downgrade`. See [Project sync](project-sync.md)
+and [Continuity Guard](continuity-guard.md).
 
 The block also reminds the agent to send summaries only and to keep secrets, credentials, env files, transcripts, private Hub URLs, internal hosts/IPs, and absolute machine paths out of public artifacts. Prefer short repository-relative summaries in forge issues.
 
@@ -142,7 +145,7 @@ After upgrading Hub guidance, `adhd-hub doctor --project /path/to/my-project` is
 
 | Who | What to do |
 |-----|------------|
-| **You (operator)** | After a Hub upgrade (or when an agent mentions stale guidance): run `adhd-hub doctor --project .`. Repair with `setup . --refresh` (AGENTS block), `sync-project .` / `setup . --project-skills` (repo-scoped skills), and, when you want global skill updates, `setup . --install-skills`. Cursor Marketplace users also pull skill/rule updates via the [plugin sync](cursor-plugin-skill-sync.md) PR → publish path. |
+| **You (operator)** | After a Hub upgrade (or when an agent mentions stale guidance): run `adhd-hub doctor --project .`. Repair with `setup . --refresh` (AGENTS block), `sync-project .` / `setup . --project-skills` (repo-scoped skills), and, when you want global skill updates, `setup . --install-skills`. If those copies are newer than this CLI, upgrade the CLI instead of refreshing. Cursor Marketplace users also pull skill/rule updates via the [plugin sync](cursor-plugin-skill-sync.md) PR → publish path. |
 | **Coding agent** | On substantial session start, read `session_digest.guidance`. If status is `local_verification_required` or `verification_recommended`, mention once and recommend doctor / refresh / sync-project / install-skills. Do not invent “up to date.” After a local check, optionally call MCP `report_guidance_health` with the versions verified. Never hand-edit inside `<!-- adhd-hub:project-agent:* -->` markers. |
 
 Dry-run only (no writes, no Hub record): `adhd-hub setup . --check`.
