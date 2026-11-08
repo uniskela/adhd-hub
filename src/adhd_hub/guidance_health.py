@@ -404,38 +404,43 @@ def _is_newer_than_hub(item: ComponentHealth) -> bool:
     )
 
 
-def _is_global_skill_path(path: Path | None) -> bool:
-    """True when ``path`` sits under a known home-dir skill install root."""
+def _is_sync_managed_skill_path(path: Path | None) -> bool:
+    """True when ``path`` is a project ``.agents/skills/`` install sync can refuse.
+
+    Search roots also include ``<project>/skills`` and ``~/.agents/skills``; those
+    are outside ``project_scoped_newer_than_package`` / sync write scope.
+    """
     if path is None:
         return False
     try:
         resolved = path.expanduser().resolve()
     except OSError:
         return False
-    home = Path.home().resolve()
-    for root in (
-        home / ".agents" / "skills",
-        home / ".claude" / "skills",
-        home / ".codex" / "skills",
-        home / ".cursor" / "skills-cursor",
-    ):
-        try:
-            resolved.relative_to(root)
-            return True
-        except ValueError:
-            continue
+    parts = resolved.parts
+    has_agents_skills = any(
+        parts[i] == ".agents" and parts[i + 1] == "skills"
+        for i in range(len(parts) - 1)
+    )
+    if not has_agents_skills:
+        return False
+    try:
+        resolved.relative_to(Path.home().resolve() / ".agents" / "skills")
+    except ValueError:
+        return True
     return False
 
 
 def _is_project_scoped_newer(item: ComponentHealth) -> bool:
-    """Newer markers that cause setup/sync to refuse writes (not global skills)."""
+    """Newer markers that cause setup/sync to refuse writes."""
     if not _is_newer_than_hub(item):
         return False
     if item.name.startswith("AGENTS.md") or item.name == "Cursor rule":
         return True
     if item.name.endswith(" skill"):
-        # Missing path → unknown; treat as project-scoped to stay safe.
-        return not _is_global_skill_path(item.path)
+        # Missing path → unknown; treat as managed to stay safe.
+        if item.path is None:
+            return True
+        return _is_sync_managed_skill_path(item.path)
     return False
 
 
@@ -446,15 +451,15 @@ def repair_hint(items: list[ComponentHealth]) -> list[str]:
     skills_stale = [i for i in items if i.name.endswith(" skill") and i.needs_repair]
     project_newer = [i for i in items if _is_project_scoped_newer(i)]
     if project_newer:
-        # setup/sync refuse all writes when a project-scoped marker is newer.
-        # Newer global (home-dir) skill installs must not suppress repair hints.
+        # setup/sync refuse only for managed project markers (.agents/skills, etc.).
+        # Newer home-dir or bare <project>/skills installs must not suppress hints.
         hints.append(
             "Upgrade the adhd-hub CLI (or Hub image) — project guidance is newer "
             "than this package; setup --refresh / sync-project will refuse to downgrade"
         )
         return hints
-    # Drop newer global skills from the stale list so we don't recommend sync
-    # solely to "fix" a home-dir install that sync does not touch.
+    # Drop newer unmanaged skills from the stale list so we don't recommend sync
+    # solely for installs that sync does not touch.
     skills_stale = [i for i in skills_stale if not _is_newer_than_hub(i)]
     if (
         agents

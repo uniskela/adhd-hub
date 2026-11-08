@@ -102,15 +102,7 @@ def test_newer_guidance_refuses_setup_and_hints_upgrade(tmp_path: Path) -> None:
     assert version_marker(AGENT_GUIDANCE_VERSION) in path.read_text(encoding="utf-8")
 
 
-def test_global_newer_skill_does_not_suppress_setup_hint(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Home-dir skill installs are not in sync's refuse scope — keep setup hints."""
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    monkeypatch.setenv("HOME", str(fake_home))
-    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
-
+def _outdated_agents_health(tmp_path: Path) -> ComponentHealth:
     old = (
         f"{BEGIN_MARKER}\n"
         f"{version_marker(1)}\n"
@@ -120,16 +112,16 @@ def test_global_newer_skill_does_not_suppress_setup_hint(
     (tmp_path / "AGENTS.md").write_text("# Keep me\n\n" + old, encoding="utf-8")
     agents = inspect_agents_md(tmp_path, expected_body=agent_block())
     assert agents.status == GuidanceStatus.outdated
+    return agents
 
-    global_skill = (
-        fake_home / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md"
-    )
-    global_skill.parent.mkdir(parents=True)
-    global_skill.write_text(
+
+def _newer_skill_health(path: Path) -> ComponentHealth:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
         f"---\nname: adhd-hub-session\nhub_skill_version: {SESSION_SKILL_VERSION + 1}\n---\n",
         encoding="utf-8",
     )
-    newer_global = ComponentHealth(
+    return ComponentHealth(
         name="adhd-hub-session skill",
         status=GuidanceStatus.locally_modified,
         installed_version=SESSION_SKILL_VERSION + 1,
@@ -138,11 +130,48 @@ def test_global_newer_skill_does_not_suppress_setup_hint(
             f"newer than this Hub (v{SESSION_SKILL_VERSION + 1} > "
             f"v{SESSION_SKILL_VERSION})"
         ),
-        path=global_skill,
+        path=path,
+    )
+
+
+def test_global_newer_skill_does_not_suppress_setup_hint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Home-dir skill installs are not in sync's refuse scope — keep setup hints."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    agents = _outdated_agents_health(tmp_path)
+    newer_global = _newer_skill_health(
+        fake_home / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md"
     )
     hints = repair_hint([agents, newer_global])
     assert any(h.strip().startswith("adhd-hub setup") for h in hints)
     assert not any("Upgrade the adhd-hub CLI" in h for h in hints)
+
+
+def test_bare_project_skills_newer_does_not_suppress_setup_hint(tmp_path: Path) -> None:
+    """``<project>/skills`` is searched but not refused by sync — keep setup hints."""
+    agents = _outdated_agents_health(tmp_path)
+    newer_bare = _newer_skill_health(
+        tmp_path / "skills" / "adhd-hub-session" / "SKILL.md"
+    )
+    hints = repair_hint([agents, newer_bare])
+    assert any(h.strip().startswith("adhd-hub setup") for h in hints)
+    assert not any("Upgrade the adhd-hub CLI" in h for h in hints)
+
+
+def test_agents_skills_newer_still_suppresses_setup_hint(tmp_path: Path) -> None:
+    """``.agents/skills`` is sync-managed — upgrade cue only when it is newer."""
+    agents = _outdated_agents_health(tmp_path)
+    newer_managed = _newer_skill_health(
+        tmp_path / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md"
+    )
+    hints = repair_hint([agents, newer_managed])
+    assert any("Upgrade the adhd-hub CLI" in h for h in hints)
+    assert not any(h.strip().startswith("adhd-hub setup") for h in hints)
 
 
 def test_unversioned_block_is_stale(tmp_path: Path) -> None:
