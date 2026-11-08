@@ -9,6 +9,7 @@ from adhd_hub.guidance_health import (
     END_MARKER,
     HUB_OWNED_SKILLS,
     SESSION_SKILL_VERSION,
+    ComponentHealth,
     GuidanceStatus,
     inspect_agents_md,
     inspect_hub_skill,
@@ -77,9 +78,18 @@ def test_newer_guidance_refuses_setup_and_hints_upgrade(tmp_path: Path) -> None:
     health = inspect_agents_md(tmp_path, expected_body=agent_block())
     assert health.status == GuidanceStatus.locally_modified
     assert "newer than this Hub" in health.detail
-    hints = repair_hint([health])
+    stale_skill = ComponentHealth(
+        name="adhd-hub-session skill",
+        status=GuidanceStatus.outdated,
+        installed_version=1,
+        expected_version=SESSION_SKILL_VERSION,
+        detail=f"v1, current v{SESSION_SKILL_VERSION}",
+    )
+    hints = repair_hint([health, stale_skill])
     assert any("Upgrade the adhd-hub CLI" in h for h in hints)
-    assert not any("setup . --refresh" in h for h in hints)
+    assert not any(h.strip().startswith("adhd-hub setup") for h in hints)
+    assert not any(h.strip().startswith("adhd-hub sync-project") for h in hints)
+    assert len(hints) == 1
     try:
         install_agent_guidance(tmp_path)
         raise AssertionError("expected ValueError")

@@ -411,22 +411,22 @@ def repair_hint(items: list[ComponentHealth]) -> list[str]:
     skills_stale = [i for i in items if i.name.endswith(" skill") and i.needs_repair]
     newer = [i for i in items if _is_newer_than_hub(i)]
     if newer:
+        # sync-project / setup --refresh refuse all writes when any marker is
+        # newer, so never suggest those commands until the CLI is upgraded.
         hints.append(
             "Upgrade the adhd-hub CLI (or Hub image) — project guidance is newer "
             "than this package; setup --refresh / sync-project will refuse to downgrade"
         )
-        # Do not suggest refresh/sync that would overwrite newer markers.
-        skills_stale = [i for i in skills_stale if not _is_newer_than_hub(i)]
+        return hints
     if (
         agents
         and agents.needs_repair
         and agents.status != GuidanceStatus.malformed
-        and not _is_newer_than_hub(agents)
     ):
         hints.append("adhd-hub setup . --refresh")
     if agents and agents.status == GuidanceStatus.malformed:
         hints.append("Fix incomplete AGENTS.md markers, then: adhd-hub setup . --refresh")
-    if rule and rule.needs_repair and not _is_newer_than_hub(rule):
+    if rule and rule.needs_repair:
         hints.append(
             "adhd-hub sync-project .   # Cursor rule + project-scoped skills "
             "(or: connect . --cursor-rule)"
