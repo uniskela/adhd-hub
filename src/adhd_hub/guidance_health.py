@@ -245,6 +245,15 @@ def inspect_cursor_rule(project_dir: Path, *, expected_content: str) -> Componen
             detail=f"v{installed}, current v{expected_version}",
             path=path,
         )
+    if installed > expected_version:
+        return ComponentHealth(
+            name="Cursor rule",
+            status=GuidanceStatus.locally_modified,
+            installed_version=installed,
+            expected_version=expected_version,
+            detail=f"newer than this Hub (v{installed} > v{expected_version})",
+            path=path,
+        )
     if _normalize_managed_body(text) != _normalize_managed_body(expected_content):
         return ComponentHealth(
             name="Cursor rule",
@@ -275,13 +284,9 @@ def parse_skill_version(text: str) -> int | None:
 
 
 def hub_skill_search_roots(project_dir: Path | None = None) -> list[Path]:
+    """Skill roots for doctor/inspect. Project-scoped paths win over global installs."""
     home = Path.home()
-    roots = [
-        home / ".agents" / "skills",
-        home / ".claude" / "skills",
-        home / ".codex" / "skills",
-        home / ".cursor" / "skills-cursor",  # unlikely for hub skills; harmless
-    ]
+    roots: list[Path] = []
     if project_dir is not None:
         root = project_dir.expanduser().resolve()
         roots.extend(
@@ -290,6 +295,14 @@ def hub_skill_search_roots(project_dir: Path | None = None) -> list[Path]:
                 root / "skills",
             ]
         )
+    roots.extend(
+        [
+            home / ".agents" / "skills",
+            home / ".claude" / "skills",
+            home / ".codex" / "skills",
+            home / ".cursor" / "skills-cursor",  # unlikely for hub skills; harmless
+        ]
+    )
     return roots
 
 
@@ -384,12 +397,75 @@ def inspect_project_continuity(
     return items
 
 
+def _is_newer_than_hub(item: ComponentHealth) -> bool:
+    return (
+        item.status == GuidanceStatus.locally_modified
+        and "newer than this Hub" in item.detail
+    )
+
+
+def _is_sync_managed_skill_path(path: Path | None) -> bool:
+    """True when ``path`` is a project ``.agents/skills/`` install sync can refuse.
+
+    Search roots also include ``<project>/skills`` and ``~/.agents/skills``; those
+    are outside ``project_scoped_newer_than_package`` / sync write scope.
+    """
+    if path is None:
+        return False
+    try:
+        resolved = path.expanduser().resolve()
+    except OSError:
+        return False
+    parts = resolved.parts
+    has_agents_skills = any(
+        parts[i] == ".agents" and parts[i + 1] == "skills"
+        for i in range(len(parts) - 1)
+    )
+    if not has_agents_skills:
+        return False
+    try:
+        resolved.relative_to(Path.home().resolve() / ".agents" / "skills")
+    except ValueError:
+        return True
+    return False
+
+
+def _is_project_scoped_newer(item: ComponentHealth) -> bool:
+    """Newer markers that cause setup/sync to refuse writes."""
+    if not _is_newer_than_hub(item):
+        return False
+    if item.name.startswith("AGENTS.md") or item.name == "Cursor rule":
+        return True
+    if item.name.endswith(" skill"):
+        # Missing path → unknown; treat as managed to stay safe.
+        if item.path is None:
+            return True
+        return _is_sync_managed_skill_path(item.path)
+    return False
+
+
 def repair_hint(items: list[ComponentHealth]) -> list[str]:
     hints: list[str] = []
     agents = next((i for i in items if i.name.startswith("AGENTS.md")), None)
     rule = next((i for i in items if i.name == "Cursor rule"), None)
     skills_stale = [i for i in items if i.name.endswith(" skill") and i.needs_repair]
-    if agents and agents.needs_repair and agents.status != GuidanceStatus.malformed:
+    project_newer = [i for i in items if _is_project_scoped_newer(i)]
+    if project_newer:
+        # setup/sync refuse only for managed project markers (.agents/skills, etc.).
+        # Newer home-dir or bare <project>/skills installs must not suppress hints.
+        hints.append(
+            "Upgrade the adhd-hub CLI (or Hub image) — project guidance is newer "
+            "than this package; setup --refresh / sync-project will refuse to downgrade"
+        )
+        return hints
+    # Drop newer unmanaged skills from the stale list so we don't recommend sync
+    # solely for installs that sync does not touch.
+    skills_stale = [i for i in skills_stale if not _is_newer_than_hub(i)]
+    if (
+        agents
+        and agents.needs_repair
+        and agents.status != GuidanceStatus.malformed
+    ):
         hints.append("adhd-hub setup . --refresh")
     if agents and agents.status == GuidanceStatus.malformed:
         hints.append("Fix incomplete AGENTS.md markers, then: adhd-hub setup . --refresh")
@@ -404,6 +480,64 @@ def repair_hint(items: list[ComponentHealth]) -> list[str]:
             "(or: setup . --install-skills for global)"
         )
     return hints
+
+
+def project_scoped_newer_than_package(project_dir: Path) -> list[str]:
+    """Messages when project-scoped Hub markers are newer than this package.
+
+    Only inspects files under the project (not global skill installs). Used by
+    setup/sync to refuse silent downgrades from an outdated CLI.
+    """
+    root = project_dir.expanduser().resolve()
+    messages: list[str] = []
+    upgrade = (
+        "upgrade the adhd-hub CLI/Hub image, or pass --allow-downgrade"
+    )
+
+    agents_path = root / "AGENTS.md"
+    if agents_path.is_file():
+        try:
+            text = agents_path.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        split = split_agents_file(text)
+        managed = split[1]
+        if managed is not None:
+            installed = parse_guidance_version(managed)
+            if installed is not None and installed > AGENT_GUIDANCE_VERSION:
+                messages.append(
+                    f"AGENTS.md guidance v{installed} is newer than this Hub "
+                    f"(v{AGENT_GUIDANCE_VERSION}); {upgrade}"
+                )
+
+    rule_path = root / ".cursor" / "rules" / "adhd-hub.mdc"
+    if rule_path.is_file():
+        try:
+            rule_text = rule_path.read_text(encoding="utf-8")
+        except OSError:
+            rule_text = ""
+        installed = parse_rule_version(rule_text)
+        if installed is not None and installed > CURSOR_RULE_VERSION:
+            messages.append(
+                f"Cursor rule v{installed} is newer than this Hub "
+                f"(v{CURSOR_RULE_VERSION}); {upgrade}"
+            )
+
+    for name, expected in HUB_OWNED_SKILLS.items():
+        skill_path = root / ".agents" / "skills" / name / "SKILL.md"
+        if not skill_path.is_file():
+            continue
+        try:
+            skill_text = skill_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        installed = parse_skill_version(skill_text)
+        if installed is not None and installed > expected:
+            messages.append(
+                f"{name} skill v{installed} is newer than this Hub "
+                f"(v{expected}); {upgrade}"
+            )
+    return messages
 
 
 def expected_versions_payload() -> dict[str, int]:

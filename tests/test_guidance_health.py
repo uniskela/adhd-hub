@@ -9,10 +9,12 @@ from adhd_hub.guidance_health import (
     END_MARKER,
     HUB_OWNED_SKILLS,
     SESSION_SKILL_VERSION,
+    ComponentHealth,
     GuidanceStatus,
     inspect_agents_md,
     inspect_hub_skill,
     inspect_project_continuity,
+    repair_hint,
     version_marker,
 )
 from adhd_hub.project_setup import agent_block, install_agent_guidance
@@ -37,6 +39,139 @@ def test_old_guidance_version_is_stale(tmp_path: Path) -> None:
     assert health.status == GuidanceStatus.outdated
     assert health.installed_version == 1
     assert health.expected_version == AGENT_GUIDANCE_VERSION
+
+
+def test_project_scoped_skill_beats_stale_global(tmp_path: Path, monkeypatch) -> None:
+    from adhd_hub.guidance_health import find_hub_skill_file
+
+    fake_home = tmp_path / "home"
+    project = tmp_path / "proj"
+    global_skill = fake_home / ".agents" / "skills" / "adhd-hub-session"
+    project_skill = project / ".agents" / "skills" / "adhd-hub-session"
+    global_skill.mkdir(parents=True)
+    project_skill.mkdir(parents=True)
+    (global_skill / "SKILL.md").write_text(
+        "---\nname: adhd-hub-session\nhub_skill_version: 6\n---\n",
+        encoding="utf-8",
+    )
+    (project_skill / "SKILL.md").write_text(
+        f"---\nname: adhd-hub-session\nhub_skill_version: {SESSION_SKILL_VERSION}\n---\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+    found = find_hub_skill_file("adhd-hub-session", project_dir=project)
+    assert found == project_skill / "SKILL.md"
+
+
+def test_newer_guidance_refuses_setup_and_hints_upgrade(tmp_path: Path) -> None:
+    future = AGENT_GUIDANCE_VERSION + 1
+    block = (
+        f"{BEGIN_MARKER}\n"
+        f"{version_marker(future)}\n"
+        "## ADHD Hub continuity\n\n- future instructions\n"
+        f"{END_MARKER}\n"
+    )
+    path = tmp_path / "AGENTS.md"
+    path.write_text("# Keep me\n\n" + block, encoding="utf-8")
+    before = path.read_text(encoding="utf-8")
+    health = inspect_agents_md(tmp_path, expected_body=agent_block())
+    assert health.status == GuidanceStatus.locally_modified
+    assert "newer than this Hub" in health.detail
+    stale_skill = ComponentHealth(
+        name="adhd-hub-session skill",
+        status=GuidanceStatus.outdated,
+        installed_version=1,
+        expected_version=SESSION_SKILL_VERSION,
+        detail=f"v1, current v{SESSION_SKILL_VERSION}",
+    )
+    hints = repair_hint([health, stale_skill])
+    assert any("Upgrade the adhd-hub CLI" in h for h in hints)
+    assert not any(h.strip().startswith("adhd-hub setup") for h in hints)
+    assert not any(h.strip().startswith("adhd-hub sync-project") for h in hints)
+    assert len(hints) == 1
+    try:
+        install_agent_guidance(tmp_path)
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "newer than this Hub" in str(exc)
+        assert "--allow-downgrade" in str(exc)
+    assert path.read_text(encoding="utf-8") == before
+    # Explicit override still allowed for recovery.
+    install_agent_guidance(tmp_path, allow_downgrade=True)
+    assert version_marker(AGENT_GUIDANCE_VERSION) in path.read_text(encoding="utf-8")
+
+
+def _outdated_agents_health(tmp_path: Path) -> ComponentHealth:
+    old = (
+        f"{BEGIN_MARKER}\n"
+        f"{version_marker(1)}\n"
+        "## ADHD Hub continuity\n\n- old instructions\n"
+        f"{END_MARKER}\n"
+    )
+    (tmp_path / "AGENTS.md").write_text("# Keep me\n\n" + old, encoding="utf-8")
+    agents = inspect_agents_md(tmp_path, expected_body=agent_block())
+    assert agents.status == GuidanceStatus.outdated
+    return agents
+
+
+def _newer_skill_health(path: Path) -> ComponentHealth:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"---\nname: adhd-hub-session\nhub_skill_version: {SESSION_SKILL_VERSION + 1}\n---\n",
+        encoding="utf-8",
+    )
+    return ComponentHealth(
+        name="adhd-hub-session skill",
+        status=GuidanceStatus.locally_modified,
+        installed_version=SESSION_SKILL_VERSION + 1,
+        expected_version=SESSION_SKILL_VERSION,
+        detail=(
+            f"newer than this Hub (v{SESSION_SKILL_VERSION + 1} > "
+            f"v{SESSION_SKILL_VERSION})"
+        ),
+        path=path,
+    )
+
+
+def test_global_newer_skill_does_not_suppress_setup_hint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Home-dir skill installs are not in sync's refuse scope — keep setup hints."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    agents = _outdated_agents_health(tmp_path)
+    newer_global = _newer_skill_health(
+        fake_home / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md"
+    )
+    hints = repair_hint([agents, newer_global])
+    assert any(h.strip().startswith("adhd-hub setup") for h in hints)
+    assert not any("Upgrade the adhd-hub CLI" in h for h in hints)
+
+
+def test_bare_project_skills_newer_does_not_suppress_setup_hint(tmp_path: Path) -> None:
+    """``<project>/skills`` is searched but not refused by sync — keep setup hints."""
+    agents = _outdated_agents_health(tmp_path)
+    newer_bare = _newer_skill_health(
+        tmp_path / "skills" / "adhd-hub-session" / "SKILL.md"
+    )
+    hints = repair_hint([agents, newer_bare])
+    assert any(h.strip().startswith("adhd-hub setup") for h in hints)
+    assert not any("Upgrade the adhd-hub CLI" in h for h in hints)
+
+
+def test_agents_skills_newer_still_suppresses_setup_hint(tmp_path: Path) -> None:
+    """``.agents/skills`` is sync-managed — upgrade cue only when it is newer."""
+    agents = _outdated_agents_health(tmp_path)
+    newer_managed = _newer_skill_health(
+        tmp_path / ".agents" / "skills" / "adhd-hub-session" / "SKILL.md"
+    )
+    hints = repair_hint([agents, newer_managed])
+    assert any("Upgrade the adhd-hub CLI" in h for h in hints)
+    assert not any(h.strip().startswith("adhd-hub setup") for h in hints)
 
 
 def test_unversioned_block_is_stale(tmp_path: Path) -> None:
