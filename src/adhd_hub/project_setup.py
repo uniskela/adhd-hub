@@ -167,7 +167,11 @@ For substantial work in this project:
 {END_MARKER}"""
 
 
-def install_agent_guidance(project_dir: Path) -> tuple[Path, str]:
+def install_agent_guidance(
+    project_dir: Path,
+    *,
+    allow_downgrade: bool = False,
+) -> tuple[Path, str]:
     root = project_dir.expanduser().resolve()
     if not root.is_dir():
         raise ValueError(f"project folder does not exist: {root}")
@@ -179,6 +183,17 @@ def install_agent_guidance(project_dir: Path) -> tuple[Path, str]:
     has_end = END_MARKER in original
     if has_begin != has_end:
         raise ValueError(f"incomplete ADHD Hub managed block in {path}")
+
+    if has_begin and not allow_downgrade:
+        from adhd_hub.guidance_health import project_scoped_newer_than_package
+
+        newer = [
+            msg
+            for msg in project_scoped_newer_than_package(root)
+            if msg.startswith("AGENTS.md guidance ")
+        ]
+        if newer:
+            raise ValueError(newer[0])
 
     block = agent_block()
     if has_begin:

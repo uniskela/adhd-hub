@@ -154,7 +154,14 @@ def cmd_setup(args: argparse.Namespace) -> int:
                 return 1
         return code
 
-    path, action = install_agent_guidance(project)
+    allow_downgrade = bool(getattr(args, "allow_downgrade", False))
+    try:
+        path, action = install_agent_guidance(
+            project, allow_downgrade=allow_downgrade
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     print(f"ADHD Hub project guidance {action}: {path}")
 
     if getattr(args, "project_skills", False) or getattr(args, "continuity_guard", False):
@@ -167,6 +174,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
                 source=sync_source,
                 mode=SyncMode.apply,
                 continuity_guard=bool(getattr(args, "continuity_guard", False)),
+                allow_downgrade=allow_downgrade,
             )
         except (OSError, ValueError, FileNotFoundError, TypeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -227,6 +235,7 @@ def cmd_sync_project(args: argparse.Namespace) -> int:
             mode=mode,
             agents=agents or None,
             continuity_guard=bool(getattr(args, "continuity_guard", False)),
+            allow_downgrade=bool(getattr(args, "allow_downgrade", False)),
         )
     except (OSError, ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -516,6 +525,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Refresh Hub-managed AGENTS.md block (default behaviour of setup)",
     )
+    setup.add_argument(
+        "--allow-downgrade",
+        action="store_true",
+        help=(
+            "Overwrite project Hub markers that are newer than this package "
+            "(default: refuse)"
+        ),
+    )
     setup.set_defaults(func=cmd_setup)
 
     sync_project = sub.add_parser(
@@ -553,6 +570,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Opt-in: install/repair Hub continuity-guard Cursor hook integration"
+        ),
+    )
+    sync_project.add_argument(
+        "--allow-downgrade",
+        action="store_true",
+        help=(
+            "Overwrite project Hub markers that are newer than this package "
+            "(default: refuse)"
         ),
     )
     sync_project.set_defaults(func=cmd_sync_project)

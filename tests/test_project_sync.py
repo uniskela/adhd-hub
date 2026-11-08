@@ -133,6 +133,34 @@ def test_sync_project_upgrades_stale_skills(tmp_path: Path) -> None:
     assert "old\n" not in text or "hub_skill_version: 1" not in text
 
 
+def test_sync_project_refuses_newer_guidance_downgrade(tmp_path: Path) -> None:
+    """Outdated CLI must not clobber a project that already carries newer markers."""
+    from adhd_hub.guidance_health import BEGIN_MARKER, END_MARKER, version_marker
+
+    project = _seed_downstream(tmp_path)
+    future = AGENT_GUIDANCE_VERSION + 1
+    (project / "AGENTS.md").write_text(
+        "# AGENTS.md\n\n"
+        f"{BEGIN_MARKER}\n{version_marker(future)}\n## keep\n{END_MARKER}\n",
+        encoding="utf-8",
+    )
+    before = (project / "AGENTS.md").read_text(encoding="utf-8")
+    refused = sync_project(project, source=REPO_ROOT, mode=SyncMode.apply)
+    assert not refused.ok
+    assert any("newer than this Hub" in e for e in refused.errors)
+    assert any("--allow-downgrade" in e for e in refused.errors)
+    assert (project / "AGENTS.md").read_text(encoding="utf-8") == before
+    assert not (project / ".agents" / "skills" / "adhd-hub-session").exists()
+
+    forced = sync_project(
+        project, source=REPO_ROOT, mode=SyncMode.apply, allow_downgrade=True
+    )
+    assert forced.ok
+    assert f"guidance-version:{AGENT_GUIDANCE_VERSION}" in (
+        project / "AGENTS.md"
+    ).read_text(encoding="utf-8")
+
+
 def test_sync_project_malformed_agents_fails_safe(tmp_path: Path) -> None:
     project = _seed_downstream(tmp_path)
     (project / "AGENTS.md").write_text(

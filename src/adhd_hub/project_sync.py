@@ -31,6 +31,7 @@ from adhd_hub.guidance_health import (
     HUB_OWNED_SKILLS,
     PROJECTS_SKILL_VERSION,
     SESSION_SKILL_VERSION,
+    project_scoped_newer_than_package,
 )
 from adhd_hub.project_setup import agent_block, install_agent_guidance
 
@@ -541,6 +542,7 @@ def sync_project(
     mode: SyncMode = SyncMode.apply,
     agents: list[str] | None = None,
     continuity_guard: bool = False,
+    allow_downgrade: bool = False,
 ) -> SyncResult:
     """Sync Hub-managed project files.
 
@@ -552,6 +554,9 @@ def sync_project(
     hook integration (thin wrappers + merged settings). Codex and OpenClaw stay
     advisory (documented strength). When the project is already enrolled,
     check/apply modes keep repairing guard drift even if the flag is omitted.
+
+    ``allow_downgrade`` permits rewriting project markers that are newer than
+    this package. Default is refuse — an outdated CLI must not clobber v8+ with v6.
     """
     from adhd_hub.continuity_guard.hooks_sync import (
         dumps_hooks,
@@ -753,6 +758,11 @@ def sync_project(
         result.errors.extend(containment)
         return result
 
+    if not allow_downgrade:
+        newer = project_scoped_newer_than_package(project)
+        if newer:
+            result.errors.extend(newer)
+
     if mode in {SyncMode.check, SyncMode.dry_run}:
         # Validate against desired content conceptually: for check without writes,
         # only validate existing tree when already synced; otherwise report drift.
@@ -760,11 +770,16 @@ def sync_project(
             result.errors.extend(validate_synced_tree(project))
         return result
 
+    if result.errors:
+        # Refuse writes (including downgrades) after planning so the report still
+        # shows what an outdated CLI would have overwritten.
+        return result
+
     # Apply writes
     try:
         if agents_change.kind != ChangeKind.unchanged:
             _require_within_project(project, project / "AGENTS.md")
-            install_agent_guidance(project)
+            install_agent_guidance(project, allow_downgrade=allow_downgrade)
         if write_cursor_rule and rule_change.kind != ChangeKind.unchanged:
             _require_within_project(project, rule_path)
             install_cursor_rule(project)
