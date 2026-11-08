@@ -70,6 +70,14 @@ adhd-hub setup . --continuity-guard
 | `--project-skills` / `sync-project` | Repo-scoped `.agents/skills` + AGENTS + Cursor rule |
 | `--continuity-guard` | Opt-in Hub Cursor hooks merge + guard wrapper |
 | `--install-skills` | Global `npx skills add … -g` |
+| `--allow-downgrade` | Overwrite Hub markers newer than this package (default: refuse) |
+
+If Hub guidance markers (`AGENTS.md`, the Cursor rule) or Hub-owned skills under
+`.agents/skills` are newer than this package, `sync-project` leaves them
+unchanged and exits 1. `setup` (including `--refresh`) leaves a newer AGENTS
+block unchanged and exits 2. `setup --project-skills` exits 1 when the sync
+report lists the refusal. Pass `--allow-downgrade` on either command only to
+overwrite those newer copies. The message says to upgrade the CLI or Hub image.
 
 See [continuity-guard.md](continuity-guard.md) for lifecycle behaviour, Cloud vs
 local limits, and `adhd-hub guard` CLI.
@@ -81,7 +89,10 @@ adhd-hub doctor --project .
 ```
 
 Reports AGENTS / Cursor rule / skill versions, project-sync drift, and whether a
-wrapper workflow calling this repo’s reusable sync is present.
+wrapper workflow calling this repo’s reusable sync is present. When those
+copies are newer than this CLI, doctor says to upgrade the CLI instead of
+`setup --refresh`. Doctor and inspect read the project’s `.agents/skills`
+before a stale global skill install.
 
 ## GitHub Actions (downstream)
 
