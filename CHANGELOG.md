@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/uniskela/adhd-hub/compare/v0.22.0...v0.22.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **sync:** refuse guidance downgrades from outdated CLI ([#361](https://github.com/uniskela/adhd-hub/issues/361)) ([61741cd](https://github.com/uniskela/adhd-hub/commit/61741cd388cba53f5e7a964e55cf8b02fb8474cc))
+
 ## [0.22.0](https://github.com/uniskela/adhd-hub/compare/v0.21.1...v0.22.0) (2026-11-03)
 
 
