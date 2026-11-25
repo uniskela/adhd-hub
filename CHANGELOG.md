@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.22.2](https://github.com/uniskela/adhd-hub/compare/v0.22.1...v0.22.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** bump the python-dependencies group across 1 directory with 7 updates ([#367](https://github.com/uniskela/adhd-hub/issues/367)) ([206ad36](https://github.com/uniskela/adhd-hub/commit/206ad360310b3c768aa784f102d9ad8b580787b5))
+
+
+### Documentation
+
+* note setup/sync-project --allow-downgrade ([#365](https://github.com/uniskela/adhd-hub/issues/365)) ([36ccc24](https://github.com/uniskela/adhd-hub/commit/36ccc2428b3c40ba68410df78b6a55082ca4a1a1))
+
 ## [0.22.1](https://github.com/uniskela/adhd-hub/compare/v0.22.0...v0.22.1) (2026-11-08)
 
 
