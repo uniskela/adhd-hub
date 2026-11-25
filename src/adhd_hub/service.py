@@ -3597,15 +3597,14 @@ class HubService:
                 source="api",
                 metadata={"previous_status": current.status.value, "undo": "mark_done"},
             )
-        elif not changed:
+        elif not changed and (thread is None or thread.status != ThreadStatus.open):
             # Status did not move (already open / raced) — keep staged files only
             # when Hub is open; otherwise roll projections back and compensate
             # a remote reopen that would otherwise drift from Hub done.
-            if thread is None or thread.status != ThreadStatus.open:
-                _restore_text_file(progress_path, progress_snap)
-                _restore_text_file(index_path, index_snap)
-                if remote_reopened:
-                    self._forge.close_external_thread(current)
+            _restore_text_file(progress_path, progress_snap)
+            _restore_text_file(index_path, index_snap)
+            if remote_reopened:
+                self._forge.close_external_thread(current)
         return thread
 
     def reopen_external_thread(self, thread_id: str) -> Thread:
