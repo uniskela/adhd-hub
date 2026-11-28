@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from datetime import datetime, timedelta
+from heapq import nsmallest
 from itertools import combinations
 
 from adhd_hub.backlog.models import (
@@ -29,6 +30,7 @@ HANDOFF = {
     IssueKind.continuity_handoff,
 }
 CHECKPOINTS = HANDOFF - {IssueKind.continuity_handoff}
+_FUZZY_THREAD_LIMIT = 500
 _PREFIX = re.compile(r"^\[adhd\]\s*", re.IGNORECASE)
 _VERSION = re.compile(r"^v?\d+\.\d+(?:\.\d+)?:\s*", re.IGNORECASE)
 _REVIEW = re.compile(
@@ -235,10 +237,16 @@ def classify(
             workstreams.union(consolidation.root(number), number)
     threads = local_threads or []
     exact_by_goal = {}
-    for thread in sorted(threads, key=lambda thread: thread.id):
+    for thread in threads:
         goal = normalize_goal(thread.goal)
         if goal:
-            exact_by_goal.setdefault(digest(goal), thread.id)
+            key = digest(goal)
+            exact_by_goal[key] = min(exact_by_goal.get(key, thread.id), thread.id)
+    fuzzy_threads = nsmallest(
+        _FUZZY_THREAD_LIMIT,
+        threads,
+        key=lambda thread: (-thread.updated_at.timestamp(), thread.id),
+    )
     recommended = {}
     for group, members in groups.items():
         holder = max(
@@ -251,7 +259,7 @@ def classify(
             ),
         )
         goal_member = holder if goals[holder] else next((n for n in members if goals[n]), holder)
-        candidates, exact = _thread_candidates(by_number[goal_member], threads, exact_by_goal)
+        candidates, exact = _thread_candidates(by_number[goal_member], fuzzy_threads, exact_by_goal)
         cluster_key = holder if len(members) > 1 else None
         group_related = any(n in related for n in members)
         for n in members:

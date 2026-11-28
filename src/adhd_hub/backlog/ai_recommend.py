@@ -140,7 +140,7 @@ def _reply(
     payload: dict,
     before_send: Callable[[], str | None],
     deadline: float,
-    record_attempt: Callable[[], None],
+    record_batch: Callable[[], None],
 ):
     for attempt in range(2):
         if status := before_send():
@@ -148,7 +148,8 @@ def _reply(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return "deadline", []
-        record_attempt()
+        if attempt == 0:
+            record_batch()
         try:
             response = post_chat_completion(
                 config.base_url,

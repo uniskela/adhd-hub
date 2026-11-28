@@ -539,7 +539,8 @@ def test_failed_ai_keeps_deterministic_recommendations(api, failure):
         return response({"choices": [{"message": {"content": "broken"}}]})
 
     state.responder = provider
-    run_ai(client, hub, sid)
+    result = run_ai(client, hub, sid)
+    assert len(result["payload_hashes"]) == 1
     after = items(client, sid)
     assert [i["deterministic"] for i in after] == before
     assert all(i["ai"] is None for i in after)
@@ -816,7 +817,17 @@ def test_scan_summary_reports_detail_budget(api, monkeypatch):
     assert result["issue_count"] == 2
 
 
-def test_hub_destinations_include_threads_beyond_first_page(api):
+def test_hub_destinations_check_all_exact_goals_with_bounded_fuzzy_scoring(api, monkeypatch):
+    from adhd_hub.backlog import classify as classifier
+
+    real_overlap = classifier.check_overlap
+    fuzzy_ids = []
+
+    def check_overlap(query, threads, **kwargs):
+        fuzzy_ids.extend(thread.id for thread in threads)
+        return real_overlap(query, threads, **kwargs)
+
+    monkeypatch.setattr(classifier, "check_overlap", check_overlap)
     client, hub, state = api
     state.rows = [issue(1)]
     local = hub.store.upsert_thread(
@@ -832,6 +843,8 @@ def test_hub_destinations_include_threads_beyond_first_page(api):
         "kind": "existing_thread",
         "thread_id": local.id,
     }
+    assert len(fuzzy_ids) == 500
+    assert local.id not in fuzzy_ids
 
 
 @pytest.mark.parametrize("change", ["timeline", "linked_thread", "repository_id", None])

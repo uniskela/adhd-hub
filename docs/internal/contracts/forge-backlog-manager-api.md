@@ -67,9 +67,10 @@ tables.
 
 Identical normalized Goals provide `same_outcome` evidence. Checkpoints need
 a matching title stem and a checkpoint marker. Explicit, different Goals
-keep related work in separate consolidation clusters. Candidate destinations
-come from overlap against unfinished local threads in the project. Protection
-flags control the default disposition. Completion and staleness signals are
+keep related work in separate consolidation clusters. Exact destinations
+consider all eligible unfinished local threads in the project. Fuzzy matching
+scores up to the 500 most recently updated eligible threads. Protection flags
+control the default disposition. Completion and staleness signals are
 advisory. An issue with no activity for at least 90 days gets a staleness hint.
 
 | Method and path | Input and result |
@@ -99,8 +100,8 @@ opaque references. It receives neither comment text nor Hub thread text.
 An issue's freshly fetched revision must match the scan to be sent. Repository
 identity and visibility are verified before each provider attempt. An
 unchanged batch may reuse validated results for up to 30 days. Job results
-record the provider host, model, field names, and payload hashes. Provider
-failures, cancellation, malformed data and invalid refs leave deterministic
+record the provider host, model, field names, and one payload hash per sent batch.
+Provider failures, cancellation, malformed data and invalid refs leave deterministic
 recommendations available. Drafts perform no forge operations.
 
 ## Contract fixtures
