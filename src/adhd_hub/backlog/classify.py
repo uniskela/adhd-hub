@@ -117,22 +117,17 @@ def _protect(item: ScanItem, now: datetime, cited: int):
     item.completed = item.state == "closed" or bool(_FINISHED.search(title))
 
 
-def _thread_candidates(item: ScanItem, threads: list[Thread]) -> tuple[list[str], str | None]:
+def _thread_candidates(
+    item: ScanItem,
+    threads: list[Thread],
+    exact_by_goal: dict[str, str],
+) -> tuple[list[str], str | None]:
     query = item.structured.goal or item.title
     if not query.strip():
         return [], None
-    result = check_overlap(query, threads, min_score=0, limit=5)
-    exact = min(
-        (
-            thread.id
-            for thread in threads
-            if item.goal_key and digest(normalize_goal(thread.goal)) == item.goal_key
-        ),
-        default=None,
-    )
-    candidates = [
-        hit.thread.id for hit in result.hits if hit.score >= 0.08 and hit.thread.id != exact
-    ]
+    result = check_overlap(query, threads, min_score=0.08, limit=5)
+    exact = exact_by_goal.get(item.goal_key) if item.goal_key else None
+    candidates = [hit.thread.id for hit in result.hits if hit.thread.id != exact]
     return (([exact] if exact else []) + candidates)[:5], exact
 
 
@@ -238,6 +233,12 @@ def classify(
         groups.setdefault(consolidation.root(number), []).append(number)
         if consolidation.root(number) != number:
             workstreams.union(consolidation.root(number), number)
+    threads = local_threads or []
+    exact_by_goal = {}
+    for thread in sorted(threads, key=lambda thread: thread.id):
+        goal = normalize_goal(thread.goal)
+        if goal:
+            exact_by_goal.setdefault(digest(goal), thread.id)
     recommended = {}
     for group, members in groups.items():
         holder = max(
@@ -250,7 +251,7 @@ def classify(
             ),
         )
         goal_member = holder if goals[holder] else next((n for n in members if goals[n]), holder)
-        candidates, exact = _thread_candidates(by_number[goal_member], local_threads or [])
+        candidates, exact = _thread_candidates(by_number[goal_member], threads, exact_by_goal)
         cluster_key = holder if len(members) > 1 else None
         group_related = any(n in related for n in members)
         for n in members:

@@ -155,6 +155,34 @@ def test_scan_page_cap_counts_pages_even_if_no_migration_candidates():
     assert found.items == []
 
 
+def test_scanner_detail_budget_counts_retries_and_protects_unread_items(monkeypatch):
+    monkeypatch.setattr("adhd_hub.backlog.scanner._DETAIL_REQUEST_LIMIT", 2)
+    detail_paths = []
+
+    def handle(req):
+        assert req.method == "GET"
+        if req.url.path.endswith("/Board"):
+            return response({"full_name": "demo/board"})
+        if req.url.path.endswith("/issues"):
+            return response([issue(1, locked=True), issue(2), issue(3)])
+        detail_paths.append(req.url.path)
+        if len(detail_paths) == 1:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+        return response([])
+
+    found = scan(handle)
+    assert detail_paths == ["/repos/Demo/Board/issues/2/timeline"] * 2
+    assert found.detail_limited_count == 2
+    assert found.error.code == "detail_budget_exhausted"
+    assert not found.truncated
+    assert [item.identity.number for item in found.items] == [1, 2, 3]
+    assert ["incomplete_read" in item.protection_flags for item in found.items] == [
+        True,
+        False,
+        True,
+    ]
+
+
 def test_author_allowlist_is_case_insensitive_and_fail_closed():
     def handle(req):
         if req.url.path.endswith("/Board"):
@@ -312,7 +340,9 @@ def api(tmp_path, monkeypatch):
     )
     hub.store.upsert_project(ProjectUpsert(slug="unbound", title="Unbound"))
     rows = [issue(1), issue(2, title="[ADHD] Bug: Public problem")]
-    state = SimpleNamespace(rows=rows, private=False, calls=[], responder=None, repo_id=43)
+    state = SimpleNamespace(
+        rows=rows, private=False, calls=[], responder=None, repo_id=43, timeline=[]
+    )
 
     def transport(req):
         state.calls.append((req.method, req.url.host, req.url.path))
@@ -331,7 +361,7 @@ def api(tmp_path, monkeypatch):
         if path.endswith("/issues"):
             return response(state.rows)
         if path.endswith("/timeline"):
-            return response([])
+            return response(state.timeline)
         if path.endswith("/comments"):
             return response([{"id": 501, "user": {"login": "agent"}}])
         [row] = [row for row in state.rows if str(row["number"]) == path.rsplit("/", 1)[-1]]
@@ -773,3 +803,120 @@ def test_ai_protection_survives_failed_retry_and_protects_existing_draft_cluster
     ).json()
     assert updated["items"][1]["protection_flags"] == ["linked_pull_request"]
     assert updated["items"][1]["destination"] is None
+
+
+def test_scan_summary_reports_detail_budget(api, monkeypatch):
+    monkeypatch.setattr("adhd_hub.backlog.scanner._DETAIL_REQUEST_LIMIT", 1)
+    client, hub, _ = api
+    sid = start_scan(client, hub)
+    result = client.get(f"/api/backlog/scans/{sid}").json()
+    assert result["status"] == "partial"
+    assert result["error_code"] == "detail_budget_exhausted"
+    assert result["detail_limited_count"] == 1
+    assert result["issue_count"] == 2
+
+
+def test_hub_destinations_include_threads_beyond_first_page(api):
+    client, hub, state = api
+    state.rows = [issue(1)]
+    local = hub.store.upsert_thread(
+        ThreadUpsert(summary="Old outcome", goal="Ship fixture outcome 1.", project_slug="demo")
+    )
+    for number in range(500):
+        hub.store.upsert_thread(
+            ThreadUpsert(summary=f"Unrelated thread {number}", project_slug="demo")
+        )
+    sid = start_scan(client, hub)
+    [item] = items(client, sid)
+    assert item["deterministic"]["destination"] == {
+        "kind": "existing_thread",
+        "thread_id": local.id,
+    }
+
+
+@pytest.mark.parametrize("change", ["timeline", "linked_thread", "repository_id", None])
+def test_new_scan_revalidates_associations_and_protection_at_same_revision(api, change):
+    client, hub, state = api
+    old = start_scan(client, hub)
+    draft = client.post("/api/backlog/plans", json={"scan_id": old}).json()
+    if change == "timeline":
+        state.timeline = [{"event": "cross-referenced", "source": {"issue": {"pull_request": {}}}}]
+    elif change == "linked_thread":
+        thread = hub.store.upsert_thread(
+            ThreadUpsert(summary="Imported after scan", project_slug="demo")
+        )
+        hub.store.attach_external_identity(
+            thread.id, normalize_external_identity("github", "github.com", "demo", "board", 1)
+        )
+    elif change == "repository_id":
+        state.repo_id += 1
+
+    new = start_scan(client, hub)
+    assert (
+        items(client, new)[0]["issue"]["source_revision"]
+        == items(client, old)[0]["issue"]["source_revision"]
+    )
+    reply = client.patch(
+        f"/api/backlog/plans/{draft['plan_id']}",
+        json={
+            "expected_version": 1,
+            "items": [{"issue_number": 1, "disposition": "reference"}],
+        },
+    )
+    if change:
+        assert reply.status_code == 409
+        assert reply.json()["detail"] == "stale_snapshot"
+    else:
+        assert reply.status_code == 200
+
+
+def test_gitea_subpath_instances_are_rejected_before_identity_collides():
+    for mount in ("first", "second"):
+        cfg = config("gitea")
+        cfg.base_url = f"https://git.test/{mount}/api/v1"
+        cfg.web_base_url = f"https://git.test/{mount}"
+        with pytest.raises(ValueError, match="forge_target_unresolved"):
+            repository_for(cfg)
+
+
+@pytest.mark.parametrize("lookup_ok", [True, False])
+def test_all_open_resolves_operator_once_for_assignment_protection(lookup_ok):
+    lookups = []
+
+    def handle(req):
+        if req.url.path.endswith("/Board"):
+            return response({"full_name": "demo/board"})
+        if req.url.path.endswith("/user"):
+            lookups.append(req.url.path)
+            return response({"login": "Agent"}) if lookup_ok else httpx.Response(404)
+        if req.url.path.endswith("/timeline"):
+            return response([])
+        return response(
+            [
+                issue(1, assignees=[{"login": "agent"}]),
+                issue(2, assignees=[{"login": "other"}]),
+            ]
+        )
+
+    found = scan(handle, selector="all_open")
+    assert lookups == ["/user"]
+    assert ["assigned_other" in item.protection_flags for item in found.items] == [
+        not lookup_ok,
+        True,
+    ]
+
+
+def test_ai_retry_rechecks_repository_visibility(api):
+    client, hub, state = api
+    enabled_ai(hub)
+    sid = start_scan(client, hub)
+
+    def provider(req):
+        state.private = True
+        return httpx.Response(500)
+
+    state.responder = provider
+    result = run_ai(client, hub, sid)
+    assert sum(method == "POST" for method, _, _ in state.calls) == 1
+    assert len(result["payload_hashes"]) == 1
+    assert {row["ai_status"] for row in items(client, sid)} == {"ai_not_opted_in"}

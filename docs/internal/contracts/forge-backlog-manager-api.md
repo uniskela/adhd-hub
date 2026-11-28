@@ -12,9 +12,10 @@ Set `ADHD_HUB_BACKLOG_ENABLED=true` and restart the Hub. Bind the project to a
 GitHub or Gitea connection with a complete repository target and a token with
 repository metadata and issue read access. GitHub scanning uses github.com
 because the Hub's existing GitHub identity is scoped to that host. The Gitea
-API and browser URLs must use the same origin and repository mount. A scan
-targets the project binding. Issue
-or repository URLs from a request or forge response cannot change the target.
+API and browser URLs must share an origin, with the browser at the host root
+and the API at `/api/v1`. Mount paths are absent from Hub source identities.
+Issue or repository URLs from a request or forge response cannot change the
+project binding.
 
 For requested AI recommendations, enable the configured provider and **Backlog
 suggestions** under Settings → AI helpers. Set
@@ -42,9 +43,12 @@ selector. A repository with an active scan returns `409 scan_running`.
 
 Scanning uses up to ten issue pages, at 100 per page for GitHub or 50 per page
 for Gitea. Pull requests are excluded. The scan retains completed reads when a
-later page fails. For eligible items, comment or timeline reads that fail or
-exceed three pages add `incomplete_read`. This also covers installations that
-do not provide a usable timeline API. Rate limiting retries up to twice when
+later page fails. It makes up to 100 comment and timeline requests, including
+retries, and prioritizes issues that could become migration candidates. The
+summary reports the issues affected by this cap in `detail_limited_count`.
+Those items and items whose detail reads fail or exceed three pages receive
+`incomplete_read`. This also covers installations that do not provide a
+usable timeline API. Rate limiting retries up to twice when
 the wait is at most five seconds. Longer waits return a retry hint and the
 scan retains completed reads.
 
@@ -53,10 +57,11 @@ number, an identity-derived URL, labels, milestone, role, comment count,
 limited structured continuity, a source body hash and a source revision. The
 revision covers the source body and issue metadata used for classification.
 A linked primary thread and its import status are resolved by the full pinned
-identity. Scans store
-structured fields and hashes. AI jobs re-read issue bodies on demand. Scans
-age out after 90 days unless a plan references them. Hub backups include the
-SQLite tables.
+identity. Scans store structured fields and hashes. AI jobs re-read issue
+bodies on demand. When a new scan starts, unreferenced scans older than 90
+days are pruned. A saved draft retains its scan and items so the operator
+can return to the draft with its evidence. Hub backups include the SQLite
+tables.
 
 ## Recommendations and drafts
 
@@ -83,13 +88,16 @@ additive for the scan and survives provider failures or retries. Drafts and
 updates compare the
 stored repository binding and policy against the current configuration and
 return `409 stale_snapshot` if a newer scan proves an issue changed or is
-missing from an equivalent complete listing.
+missing from an equivalent complete listing. A newer scan also invalidates
+a draft when repository identity, a linked thread, or newly observed
+protection changes despite an unchanged issue revision.
 
 AI uses serial batches of up to ten allowlisted-author issues, with up to
 twenty batches and a ten-minute deadline per job. Each chat request uses the
 configured timeout. The provider receives bounded, scrubbed issue text and
 opaque references. It receives neither comment text nor Hub thread text.
-An issue's freshly fetched revision must match the scan to be sent. An
+An issue's freshly fetched revision must match the scan to be sent. Repository
+identity and visibility are verified before each provider attempt. An
 unchanged batch may reuse validated results for up to 30 days. Job results
 record the provider host, model, field names, and payload hashes. Provider
 failures, cancellation, malformed data and invalid refs leave deterministic

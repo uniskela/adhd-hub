@@ -162,7 +162,21 @@ class BacklogStorage:
                    LEFT JOIN backlog_scan_items after ON after.scan_id = new.id
                         AND before.issue_number = after.issue_number
                    WHERE old.id = ? AND (
-                       before.source_revision <> after.source_revision OR (
+                       (json_extract(new.summary, '$.repository_id') IS NOT NULL
+                           AND json_extract(old.summary, '$.repository_id')
+                               IS NOT json_extract(new.summary, '$.repository_id'))
+                       OR (after.issue_number IS NOT NULL AND (
+                           before.source_revision <> after.source_revision
+                           OR json_extract(before.item, '$.issue.linked_thread_id')
+                                  IS NOT json_extract(after.item, '$.issue.linked_thread_id')
+                           OR EXISTS (
+                               SELECT 1 FROM json_each(after.item, '$.issue.protection_flags') added
+                               WHERE NOT EXISTS (
+                                   SELECT 1 FROM json_each(before.item, '$.issue.protection_flags') prior
+                                   WHERE prior.value = added.value
+                               )
+                           )
+                       )) OR (
                            after.issue_number IS NULL AND new.status = 'completed'
                            AND NOT json_extract(new.summary, '$.truncated')
                            AND json_extract(new.summary, '$.selector') = json_extract(old.summary, '$.selector')

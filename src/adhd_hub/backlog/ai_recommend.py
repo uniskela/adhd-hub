@@ -138,15 +138,17 @@ def _reply(
     client: httpx.Client,
     config: AiConfig,
     payload: dict,
-    active: Callable[[], str | None],
+    before_send: Callable[[], str | None],
     deadline: float,
+    record_attempt: Callable[[], None],
 ):
     for attempt in range(2):
-        if status := active():
+        if status := before_send():
             return status, []
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return "deadline", []
+        record_attempt()
         try:
             response = post_chat_completion(
                 config.base_url,
@@ -298,6 +300,15 @@ def recommend_with_ai(
             raise ScanReadError("ai_not_opted_in")
         return private
 
+    def before_send():
+        if status := active():
+            return status
+        try:
+            verify_repository()
+        except ScanReadError as exc:
+            return exc.code
+        return active()
+
     try:
         private = verify_repository()
     except ScanReadError as exc:
@@ -386,14 +397,18 @@ def recommend_with_ai(
             )
             continue
 
-        try:
-            verify_repository()
-        except ScanReadError as exc:
+        status, rows = _reply(
+            client,
+            config,
+            payload,
+            before_send,
+            deadline,
+            lambda payload_hash=payload_hash: payload_hashes.append(payload_hash),
+        )
+        if status in {"ai_not_opted_in", "stale_snapshot", "cancelled", "deadline", "rate_limited"}:
             outstanding = [item for item, _ in batch] + eligible[offset + _BATCH_SIZE :]
-            save([status_for(item, exc.code) for item in outstanding])
+            save([status_for(item, status) for item in outstanding])
             break
-        payload_hashes.append(payload_hash)
-        status, rows = _reply(client, config, payload, active, deadline)
         reverse_refs = {ref: number for number, ref in refs.items()}
         row_counts = Counter(
             row.get("ref")

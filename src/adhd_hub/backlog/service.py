@@ -147,15 +147,27 @@ class BacklogService:
 
     def _local_threads(self, project):
         legacy = self.hub.store.list_meta_prefix("forge_issue:")
-        return [
-            thread
-            for status in (ThreadStatus.open, ThreadStatus.blocked)
-            for thread in self.hub.store.list_threads(
-                project_slug=project.slug, status=status, limit=500
-            )
-            if self._is_local_destination(project, thread)
-            and f"forge_issue:{thread.id}" not in legacy
-        ]
+        threads = []
+        for status in (ThreadStatus.open, ThreadStatus.blocked):
+            after_id = None
+            while True:
+                page = self.hub.store.list_threads(
+                    project_slug=project.slug,
+                    status=status,
+                    order_by_id=True,
+                    after_id=after_id,
+                    limit=500,
+                )
+                threads.extend(
+                    thread
+                    for thread in page
+                    if self._is_local_destination(project, thread)
+                    and f"forge_issue:{thread.id}" not in legacy
+                )
+                if len(page) < 500:
+                    break
+                after_id = page[-1].id
+        return threads
 
     @staticmethod
     def _is_local_destination(project, thread):
@@ -187,6 +199,7 @@ class BacklogService:
                     ForgeReader(cfg, client, job.cancel_requested.is_set), scan, self._find_thread
                 )
             scan.pages_read = result.pages_read
+            scan.detail_limited_count = result.detail_limited_count
             scan.truncated = result.truncated
             scan.private = result.private
             scan.repository_id = result.repository_id

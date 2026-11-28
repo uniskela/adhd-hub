@@ -29,6 +29,7 @@ from adhd_hub.work_identity import ExternalIdentity, normalize_external_identity
 
 _MAX_PAGES = 10
 _DETAIL_PAGES = 3
+_DETAIL_REQUEST_LIMIT = 100
 _MAX_WAIT_SECONDS = 5
 _RUN_SECONDS = 300
 _SEGMENT = re.compile(r"[A-Za-z0-9_.-]+")
@@ -77,9 +78,10 @@ def repository_for(cfg: ForgeConfig) -> Repository:
     if cfg.provider == ForgeProvider.gitea and (
         api_url.scheme != web_url.scheme
         or api_url.netloc.casefold() != web_url.netloc.casefold()
-        or api_url.path.removesuffix("/api/v1") != web_url.path
+        or api_url.path != "/api/v1"
+        or web_url.path
     ):
-        # shortcut: require one Gitea origin and mount, expand identity before supporting aliases.
+        # shortcut: identities omit URL mounts, extend them before allowing subpath instances.
         raise ValueError("forge_target_unresolved")
     identity = normalize_external_identity(
         cfg.provider.value, cfg.web_browse_root(), cfg.owner, cfg.repo, 1
@@ -124,6 +126,7 @@ class ForgeReader:
         self.deadline = time.monotonic() + _RUN_SECONDS
         self.repository_url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}"
         self.last_rate_limit: ScanReadError | None = None
+        self.detail_requests = 0
 
     def check(self):
         if self.cancelled():
@@ -131,9 +134,13 @@ class ForgeReader:
         if time.monotonic() >= self.deadline:
             raise ScanReadError("deadline")
 
-    def get(self, url, params=None) -> httpx.Response:
+    def get(self, url, params=None, *, detail: bool = False) -> httpx.Response:
         for attempt in range(3):
             self.check()
+            if detail:
+                if self.detail_requests >= _DETAIL_REQUEST_LIMIT:
+                    raise ScanReadError("detail_budget_exhausted")
+                self.detail_requests += 1
             try:
                 response = self.client.get(
                     url,
@@ -194,6 +201,11 @@ class ForgeReader:
         remote_id = info.get("id")
         return private, str(remote_id) if type(remote_id) in (int, str) and remote_id else None
 
+    def account_login(self) -> str:
+        user = self.json(self.get(f"{self.cfg.api_root()}/user"), dict)
+        login = user.get("login") or user.get("username")
+        return login.strip().casefold() if isinstance(login, str) else ""
+
     def issue(self, number: int) -> dict:
         return self.json(self.get(f"{self.repository_url}/issues/{number}"), dict)
 
@@ -204,6 +216,7 @@ class ForgeReader:
             response = self.get(
                 f"{self.repository_url}/issues/{number}/{resource}",
                 {"limit" if gitea else "per_page": size, "page": page},
+                detail=True,
             )
             rows = self.json(response, list)
             if any(not isinstance(row, dict) for row in rows):
@@ -384,6 +397,7 @@ def _enrich(reader: ForgeReader, item: ScanItem, trusted: set[str]):
 class ScanResult:
     items: list[ScanItem] = field(default_factory=list)
     pages_read: int = 0
+    detail_limited_count: int = 0
     truncated: bool = False
     error: ScanReadError | None = None
     private: bool = True
@@ -399,11 +413,12 @@ def scan_repository(
     cfg = reader.cfg
     trusted = trusted_authors(cfg)
     login = cfg.forge_account_login.strip().casefold()
+    assignees: dict[int, tuple[str, ...]] = {}
+    terminal_errors = {"cancelled", "deadline", "rate_limited"}
     try:
         found.private, found.repository_id = reader.repository(scan.repository)
         if scan.selector == "assigned_to_me" and not login:
-            user = reader.json(reader.get(f"{cfg.api_root()}/user"), dict)
-            login = str(user.get("login") or user.get("username") or "").strip().casefold()
+            login = reader.account_login()
             if not login:
                 raise ScanReadError("assigned_to_me_login_unavailable")
         if scan.selector == "adhd_inbox" and (not cfg.board_inbox_enabled or not trusted):
@@ -435,8 +450,7 @@ def scan_repository(
                     or (scan.selector == "assigned_to_me" and login not in snap.assignee_logins)
                 ):
                     continue
-                if set(snap.assignee_logins) - {login}:
-                    item.protection_flags.append(ProtectionFlag.assigned_other)
+                assignees[item.identity.number] = snap.assignee_logins
                 linked = find_thread(snap.identity)
                 if linked:
                     item.linked_thread_id = linked.id
@@ -459,15 +473,42 @@ def scan_repository(
     except ScanReadError as exc:
         found.error = exc
 
+    if (
+        not login
+        and any(assignees.values())
+        and not (found.error and found.error.code in terminal_errors)
+    ):
+        try:
+            login = reader.account_login()
+        except ScanReadError as exc:
+            if exc.code in terminal_errors:
+                found.error = exc
     for item in found.items:
+        if set(assignees[item.identity.number]) - {login}:
+            item.protection_flags.append(ProtectionFlag.assigned_other)
+
+    # Spend the limited reads first on issues that could become migration candidates.
+    detail_order = sorted(
+        found.items,
+        key=lambda item: (
+            not item.inbox_match
+            or bool(item.protection_flags)
+            or bool(item.linked_thread_id)
+            or item.security_mention,
+            item.identity.number,
+        ),
+    )
+    for item in detail_order:
         if item.author_role != "trusted":
             continue  # Already protected by author.
         try:
-            if found.error and found.error.code in {"cancelled", "deadline", "rate_limited"}:
+            if found.error and found.error.code in terminal_errors:
                 raise found.error
             _enrich(reader, item, trusted)
         except ScanReadError as exc:
             item.protection_flags = sorted({*item.protection_flags, ProtectionFlag.incomplete_read})
-            if exc.code in {"cancelled", "deadline", "rate_limited"} or found.error is None:
+            if exc.code == "detail_budget_exhausted":
+                found.detail_limited_count += 1
+            if exc.code in terminal_errors or found.error is None:
                 found.error = exc
     return found
