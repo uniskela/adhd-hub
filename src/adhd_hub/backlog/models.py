@@ -133,6 +133,7 @@ class ScanSummary(Contract):
     finished_at: datetime | None = None
     issue_count: int = 0
     pages_read: int = 0
+    listing_complete: bool | None = None
     detail_limited_count: int = 0
     truncated: bool = False
     error_code: str | None = None

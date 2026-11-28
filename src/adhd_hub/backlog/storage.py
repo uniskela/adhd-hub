@@ -177,8 +177,10 @@ class BacklogStorage:
                                )
                            )
                        )) OR (
-                           after.issue_number IS NULL AND new.status = 'completed'
+                           after.issue_number IS NULL
+                           AND COALESCE(json_extract(new.summary, '$.listing_complete'), new.status = 'completed')
                            AND NOT json_extract(new.summary, '$.truncated')
+                           AND json_extract(new.summary, '$.policy_hash') = json_extract(old.summary, '$.policy_hash')
                            AND json_extract(new.summary, '$.selector') = json_extract(old.summary, '$.selector')
                            AND json_extract(new.summary, '$.include_closed') = json_extract(old.summary, '$.include_closed')
                        )

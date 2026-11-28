@@ -397,6 +397,7 @@ def _enrich(reader: ForgeReader, item: ScanItem, trusted: set[str]):
 class ScanResult:
     items: list[ScanItem] = field(default_factory=list)
     pages_read: int = 0
+    listing_complete: bool = False
     detail_limited_count: int = 0
     truncated: bool = False
     error: ScanReadError | None = None
@@ -467,6 +468,7 @@ def scan_repository(
                 items[item.identity.number] = item
             found.items = sorted(items.values(), key=lambda issue: issue.identity.number)
             if not more_pages(response, len(raw_page), size):
+                found.listing_complete = found.error is None
                 break
             if found.pages_read == _MAX_PAGES:
                 found.truncated = True

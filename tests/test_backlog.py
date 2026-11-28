@@ -920,3 +920,23 @@ def test_ai_retry_rechecks_repository_visibility(api):
     assert sum(method == "POST" for method, _, _ in state.calls) == 1
     assert len(result["payload_hashes"]) == 1
     assert {row["ai_status"] for row in items(client, sid)} == {"ai_not_opted_in"}
+
+
+def test_detail_limited_rescan_still_detects_issues_missing_from_complete_listing(api, monkeypatch):
+    client, hub, state = api
+    state.rows = [issue(1), issue(2, comments=None), issue(3)]
+    old = start_scan(client, hub)
+    state.rows.pop()
+    monkeypatch.setattr("adhd_hub.backlog.scanner._DETAIL_REQUEST_LIMIT", 1)
+    new = start_scan(client, hub)
+    result = client.get(f"/api/backlog/scans/{new}").json()
+    assert result["status"] == "partial"
+    assert result["listing_complete"] is True
+    assert result["truncated"] is False
+    assert (
+        items(client, old)[1]["issue"]["protection_flags"]
+        == items(client, new)[1]["issue"]["protection_flags"]
+    )
+    reply = client.post("/api/backlog/plans", json={"scan_id": old})
+    assert reply.status_code == 409
+    assert reply.json()["detail"] == "stale_snapshot"

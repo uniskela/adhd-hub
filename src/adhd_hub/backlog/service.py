@@ -199,6 +199,7 @@ class BacklogService:
                     ForgeReader(cfg, client, job.cancel_requested.is_set), scan, self._find_thread
                 )
             scan.pages_read = result.pages_read
+            scan.listing_complete = result.listing_complete
             scan.detail_limited_count = result.detail_limited_count
             scan.truncated = result.truncated
             scan.private = result.private
