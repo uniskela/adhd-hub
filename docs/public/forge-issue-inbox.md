@@ -140,6 +140,22 @@ We do **not**:
 
 Gitea uses the same list-then-filter path (label **or** title prefix), with `limit=50` and `type=issues` because Gitea's page size max is 50 and it always serializes `pull_request` (null on real issues). Cost is typically one REST call per poll; a busy repo may use a few more pages. Issues beyond the page cap are not scanned.
 
+## Preview an issue backlog
+
+Forge Backlog Manager has an opt-in REST preview for repositories attached to
+a Hub project. Set `ADHD_HUB_BACKLOG_ENABLED=true` and restart the Hub to
+enable it. An authenticated `POST /api/backlog/scans` with
+`{"project_slug":"your-project"}` starts a read-only scan. Use the returned
+`scan_id` at `GET /api/backlog/scans/{id}` and
+`GET /api/backlog/scans/{id}/items` to see classifications, protection reasons,
+and draft recommendations. The scan excludes pull requests and protects
+issues from authors outside the Inbox allowlist.
+
+Optional AI suggestions require an enabled provider, **Backlog suggestions**
+under Settings → AI helpers, and explicit project and per-scan opt-ins. The
+rules-based recommendations are available without an AI provider. Backlog
+scans and draft plans leave the forge and existing Hub threads untouched.
+
 ## Skills on remote agents
 
 Install Hub skills wherever the agent runs:

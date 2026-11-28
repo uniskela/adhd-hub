@@ -130,7 +130,10 @@ class Store:
             conn.close()
 
     def _init_schema(self) -> None:
+        from adhd_hub.backlog.storage import init_schema as init_backlog_schema
+
         with self._conn() as conn:
+            init_backlog_schema(conn)
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS threads (

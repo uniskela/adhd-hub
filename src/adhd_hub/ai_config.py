@@ -39,6 +39,7 @@ class AiConfig(BaseModel):
     # Summarise still work when AI is on without these.
     auto_review_scan_lines: bool = False
     auto_summarise_notes: bool = False
+    backlog_suggestions: bool = False
 
     @field_validator("base_url")
     @classmethod
@@ -74,6 +75,7 @@ class AiConfig(BaseModel):
             "active": self.is_active(),
             "auto_review_scan_lines": bool(self.auto_review_scan_lines),
             "auto_summarise_notes": bool(self.auto_summarise_notes),
+            "backlog_suggestions": self.backlog_suggestions,
         }
 
 

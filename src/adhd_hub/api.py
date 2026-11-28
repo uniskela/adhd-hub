@@ -656,7 +656,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
 
     @router.get("/ai/config", dependencies=[Depends(auth_dep)])
     def get_ai_config():
-        return service.ai_config().public_dict()
+        return {**service.ai_config().public_dict(), "backlog_available": service.settings.backlog_enabled}
 
     @router.put("/ai/config", dependencies=[Depends(auth_dep)])
     def put_ai_config(payload: dict):
@@ -688,7 +688,7 @@ def build_router(service: HubService, auth_dep) -> APIRouter:
             raise HTTPException(
                 400, "add an AI base URL before enabling AI scan-lines"
             )
-        return service.save_ai_config(config).public_dict()
+        return {**service.save_ai_config(config).public_dict(), "backlog_available": service.settings.backlog_enabled}
 
     @router.post("/ai/models", dependencies=[Depends(auth_dep)])
     def post_ai_models(payload: dict | None = None):

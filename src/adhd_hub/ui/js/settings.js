@@ -224,6 +224,10 @@ export async function loadAiConfig() {
       if ($("ai_auto_summarise_notes")) {
         $("ai_auto_summarise_notes").checked = !!config.auto_summarise_notes;
       }
+      if ($("ai-backlog-setting")) {
+        $("ai-backlog-setting").hidden = !config.backlog_available;
+        $("ai_backlog_suggestions").checked = !!config.backlog_suggestions;
+      }
       // URL field is source of truth; preset select is derived from it.
       $("ai_base_url").value = config.base_url || "";
       syncAiBaseUrlPreset();
@@ -255,6 +259,8 @@ export function aiConfigPayload() {
       enabled: !!$("ai_enabled")?.checked,
       auto_review_scan_lines: !!$("ai_auto_review_scan")?.checked,
       auto_summarise_notes: !!$("ai_auto_summarise_notes")?.checked,
+      ...($("ai-backlog-setting") && !$("ai-backlog-setting").hidden
+        ? { backlog_suggestions: !!$("ai_backlog_suggestions")?.checked } : {}),
       base_url: $("ai_base_url")?.value.trim() || "",
       model: ($("ai_model")?.value || "").trim() || "llama3.2",
       timeout_seconds: Number($("ai_timeout")?.value) || 15,

@@ -36,6 +36,7 @@ class ForgeJob:
     payload: dict[str, Any] = field(default_factory=dict)
     result: dict[str, Any] | None = None
     error: str | None = None
+    cancel_requested: threading.Event = field(default_factory=threading.Event)
 
     def to_public(self, *, queue_position: int | None = None) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -127,6 +128,14 @@ class ForgeJobQueue:
             if job.status == "queued" and job_id in self._pending:
                 pos = self._pending.index(job_id) + 1
             return job.to_public(queue_position=pos)
+
+    def cancel_backlog_job(self, job_id: str) -> bool:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job or job.kind not in {"backlog_scan", "backlog_ai"}:
+                return False
+            job.cancel_requested.set()
+            return True
 
     def list_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
         limit = max(1, min(int(limit), 100))

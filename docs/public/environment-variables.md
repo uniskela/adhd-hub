@@ -143,6 +143,17 @@ Forge settings can also be saved from the dashboard. Environment variables are u
 
 See [Forge permissions](forge-permissions.md) and [Forge issue inbox](forge-issue-inbox.md).
 
+## Forge Backlog Manager
+
+These optional settings enable repository scans and draft recommendations.
+See [Forge issue inbox](forge-issue-inbox.md#preview-an-issue-backlog).
+
+| Variable | Default | Type | Purpose |
+| --- | --- | --- | --- |
+| `ADHD_HUB_BACKLOG_ENABLED` | `false` | boolean | Enable the backlog REST preview and its AI settings toggle. |
+| `ADHD_HUB_BACKLOG_AI_PROJECTS` | `[]` | JSON array of project slugs | Projects that may request AI suggestions. The provider and **Backlog suggestions** also need to be enabled in Settings. |
+| `ADHD_HUB_BACKLOG_AI_PRIVATE_PROJECTS` | `[]` | JSON array of project slugs | Additional consent to send issue excerpts from private repositories. A project must appear in both lists. |
+
 ## Local transcript indexer paths
 
 These paths are primarily for the CLI/indexer running on the machine that owns the transcripts. They are usually **not useful inside the server container** unless you deliberately mount those transcript directories into it.

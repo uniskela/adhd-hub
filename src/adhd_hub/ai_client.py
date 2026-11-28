@@ -418,6 +418,18 @@ def _http_fail_hint(
     return hint
 
 
+def post_chat_completion(
+    base_url: str, api_key: str, body: dict[str, Any], *, timeout: float, client: httpx.Client,
+) -> httpx.Response:
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return client.post(
+        openai_compat_url(base_url, "chat/completions"),
+        headers=headers, json=body, timeout=timeout, follow_redirects=False,
+    )
+
+
 def generate_ai_scan_line(
     settings: Settings,
     thread: Thread,
@@ -429,9 +441,6 @@ def generate_ai_scan_line(
     if not base:
         return AiScanLineResult(fail_hint="AI base URL is not configured.")
     url = openai_compat_url(base, "chat/completions")
-    headers = {"Content-Type": "application/json"}
-    if settings.ai_api_key:
-        headers["Authorization"] = f"Bearer {settings.ai_api_key}"
     model = normalize_openai_model_id(settings.ai_model or "llama3.2")
     body: dict[str, Any] = {
         "model": model or "llama3.2",
@@ -456,7 +465,9 @@ def generate_ai_scan_line(
     owns_client = client is None
     http = client or httpx.Client(timeout=timeout)
     try:
-        resp = http.post(url, headers=headers, json=body, timeout=timeout)
+        resp = post_chat_completion(
+            base, settings.ai_api_key or "", body, timeout=timeout, client=http,
+        )
         resp.raise_for_status()
         data = resp.json()
         choices = data.get("choices") or []
