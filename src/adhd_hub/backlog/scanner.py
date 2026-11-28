@@ -426,6 +426,7 @@ def scan_repository(
             raise ScanReadError("board_inbox_authors_required")
         selected_labels = {value.strip().casefold() for value in cfg.issue_import_labels}
         items = {}
+        invalid_issue_payload = False
         for response, size in iter_issue_pages(
             cfg, reader.get, state="all" if scan.include_closed else "open"
         ):
@@ -439,6 +440,7 @@ def scan_repository(
                         raise ScanReadError("invalid_payload")
                     item, snap = issue_data(raw, cfg, scan.repository)
                 except (ScanReadError, TypeError, ValueError, OverflowError):
+                    invalid_issue_payload = True
                     found.error = found.error or ScanReadError("invalid_issue_payload")
                     continue
                 if (
@@ -468,7 +470,7 @@ def scan_repository(
                 items[item.identity.number] = item
             found.items = sorted(items.values(), key=lambda issue: issue.identity.number)
             if not more_pages(response, len(raw_page), size):
-                found.listing_complete = found.error is None
+                found.listing_complete = not invalid_issue_payload
                 break
             if found.pages_read == _MAX_PAGES:
                 found.truncated = True

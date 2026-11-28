@@ -953,3 +953,25 @@ def test_detail_limited_rescan_still_detects_issues_missing_from_complete_listin
     reply = client.post("/api/backlog/plans", json={"scan_id": old})
     assert reply.status_code == 409
     assert reply.json()["detail"] == "stale_snapshot"
+
+
+@pytest.mark.parametrize("invalid_identity", [False, True])
+def test_listing_completeness_distinguishes_revision_changes_from_unusable_rows(
+    api, invalid_identity
+):
+    client, hub, state = api
+    retained = issue(1, comments=None)
+    state.rows = [retained, issue(2)]
+    old = start_scan(client, hub)
+    state.rows = [retained | {"body": "A different revision"}, retained]
+    if invalid_identity:
+        state.rows.append({"title": "Missing identity"})
+    new = start_scan(client, hub)
+    result = client.get(f"/api/backlog/scans/{new}").json()
+    assert result["listing_complete"] is not invalid_identity
+    assert result["status"] == "partial"
+    assert result["error_code"] == "source_changed_during_scan"
+    reply = client.post("/api/backlog/plans", json={"scan_id": old})
+    assert reply.status_code == (201 if invalid_identity else 409)
+    if not invalid_identity:
+        assert reply.json()["detail"] == "stale_snapshot"
