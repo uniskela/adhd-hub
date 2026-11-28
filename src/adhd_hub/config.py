@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tomllib
 from pathlib import Path
@@ -7,7 +8,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from dotenv import dotenv_values
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from adhd_hub.data_dir import apply_container_data_dir
@@ -109,6 +110,16 @@ class Settings(BaseSettings):
     ai_api_key: str | None = None
     ai_model: str = "llama3.2"
     ai_timeout_seconds: float = Field(default=15.0, gt=0, le=30, allow_inf_nan=False)
+
+    # Read-only Forge Backlog Manager. Project AI policy is opt-in at startup.
+    backlog_enabled: bool = False
+    backlog_ai_projects: list[str] = Field(default_factory=list)
+    backlog_ai_private_projects: list[str] = Field(default_factory=list)
+
+    @field_validator("backlog_ai_projects", "backlog_ai_private_projects", mode="before")
+    @classmethod
+    def parse_backlog_projects(cls, value):
+        return json.loads(value) if isinstance(value, str) else value
 
     # Optional forge (GitHub / Gitea) — UI can override via data/forge.json
     forge_provider: str = "none"  # none | github | gitea

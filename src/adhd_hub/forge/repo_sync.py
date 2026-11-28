@@ -320,6 +320,23 @@ def resolve_assigned_to_me_login(
             http.close()
 
 
+def iter_issue_pages(cfg: ForgeConfig, fetch, *, state: str = "open"):
+    """Yield up to ten issue list pages using provider-specific parameters."""
+    gitea = cfg.provider == ForgeProvider.gitea
+    page_size = 50 if gitea else 100
+    url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}/issues"
+    for page in range(1, 11):
+        params: dict[str, Any] = {"state": state, "page": page}
+        if gitea:
+            params.update(limit=page_size, type="issues")
+        else:
+            params["per_page"] = page_size
+        response = fetch(url, params)
+        yield response, page_size
+        if response.status_code >= 400:
+            return
+
+
 def discover_issue_payloads(
     cfg: ForgeConfig,
     *,
@@ -373,16 +390,10 @@ def discover_issue_payloads(
                 "hint": "adhd_inbox discovery requires board_inbox_authors (fail closed).",
             }
     try:
-        page_size = 50 if cfg.provider == ForgeProvider.gitea else 100
-        for page in range(1, 11):
-            params: dict[str, Any] = {"state": "open", "page": page}
-            if cfg.provider == ForgeProvider.gitea:
-                params["limit"] = page_size
-                params["type"] = "issues"
-            else:
-                params["per_page"] = page_size
-            url = f"{cfg.api_root()}/repos/{cfg.owner}/{cfg.repo}/issues"
-            resp = http.get(url, headers=_headers(cfg), params=params)
+        def fetch(url, params):
+            return http.get(url, headers=_headers(cfg), params=params)
+
+        for resp, page_size in iter_issue_pages(cfg, fetch):
             if resp.status_code >= 400:
                 # Soft-fail: one missing/misconfigured repo must not 500 whole sync
                 # (404 missing repo, 403 missing Issues scope, wrong forge kind, etc.).

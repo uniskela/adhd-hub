@@ -1,0 +1,114 @@
+# Forge Backlog Manager API v1
+
+FBM-01 and FBM-02 implement the scanner and draft recommendations described in
+[architecture PR #371](https://github.com/uniskela/adhd-hub/pull/371/files).
+The response envelopes use `schema_version: 1`. The enabled Hub's
+`/openapi.json` describes the request and response schemas. The endpoints use
+existing Hub bearer or browser-session authentication.
+
+## Configure
+
+Set `ADHD_HUB_BACKLOG_ENABLED=true` and restart the Hub. Bind the project to a
+GitHub or Gitea connection with a complete repository target and a token with
+repository metadata and issue read access. GitHub scanning uses github.com
+because the Hub's existing GitHub identity is scoped to that host. The Gitea
+API and browser URLs must share an origin, with the browser at the host root
+and the API at `/api/v1`. Mount paths are absent from Hub source identities.
+Issue or repository URLs from a request or forge response cannot change the
+project binding.
+
+For requested AI recommendations, enable the configured provider and **Backlog
+suggestions** under Settings → AI helpers. Set
+`ADHD_HUB_BACKLOG_AI_PROJECTS='["project-slug"]'` at startup. Also include the
+project in `ADHD_HUB_BACKLOG_AI_PRIVATE_PROJECTS` to permit sending issue
+excerpts from its private repository. Both lists are empty by default.
+Unknown visibility requires the private opt-in. Project policy editing is
+scheduled for FBM-06.
+
+## Scans and items
+
+| Method and path | Input and result |
+| --- | --- |
+| `POST /api/backlog/scans` | `{project_slug, selector?, include_closed?}` → 202 with `scan_id`, `job_id`. |
+| `GET /api/backlog/scans/{id}` | Repository identity, scan status, page count, truncation, kind and protection counts, and a machine-readable error when applicable. |
+| `GET /api/backlog/scans/{id}/items` | `limit` 1–200 (default 50), opaque `cursor`, optional `kind` and `cluster`. Returns `items` and `next_cursor`. |
+| `GET /api/forge/jobs/{id}` | Existing queue status and compact progress or result. |
+| `POST /api/backlog/jobs/{id}/cancel` | 202 for a backlog job. Cancellation is cooperative between HTTP requests or AI batches. |
+
+`all_open` is the default selector. `adhd_inbox` requires the enabled Inbox
+selector and the existing author allowlist. `labels` uses the project's import
+label configuration. `assigned_to_me` uses the configured forge account or the
+authenticated forge user. `include_closed` includes both issue states with any
+selector. A repository with an active scan returns `409 scan_running`.
+
+Scanning uses up to ten issue pages, at 100 per page for GitHub or 50 per page
+for Gitea. Pull requests are excluded. The scan retains completed reads when a
+later page fails. It makes up to 100 comment and timeline requests, including
+retries, and prioritizes issues that could become migration candidates. The
+summary reports the issues affected by this cap in `detail_limited_count`.
+Those items and items whose detail reads fail or exceed three pages receive
+`incomplete_read`. This also covers installations that do not provide a
+usable timeline API. Rate limiting retries up to twice when
+the wait is at most five seconds. Longer waits return a retry hint and the
+scan retains completed reads.
+
+Each item contains the canonical provider, host, owner, repository and issue
+number, an identity-derived URL, labels, milestone, role, comment count,
+limited structured continuity, a source body hash and a source revision. The
+revision covers the source body and issue metadata used for classification.
+A linked primary thread and its import status are resolved by the full pinned
+identity. Scans store structured fields and hashes. AI jobs re-read issue
+bodies on demand. When a new scan starts, unreferenced scans older than 90
+days are pruned. A saved draft retains its scan and items so the operator
+can return to the draft with its evidence. Hub backups include the SQLite
+tables.
+
+## Recommendations and drafts
+
+Identical normalized Goals provide `same_outcome` evidence. Checkpoints need
+a matching title stem and a checkpoint marker. Explicit, different Goals
+keep related work in separate consolidation clusters. Exact destinations
+consider all eligible unfinished local threads in the project. Fuzzy matching
+scores up to the 500 most recently updated eligible threads. Protection flags
+control the default disposition. Completion and staleness signals are
+advisory. An issue with no activity for at least 90 days gets a staleness hint.
+
+| Method and path | Input and result |
+| --- | --- |
+| `POST /api/backlog/scans/{id}/ai-suggestions` | Optional `{issue_numbers: [...]}` → 202 with `job_id`, or 403 `ai_not_opted_in`. Poll the scan items for per-item `ai_status`. |
+| `POST /api/backlog/plans` | `{scan_id}` → 201 with a versioned local draft. |
+| `GET /api/backlog/plans/{id}` | Draft, version, item revisions, protection and attached advice. |
+| `PATCH /api/backlog/plans/{id}` | `{expected_version, items: [...]}` → updated draft or `409 version_conflict`. Each item can supply a disposition, destination, proposed fields, explicit `accept_ai`, or an operator protection override with a reason. |
+
+For example, set an item to `reference` with
+`{"expected_version":1,"items":[{"issue_number":12,"disposition":"reference"}]}`.
+Protected items default to `skip`. An explicit operator draft edit needs a
+reason to choose `migrate` or `consolidate` for a protected issue. AI advice
+that conflicts with protection stays advisory. Protection suggested by AI is
+additive for the scan and survives provider failures or retries. Drafts and
+updates compare the
+stored repository binding and policy against the current configuration and
+return `409 stale_snapshot` if a newer scan proves an issue changed or is
+missing from an equivalent complete listing. A newer scan also invalidates
+a draft when repository identity, a linked thread, or newly observed
+protection changes despite an unchanged issue revision.
+
+AI uses serial batches of up to ten allowlisted-author issues, with up to
+twenty batches and a ten-minute deadline per job. Each chat request uses the
+configured timeout. The provider receives bounded, scrubbed issue text and
+opaque references. It receives neither comment text nor Hub thread text.
+An issue's freshly fetched revision must match the scan to be sent. Repository
+identity and visibility are verified before each provider attempt. An
+unchanged batch may reuse validated results for up to 30 days. Job results
+record the provider host, model, field names, and one payload hash per sent batch.
+Provider failures, cancellation, malformed data and invalid refs leave deterministic
+recommendations available. Drafts perform no forge operations.
+
+## Contract fixtures
+
+[`fragmented-80.json`](../../../tests/fixtures/backlog/fragmented-80.json)
+contains synthetic multi-agent issue data.
+[`deterministic-v1.json`](../../../tests/fixtures/backlog/deterministic-v1.json)
+records the expected deterministic output. Each row contains the issue
+number, kind, completed and stale hints, outcome relationship, disposition,
+cluster key, workstream key and protection flags.

@@ -11,6 +11,7 @@ from adhd_hub.config import Settings
 from adhd_hub.forge.board_sync import BoardForgeSync
 from adhd_hub.forge.config import (
     ForgeConfig,
+    ForgeConnectionProfile,
     ForgeProvider,
     IssueImportPolicy,
     load_forge_config,
@@ -832,6 +833,13 @@ def test_sync_now_reconciles_linked_thread_when_project_forge_repo_differs(
             board_enabled=True,
             wiki_enabled=False,
             issue_import_policy=IssueImportPolicy.manual,
+            connection_profiles=[
+                ForgeConnectionProfile(id="default-b", provider=ForgeProvider.github,
+                                       owner="ownerB", repo="repoB", token="fake-profile-b"),
+                ForgeConnectionProfile(id="profile-a", provider=ForgeProvider.github,
+                                       owner="ownerA", repo="repoA", token="fake-profile-a"),
+            ],
+            default_connection_profile_id="default-b",
         ),
     )
 
@@ -884,5 +892,6 @@ def test_sync_now_reconciles_linked_thread_when_project_forge_repo_differs(
     assert refreshed.external_issue_state == ExternalIssueState.closed
     assert refreshed.summary == "From A"
     assert refreshed.focus == "stay"
+    assert refreshed.source_issue_url == "https://github.com/ownera/repoa/issues/3"
     assert refreshed.status.value == "open"
     assert "reconcile" in result

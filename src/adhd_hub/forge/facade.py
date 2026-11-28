@@ -404,9 +404,8 @@ class ForgeFacade:
                     "title": fetched.title,
                     "body": fetched.body,
                     "state": fetched.state.value,
-                    "html_url": cfg.issue_web_url(fetched.identity.number),
                 },
-                cred_cfg,
+                cred_cfg.model_copy(update={"owner": identity.owner, "repo": identity.repo}),
             )
             reconcile_results.append(
                 {

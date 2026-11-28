@@ -153,6 +153,11 @@ class HubService:
             )
         )
         self._forge_jobs = ForgeJobQueue(self._run_forge_job)
+        self.backlog = None
+        if settings.backlog_enabled:
+            from adhd_hub.backlog.service import BacklogService
+
+            self.backlog = BacklogService(self)
         self.event_bus = EventBus()
         self._rewrite_project_lock = threading.Lock()
         self._rewrite_project_in_flight: set[str] = set()
@@ -2759,6 +2764,11 @@ class HubService:
             close = payload.get("close_imported")
             close_imported = None if close is None else bool(close)
             return self.import_forge_inbox(limit=limit, close_imported=close_imported)
+        if self.backlog is not None:
+            if kind == "backlog_scan":
+                return self.backlog.run_scan(job)
+            if kind == "backlog_ai":
+                return self.backlog.run_ai(job)
         raise ValueError(f"unknown forge job kind: {kind}")
 
     def enqueue_forge_job(
@@ -2772,6 +2782,9 @@ class HubService:
         return self._forge_jobs.enqueue(
             kind, project_slug=project_slug, payload=payload, label=label
         )
+
+    def cancel_backlog_job(self, job_id: str) -> bool:
+        return self._forge_jobs.cancel_backlog_job(job_id)
 
     def get_forge_job(self, job_id: str) -> dict | None:
         return self._forge_jobs.get(job_id)

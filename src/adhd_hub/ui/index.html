@@ -749,6 +749,10 @@
                     <div class="setting-text"><label class="setting-label" for="ai_auto_review_scan">Rewrite scan lines on their own</label><p class="hint" id="ai-review-hint">For new or changed steps, once each. The manual rewrites still work when this is off.</p></div>
                     <span class="switch"><input type="checkbox" role="switch" id="ai_auto_review_scan" aria-describedby="ai-review-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
                   </div>
+                  <div class="setting" id="ai-backlog-setting" hidden>
+                    <div class="setting-text"><label class="setting-label" for="ai_backlog_suggestions">Backlog suggestions</label><p class="hint" id="ai-backlog-hint">Allow requested suggestions for opted-in projects. These requests may send selected issue text to your provider.</p></div>
+                    <span class="switch"><input type="checkbox" role="switch" id="ai_backlog_suggestions" aria-describedby="ai-backlog-hint" /><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span></span>
+                  </div>
                   <div class="setting">
                     <div class="setting-text"><label class="setting-label" for="ai_base_url_preset">Provider</label><p class="hint">Any OpenAI-compatible endpoint. A local one such as Ollama keeps notes on your network.</p></div>
                     <select id="ai_base_url_preset" aria-describedby="ai-base-url-hint">

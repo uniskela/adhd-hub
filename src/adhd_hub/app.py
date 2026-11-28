@@ -173,6 +173,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(build_oauth_router(settings, sessions, oauth_store))
     auth_dep = auth_dependency(settings, sessions, connect_store)
     app.include_router(build_router(service, auth_dep), prefix="/api")
+    if service.backlog is not None:
+        from adhd_hub.backlog.api import build_backlog_router
+
+        service.backlog.storage.interrupt_scans()
+        app.include_router(build_backlog_router(service.backlog, auth_dep), prefix="/api")
     app.include_router(build_ui_router())
     app.add_middleware(
         BearerGateMiddleware,
